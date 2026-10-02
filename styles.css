@@ -1,0 +1,252 @@
+/* Notion 風格深度定制樣式表 */
+
+/* 捲軸美化 */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.6);
+}
+
+/* 筆記卡片點擊狀態 (清單檢視) */
+.note-item {
+  transition: all 0.12s ease-in-out;
+  border-left: 2px solid transparent;
+}
+
+.note-item:hover {
+  background-color: rgba(55, 53, 47, 0.06);
+}
+
+.dark .note-item:hover {
+  background-color: rgba(255, 255, 255, 0.055);
+}
+
+.note-item.active {
+  background-color: rgba(35, 131, 226, 0.1) !important;
+  border-left: 2px solid #2383e2 !important;
+}
+
+.dark .note-item.active {
+  background-color: rgba(35, 131, 226, 0.2) !important;
+  border-left: 2px solid #38bdf8 !important;
+}
+
+/* 畫廊卡片模式 (Grid / Cards Layout) */
+#notes-list.grid-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.5rem;
+}
+
+#notes-list.grid-view .note-item {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.5rem;
+  padding: 0.6rem;
+  background: white;
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.dark #notes-list.grid-view .note-item {
+  border-color: #2f2f2f;
+  background: #202020;
+}
+
+/* 標籤 Badge 樣式 */
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 10px;
+  font-weight: 500;
+  margin-right: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.tag-blue { background-color: #e0f2fe; color: #0369a1; }
+.dark .tag-blue { background-color: rgba(14, 165, 233, 0.2); color: #38bdf8; }
+
+.tag-green { background-color: #dcfce7; color: #15803d; }
+.dark .tag-green { background-color: rgba(34, 197, 94, 0.2); color: #4ade80; }
+
+.tag-amber { background-color: #fef3c7; color: #b45309; }
+.dark .tag-amber { background-color: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+
+.tag-purple { background-color: #f3e8ff; color: #7e22ce; }
+.dark .tag-purple { background-color: rgba(168, 85, 247, 0.2); color: #c084fc; }
+
+.tag-gray { background-color: #f3f4f6; color: #4b5563; }
+.dark .tag-gray { background-color: rgba(255, 255, 255, 0.1); color: #9ca3af; }
+
+/* Markdown 預覽區 Notion 風格排版 */
+#preview-content {
+  font-size: 15px;
+  line-height: 1.65;
+  color: #37352f;
+}
+
+.dark #preview-content {
+  color: #d4d4d4;
+}
+
+#preview-content h1 {
+  font-size: 1.85rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.25;
+}
+
+#preview-content h2 {
+  font-size: 1.45rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.4rem;
+  line-height: 1.3;
+}
+
+#preview-content h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+#preview-content p {
+  margin-top: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+#preview-content ul {
+  list-style-type: disc;
+  padding-left: 1.4rem;
+  margin-bottom: 0.5rem;
+}
+
+#preview-content ol {
+  list-style-type: decimal;
+  padding-left: 1.4rem;
+  margin-bottom: 0.5rem;
+}
+
+#preview-content li {
+  margin-bottom: 0.2rem;
+}
+
+/* Notion Callout 提示框排版 */
+#preview-content blockquote {
+  margin: 0.75rem 0;
+  padding: 0.75rem 1rem;
+  background-color: #f7f6f3;
+  border-left: 4px solid #2383e2;
+  border-radius: 0.375rem;
+  color: #4b5563;
+  font-style: normal;
+}
+
+.dark #preview-content blockquote {
+  background-color: #202020;
+  border-left-color: #38bdf8;
+  color: #9ca3af;
+}
+
+/* 程式碼區塊 */
+#preview-content code {
+  background-color: rgba(135, 131, 120, 0.15);
+  color: #eb5757;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 85%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.dark #preview-content code {
+  color: #f87171;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+#preview-content pre {
+  background-color: #1e1e1e;
+  color: #f8fafc;
+  padding: 1rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+
+#preview-content pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+/* 資料表格 */
+#preview-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 13px;
+}
+
+#preview-content th, #preview-content td {
+  border: 1px solid #e9e9e7;
+  padding: 0.45rem 0.65rem;
+  text-align: left;
+}
+
+.dark #preview-content th, .dark #preview-content td {
+  border-color: #2f2f2f;
+}
+
+#preview-content th {
+  background-color: #f7f6f3;
+  font-weight: 600;
+}
+
+.dark #preview-content th {
+  background-color: #1f1f1f;
+}
+
+/* 待辦事項 Checkbox */
+#preview-content input[type="checkbox"] {
+  margin-right: 0.4rem;
+  accent-color: #2383e2;
+  cursor: pointer;
+}
+
+/* 大綱目錄 (Outline TOC) 縮排 */
+.toc-h1 { font-weight: 600; padding-left: 0.25rem; }
+.toc-h2 { padding-left: 0.75rem; color: #6b7280; }
+.toc-h3 { padding-left: 1.25rem; color: #9ca3af; }
+
+/* 列印 / PDF 匯出優化 */
+@media print {
+  header, aside, #editor-header, #editor-wrapper, #outline-panel, footer, #settings-modal, #toast, #slash-menu {
+    display: none !important;
+  }
+  body, main, #content-container, #preview-wrapper {
+    overflow: visible !important;
+    height: auto !important;
+    background: white !important;
+    color: black !important;
+    display: block !important;
+  }
+  #preview-wrapper {
+    padding: 0 !important;
+  }
+}
