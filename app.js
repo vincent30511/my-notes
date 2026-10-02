@@ -185,20 +185,51 @@ function setupGoogleAuth() {
           scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile',
           callback: async (resp) => {
             if (resp.error) {
-              console.error('OAuth 授權錯誤:', resp);
-              showToast('授權失敗：' + (resp.error_description || resp.error));
+              console.warn('OAuth 授權回應:', resp);
+              if (resp.error === 'popup_closed_by_user') return;
+              if (resp.error === 'access_denied') {
+                showToast('登入取消或存取遭拒');
+                localStorage.removeItem('cloudnotes_authorized');
+              }
               return;
             }
             state.accessToken = resp.access_token;
+            // 記錄已成功授權，供後續自動登入使用
+            localStorage.setItem('cloudnotes_authorized', 'true');
+            // 排程自動刷新 Token (避免 1 小時後逾期)
+            const expiresIn = resp.expires_in ? parseInt(resp.expires_in, 10) : 3600;
+            scheduleTokenRefresh(expiresIn);
             await onLoginSuccess();
           },
         });
-        updateSyncStatus('ready', '就緒 (請登入)');
+
+        // 自動登入判斷：若使用者曾成功登入過，啟動時自動進行靜默登入
+        if (localStorage.getItem('cloudnotes_authorized') === 'true') {
+          updateSyncStatus('syncing', '自動登入中...');
+          // prompt: '' 代表不強制彈出同意畫面，若瀏覽器已登入 Google 則靜默獲取 Token
+          state.tokenClient.requestAccessToken({ prompt: '' });
+        } else {
+          updateSyncStatus('ready', '就緒 (請登入)');
+        }
       } catch (e) {
         console.error('初始化 Google Token Client 失敗:', e);
       }
     }
   }, 200);
+}
+
+// 逾期前自動刷新 Token
+let tokenRefreshTimer = null;
+function scheduleTokenRefresh(expiresIn) {
+  if (tokenRefreshTimer) clearTimeout(tokenRefreshTimer);
+  // 在 Token 到期前 5 分鐘進行背景刷新
+  const refreshDelay = Math.max((expiresIn - 300) * 1000, 60000);
+  tokenRefreshTimer = setTimeout(() => {
+    if (state.tokenClient && localStorage.getItem('cloudnotes_authorized') === 'true') {
+      console.log('背景自動更新 Google Drive 存取憑證...');
+      state.tokenClient.requestAccessToken({ prompt: '' });
+    }
+  }, refreshDelay);
 }
 
 function handleLogin() {
@@ -208,13 +239,15 @@ function handleLogin() {
     return;
   }
   if (state.tokenClient) {
-    state.tokenClient.requestAccessToken({ prompt: 'consent' });
+    // 首次登入或手動點擊登入
+    state.tokenClient.requestAccessToken({ prompt: '' });
   } else {
     showToast('Google 認證元件載入中，請稍候...');
   }
 }
 
 function handleLogout() {
+  if (tokenRefreshTimer) clearTimeout(tokenRefreshTimer);
   if (state.accessToken) {
     google.accounts.oauth2.revoke(state.accessToken, () => {});
   }
@@ -222,12 +255,14 @@ function handleLogout() {
   state.user = null;
   state.notes = [];
   state.currentNote = null;
+  // 清除自動登入標記
+  localStorage.removeItem('cloudnotes_authorized');
   DOM.loginBtn.classList.remove('hidden');
   DOM.userProfile.classList.add('hidden');
   DOM.notesList.innerHTML = `<div class="text-center py-8 text-gray-400 text-xs">請登入 Google 帳號以載入筆記</div>`;
   clearEditor();
   updateSyncStatus('disconnected', '已登出');
-  showToast('已登出');
+  showToast('已登出，已關閉自動登入');
 }
 
 async function onLoginSuccess() {
@@ -590,7 +625,7 @@ async function saveCurrentNote() {
     } else {
       url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
       method = 'POST';
-      metadata.parents = [state.folderId];
+      if (state.folderId) { metadata.parents = [state.folderId]; }
       metadata.mimeType = 'text/markdown';
     }
 
