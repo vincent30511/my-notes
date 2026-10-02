@@ -2,8 +2,8 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CloudNotes Pro - 對標 Notion 的雲端筆記工作區</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>CloudNotes Pro - 雲端筆記工作區</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -41,40 +41,58 @@
 </head>
 <body class="bg-white text-gray-800 dark:bg-notion-dark dark:text-gray-100 flex flex-col h-screen overflow-hidden font-sans select-none md:select-auto">
 
+  <!-- 隱藏的檔案上傳輸入項 (支援照片、圖片、影片多選) -->
+  <input type="file" id="media-upload-input" accept="image/*,video/*" multiple class="hidden">
+
+  <!-- 手機側邊欄遮罩 -->
+  <div id="sidebar-backdrop" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden backdrop-blur-xs transition-opacity"></div>
+
   <!-- 頂部導覽列 -->
-  <header class="h-12 border-b border-gray-200 dark:border-notion-borderDark bg-white dark:bg-notion-dark flex items-center justify-between px-3 z-30 shrink-0">
-    <div class="flex items-center space-x-2">
-      <button id="toggle-sidebar-btn" class="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="收合/展開側邊欄">
-        <i data-lucide="panel-left" class="w-4 h-4"></i>
+  <header class="h-12 border-b border-gray-200 dark:border-notion-borderDark bg-white dark:bg-notion-dark flex items-center justify-between px-3 z-20 shrink-0">
+    <div class="flex items-center space-x-2 truncate">
+      <!-- 手機/電腦 側邊欄切換 -->
+      <button id="toggle-sidebar-btn" class="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300" title="開啟筆記選單">
+        <i data-lucide="menu" class="w-5 h-5"></i>
       </button>
       
       <!-- 麵包屑導航 -->
-      <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1.5">
-        <span class="flex items-center gap-1 font-medium text-gray-700 dark:text-gray-300">
-          <span id="header-workspace-icon">📂</span>
+      <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1.5 truncate">
+        <span class="flex items-center gap-1 font-medium text-gray-700 dark:text-gray-300 shrink-0">
           <span id="header-folder-name">DriveNotes</span>
         </span>
         <span>/</span>
-        <span id="header-note-title" class="truncate max-w-[150px] sm:max-w-xs text-gray-900 dark:text-white font-medium">未命名筆記</span>
+        <span id="header-note-title" class="truncate max-w-[110px] sm:max-w-xs text-gray-900 dark:text-white font-medium">未命名筆記</span>
       </div>
 
-      <!-- 同步狀態徽章 -->
-      <div id="sync-status" class="ml-2 flex items-center gap-1.5 text-xs px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500">
+      <!-- 同步狀態指示燈 -->
+      <div id="sync-status" class="ml-1 flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-500 shrink-0">
         <span id="sync-indicator" class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
-        <span id="sync-text">未連線</span>
+        <span id="sync-text" class="hidden sm:inline">未連線</span>
       </div>
     </div>
 
-    <!-- 右側功能鍵 -->
-    <div class="flex items-center space-x-1 sm:space-x-1.5">
-      <!-- 檢視模式切換：雙欄/編輯/預覽 -->
-      <div class="hidden sm:flex bg-gray-100 dark:bg-gray-800 p-0.5 rounded-md text-xs mr-1">
+    <!-- 右側工具按鈕 -->
+    <div class="flex items-center space-x-1 shrink-0">
+      
+      <!-- 📷 插入圖片/影片 按鈕 -->
+      <button id="insert-media-btn" class="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-gray-800 text-blue-600 dark:text-blue-400 flex items-center gap-1 text-xs font-medium" title="上傳照片、圖片或影片">
+        <i data-lucide="image-plus" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">圖影</span>
+      </button>
+
+      <!-- 手機專屬：編輯/預覽 快速切換鈕 -->
+      <button id="mobile-toggle-view-btn" class="md:hidden p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300" title="切換編輯/預覽">
+        <i data-lucide="eye" class="w-4 h-4" id="mobile-view-icon"></i>
+      </button>
+
+      <!-- 電腦專用：檢視模式切換 (雙欄/編輯/預覽) -->
+      <div class="hidden md:flex bg-gray-100 dark:bg-gray-800 p-0.5 rounded-md text-xs mr-1">
         <button id="view-split-btn" class="px-2 py-0.5 rounded font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900" title="雙欄對照">雙欄</button>
         <button id="view-edit-btn" class="px-2 py-0.5 rounded font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900" title="純編輯">編輯</button>
         <button id="view-preview-btn" class="px-2 py-0.5 rounded font-medium text-gray-600 dark:text-gray-300 hover:text-gray-900" title="純預覽">預覽</button>
       </div>
 
-      <!-- 快速匯出選單 -->
+      <!-- 匯出選單 -->
       <div class="relative">
         <button id="export-dropdown-btn" class="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="匯出筆記">
           <i data-lucide="download" class="w-4 h-4"></i>
@@ -92,8 +110,8 @@
         </div>
       </div>
 
-      <!-- 大綱目錄切換按鈕 -->
-      <button id="toggle-outline-btn" class="p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="大綱目錄 (TOC)">
+      <!-- 大綱目錄切換按鈕 (大螢幕) -->
+      <button id="toggle-outline-btn" class="hidden lg:block p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500" title="大綱目錄 (TOC)">
         <i data-lucide="list" class="w-4 h-4"></i>
       </button>
 
@@ -103,20 +121,20 @@
         <i data-lucide="moon" class="w-4 h-4 block dark:hidden"></i>
       </button>
 
-      <!-- API 設定 -->
+      <!-- 設定 -->
       <button id="settings-btn" class="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" title="設定 Google API">
         <i data-lucide="settings" class="w-4 h-4"></i>
       </button>
 
       <!-- 登入 / 使用者資訊 -->
       <div id="auth-container" class="ml-1">
-        <button id="login-btn" class="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition shadow-sm">
+        <button id="login-btn" class="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition shadow-sm">
           <i data-lucide="log-in" class="w-3.5 h-3.5"></i>
           <span>登入</span>
         </button>
-        <div id="user-profile" class="hidden items-center space-x-2">
+        <div id="user-profile" class="hidden items-center space-x-1.5">
           <img id="user-avatar" class="w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700" alt="Avatar">
-          <button id="logout-btn" class="p-1 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-100 dark:hover:bg-gray-800" title="登出">
+          <button id="logout-btn" class="p-1 rounded-md text-gray-400 hover:text-red-500" title="登出">
             <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
           </button>
         </div>
@@ -127,31 +145,36 @@
   <!-- 主工作區 -->
   <div class="flex flex-1 overflow-hidden relative">
     
-    <!-- 側邊欄（Notion 側邊工作區風格） -->
-    <aside id="sidebar" class="w-64 border-r border-gray-200 dark:border-notion-borderDark bg-notion-gray dark:bg-notion-card flex flex-col transition-all duration-200 z-20 absolute md:static inset-y-0 left-0 -translate-x-full md:translate-x-0 shadow-lg md:shadow-none shrink-0">
+    <!-- 側邊欄（手機抽屜式 / 電腦固定式） -->
+    <aside id="sidebar" class="w-72 md:w-64 border-r border-gray-200 dark:border-notion-borderDark bg-notion-gray dark:bg-notion-card flex flex-col transition-all duration-200 z-40 fixed md:static inset-y-0 left-0 -translate-x-full md:translate-x-0 shadow-2xl md:shadow-none shrink-0 h-full">
       
-      <!-- 工作區頂部資訊 -->
-      <div class="p-3 pb-2 border-b border-gray-200/60 dark:border-notion-borderDark flex items-center justify-between">
+      <!-- 側欄頂部 -->
+      <div class="p-3 border-b border-gray-200/60 dark:border-notion-borderDark flex items-center justify-between">
         <div class="flex items-center space-x-2">
           <div class="w-6 h-6 rounded bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">
             N
           </div>
           <span class="text-sm font-semibold tracking-tight text-gray-800 dark:text-gray-100">個人知識庫</span>
         </div>
-        <button id="new-note-btn" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500" title="新增筆記 (Ctrl+N)">
-          <i data-lucide="plus" class="w-4 h-4"></i>
-        </button>
+        <div class="flex items-center space-x-1">
+          <button id="new-note-btn" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500" title="新增筆記">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+          </button>
+          <button id="close-sidebar-mobile-btn" class="md:hidden p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500" title="關閉選單">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
       </div>
 
       <!-- 搜尋列 -->
       <div class="px-3 pt-2">
         <div class="relative">
-          <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-2 text-gray-400"></i>
-          <input type="text" id="search-input" placeholder="搜尋筆記與標籤..." class="w-full pl-8 pr-2.5 py-1 text-xs bg-white dark:bg-notion-dark border border-gray-200 dark:border-notion-borderDark rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
+          <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-gray-400"></i>
+          <input type="text" id="search-input" placeholder="搜尋筆記與標籤..." class="w-full pl-8 pr-2.5 py-1.5 text-xs bg-white dark:bg-notion-dark border border-gray-200 dark:border-notion-borderDark rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500">
         </div>
       </div>
 
-      <!-- 分類與篩選器 Tabs (全部 / 置頂 / 狀態 / 標籤) -->
+      <!-- 分類與篩選器 Tabs -->
       <div class="px-3 pt-2">
         <div class="flex items-center gap-1 text-[11px] text-gray-500 border-b border-gray-200 dark:border-notion-borderDark pb-1.5 overflow-x-auto">
           <button id="filter-all-btn" class="px-2 py-0.5 rounded font-medium bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white shrink-0">全部</button>
@@ -162,7 +185,7 @@
 
       <!-- 檢視模式選擇（清單 vs 卡片看板） -->
       <div class="px-3 pt-2 flex items-center justify-between text-xs text-gray-400">
-        <span class="text-[11px] uppercase tracking-wider font-semibold">筆記清單</span>
+        <span class="text-[11px] uppercase tracking-wider font-semibold">筆記列表</span>
         <div class="flex items-center space-x-1">
           <button id="layout-list-btn" class="p-1 rounded text-blue-600 dark:text-blue-400 hover:bg-gray-200 dark:hover:bg-gray-700" title="清單檢視">
             <i data-lucide="list" class="w-3.5 h-3.5"></i>
@@ -195,20 +218,23 @@
     <!-- 主編輯與預覽區域 -->
     <main class="flex-1 flex flex-col bg-white dark:bg-notion-dark overflow-hidden relative">
       
-      <!-- Notion 風格的頁面頁首屬性欄 (Page Header & Properties) -->
-      <div id="page-header" class="px-8 pt-6 pb-4 border-b border-gray-100 dark:border-notion-borderDark shrink-0 bg-white dark:bg-notion-dark">
+      <!-- 上傳進度提示條 -->
+      <div id="upload-progress-bar" class="h-1 bg-blue-500 w-0 transition-all duration-300 hidden"></div>
+
+      <!-- Notion 頁首屬性欄 (Page Header & Properties) -->
+      <div id="page-header" class="px-4 sm:px-8 pt-4 pb-3 border-b border-gray-100 dark:border-notion-borderDark shrink-0 bg-white dark:bg-notion-dark">
         <!-- 頁面圖示 (Emoji) 與 標題 -->
-        <div class="flex items-start space-x-3 mb-3">
+        <div class="flex items-start space-x-2 sm:space-x-3 mb-2">
           <!-- 點選切換 Emoji -->
-          <div class="relative">
-            <button id="note-emoji-btn" class="text-3xl hover:bg-gray-100 dark:hover:bg-gray-800 p-1.5 rounded-lg transition" title="點擊更換圖示">📝</button>
-            <div id="emoji-picker" class="absolute left-0 top-12 bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark rounded-xl shadow-2xl p-2 hidden z-40 grid grid-cols-6 gap-1 w-60">
+          <div class="relative shrink-0">
+            <button id="note-emoji-btn" class="text-2xl sm:text-3xl hover:bg-gray-100 dark:hover:bg-gray-800 p-1 rounded-lg transition" title="更換圖示">📝</button>
+            <div id="emoji-picker" class="absolute left-0 top-11 bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark rounded-xl shadow-2xl p-2 hidden z-50 grid grid-cols-6 gap-1 w-60">
               <button class="emoji-opt p-1.5 text-xl hover:bg-gray-100 dark:hover:bg-gray-800 rounded">📝</button>
               <button class="emoji-opt p-1.5 text-xl hover:bg-gray-100 dark:hover:bg-gray-800 rounded">💡</button>
               <button class="emoji-opt p-1.5 text-xl hover:bg-gray-100 dark:hover:bg-gray-800 rounded">🚀</button>
               <button class="emoji-opt p-1.5 text-xl hover:bg-gray-100 dark:hover:bg-gray-800 rounded">📚</button>
               <button class="emoji-opt p-1.5 text-xl hover:bg-gray-100 dark:hover:bg-gray-800 rounded">🎯</button>
-              <button class="emoji-opt p-1.5 text-xl hover:bg-gray-100 dark:hover:bg-gray-800 rounded">⚡</button>
+              <button class="emoji-opt p-1.5 text-xl hover:bg-gray-100 dark:hover:bg-gray-800 rounded">📷</button>
               <button class="emoji-opt p-1.5 text-xl hover:bg-gray-100 dark:hover:bg-gray-800 rounded">💻</button>
               <button class="emoji-opt p-1.5 text-xl hover:bg-gray-100 dark:hover:bg-gray-800 rounded">📊</button>
               <button class="emoji-opt p-1.5 text-xl hover:bg-gray-100 dark:hover:bg-gray-800 rounded">☕</button>
@@ -219,12 +245,12 @@
           </div>
 
           <!-- 主標題 -->
-          <div class="flex-1">
-            <input type="text" id="note-title" placeholder="無標題筆記" class="w-full text-2xl sm:text-3xl font-bold bg-transparent border-none focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-600">
+          <div class="flex-1 min-w-0">
+            <input type="text" id="note-title" placeholder="無標題筆記" class="w-full text-xl sm:text-2xl font-bold bg-transparent border-none focus:outline-none text-gray-900 dark:text-gray-100 placeholder-gray-300 dark:placeholder-gray-600 truncate">
           </div>
 
           <!-- 置頂按鈕 & 刪除按鈕 -->
-          <div class="flex items-center space-x-1">
+          <div class="flex items-center space-x-1 shrink-0">
             <button id="note-pin-btn" class="p-1.5 rounded-md text-gray-400 hover:text-amber-500 hover:bg-gray-100 dark:hover:bg-gray-800" title="置頂此筆記">
               <i data-lucide="pin" class="w-4 h-4"></i>
             </button>
@@ -234,15 +260,11 @@
           </div>
         </div>
 
-        <!-- Notion 屬性面板 (Properties: 狀態, 標籤, 日期) -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 text-xs text-gray-600 dark:text-gray-300">
-          
-          <!-- 狀態 (Status) -->
-          <div class="flex items-center space-x-2">
-            <span class="w-16 text-gray-400 flex items-center gap-1">
-              <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> 狀態
-            </span>
-            <select id="note-status-select" class="px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 border-none font-medium focus:ring-1 focus:ring-blue-500 text-xs">
+        <!-- 屬性面板 (狀態、標籤) -->
+        <div class="flex flex-wrap items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+          <div class="flex items-center space-x-1.5">
+            <span class="text-gray-400">狀態:</span>
+            <select id="note-status-select" class="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 border-none font-medium focus:ring-1 focus:ring-blue-500 text-xs">
               <option value="💡 構思中">💡 構思中</option>
               <option value="🚀 進行中">🚀 進行中</option>
               <option value="✅ 已完成">✅ 已完成</option>
@@ -250,20 +272,9 @@
             </select>
           </div>
 
-          <!-- 標籤 (Tags) -->
-          <div class="flex items-center space-x-2">
-            <span class="w-16 text-gray-400 flex items-center gap-1">
-              <i data-lucide="tag" class="w-3.5 h-3.5"></i> 標籤
-            </span>
-            <input type="text" id="note-tags-input" placeholder="例如: 工作, 專案, 會議 (逗號分隔)" class="flex-1 px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 border-none focus:ring-1 focus:ring-blue-500 text-xs text-gray-800 dark:text-gray-200">
-          </div>
-
-          <!-- 最後編輯時間 -->
-          <div class="flex items-center space-x-2">
-            <span class="w-16 text-gray-400 flex items-center gap-1">
-              <i data-lucide="clock" class="w-3.5 h-3.5"></i> 修改於
-            </span>
-            <span id="note-last-edited" class="text-gray-500 dark:text-gray-400 font-mono text-[11px]">剛剛</span>
+          <div class="flex items-center space-x-1.5 flex-1 min-w-[150px]">
+            <span class="text-gray-400">標籤:</span>
+            <input type="text" id="note-tags-input" placeholder="例如: 工作, 會議" class="flex-1 px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 border-none focus:ring-1 focus:ring-blue-500 text-xs text-gray-800 dark:text-gray-200">
           </div>
         </div>
       </div>
@@ -273,11 +284,14 @@
         
         <!-- Markdown 原始碼編輯區 -->
         <div id="editor-wrapper" class="flex-1 h-full overflow-hidden border-r border-gray-100 dark:border-notion-borderDark relative flex flex-col">
-          <textarea id="markdown-input" class="w-full flex-1 p-6 resize-none bg-white dark:bg-notion-dark text-gray-800 dark:text-gray-200 font-mono text-sm leading-relaxed focus:outline-none" placeholder="輸入內容... 提示：在空白行輸入 '/' 即可呼叫 Notion 快捷積木選單！"></textarea>
+          <textarea id="markdown-input" class="w-full flex-1 p-4 sm:p-6 resize-none bg-white dark:bg-notion-dark text-gray-800 dark:text-gray-200 font-mono text-sm leading-relaxed focus:outline-none" placeholder="輸入內容... 支援直接貼上圖片，或按上方「圖影」上傳照片與影片！"></textarea>
 
           <!-- 浮動 Slash 指令選單 (Notion / Command Menu) -->
-          <div id="slash-menu" class="absolute hidden bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark rounded-lg shadow-2xl w-64 p-1 z-50 text-xs">
+          <div id="slash-menu" class="absolute hidden bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark rounded-lg shadow-2xl w-60 p-1 z-50 text-xs">
             <div class="px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">常用積木</div>
+            <button data-slash="media" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
+              <i data-lucide="image" class="w-3.5 h-3.5"></i> 上傳圖片 / 影片
+            </button>
             <button data-slash="h1" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
               <span class="font-bold text-gray-500">H1</span> 大標題 1
             </button>
@@ -293,9 +307,6 @@
             <button data-slash="bullet" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
               <i data-lucide="list" class="w-3.5 h-3.5 text-gray-500"></i> 項目符號清單
             </button>
-            <button data-slash="numbered" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
-              <i data-lucide="list-ordered" class="w-3.5 h-3.5 text-gray-500"></i> 編號清單
-            </button>
             <button data-slash="callout" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
               <i data-lucide="message-square" class="w-3.5 h-3.5 text-amber-500"></i> 醒目提示框 (Callout)
             </button>
@@ -305,30 +316,52 @@
             <button data-slash="code" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
               <i data-lucide="code" class="w-3.5 h-3.5 text-purple-500"></i> 程式碼區塊
             </button>
-            <button data-slash="divider" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
-              <i data-lucide="minus" class="w-3.5 h-3.5 text-gray-400"></i> 分隔線 (Divider)
-            </button>
           </div>
         </div>
 
         <!-- Markdown 渲染預覽區 -->
-        <div id="preview-wrapper" class="flex-1 h-full overflow-y-auto p-8 bg-white dark:bg-notion-dark prose dark:prose-invert max-w-none">
+        <div id="preview-wrapper" class="flex-1 h-full overflow-y-auto p-4 sm:p-8 bg-white dark:bg-notion-dark prose dark:prose-invert max-w-none hidden md:block">
           <div id="preview-content"></div>
         </div>
 
         <!-- 右側即時大綱面板 (TOC) -->
-        <aside id="outline-panel" class="w-56 border-l border-gray-100 dark:border-notion-borderDark bg-notion-gray/50 dark:bg-notion-darker p-4 overflow-y-auto hidden lg:block shrink-0">
-          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <aside id="outline-panel" class="w-52 border-l border-gray-100 dark:border-notion-borderDark bg-notion-gray/40 dark:bg-notion-darker p-3 overflow-y-auto hidden lg:block shrink-0">
+          <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 flex items-center gap-1">
             <i data-lucide="align-left" class="w-3.5 h-3.5"></i> 內容大綱
           </div>
           <div id="outline-list" class="space-y-1 text-xs text-gray-600 dark:text-gray-400">
-            <span class="text-gray-400 italic">尚無標題</span>
+            <span class="text-gray-400 italic text-[11px]">暫無標題</span>
           </div>
         </aside>
       </div>
 
-      <!-- 底部統計欄 (字數統計、閱讀時間、自動存檔指示) -->
-      <footer class="h-7 border-t border-gray-100 dark:border-notion-borderDark px-4 flex items-center justify-between text-[11px] text-gray-400 bg-white dark:bg-notion-dark shrink-0">
+      <!-- 手機專屬：底部快捷編輯工具列 (Mobile Floating Toolbar) -->
+      <div id="mobile-toolbar" class="md:hidden h-10 border-t border-gray-200 dark:border-notion-borderDark bg-white dark:bg-notion-dark flex items-center justify-around px-2 z-20 shrink-0 text-gray-600 dark:text-gray-300">
+        <button id="mb-tool-media" class="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" title="上傳圖影">
+          <i data-lucide="image-plus" class="w-4 h-4"></i>
+        </button>
+        <button id="mb-tool-bold" class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded font-bold text-xs" title="粗體">
+          B
+        </button>
+        <button id="mb-tool-todo" class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" title="待辦清單">
+          <i data-lucide="check-square" class="w-4 h-4"></i>
+        </button>
+        <button id="mb-tool-list" class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" title="清單">
+          <i data-lucide="list" class="w-4 h-4"></i>
+        </button>
+        <button id="mb-tool-callout" class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded text-amber-500" title="提示框">
+          <i data-lucide="message-square" class="w-4 h-4"></i>
+        </button>
+        <button id="mb-tool-preview" class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" title="預覽">
+          <i data-lucide="eye" class="w-4 h-4"></i>
+        </button>
+        <button id="mb-tool-save" class="p-1.5 text-green-600 dark:text-green-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" title="立即存檔">
+          <i data-lucide="save" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- 電腦底部統計欄 -->
+      <footer class="hidden md:flex h-6 border-t border-gray-100 dark:border-notion-borderDark px-4 items-center justify-between text-[11px] text-gray-400 bg-white dark:bg-notion-dark shrink-0">
         <div class="flex items-center space-x-3">
           <span><strong id="stat-words" class="text-gray-600 dark:text-gray-300">0</strong> 字</span>
           <span><strong id="stat-chars" class="text-gray-600 dark:text-gray-300">0</strong> 字元</span>
@@ -345,10 +378,10 @@
 
   <!-- 設定對話框 (Modal) -->
   <div id="settings-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white dark:bg-notion-card rounded-xl max-w-md w-full p-6 shadow-2xl border border-gray-200 dark:border-notion-borderDark space-y-4">
-      <div class="flex items-center justify-between pb-3 border-b border-gray-100 dark:border-notion-borderDark">
-        <h3 class="text-base font-semibold flex items-center gap-2 text-gray-900 dark:text-white">
-          <i data-lucide="key" class="w-4 h-4 text-blue-500"></i>
+    <div class="bg-white dark:bg-notion-card rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-200 dark:border-notion-borderDark space-y-4">
+      <div class="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-notion-borderDark">
+        <h3 class="text-sm font-semibold flex items-center gap-1.5 text-gray-900 dark:text-white">
+          <i data-lucide="settings" class="w-4 h-4 text-blue-500"></i>
           Google Cloud 設定
         </h3>
         <button id="close-settings-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
@@ -357,7 +390,7 @@
       </div>
 
       <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-        填入您在 Google Cloud Console 建立的 <strong>OAuth 2.0 Client ID</strong>。設定儲存於本機瀏覽器，筆記直接同步至您的 Google Drive。
+        設定儲存於本機瀏覽器，筆記與媒體直接同步至您的 Google Drive。
       </p>
 
       <div class="space-y-3">
@@ -371,7 +404,7 @@
         </div>
       </div>
 
-      <div class="pt-2 flex justify-end space-x-2">
+      <div class="pt-1 flex justify-end space-x-2">
         <button id="save-settings-btn" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition shadow-sm">
           儲存設定
         </button>
@@ -380,7 +413,7 @@
   </div>
 
   <!-- Toast 訊息提示元件 -->
-  <div id="toast" class="fixed bottom-5 right-5 bg-gray-900 text-white px-3.5 py-2 rounded-lg shadow-xl text-xs transition-opacity duration-300 opacity-0 pointer-events-none z-50 flex items-center space-x-2">
+  <div id="toast" class="fixed bottom-12 md:bottom-5 right-5 bg-gray-900/90 text-white px-3.5 py-2 rounded-lg shadow-xl text-xs transition-opacity duration-300 opacity-0 pointer-events-none z-50 flex items-center space-x-2 backdrop-blur-xs">
     <span id="toast-message">訊息提示</span>
   </div>
 

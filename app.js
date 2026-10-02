@@ -1,7 +1,7 @@
 /**
  * CloudNotes Pro - 對標 Notion 的靜態筆記工作區核心邏輯
- * 包含：Frontmatter 屬性系統 (Emoji/狀態/標籤/置頂)、Slash 指令選單、大綱目錄 (TOC)、
- *      自動儲存、字數統計、清單/畫廊雙檢視、多格式匯出 (MD/HTML/PDF)、Google Drive API v3 同步
+ * 包含：手機端深度適配、Google Drive 圖影上傳、全自動靜默登入與續期、
+ *      Frontmatter 屬性系統、Slash 指令選單、大綱目錄 (TOC)、自動儲存、匯出
  */
 
 // 全域狀態
@@ -12,14 +12,15 @@ const state = {
   accessToken: null,
   tokenClient: null,
   user: null,
-  notes: [], // 包含 parsed metadata
+  notes: [],
   currentNote: null,
   isDirty: false,
-  viewMode: 'split', // 'split' | 'edit' | 'preview'
-  layoutMode: localStorage.getItem('cloudnotes_layout') || 'list', // 'list' | 'grid'
-  filterMode: 'all', // 'all' | 'pinned' | 'doing'
+  viewMode: window.innerWidth < 768 ? 'edit' : 'split', // 手機預設純編輯
+  layoutMode: localStorage.getItem('cloudnotes_layout') || 'list',
+  filterMode: 'all',
   theme: localStorage.getItem('cloudnotes_theme') || 'light',
-  autoSaveTimer: null
+  autoSaveTimer: null,
+  tokenRefreshTimer: null
 };
 
 // DOM 元素引用
@@ -30,6 +31,10 @@ const DOM = {
   syncStatus: document.getElementById('sync-status'),
   syncIndicator: document.getElementById('sync-indicator'),
   syncText: document.getElementById('sync-text'),
+  insertMediaBtn: document.getElementById('insert-media-btn'),
+  mediaUploadInput: document.getElementById('media-upload-input'),
+  mobileToggleViewBtn: document.getElementById('mobile-toggle-view-btn'),
+  mobileViewIcon: document.getElementById('mobile-view-icon'),
   viewSplitBtn: document.getElementById('view-split-btn'),
   viewEditBtn: document.getElementById('view-edit-btn'),
   viewPreviewBtn: document.getElementById('view-preview-btn'),
@@ -46,9 +51,11 @@ const DOM = {
   userProfile: document.getElementById('user-profile'),
   userAvatar: document.getElementById('user-avatar'),
 
-  // 側邊欄
+  // 側邊欄與遮罩
   sidebar: document.getElementById('sidebar'),
+  sidebarBackdrop: document.getElementById('sidebar-backdrop'),
   toggleSidebarBtn: document.getElementById('toggle-sidebar-btn'),
+  closeSidebarMobileBtn: document.getElementById('close-sidebar-mobile-btn'),
   newNoteBtn: document.getElementById('new-note-btn'),
   searchInput: document.getElementById('search-input'),
   filterAllBtn: document.getElementById('filter-all-btn'),
@@ -61,7 +68,7 @@ const DOM = {
   sidebarFolderLabel: document.getElementById('sidebar-folder-label'),
   refreshBtn: document.getElementById('refresh-btn'),
 
-  // 頁首屬性 (Page Header & Properties)
+  // 頁首屬性
   noteEmojiBtn: document.getElementById('note-emoji-btn'),
   emojiPicker: document.getElementById('emoji-picker'),
   noteTitle: document.getElementById('note-title'),
@@ -69,9 +76,9 @@ const DOM = {
   deleteNoteBtn: document.getElementById('delete-note-btn'),
   noteStatusSelect: document.getElementById('note-status-select'),
   noteTagsInput: document.getElementById('note-tags-input'),
-  noteLastEdited: document.getElementById('note-last-edited'),
 
   // 編輯與預覽區
+  uploadProgressBar: document.getElementById('upload-progress-bar'),
   editorWrapper: document.getElementById('editor-wrapper'),
   previewWrapper: document.getElementById('preview-wrapper'),
   markdownInput: document.getElementById('markdown-input'),
@@ -79,6 +86,15 @@ const DOM = {
   slashMenu: document.getElementById('slash-menu'),
   outlinePanel: document.getElementById('outline-panel'),
   outlineList: document.getElementById('outline-list'),
+
+  // 手機底部快捷列
+  mbToolMedia: document.getElementById('mb-tool-media'),
+  mbToolBold: document.getElementById('mb-tool-bold'),
+  mbToolTodo: document.getElementById('mb-tool-todo'),
+  mbToolList: document.getElementById('mb-tool-list'),
+  mbToolCallout: document.getElementById('mb-tool-callout'),
+  mbToolPreview: document.getElementById('mb-tool-preview'),
+  mbToolSave: document.getElementById('mb-tool-save'),
 
   // 統計頁尾
   statWords: document.getElementById('stat-words'),
@@ -137,7 +153,7 @@ function showToast(message, duration = 3000) {
   }, duration);
 }
 
-// ----------------- 設定與 Google 授權 -----------------
+// ----------------- 設定與 Google 自動授權 -----------------
 function initSettingsUI() {
   DOM.settingClientId.value = state.clientId;
   DOM.settingFolderName.value = state.folderName;
@@ -194,19 +210,17 @@ function setupGoogleAuth() {
               return;
             }
             state.accessToken = resp.access_token;
-            // 記錄已成功授權，供後續自動登入使用
             localStorage.setItem('cloudnotes_authorized', 'true');
-            // 排程自動刷新 Token (避免 1 小時後逾期)
+            
             const expiresIn = resp.expires_in ? parseInt(resp.expires_in, 10) : 3600;
             scheduleTokenRefresh(expiresIn);
             await onLoginSuccess();
           },
         });
 
-        // 自動登入判斷：若使用者曾成功登入過，啟動時自動進行靜默登入
+        // 靜默自動登入
         if (localStorage.getItem('cloudnotes_authorized') === 'true') {
           updateSyncStatus('syncing', '自動登入中...');
-          // prompt: '' 代表不強制彈出同意畫面，若瀏覽器已登入 Google 則靜默獲取 Token
           state.tokenClient.requestAccessToken({ prompt: '' });
         } else {
           updateSyncStatus('ready', '就緒 (請登入)');
@@ -218,13 +232,10 @@ function setupGoogleAuth() {
   }, 200);
 }
 
-// 逾期前自動刷新 Token
-let tokenRefreshTimer = null;
 function scheduleTokenRefresh(expiresIn) {
-  if (tokenRefreshTimer) clearTimeout(tokenRefreshTimer);
-  // 在 Token 到期前 5 分鐘進行背景刷新
+  if (state.tokenRefreshTimer) clearTimeout(state.tokenRefreshTimer);
   const refreshDelay = Math.max((expiresIn - 300) * 1000, 60000);
-  tokenRefreshTimer = setTimeout(() => {
+  state.tokenRefreshTimer = setTimeout(() => {
     if (state.tokenClient && localStorage.getItem('cloudnotes_authorized') === 'true') {
       console.log('背景自動更新 Google Drive 存取憑證...');
       state.tokenClient.requestAccessToken({ prompt: '' });
@@ -239,7 +250,6 @@ function handleLogin() {
     return;
   }
   if (state.tokenClient) {
-    // 首次登入或手動點擊登入
     state.tokenClient.requestAccessToken({ prompt: '' });
   } else {
     showToast('Google 認證元件載入中，請稍候...');
@@ -247,7 +257,7 @@ function handleLogin() {
 }
 
 function handleLogout() {
-  if (tokenRefreshTimer) clearTimeout(tokenRefreshTimer);
+  if (state.tokenRefreshTimer) clearTimeout(state.tokenRefreshTimer);
   if (state.accessToken) {
     google.accounts.oauth2.revoke(state.accessToken, () => {});
   }
@@ -255,14 +265,13 @@ function handleLogout() {
   state.user = null;
   state.notes = [];
   state.currentNote = null;
-  // 清除自動登入標記
   localStorage.removeItem('cloudnotes_authorized');
   DOM.loginBtn.classList.remove('hidden');
   DOM.userProfile.classList.add('hidden');
   DOM.notesList.innerHTML = `<div class="text-center py-8 text-gray-400 text-xs">請登入 Google 帳號以載入筆記</div>`;
   clearEditor();
   updateSyncStatus('disconnected', '已登出');
-  showToast('已登出，已關閉自動登入');
+  showToast('已登出');
 }
 
 async function onLoginSuccess() {
@@ -290,16 +299,16 @@ function updateSyncStatus(status, text) {
   DOM.syncIndicator.className = 'w-1.5 h-1.5 rounded-full';
   if (status === 'synced') {
     DOM.syncIndicator.classList.add('bg-green-500');
-    DOM.statAutosave.innerHTML = `<i data-lucide="check" class="w-3 h-3 text-green-500"></i> 已同步至雲端`;
+    if (DOM.statAutosave) DOM.statAutosave.innerHTML = `<i data-lucide="check" class="w-3 h-3 text-green-500"></i> 已同步至雲端`;
   } else if (status === 'syncing') {
     DOM.syncIndicator.classList.add('bg-amber-400', 'animate-pulse');
-    DOM.statAutosave.innerHTML = `<i data-lucide="loader" class="w-3 h-3 text-amber-500 animate-spin"></i> 儲存中...`;
+    if (DOM.statAutosave) DOM.statAutosave.innerHTML = `<i data-lucide="loader" class="w-3 h-3 text-amber-500 animate-spin"></i> 同步中...`;
   } else if (status === 'dirty') {
     DOM.syncIndicator.classList.add('bg-amber-500');
-    DOM.statAutosave.innerHTML = `<i data-lucide="clock" class="w-3 h-3 text-amber-500"></i> 等待自動存檔...`;
+    if (DOM.statAutosave) DOM.statAutosave.innerHTML = `<i data-lucide="clock" class="w-3 h-3 text-amber-500"></i> 等待自動存檔...`;
   } else {
     DOM.syncIndicator.classList.add('bg-gray-400');
-    DOM.statAutosave.innerHTML = `<i data-lucide="cloud-off" class="w-3 h-3 text-gray-400"></i> 離線模式`;
+    if (DOM.statAutosave) DOM.statAutosave.innerHTML = `<i data-lucide="cloud-off" class="w-3 h-3 text-gray-400"></i> 離線`;
   }
   initLucide();
 }
@@ -345,7 +354,6 @@ async function fetchNotesList() {
     });
     const data = await res.json();
     
-    // 解析筆記標題與 metadata (從檔案描述或名稱)
     state.notes = (data.files || []).map(file => {
       let meta = {
         icon: '📝',
@@ -376,6 +384,120 @@ async function fetchNotesList() {
   }
 }
 
+// ----------------- 圖片與影片上傳模組 (Resumable Upload) -----------------
+async function uploadMediaFile(file) {
+  if (!state.accessToken) {
+    showToast('請先登入 Google 帳號以進行圖影上傳');
+    return;
+  }
+  if (!state.folderId) await ensureNotesFolder();
+
+  const isVideo = file.type.startsWith('video/');
+  const isImage = file.type.startsWith('image/');
+  if (!isImage && !isVideo) {
+    showToast('僅支援圖片或影片檔案');
+    return;
+  }
+
+  if (DOM.uploadProgressBar) {
+    DOM.uploadProgressBar.classList.remove('hidden');
+    DOM.uploadProgressBar.style.width = '30%';
+  }
+  showToast(`正在上傳 ${isVideo ? '影片' : '圖片'} 至 Google Drive...`);
+
+  try {
+    // 1. 發起 Resumable Upload 請求
+    const initRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${state.accessToken}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+        'X-Upload-Content-Type': file.type,
+        'X-Upload-Content-Length': file.size.toString()
+      },
+      body: JSON.stringify({
+        name: `media_${Date.now()}_${file.name}`,
+        parents: state.folderId ? [state.folderId] : []
+      })
+    });
+
+    if (!initRes.ok) throw new Error('初始化上傳失敗');
+    const uploadUrl = initRes.headers.get('Location');
+    if (!uploadUrl) throw new Error('無法取得上傳位址');
+
+    if (DOM.uploadProgressBar) DOM.uploadProgressBar.style.width = '70%';
+
+    // 2. 上傳二進位資料
+    const uploadRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.type
+      },
+      body: file
+    });
+
+    if (!uploadRes.ok) throw new Error('檔案上傳失敗');
+    const uploadedFile = await uploadRes.json();
+    const fileId = uploadedFile.id;
+
+    if (DOM.uploadProgressBar) DOM.uploadProgressBar.style.width = '90%';
+
+    // 3. 設定公開唯讀權限，讓 Markdown 預覽能直接展示
+    try {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ role: 'reader', type: 'anyone' })
+      });
+    } catch (permErr) {
+      console.warn('權限設定警告:', permErr);
+    }
+
+    if (DOM.uploadProgressBar) {
+      DOM.uploadProgressBar.style.width = '100%';
+      setTimeout(() => {
+        DOM.uploadProgressBar.classList.add('hidden');
+        DOM.uploadProgressBar.style.width = '0%';
+      }, 500);
+    }
+
+    // 4. 插入 Markdown 代碼
+    let snippet = '';
+    if (isImage) {
+      const imgUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
+      snippet = `\n![${file.name}](${imgUrl})\n`;
+    } else {
+      // 影片支援 Google 內嵌播放器與下載播放
+      snippet = `\n<iframe src="https://drive.google.com/file/d/${fileId}/preview" width="100%" height="320" allow="autoplay" class="rounded-lg my-2 border-0"></iframe>\n`;
+    }
+
+    insertTextAtCursor(snippet);
+    showToast(`${isVideo ? '影片' : '圖片'} 上傳完成並已插入！`);
+  } catch (err) {
+    console.error('上傳失敗:', err);
+    if (DOM.uploadProgressBar) DOM.uploadProgressBar.classList.add('hidden');
+    showToast('上傳失敗，請確認檔案大小與網路');
+  }
+}
+
+function insertTextAtCursor(snippet) {
+  const textarea = DOM.markdownInput;
+  const cursorPos = textarea.selectionStart || 0;
+  const text = textarea.value;
+  const newText = text.substring(0, cursorPos) + snippet + text.substring(cursorPos);
+  textarea.value = newText;
+  textarea.focus();
+  textarea.selectionStart = textarea.selectionEnd = cursorPos + snippet.length;
+
+  renderMarkdown(newText);
+  updateStats(newText);
+  renderOutline(newText);
+  triggerAutoSaveDebounce();
+}
+
 // ----------------- Frontmatter 解析與序列化 -----------------
 function parseFrontmatter(rawContent) {
   const fmRegex = /^---\r?\n([\s\S]*?)\r?\n---\r?\n/;
@@ -388,9 +510,7 @@ function parseFrontmatter(rawContent) {
     pinned: false
   };
 
-  if (!match) {
-    return { meta, body: rawContent };
-  }
+  if (!match) return { meta, body: rawContent };
 
   const rawYaml = match[1];
   const body = rawContent.slice(match[0].length);
@@ -425,7 +545,6 @@ function renderNotesList() {
   const query = DOM.searchInput.value.toLowerCase().trim();
   
   let filtered = state.notes.filter(note => {
-    // 篩選器條件 (全部 / 置頂 / 進行中)
     if (state.filterMode === 'pinned' && !note.meta.pinned) return false;
     if (state.filterMode === 'doing' && !note.meta.status.includes('進行中')) return false;
 
@@ -435,7 +554,6 @@ function renderNotesList() {
     return nameMatch || tagMatch;
   });
 
-  // 置頂筆記置前
   filtered.sort((a, b) => (b.meta.pinned ? 1 : 0) - (a.meta.pinned ? 1 : 0));
 
   if (filtered.length === 0) {
@@ -457,7 +575,6 @@ function renderNotesList() {
     const pinIndicator = note.meta.pinned ? `<span title="已置頂" class="text-amber-500">📌</span>` : '';
 
     if (state.layoutMode === 'grid') {
-      // 畫廊卡片視圖
       item.innerHTML = `
         <div class="flex items-center justify-between text-base mb-1">
           <span>${note.meta.icon || '📝'}</span>
@@ -469,7 +586,6 @@ function renderNotesList() {
         </div>
       `;
     } else {
-      // 清單視圖
       item.innerHTML = `
         <div class="flex items-center justify-between">
           <div class="flex items-center space-x-1.5 truncate">
@@ -486,12 +602,27 @@ function renderNotesList() {
     }
 
     item.addEventListener('click', () => {
-      if (state.currentNote && state.currentNote.id === note.id) return;
+      if (state.currentNote && state.currentNote.id === note.id) {
+        closeSidebar();
+        return;
+      }
       selectNote(note.id);
+      closeSidebar();
     });
 
     DOM.notesList.appendChild(item);
   });
+}
+
+// 手機側邊欄開關控制
+function toggleSidebar() {
+  DOM.sidebar.classList.toggle('-translate-x-full');
+  DOM.sidebarBackdrop.classList.toggle('hidden');
+}
+
+function closeSidebar() {
+  DOM.sidebar.classList.add('-translate-x-full');
+  DOM.sidebarBackdrop.classList.add('hidden');
 }
 
 // ----------------- 選擇與載入單篇筆記 -----------------
@@ -518,12 +649,10 @@ async function selectNote(noteId) {
       bodyContent: body
     };
 
-    // 更新 UI 屬性
     DOM.noteEmojiBtn.textContent = state.currentNote.meta.icon || '📝';
     DOM.noteStatusSelect.value = state.currentNote.meta.status || '💡 構思中';
     DOM.noteTagsInput.value = (state.currentNote.meta.tags || []).join(', ');
     updatePinButtonUI(state.currentNote.meta.pinned);
-    DOM.noteLastEdited.textContent = noteMeta.modifiedTime ? new Date(noteMeta.modifiedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '剛剛';
 
     DOM.markdownInput.value = body;
     renderMarkdown(body);
@@ -549,7 +678,7 @@ function createNewNote() {
       tags: ['靈感'],
       pinned: false
     },
-    bodyContent: '# 新建筆記\n\n在此處輸入內容，或在空白行輸入 `/` 叫出積木選單！\n'
+    bodyContent: '# 新建筆記\n\n在此處輸入內容，或按上方「圖影」上傳照片與影片！\n'
   };
 
   DOM.noteTitle.value = state.currentNote.name;
@@ -558,7 +687,6 @@ function createNewNote() {
   DOM.noteStatusSelect.value = state.currentNote.meta.status;
   DOM.noteTagsInput.value = state.currentNote.meta.tags.join(', ');
   updatePinButtonUI(false);
-  DOM.noteLastEdited.textContent = '剛剛';
 
   DOM.markdownInput.value = state.currentNote.bodyContent;
   renderMarkdown(state.currentNote.bodyContent);
@@ -566,12 +694,9 @@ function createNewNote() {
   renderOutline(state.currentNote.bodyContent);
   renderNotesList();
 
+  closeSidebar();
   state.isDirty = true;
   triggerAutoSaveDebounce();
-
-  if (window.innerWidth < 768) {
-    DOM.sidebar.classList.add('-translate-x-full');
-  }
 }
 
 // ----------------- 自動儲存與手動儲存 -----------------
@@ -583,7 +708,7 @@ function triggerAutoSaveDebounce() {
     if (state.isDirty && state.accessToken) {
       saveCurrentNote();
     }
-  }, 1800); // 停止輸入 1.8 秒後自動上傳至 Google Drive
+  }, 1800);
 }
 
 async function saveCurrentNote() {
@@ -616,7 +741,7 @@ async function saveCurrentNote() {
     let method;
     let metadata = {
       name: title,
-      description: JSON.stringify(meta) // 將 meta 快取於 Google Drive 檔案描述中加速列表載入
+      description: JSON.stringify(meta)
     };
 
     if (state.currentNote && state.currentNote.id) {
@@ -625,7 +750,9 @@ async function saveCurrentNote() {
     } else {
       url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
       method = 'POST';
-      if (state.folderId) { metadata.parents = [state.folderId]; }
+      if (state.folderId) {
+        metadata.parents = [state.folderId];
+      }
       metadata.mimeType = 'text/markdown';
     }
 
@@ -647,7 +774,11 @@ async function saveCurrentNote() {
       body: multipartRequestBody
     });
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const errJson = await res.json().catch(() => ({}));
+      const errMsg = errJson.error?.message || `HTTP ${res.status}`;
+      throw new Error(errMsg);
+    }
 
     const saved = await res.json();
     state.currentNote = {
@@ -658,9 +789,7 @@ async function saveCurrentNote() {
     };
     state.isDirty = false;
     updateSyncStatus('synced', '已同步');
-    DOM.noteLastEdited.textContent = '剛剛';
 
-    // 更新本地快取清單以提升流暢度
     const existingIndex = state.notes.findIndex(n => n.id === saved.id);
     if (existingIndex >= 0) {
       state.notes[existingIndex] = { ...state.notes[existingIndex], name: saved.name, meta: meta, modifiedTime: new Date().toISOString() };
@@ -722,7 +851,11 @@ function renderMarkdown(content) {
     return;
   }
   const rawHtml = window.marked.parse(content || '');
-  DOM.previewContent.innerHTML = window.DOMPurify.sanitize(rawHtml);
+  const cleanHtml = window.DOMPurify.sanitize(rawHtml, {
+    ADD_TAGS: ['iframe', 'video', 'source'],
+    ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class']
+  });
+  DOM.previewContent.innerHTML = cleanHtml;
 }
 
 function renderOutline(content) {
@@ -741,27 +874,28 @@ function renderOutline(content) {
   });
 
   if (headings.length === 0) {
-    DOM.outlineList.innerHTML = `<span class="text-gray-400 italic text-[11px]">本筆記暫無大綱標題</span>`;
+    if (DOM.outlineList) DOM.outlineList.innerHTML = `<span class="text-gray-400 italic text-[11px]">暫無大綱標題</span>`;
     return;
   }
 
-  DOM.outlineList.innerHTML = '';
-  headings.forEach(h => {
-    const btn = document.createElement('button');
-    btn.className = `w-full text-left truncate py-1 hover:text-blue-500 transition text-[11px] block ${h.level === 1 ? 'toc-h1' : h.level === 2 ? 'toc-h2' : 'toc-h3'}`;
-    btn.textContent = h.text;
-    btn.addEventListener('click', () => {
-      // 尋找對應的預覽標題並平滑捲動
-      const previewHeadings = DOM.previewContent.querySelectorAll(`h${h.level}`);
-      for (const el of previewHeadings) {
-        if (el.textContent.trim() === h.text) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          break;
+  if (DOM.outlineList) {
+    DOM.outlineList.innerHTML = '';
+    headings.forEach(h => {
+      const btn = document.createElement('button');
+      btn.className = `w-full text-left truncate py-1 hover:text-blue-500 transition text-[11px] block ${h.level === 1 ? 'toc-h1' : h.level === 2 ? 'toc-h2' : 'toc-h3'}`;
+      btn.textContent = h.text;
+      btn.addEventListener('click', () => {
+        const previewHeadings = DOM.previewContent.querySelectorAll(`h${h.level}`);
+        for (const el of previewHeadings) {
+          if (el.textContent.trim() === h.text) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            break;
+          }
         }
-      }
+      });
+      DOM.outlineList.appendChild(btn);
     });
-    DOM.outlineList.appendChild(btn);
-  });
+  }
 }
 
 // ----------------- 字數統計與閱讀時間 -----------------
@@ -771,12 +905,12 @@ function updateStats(content) {
   const words = (text.match(/[\u4e00-\u9fa5]|[a-zA-Z0-9]+/g) || []).length;
   const readMin = Math.ceil(words / 350) || 1;
 
-  DOM.statChars.textContent = chars;
-  DOM.statWords.textContent = words;
-  DOM.statTime.textContent = readMin;
+  if (DOM.statChars) DOM.statChars.textContent = chars;
+  if (DOM.statWords) DOM.statWords.textContent = words;
+  if (DOM.statTime) DOM.statTime.textContent = readMin;
 }
 
-// ----------------- Notion Slash 指令 (`/`) 選單 -----------------
+// ----------------- Slash 指令 (`/`) 選單 -----------------
 function handleSlashMenu(e) {
   const textarea = DOM.markdownInput;
   const cursorPos = textarea.selectionStart;
@@ -784,16 +918,21 @@ function handleSlashMenu(e) {
   const currentLine = textBefore.split('\n').pop();
 
   if (currentLine.trim() === '/') {
-    // 顯示 Slash 選單
     DOM.slashMenu.classList.remove('hidden');
-    DOM.slashMenu.style.top = '100px';
-    DOM.slashMenu.style.left = '30px';
+    DOM.slashMenu.style.top = '80px';
+    DOM.slashMenu.style.left = '20px';
   } else {
     DOM.slashMenu.classList.add('hidden');
   }
 }
 
 function insertSlashSnippet(type) {
+  if (type === 'media') {
+    DOM.slashMenu.classList.add('hidden');
+    DOM.mediaUploadInput.click();
+    return;
+  }
+
   const textarea = DOM.markdownInput;
   const cursorPos = textarea.selectionStart;
   const text = textarea.value;
@@ -808,11 +947,9 @@ function insertSlashSnippet(type) {
     case 'h3': snippet = '### '; break;
     case 'todo': snippet = '- [ ] '; break;
     case 'bullet': snippet = '- '; break;
-    case 'numbered': snippet = '1. '; break;
     case 'callout': snippet = '> 💡 **醒目提示：** '; break;
     case 'table': snippet = '| 標題 1 | 標題 2 |\n| --- | --- |\n| 項目 1 | 項目 2 |\n'; break;
-    case 'code': snippet = "```javascript\n// 請輸入程式碼\n```\n"; break;
-    case 'divider': snippet = "\n---\n"; break;
+    case 'code': snippet = "```javascript\n// 請輸入代碼\n```\n"; break;
   }
 
   const newText = text.substring(0, lastSlashIndex) + snippet + text.substring(cursorPos);
@@ -843,14 +980,9 @@ function exportHTML() {
   <meta charset="utf-8">
   <title>${escapeHtml(DOM.noteTitle.value)}</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; line-height: 1.6; color: #333; }
-    h1 { border-bottom: 1px solid #eee; padding-bottom: 8px; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 30px auto; padding: 0 15px; line-height: 1.6; color: #333; }
+    img, video { max-width: 100%; border-radius: 6px; }
     blockquote { border-left: 4px solid #2383e2; background: #f7f6f3; padding: 10px 16px; margin: 16px 0; }
-    code { background: #eee; padding: 2px 5px; border-radius: 4px; }
-    pre { background: #1e1e1e; color: #fff; padding: 12px; border-radius: 6px; overflow: auto; }
-    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
-    th, td { border: 1px solid #ddd; padding: 8px; }
-    th { background: #f9f9f9; }
   </style>
 </head>
 <body>
@@ -918,28 +1050,33 @@ function setLayout(mode) {
 }
 
 function initViewModes() {
-  setViewMode('split');
+  setViewMode(state.viewMode);
 }
 
 function setViewMode(mode) {
   state.viewMode = mode;
+
+  // 電腦端按鈕高亮狀態
   [DOM.viewSplitBtn, DOM.viewEditBtn, DOM.viewPreviewBtn].forEach(btn => {
-    btn.classList.remove('bg-white', 'dark:bg-gray-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
+    if (btn) btn.classList.remove('bg-white', 'dark:bg-gray-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
   });
 
   if (mode === 'split') {
-    DOM.viewSplitBtn.classList.add('bg-white', 'dark:bg-gray-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
+    if (DOM.viewSplitBtn) DOM.viewSplitBtn.classList.add('bg-white', 'dark:bg-gray-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
     DOM.editorWrapper.classList.remove('hidden');
     DOM.previewWrapper.classList.remove('hidden');
   } else if (mode === 'edit') {
-    DOM.viewEditBtn.classList.add('bg-white', 'dark:bg-gray-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
+    if (DOM.viewEditBtn) DOM.viewEditBtn.classList.add('bg-white', 'dark:bg-gray-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
     DOM.editorWrapper.classList.remove('hidden');
     DOM.previewWrapper.classList.add('hidden');
+    if (DOM.mobileViewIcon) DOM.mobileViewIcon.setAttribute('data-lucide', 'eye');
   } else if (mode === 'preview') {
-    DOM.viewPreviewBtn.classList.add('bg-white', 'dark:bg-gray-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
+    if (DOM.viewPreviewBtn) DOM.viewPreviewBtn.classList.add('bg-white', 'dark:bg-gray-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
     DOM.editorWrapper.classList.add('hidden');
     DOM.previewWrapper.classList.remove('hidden');
+    if (DOM.mobileViewIcon) DOM.mobileViewIcon.setAttribute('data-lucide', 'edit-3');
   }
+  initLucide();
 }
 
 // ----------------- 事件綁定 -----------------
@@ -955,20 +1092,92 @@ function bindEvents() {
   DOM.notePinBtn.addEventListener('click', togglePin);
   DOM.refreshBtn.addEventListener('click', fetchNotesList);
 
-  DOM.viewSplitBtn.addEventListener('click', () => setViewMode('split'));
-  DOM.viewEditBtn.addEventListener('click', () => setViewMode('edit'));
-  DOM.viewPreviewBtn.addEventListener('click', () => setViewMode('preview'));
+  // 媒體上傳按鈕 (頂部與手機列)
+  DOM.insertMediaBtn.addEventListener('click', () => DOM.mediaUploadInput.click());
+  if (DOM.mbToolMedia) DOM.mbToolMedia.addEventListener('click', () => DOM.mediaUploadInput.click());
 
-  DOM.layoutListBtn.addEventListener('click', () => setLayout('list'));
-  DOM.layoutGridBtn.addEventListener('click', () => setLayout('grid'));
-
-  DOM.toggleSidebarBtn.addEventListener('click', () => {
-    DOM.sidebar.classList.toggle('-translate-x-full');
+  DOM.mediaUploadInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files);
+    for (const f of files) {
+      await uploadMediaFile(f);
+    }
+    DOM.mediaUploadInput.value = '';
   });
 
-  DOM.toggleOutlineBtn.addEventListener('click', () => {
-    DOM.outlinePanel.classList.toggle('hidden');
+  // 支援直接剪貼簿貼上圖片 (Ctrl+V 或 手機截圖貼上)
+  DOM.markdownInput.addEventListener('paste', async (e) => {
+    const items = (e.clipboardData || window.clipboardData).items;
+    for (const item of items) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file && (file.type.startsWith('image/') || file.type.startsWith('video/'))) {
+          e.preventDefault();
+          await uploadMediaFile(file);
+        }
+      }
+    }
   });
+
+  // 支援拖曳圖影到編輯區
+  DOM.markdownInput.addEventListener('dragover', (e) => e.preventDefault());
+  DOM.markdownInput.addEventListener('drop', async (e) => {
+    e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.files) {
+      for (const file of e.dataTransfer.files) {
+        if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+          await uploadMediaFile(file);
+        }
+      }
+    }
+  });
+
+  // 側邊欄展開/關閉
+  DOM.toggleSidebarBtn.addEventListener('click', toggleSidebar);
+  if (DOM.closeSidebarMobileBtn) DOM.closeSidebarMobileBtn.addEventListener('click', closeSidebar);
+  if (DOM.sidebarBackdrop) DOM.sidebarBackdrop.addEventListener('click', closeSidebar);
+
+  // 手機視圖切換
+  if (DOM.mobileToggleViewBtn) {
+    DOM.mobileToggleViewBtn.addEventListener('click', () => {
+      setViewMode(state.viewMode === 'edit' ? 'preview' : 'edit');
+    });
+  }
+
+  // 手機底部工具列按鈕
+  if (DOM.mbToolBold) {
+    DOM.mbToolBold.addEventListener('click', () => insertTextAtCursor('**粗體文字**'));
+  }
+  if (DOM.mbToolTodo) {
+    DOM.mbToolTodo.addEventListener('click', () => insertTextAtCursor('\n- [ ] 待辦事項\n'));
+  }
+  if (DOM.mbToolList) {
+    DOM.mbToolList.addEventListener('click', () => insertTextAtCursor('\n- 清單項目\n'));
+  }
+  if (DOM.mbToolCallout) {
+    DOM.mbToolCallout.addEventListener('click', () => insertTextAtCursor('\n> 💡 **提醒：** 內容\n'));
+  }
+  if (DOM.mbToolPreview) {
+    DOM.mbToolPreview.addEventListener('click', () => {
+      setViewMode(state.viewMode === 'edit' ? 'preview' : 'edit');
+    });
+  }
+  if (DOM.mbToolSave) {
+    DOM.mbToolSave.addEventListener('click', saveCurrentNote);
+  }
+
+  // 電腦版檢視模式切換
+  if (DOM.viewSplitBtn) DOM.viewSplitBtn.addEventListener('click', () => setViewMode('split'));
+  if (DOM.viewEditBtn) DOM.viewEditBtn.addEventListener('click', () => setViewMode('edit'));
+  if (DOM.viewPreviewBtn) DOM.viewPreviewBtn.addEventListener('click', () => setViewMode('preview'));
+
+  if (DOM.layoutListBtn) DOM.layoutListBtn.addEventListener('click', () => setLayout('list'));
+  if (DOM.layoutGridBtn) DOM.layoutGridBtn.addEventListener('click', () => setLayout('grid'));
+
+  if (DOM.toggleOutlineBtn) {
+    DOM.toggleOutlineBtn.addEventListener('click', () => {
+      DOM.outlinePanel.classList.toggle('hidden');
+    });
+  }
 
   // 篩選 Tabs
   DOM.filterAllBtn.addEventListener('click', () => {
@@ -1048,7 +1257,7 @@ function bindEvents() {
     });
   });
 
-  // 快捷鍵 (Ctrl+S 儲存, Ctrl+N 新增)
+  // 快捷鍵
   window.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
@@ -1057,6 +1266,13 @@ function bindEvents() {
     if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
       e.preventDefault();
       createNewNote();
+    }
+  });
+
+  // 視窗尺寸改變時自動調整視圖
+  window.addEventListener('resize', () => {
+    if (window.innerWidth < 768 && state.viewMode === 'split') {
+      setViewMode('edit');
     }
   });
 }
