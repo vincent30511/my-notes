@@ -1,4 +1,4 @@
-/* Notion 風格深度定制、多媒體播放與 AI 助手樣式表 */
+/* Notion 風格純淨所見即所得（WYSIWYG）無網址樣式表 */
 
 /* 捲軸美化 */
 ::-webkit-scrollbar {
@@ -86,63 +86,75 @@
 .tag-blue { background-color: #e0f2fe; color: #0369a1; }
 .dark .tag-blue { background-color: rgba(14, 165, 233, 0.2); color: #38bdf8; }
 
-/* Markdown 預覽區 Notion 風格排版 */
-#preview-content {
-  font-size: 15px;
-  line-height: 1.65;
+/* 所見即所得畫布 (WYSIWYG Editor) 排版 */
+#editor {
+  font-size: 16px;
+  line-height: 1.7;
   color: #37352f;
+  outline: none;
 }
 
-.dark #preview-content {
+.dark #editor {
   color: #d4d4d4;
 }
 
-#preview-content h1 {
-  font-size: 1.75rem;
+#editor:empty:before {
+  content: attr(placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+  display: block;
+}
+
+.dark #editor:empty:before {
+  color: #6b7280;
+}
+
+#editor h1 {
+  font-size: 1.85rem;
   font-weight: 700;
-  margin-top: 1.25rem;
+  margin-top: 1.5rem;
   margin-bottom: 0.5rem;
   line-height: 1.25;
 }
 
-#preview-content h2 {
-  font-size: 1.35rem;
+#editor h2 {
+  font-size: 1.45rem;
   font-weight: 600;
-  margin-top: 1rem;
+  margin-top: 1.25rem;
   margin-bottom: 0.4rem;
   line-height: 1.3;
 }
 
-#preview-content h3 {
-  font-size: 1.15rem;
+#editor h3 {
+  font-size: 1.2rem;
   font-weight: 600;
-  margin-top: 0.85rem;
-  margin-bottom: 0.3rem;
+  margin-top: 1rem;
+  margin-bottom: 0.35rem;
 }
 
-#preview-content p {
-  margin-top: 0.25rem;
-  margin-bottom: 0.5rem;
+#editor p {
+  margin-top: 0.35rem;
+  margin-bottom: 0.65rem;
 }
 
-#preview-content ul {
+#editor ul {
   list-style-type: disc;
-  padding-left: 1.3rem;
-  margin-bottom: 0.5rem;
+  padding-left: 1.4rem;
+  margin-bottom: 0.6rem;
 }
 
-#preview-content ol {
+#editor ol {
   list-style-type: decimal;
-  padding-left: 1.3rem;
-  margin-bottom: 0.5rem;
+  padding-left: 1.4rem;
+  margin-bottom: 0.6rem;
 }
 
-#preview-content li {
-  margin-bottom: 0.2rem;
+#editor li {
+  margin-bottom: 0.25rem;
 }
 
 /* Notion 折疊列表 Toggle List */
-#preview-content details {
+#editor details {
   margin: 0.6rem 0;
   padding: 0.5rem 0.8rem;
   border-radius: 0.375rem;
@@ -152,36 +164,36 @@
   transition: background-color 0.15s;
 }
 
-.dark #preview-content details {
+.dark #editor details {
   background-color: rgba(255, 255, 255, 0.03);
   border-color: rgba(255, 255, 255, 0.08);
 }
 
-#preview-content details[open] {
+#editor details[open] {
   background-color: rgba(55, 53, 47, 0.05);
 }
 
-.dark #preview-content details[open] {
+.dark #editor details[open] {
   background-color: rgba(255, 255, 255, 0.05);
 }
 
-#preview-content summary {
+#editor summary {
   font-weight: 600;
   outline: none;
   user-select: none;
 }
 
-/* 圖片、音訊與影片自適應排版與就地播放器 */
-#preview-content img {
+/* 圖片、音訊與影片自適應排版（純淨無網址） */
+#editor img {
   max-width: 100%;
   height: auto;
   border-radius: 0.5rem;
   margin: 0.75rem auto;
   display: block;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-#preview-content video {
+#editor video {
   max-width: 100%;
   border-radius: 0.5rem;
   margin: 0.75rem 0;
@@ -189,12 +201,12 @@
   background: black;
 }
 
-#preview-content audio {
+#editor audio {
   width: 100%;
   margin: 0.5rem 0;
 }
 
-#preview-content iframe {
+#editor iframe {
   width: 100%;
   min-height: 320px;
   border-radius: 0.5rem;
@@ -205,7 +217,7 @@
 }
 
 /* Notion Callout 提示框排版 */
-#preview-content blockquote {
+#editor blockquote {
   margin: 0.75rem 0;
   padding: 0.65rem 0.9rem;
   background-color: #f7f6f3;
@@ -215,14 +227,14 @@
   font-style: normal;
 }
 
-.dark #preview-content blockquote {
+.dark #editor blockquote {
   background-color: #202020;
   border-left-color: #38bdf8;
   color: #9ca3af;
 }
 
 /* 程式碼區塊與複製按鈕 */
-#preview-content pre {
+#editor pre {
   position: relative;
   background-color: #1e1e1e;
   color: #f8fafc;
@@ -232,13 +244,13 @@
   margin: 0.75rem 0;
 }
 
-#preview-content pre code {
+#editor pre code {
   background: none;
   padding: 0;
   color: inherit;
 }
 
-#preview-content code {
+#editor code {
   background-color: rgba(135, 131, 120, 0.15);
   color: #eb5757;
   padding: 0.15rem 0.35rem;
@@ -247,13 +259,32 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-.dark #preview-content code {
+.dark #editor code {
   color: #f87171;
   background-color: rgba(255, 255, 255, 0.1);
 }
 
+.copy-code-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.15s;
+}
+
+.copy-code-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
 /* 資料表格 */
-#preview-content table {
+#editor table {
   width: 100%;
   border-collapse: collapse;
   margin: 0.75rem 0;
@@ -262,27 +293,27 @@
   display: block;
 }
 
-#preview-content th, #preview-content td {
+#editor th, #editor td {
   border: 1px solid #e9e9e7;
   padding: 0.45rem 0.65rem;
   text-align: left;
 }
 
-.dark #preview-content th, .dark #preview-content td {
+.dark #editor th, .dark #editor td {
   border-color: #2f2f2f;
 }
 
-#preview-content th {
+#editor th {
   background-color: #f7f6f3;
   font-weight: 600;
 }
 
-.dark #preview-content th {
+.dark #editor th {
   background-color: #1f1f1f;
 }
 
 /* 待辦事項 Checkbox */
-#preview-content input[type="checkbox"] {
+#editor input[type="checkbox"] {
   margin-right: 0.4rem;
   accent-color: #2383e2;
   cursor: pointer;
@@ -358,37 +389,299 @@
 
 /* 列印 / PDF 匯出優化 */
 @media print {
-  header, aside, #editor-header, #editor-wrapper, #outline-panel, footer, #settings-modal, #toast, #slash-menu, #mobile-toolbar, #ai-panel {
+  header, aside, #editor-header, #outline-panel, footer, #settings-modal, #toast, #slash-menu, #mobile-toolbar, #ai-panel {
     display: none !important;
   }
-  body, main, #content-container, #preview-wrapper {
+  body, main, #main-scroll-container, #editor {
     overflow: visible !important;
     height: auto !important;
     background: white !important;
     color: black !important;
     display: block !important;
-  }
-  #preview-wrapper {
     padding: 0 !important;
   }
 }
 
-/* 程式碼一鍵複製按鈕 */
-.copy-code-btn {
-  position: absolute;
-  top: 0.4rem;
-  right: 0.4rem;
-  padding: 0.2rem 0.5rem;
-  font-size: 10px;
-  background: rgba(255, 255, 255, 0.15);
-  color: #e2e8f0;
+
+/* ==========================================================================
+   Notion 級別升級：無限資料夾、彩色標籤系統、封面與麵包屑樣式表
+   ========================================================================== */
+
+/* Notion 經典 9 款柔和膠囊配色 */
+.notion-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
   border-radius: 0.25rem;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  user-select: none;
+  line-height: 1.3;
+  border: 1px solid transparent;
+}
+.notion-tag .tag-remove-btn {
+  opacity: 0.6;
+  border-radius: 50%;
+  padding: 1px;
+  transition: opacity 0.1s;
   cursor: pointer;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  transition: all 0.15s;
+}
+.notion-tag:hover .tag-remove-btn {
+  opacity: 1;
 }
 
-.copy-code-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
+.notion-tag-gray { background-color: #ebeced; color: #37352f; border-color: #e0e1e2; }
+.dark .notion-tag-gray { background-color: #2f2f2f; color: #9b9a97; border-color: #3d3d3d; }
+
+.notion-tag-brown { background-color: #e9e5e3; color: #64473a; border-color: #ded9d6; }
+.dark .notion-tag-brown { background-color: #382e2b; color: #b39b94; border-color: #493b37; }
+
+.notion-tag-orange { background-color: #faece3; color: #d9730d; border-color: #f5dcce; }
+.dark .notion-tag-orange { background-color: #492f24; color: #e78b39; border-color: #5c3b2d; }
+
+.notion-tag-yellow { background-color: #fbf3db; color: #cb901b; border-color: #f5e7c1; }
+.dark .notion-tag-yellow { background-color: #403b29; color: #e5b746; border-color: #554e36; }
+
+.notion-tag-green { background-color: #edf3ec; color: #448361; border-color: #dce7db; }
+.dark .notion-tag-green { background-color: #283b32; color: #6ab589; border-color: #344c40; }
+
+.notion-tag-blue { background-color: #e7f3f8; color: #337ea9; border-color: #d4e7f1; }
+.dark .notion-tag-blue { background-color: #203c4b; color: #529cca; border-color: #2b4c5e; }
+
+.notion-tag-purple { background-color: #f4f0f7; color: #9065b0; border-color: #e8e0ee; }
+.dark .notion-tag-purple { background-color: #352944; color: #b48ee0; border-color: #453558; }
+
+.notion-tag-pink { background-color: #fbf0f5; color: #c14c8a; border-color: #f5e0ec; }
+.dark .notion-tag-pink { background-color: #442838; color: #e274a9; border-color: #573347; }
+
+.notion-tag-red { background-color: #fdebec; color: #d44c47; border-color: #fadcd9; }
+.dark .notion-tag-red { background-color: #432929; color: #e66a65; border-color: #563434; }
+
+/* 下拉式標籤浮動面板 Popover */
+.notion-popover {
+  position: absolute;
+  z-index: 60;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  animation: popoverFadeIn 0.12s ease-out;
+}
+.dark .notion-popover {
+  background: #252525;
+  border-color: #383838;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+@keyframes popoverFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 無限層級資料夾樹狀目錄 (Infinite Nested Folders) */
+.folder-tree-node {
+  position: relative;
+  user-select: none;
+}
+.folder-item-row {
+  display: flex;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-size: 12px;
+  color: #37352f;
+  transition: all 0.1s ease;
+  gap: 0.35rem;
+}
+.dark .folder-item-row {
+  color: #d4d4d4;
+}
+.folder-item-row:hover {
+  background-color: rgba(55, 53, 47, 0.06);
+}
+.dark .folder-item-row:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+.folder-item-row.active {
+  background-color: rgba(35, 131, 226, 0.12) !important;
+  color: #2383e2 !important;
+  font-weight: 600;
+}
+.dark .folder-item-row.active {
+  background-color: rgba(35, 131, 226, 0.22) !important;
+  color: #38bdf8 !important;
+}
+.folder-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  color: #9ca3af;
+  transition: transform 0.15s ease;
+}
+.folder-toggle-btn.open {
+  transform: rotate(90deg);
+}
+.folder-quick-actions {
+  display: none;
+  margin-left: auto;
+  align-items: center;
+  gap: 2px;
+}
+.folder-item-row:hover .folder-quick-actions {
+  display: flex;
+}
+.folder-action-icon {
+  padding: 2px;
+  border-radius: 3px;
+  color: #6b7280;
+  transition: background-color 0.1s;
+}
+.folder-action-icon:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #111827;
+}
+.dark .folder-action-icon:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: #f3f4f6;
+}
+.folder-sub-tree {
+  margin-left: 0.85rem;
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+  padding-left: 0.25rem;
+}
+.dark .folder-sub-tree {
+  border-left-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 頂部麵包屑導航 (Breadcrumbs) */
+.notion-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 6px;
+}
+.notion-breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  transition: background 0.1s;
+  color: inherit;
+  text-decoration: none;
+}
+.notion-breadcrumb-item:hover {
+  background: rgba(55, 53, 47, 0.08);
+  color: #111827;
+}
+.dark .notion-breadcrumb-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3f4f6;
+}
+
+/* 頁面封面橫幅 (Page Cover Banner) */
+.notion-cover-wrapper {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background-size: cover;
+  background-position: center;
+  transition: all 0.2s ease;
+}
+.notion-cover-wrapper:hover .cover-btn-group {
+  opacity: 1;
+}
+.cover-btn-group {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+.cover-action-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: rgba(0, 0, 0, 0.6);
   color: white;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.cover-action-btn:hover {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+/* Notion Callout 提示方塊 */
+.notion-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background-color: #f7f6f3;
+  margin: 10px 0;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+.dark .notion-callout {
+  background-color: #222222;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.notion-callout-icon {
+  font-size: 18px;
+  line-height: 1;
+  user-select: none;
+  cursor: pointer;
+}
+.notion-callout-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Notion 待辦清單 (Todo Item) */
+.notion-todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0;
+}
+.notion-todo-checkbox {
+  margin-top: 5px !important;
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.notion-todo-text.checked {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+/* 分隔線 */
+.notion-divider {
+  border: 0;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.1);
+  margin: 1.25rem 0;
+}
+.dark .notion-divider {
+  background: rgba(255, 255, 255, 0.1);
 }
