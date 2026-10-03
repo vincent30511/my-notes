@@ -1,4 +1,4 @@
-/* Notion 風格深度定制、多媒體播放與 AI 助理樣式表 */
+/* Notion 風格深度定制、多媒體播放與 AI 助手樣式表 */
 
 /* 捲軸美化 */
 ::-webkit-scrollbar {
@@ -141,6 +141,36 @@
   margin-bottom: 0.2rem;
 }
 
+/* Notion 折疊列表 Toggle List */
+#preview-content details {
+  margin: 0.6rem 0;
+  padding: 0.5rem 0.8rem;
+  border-radius: 0.375rem;
+  background-color: rgba(55, 53, 47, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.dark #preview-content details {
+  background-color: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+#preview-content details[open] {
+  background-color: rgba(55, 53, 47, 0.05);
+}
+
+.dark #preview-content details[open] {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+#preview-content summary {
+  font-weight: 600;
+  outline: none;
+  user-select: none;
+}
+
 /* 圖片、音訊與影片自適應排版與就地播放器 */
 #preview-content img {
   max-width: 100%;
@@ -191,22 +221,9 @@
   color: #9ca3af;
 }
 
-/* 程式碼區塊 */
-#preview-content code {
-  background-color: rgba(135, 131, 120, 0.15);
-  color: #eb5757;
-  padding: 0.15rem 0.35rem;
-  border-radius: 0.25rem;
-  font-size: 85%;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
-.dark #preview-content code {
-  color: #f87171;
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
+/* 程式碼區塊與複製按鈕 */
 #preview-content pre {
+  position: relative;
   background-color: #1e1e1e;
   color: #f8fafc;
   padding: 0.85rem;
@@ -219,6 +236,20 @@
   background: none;
   padding: 0;
   color: inherit;
+}
+
+#preview-content code {
+  background-color: rgba(135, 131, 120, 0.15);
+  color: #eb5757;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 85%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.dark #preview-content code {
+  color: #f87171;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* 資料表格 */
@@ -340,4 +371,24 @@
   #preview-wrapper {
     padding: 0 !important;
   }
+}
+
+/* 程式碼一鍵複製按鈕 */
+.copy-code-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.15s;
+}
+
+.copy-code-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
 }

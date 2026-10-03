@@ -1,7 +1,7 @@
 /**
  * CloudNotes Pro - 對標 Notion 的靜態筆記工作區核心邏輯
- * 包含：內嵌 Google Gemini AI 智能解惑助理、Google Drive 影音圖片就地即時播放、
- *      手機端深度適配、全自動靜默登入與續期、Frontmatter 屬性系統、Slash 指令選單、大綱目錄
+ * 包含：CloudNotes AI 智能助手 (Gemini 3.8)、選取文字針對性處理、
+ *      Notion 模板庫、Toggle 折疊列表、代碼一鍵複製、影音即時播放、自動靜默登入
  */
 
 // 全域狀態
@@ -21,8 +21,7 @@ const state = {
   filterMode: 'all',
   theme: localStorage.getItem('cloudnotes_theme') || 'light',
   autoSaveTimer: null,
-  tokenRefreshTimer: null,
-  aiChatHistory: []
+  tokenRefreshTimer: null
 };
 
 // DOM 元素引用
@@ -35,6 +34,8 @@ const DOM = {
   syncText: document.getElementById('sync-text'),
   insertMediaBtn: document.getElementById('insert-media-btn'),
   mediaUploadInput: document.getElementById('media-upload-input'),
+  templateDropdownBtn: document.getElementById('template-dropdown-btn'),
+  templateMenu: document.getElementById('template-menu'),
   mobileToggleViewBtn: document.getElementById('mobile-toggle-view-btn'),
   mobileViewIcon: document.getElementById('mobile-view-icon'),
   viewSplitBtn: document.getElementById('view-split-btn'),
@@ -53,7 +54,7 @@ const DOM = {
   userProfile: document.getElementById('user-profile'),
   userAvatar: document.getElementById('user-avatar'),
 
-  // AI 解惑助理
+  // AI 助手 (CloudNotes AI)
   toggleAiBtn: document.getElementById('toggle-ai-btn'),
   aiPanel: document.getElementById('ai-panel'),
   aiBackdrop: document.getElementById('ai-backdrop'),
@@ -64,6 +65,7 @@ const DOM = {
   aiBtnSummarize: document.getElementById('ai-btn-summarize'),
   aiBtnPolish: document.getElementById('ai-btn-polish'),
   aiBtnIdeas: document.getElementById('ai-btn-ideas'),
+  aiBtnTranslate: document.getElementById('ai-btn-translate'),
   aiMessages: document.getElementById('ai-messages'),
   aiUserInput: document.getElementById('ai-user-input'),
   aiSendBtn: document.getElementById('ai-send-btn'),
@@ -426,9 +428,7 @@ async function uploadMediaFile(file) {
     return;
   }
 
-  let typeText = '圖片';
-  if (isVideo) typeText = '影片';
-  if (isAudio) typeText = '音訊';
+  let typeText = isVideo ? '影片' : (isAudio ? '音訊' : '圖片');
 
   if (DOM.uploadProgressBar) {
     DOM.uploadProgressBar.classList.remove('hidden');
@@ -437,7 +437,6 @@ async function uploadMediaFile(file) {
   showToast(`正在上傳 ${typeText} 至 Google Drive...`);
 
   try {
-    // 1. 發起 Resumable Upload
     const initRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
       method: 'POST',
       headers: {
@@ -458,7 +457,6 @@ async function uploadMediaFile(file) {
 
     if (DOM.uploadProgressBar) DOM.uploadProgressBar.style.width = '70%';
 
-    // 2. 上傳二進位資料
     const uploadRes = await fetch(uploadUrl, {
       method: 'PUT',
       headers: { 'Content-Type': file.type },
@@ -471,7 +469,6 @@ async function uploadMediaFile(file) {
 
     if (DOM.uploadProgressBar) DOM.uploadProgressBar.style.width = '90%';
 
-    // 3. 設定公開唯讀權限以便直接串流播放
     try {
       await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
         method: 'POST',
@@ -493,16 +490,13 @@ async function uploadMediaFile(file) {
       }, 500);
     }
 
-    // 4. 插入就地即時播放組件
     let snippet = '';
     if (isImage) {
       const imgUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
       snippet = `\n![${file.name}](${imgUrl})\n`;
     } else if (isVideo) {
-      // 內嵌 Google Drive 播放器，支援跨手機與電腦原地串流與全螢幕
       snippet = `\n<iframe src="https://drive.google.com/file/d/${fileId}/preview" width="100%" height="320" allow="autoplay; fullscreen" class="rounded-lg my-2 border-0 shadow"></iframe>\n`;
     } else if (isAudio) {
-      // 內建 HTML5 音訊播放器
       const audioUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
       snippet = `\n<audio controls class="w-full my-2" src="${audioUrl}" preload="metadata"></audio>\n`;
     }
@@ -531,7 +525,7 @@ function insertTextAtCursor(snippet) {
   triggerAutoSaveDebounce();
 }
 
-// ----------------- ✨ 進駐 AI 智能解惑助理 (Gemini API) -----------------
+// ----------------- ✨ CloudNotes AI 助手 (Gemini 3.8) -----------------
 function toggleAiPanel() {
   DOM.aiPanel.classList.toggle('translate-x-full');
   if (DOM.aiBackdrop) DOM.aiBackdrop.classList.toggle('hidden');
@@ -558,29 +552,36 @@ async function sendAiMessage(userPrompt, actionType = 'chat') {
     return;
   }
 
-  // 加入使用者氣泡
-  appendAiBubble('user', userPrompt);
+  // 判斷是否有選取的文字 (Highlight Action)
+  const textarea = DOM.markdownInput;
+  const selStart = textarea.selectionStart || 0;
+  const selEnd = textarea.selectionEnd || 0;
+  const selectedText = (selStart !== selEnd) ? textarea.value.substring(selStart, selEnd).trim() : '';
+
+  let finalUserPrompt = userPrompt;
+  if (selectedText) {
+    finalUserPrompt = `${userPrompt}\n\n【針對以下選取的文字片段進行處理】：\n"""\n${selectedText}\n"""`;
+  }
+
+  appendAiBubble('user', userPrompt + (selectedText ? '（針對選取文字）' : ''));
   DOM.aiUserInput.value = '';
   DOM.aiSendBtn.disabled = true;
 
-  // 加入機器人思考中氣泡
-  const botBubble = appendAiBubble('bot', '<span class="flex items-center gap-1.5 text-purple-500 animate-pulse"><i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> AI 正在思考中...</span>');
+  const botBubble = appendAiBubble('bot', '<span class="flex items-center gap-1.5 text-purple-500 animate-pulse"><i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> AI 助手正在分析寫作中...</span>');
   initLucide();
 
-  // 整理當前筆記上下文
   const currentTitle = DOM.noteTitle.value || '無標題筆記';
   const currentContent = DOM.markdownInput.value || '（筆記內容為空）';
 
-  let systemPrompt = `你是一位進駐在個人雲端筆記網站中的專業 AI 智能助手。
-請以繁體中文回答，語氣親切、專業、客觀清晰，善用條理分明的 Markdown 排版。
-目前使用者正在檢視/編輯的筆記如下：
-【標題】：${currentTitle}
-【內容】：
+  let systemPrompt = `你是一位進駐在個人雲端筆記網站中的專業 AI 助手（CloudNotes AI）。
+請以繁體中文回答，風格簡潔、專業、精確，善用結構化的 Markdown 排版。
+使用者當前的筆記標題為《${currentTitle}》，內容如下：
 ${currentContent.substring(0, 4000)}
 
-請根據使用者的需求進行解答、分析、摘要或創作。`;
+請依據使用者的指示進行精準處理。`;
 
   try {
+    // 嚴格使用 Gemini 3.8 Flash 最新版
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${state.geminiApiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -589,7 +590,7 @@ ${currentContent.substring(0, 4000)}
           {
             role: 'user',
             parts: [
-              { text: systemPrompt + '\n\n【使用者指示】：' + userPrompt }
+              { text: systemPrompt + '\n\n【使用者指示】：' + finalUserPrompt }
             ]
           }
         ],
@@ -608,26 +609,54 @@ ${currentContent.substring(0, 4000)}
     const data = await res.json();
     const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '抱歉，暫時無法取得回覆。';
 
-    // 渲染 Markdown 回覆，並附上「插入至筆記」功能
     const renderedHtml = window.marked ? window.marked.parse(replyText) : replyText;
+    
+    // 如果有選取文字，提供「替換選取」與「插入末尾」兩種選項
+    let actionButtonsHtml = `
+      <button class="insert-to-note-btn text-[11px] text-purple-600 dark:text-purple-400 hover:text-purple-800 flex items-center gap-1 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+        <i data-lucide="plus" class="w-3 h-3"></i> 插入至筆記
+      </button>
+    `;
+    if (selectedText) {
+      actionButtonsHtml = `
+        <button class="replace-selection-btn text-[11px] text-blue-600 dark:text-blue-400 hover:text-blue-800 flex items-center gap-1 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded border border-blue-200 dark:border-blue-800 mr-1.5">
+          <i data-lucide="check" class="w-3 h-3"></i> 替換選取文字
+        </button>
+        ${actionButtonsHtml}
+      `;
+    }
+
     botBubble.innerHTML = `
       <div class="prose dark:prose-invert text-xs">${renderedHtml}</div>
       <div class="mt-2 pt-2 border-t border-purple-100 dark:border-purple-900/40 flex justify-end">
-        <button class="insert-to-note-btn text-[11px] text-purple-600 dark:text-purple-400 hover:text-purple-800 flex items-center gap-1 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">
-          <i data-lucide="plus" class="w-3 h-3"></i> 插入至當前筆記
-        </button>
+        ${actionButtonsHtml}
       </div>
     `;
 
-    // 綁定「插入至筆記」按鈕事件
+    // 替換按鈕
+    const replaceBtn = botBubble.querySelector('.replace-selection-btn');
+    if (replaceBtn) {
+      replaceBtn.addEventListener('click', () => {
+        const val = textarea.value;
+        const updated = val.substring(0, selStart) + replyText + val.substring(selEnd);
+        textarea.value = updated;
+        renderMarkdown(updated);
+        updateStats(updated);
+        renderOutline(updated);
+        triggerAutoSaveDebounce();
+        showToast('已替換選取的文字！');
+      });
+    }
+
+    // 插入按鈕
     botBubble.querySelector('.insert-to-note-btn').addEventListener('click', () => {
-      insertTextAtCursor(`\n\n> 🤖 **AI 解惑建議：**\n${replyText}\n`);
+      insertTextAtCursor(`\n\n> 🤖 **AI 助手建議：**\n${replyText}\n`);
       showToast('已將 AI 內容插入至筆記！');
     });
 
     initLucide();
   } catch (err) {
-    botBubble.innerHTML = `<span class="text-red-500">AI 解答出錯：${escapeHtml(err.message)}</span>`;
+    botBubble.innerHTML = `<span class="text-red-500">AI 助理出錯：${escapeHtml(err.message)}</span>`;
   } finally {
     DOM.aiSendBtn.disabled = false;
   }
@@ -640,6 +669,164 @@ function appendAiBubble(role, contentHtml) {
   DOM.aiMessages.appendChild(bubble);
   DOM.aiMessages.scrollTop = DOM.aiMessages.scrollHeight;
   return bubble;
+}
+
+// ----------------- Notion 模板庫系統 -----------------
+const TEMPLATES = {
+  meeting: {
+    title: '專案每週會議記錄',
+    icon: '📋',
+    status: '🚀 進行中',
+    tags: ['會議', '工作'],
+    content: `# 📋 專案每週會議記錄
+
+**📅 會議時間：** 2026-10-03  
+**👥 與會人員：** [填寫姓名]  
+**🎯 會議核心目標：** 盤點本週進度與排除瓶頸  
+
+---
+
+## 📌 議題討論
+- **議題一：進度回顧**
+  - 重點說明：
+- **議題二：技術瓶頸與跨部門協同**
+  - 重點說明：
+
+## ✅ 行動待辦 (Action Items)
+- [ ] 任務一 (負責人：Vincent，截止日：10/10)
+- [ ] 任務二 (負責人：，截止日：)
+
+## 💡 會議結論
+> **總結：** 本週核心交付目標已確認，下週一前同步最新版本。
+`
+  },
+  project: {
+    title: 'Q4 專案路線圖與里程碑',
+    icon: '🚀',
+    status: '🚀 進行中',
+    tags: ['專案', '規劃'],
+    content: `# 🚀 Q4 專案路線圖與里程碑
+
+**🎯 專案目標：** 一句話定義此專案為團隊與使用者帶來的價值。  
+
+---
+
+## 📊 里程碑進度看板
+| 里程碑 | 核心目標 | 負責人 | 狀態 | 預計完成 |
+| :--- | :--- | :--- | :--- | :--- |
+| M1 | 需求分析與架構設計 | Vincent | ✅ 已完成 | 10/05 |
+| M2 | 核心功能實作與測試 | Vincent | 🚀 進行中 | 10/20 |
+| M3 | 全面發布與上線推廣 | 全體成員 | 💡 構思中 | 11/01 |
+
+## ⚠️ 潛在風險評估
+> 提前確認第三方服務的 API 限制與權限設定。
+`
+  },
+  book: {
+    title: '讀書心得與精華摘錄',
+    icon: '📖',
+    status: '✅ 已完成',
+    tags: ['閱讀', '心得'],
+    content: `# 📖 《書名》精華筆記與心得
+
+**👤 作者：**   
+**⭐ 推薦指數：** ⭐⭐⭐⭐⭐  
+**🏷️ 領域分類：** 思維成長 / 商業邏輯  
+
+---
+
+## 💡 一句話總結全書
+> 這本書帶給我最大的認知突破是什麼？
+
+## 🔑 核心重點整理
+1. **重點一：** 
+2. **重點二：** 
+3. **重點三：** 
+
+## 📝 撼動心靈的金句
+> 「請在此處摘錄書中金句。」
+
+## 🎯 行動實踐清單
+- [ ] 如何將書中原則落實於日常工作中？
+`
+  },
+  review: {
+    title: '每週個人成長覆盤',
+    icon: '🗓️',
+    status: '✅ 已完成',
+    tags: ['覆盤', '生活'],
+    content: `# 🗓️ 每週個人成長與反思覆盤
+
+---
+
+## 🌟 本週亮點成就 (Wins)
+- 列出本週最值得讚許與自豪的成果。
+
+## 🤔 遇到的問題與調整方案 (Review)
+- **問題：** 
+- **調整：** 
+
+## 🎯 下週三大關鍵目標 (Top 3)
+1. 目標一
+2. 目標二
+3. 目標三
+`
+  },
+  tech: {
+    title: '系統技術架構設計文件',
+    icon: '💻',
+    status: '💡 構思中',
+    tags: ['技術', '架構'],
+    content: `# 💻 系統技術架構設計文件
+
+**系統名稱：** CloudNotes Pro  
+**設計原則：** 輕量、純靜態、零伺服器維護、資料自主  
+
+---
+
+## 🏗️ 架構總覽
+- **前端：** 靜態網頁（HTML5 + Tailwind CSS + 原生 ES6）
+- **儲存：** Google Drive API v3 (Resumable Upload)
+- **智慧引擎：** Google Gemini 3.8 Flash
+
+## 💡 核心流程
+<details>
+<summary><b>點擊展開資料流向細節...</b></summary>
+
+1. 使用者在前端編輯 Markdown。
+2. 系統防抖 1.8 秒後觸發 Google Drive API 存檔。
+3. 媒體檔案經由 Google CDN 原地解析串流。
+</details>
+`
+  }
+};
+
+function applyTemplate(type) {
+  const tpl = TEMPLATES[type];
+  if (!tpl) return;
+
+  DOM.noteTitle.value = tpl.title;
+  DOM.headerTitle.textContent = tpl.title;
+  DOM.noteEmojiBtn.textContent = tpl.icon;
+  DOM.noteStatusSelect.value = tpl.status;
+  DOM.noteTagsInput.value = tpl.tags.join(', ');
+  DOM.markdownInput.value = tpl.content;
+
+  if (state.currentNote) {
+    state.currentNote.name = tpl.title;
+    state.currentNote.meta.icon = tpl.icon;
+    state.currentNote.meta.status = tpl.status;
+    state.currentNote.meta.tags = tpl.tags;
+    state.currentNote.bodyContent = tpl.content;
+  }
+
+  renderMarkdown(tpl.content);
+  updateStats(tpl.content);
+  renderOutline(tpl.content);
+  renderNotesList();
+  triggerAutoSaveDebounce();
+  DOM.templateMenu.classList.add('hidden');
+  showToast(`已套用「${tpl.title}」模板！`);
 }
 
 // ----------------- Frontmatter 解析與序列化 -----------------
@@ -821,7 +1008,7 @@ function createNewNote() {
       tags: ['靈感'],
       pinned: false
     },
-    bodyContent: '# 新建筆記\n\n在此處輸入內容，或點擊「圖影音」放入播放器！\n'
+    bodyContent: '# 新建筆記\n\n在此處輸入內容，或點擊上方「模板」套用精美結構！\n'
   };
 
   DOM.noteTitle.value = state.currentNote.name;
@@ -987,7 +1174,7 @@ function clearEditor() {
   DOM.previewContent.innerHTML = '';
 }
 
-// ----------------- 即時渲染 (支援影音就地播放) -----------------
+// ----------------- 即時渲染 (支援影音就地播放、折疊與代碼複製) -----------------
 function renderMarkdown(content) {
   if (!window.marked || !window.DOMPurify) {
     DOM.previewContent.textContent = content;
@@ -995,10 +1182,25 @@ function renderMarkdown(content) {
   }
   const rawHtml = window.marked.parse(content || '');
   const cleanHtml = window.DOMPurify.sanitize(rawHtml, {
-    ADD_TAGS: ['iframe', 'video', 'audio', 'source'],
-    ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type']
+    ADD_TAGS: ['iframe', 'video', 'audio', 'source', 'details', 'summary'],
+    ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open']
   });
   DOM.previewContent.innerHTML = cleanHtml;
+
+  // 為程式碼區塊添加複製按鈕
+  DOM.previewContent.querySelectorAll('pre').forEach(pre => {
+    if (pre.querySelector('.copy-code-btn')) return;
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'copy-code-btn';
+    copyBtn.textContent = '複製';
+    copyBtn.onclick = () => {
+      const code = pre.querySelector('code')?.innerText || pre.innerText;
+      navigator.clipboard.writeText(code);
+      copyBtn.textContent = '已複製！';
+      setTimeout(() => copyBtn.textContent = '複製', 2000);
+    };
+    pre.appendChild(copyBtn);
+  });
 }
 
 function renderOutline(content) {
@@ -1089,11 +1291,11 @@ function insertSlashSnippet(type) {
 
   let snippet = '';
   switch (type) {
+    case 'toggle': snippet = '<details>\n<summary>點擊展開折疊清單...</summary>\n\n在此處輸入隱藏內容\n</details>\n'; break;
     case 'h1': snippet = '# '; break;
     case 'h2': snippet = '## '; break;
     case 'h3': snippet = '### '; break;
     case 'todo': snippet = '- [ ] '; break;
-    case 'bullet': snippet = '- '; break;
     case 'callout': snippet = '> 💡 **醒目提示：** '; break;
     case 'table': snippet = '| 標題 1 | 標題 2 |\n| --- | --- |\n| 項目 1 | 項目 2 |\n'; break;
     case 'code': snippet = "```javascript\n// 請輸入代碼\n```\n"; break;
@@ -1238,11 +1440,21 @@ function bindEvents() {
   DOM.notePinBtn.addEventListener('click', togglePin);
   DOM.refreshBtn.addEventListener('click', fetchNotesList);
 
-  // ✨ AI 助理開關
+  // ✨ AI 助手開關
   DOM.toggleAiBtn.addEventListener('click', toggleAiPanel);
   DOM.closeAiBtn.addEventListener('click', closeAiPanel);
   if (DOM.aiBackdrop) DOM.aiBackdrop.addEventListener('click', closeAiPanel);
   if (DOM.mbToolAi) DOM.mbToolAi.addEventListener('click', toggleAiPanel);
+
+  // 模板選單開關與套用
+  DOM.templateDropdownBtn.addEventListener('click', () => {
+    DOM.templateMenu.classList.toggle('hidden');
+  });
+  document.querySelectorAll('#template-menu button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyTemplate(btn.dataset.tpl);
+    });
+  });
 
   // AI Key 快速儲存
   DOM.aiKeyQuickSave.addEventListener('click', () => {
@@ -1256,15 +1468,18 @@ function bindEvents() {
     }
   });
 
-  // AI 快捷按鈕 (摘要、潤飾、延伸思考)
+  // AI 快捷按鈕 (摘要、潤飾、延伸思考、翻譯)
   DOM.aiBtnSummarize.addEventListener('click', () => {
-    sendAiMessage('請為我摘要這篇筆記的核心要點，條列總結。', 'summarize');
+    sendAiMessage('請為我摘要這篇筆記的核心要點，以條列式清晰呈現。', 'summarize');
   });
   DOM.aiBtnPolish.addEventListener('click', () => {
-    sendAiMessage('請幫我潤飾這篇筆記的文筆與句子結構，改善閱讀流暢度並修正錯字。', 'polish');
+    sendAiMessage('請幫我潤飾文字表達，修訂語病並改善閱讀流暢度。', 'polish');
   });
   DOM.aiBtnIdeas.addEventListener('click', () => {
-    sendAiMessage('根據這篇筆記的主題，請為我提出 3 個深入思考的延伸問題或創意觀點。', 'ideas');
+    sendAiMessage('根據這篇內容，提出 3 個深入思考的延伸問題或創意切入點。', 'ideas');
+  });
+  DOM.aiBtnTranslate.addEventListener('click', () => {
+    sendAiMessage('請將內容精確翻譯（繁體中文 ⇋ 英文流暢對譯）。', 'translate');
   });
 
   // AI 自訂發送
@@ -1385,13 +1600,13 @@ function bindEvents() {
 
   DOM.searchInput.addEventListener('input', renderNotesList);
 
-  // 匯出下拉選單
-  DOM.exportDropdownBtn.addEventListener('click', () => {
-    DOM.exportMenu.classList.toggle('hidden');
-  });
+  // 點擊外部自動關閉下拉選單
   document.addEventListener('click', (e) => {
     if (!DOM.exportDropdownBtn.contains(e.target) && !DOM.exportMenu.contains(e.target)) {
       DOM.exportMenu.classList.add('hidden');
+    }
+    if (!DOM.templateDropdownBtn.contains(e.target) && !DOM.templateMenu.contains(e.target)) {
+      DOM.templateMenu.classList.add('hidden');
     }
   });
 
@@ -1456,7 +1671,6 @@ function bindEvents() {
     }
   });
 
-  // 視窗尺寸改變時自動調整視圖
   window.addEventListener('resize', () => {
     if (window.innerWidth < 768 && state.viewMode === 'split') {
       setViewMode('edit');
