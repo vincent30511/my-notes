@@ -1,13 +1,14 @@
 /**
  * CloudNotes Pro - 對標 Notion 的靜態筆記工作區核心邏輯
- * 包含：手機端深度適配、Google Drive 圖影上傳、全自動靜默登入與續期、
- *      Frontmatter 屬性系統、Slash 指令選單、大綱目錄 (TOC)、自動儲存、匯出
+ * 包含：內嵌 Google Gemini AI 智能解惑助理、Google Drive 影音圖片就地即時播放、
+ *      手機端深度適配、全自動靜默登入與續期、Frontmatter 屬性系統、Slash 指令選單、大綱目錄
  */
 
 // 全域狀態
 const state = {
   clientId: localStorage.getItem('cloudnotes_client_id') || '',
   folderName: localStorage.getItem('cloudnotes_folder_name') || 'DriveNotes',
+  geminiApiKey: localStorage.getItem('cloudnotes_gemini_key') || '',
   folderId: null,
   accessToken: null,
   tokenClient: null,
@@ -15,12 +16,13 @@ const state = {
   notes: [],
   currentNote: null,
   isDirty: false,
-  viewMode: window.innerWidth < 768 ? 'edit' : 'split', // 手機預設純編輯
+  viewMode: window.innerWidth < 768 ? 'edit' : 'split',
   layoutMode: localStorage.getItem('cloudnotes_layout') || 'list',
   filterMode: 'all',
   theme: localStorage.getItem('cloudnotes_theme') || 'light',
   autoSaveTimer: null,
-  tokenRefreshTimer: null
+  tokenRefreshTimer: null,
+  aiChatHistory: []
 };
 
 // DOM 元素引用
@@ -50,6 +52,21 @@ const DOM = {
   logoutBtn: document.getElementById('logout-btn'),
   userProfile: document.getElementById('user-profile'),
   userAvatar: document.getElementById('user-avatar'),
+
+  // AI 解惑助理
+  toggleAiBtn: document.getElementById('toggle-ai-btn'),
+  aiPanel: document.getElementById('ai-panel'),
+  aiBackdrop: document.getElementById('ai-backdrop'),
+  closeAiBtn: document.getElementById('close-ai-btn'),
+  aiKeyBanner: document.getElementById('ai-key-banner'),
+  aiKeyQuickInput: document.getElementById('ai-key-quick-input'),
+  aiKeyQuickSave: document.getElementById('ai-key-quick-save'),
+  aiBtnSummarize: document.getElementById('ai-btn-summarize'),
+  aiBtnPolish: document.getElementById('ai-btn-polish'),
+  aiBtnIdeas: document.getElementById('ai-btn-ideas'),
+  aiMessages: document.getElementById('ai-messages'),
+  aiUserInput: document.getElementById('ai-user-input'),
+  aiSendBtn: document.getElementById('ai-send-btn'),
 
   // 側邊欄與遮罩
   sidebar: document.getElementById('sidebar'),
@@ -88,6 +105,7 @@ const DOM = {
   outlineList: document.getElementById('outline-list'),
 
   // 手機底部快捷列
+  mbToolAi: document.getElementById('mb-tool-ai'),
   mbToolMedia: document.getElementById('mb-tool-media'),
   mbToolBold: document.getElementById('mb-tool-bold'),
   mbToolTodo: document.getElementById('mb-tool-todo'),
@@ -108,6 +126,7 @@ const DOM = {
   saveSettingsBtn: document.getElementById('save-settings-btn'),
   settingClientId: document.getElementById('setting-client-id'),
   settingFolderName: document.getElementById('setting-folder-name'),
+  settingGeminiKey: document.getElementById('setting-gemini-key'),
   toast: document.getElementById('toast'),
   toastMessage: document.getElementById('toast-message'),
 };
@@ -121,6 +140,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initViewModes();
   bindEvents();
   setupGoogleAuth();
+  checkAiKeyStatus();
 });
 
 function initLucide() {
@@ -157,6 +177,7 @@ function showToast(message, duration = 3000) {
 function initSettingsUI() {
   DOM.settingClientId.value = state.clientId;
   DOM.settingFolderName.value = state.folderName;
+  DOM.settingGeminiKey.value = state.geminiApiKey;
   DOM.headerFolder.textContent = state.folderName;
   DOM.sidebarFolderLabel.textContent = state.folderName;
 }
@@ -164,6 +185,7 @@ function initSettingsUI() {
 function openSettings() {
   DOM.settingClientId.value = state.clientId;
   DOM.settingFolderName.value = state.folderName;
+  DOM.settingGeminiKey.value = state.geminiApiKey;
   DOM.settingsModal.classList.remove('hidden');
 }
 
@@ -172,15 +194,18 @@ function closeSettings() {
 }
 
 function saveSettings() {
-  const newClient = DOM.settingClientId.value.trim();
-  const newFolder = DOM.settingFolderName.value.trim() || 'DriveNotes';
-  state.clientId = newClient;
-  state.folderName = newFolder;
+  state.clientId = DOM.settingClientId.value.trim();
+  state.folderName = DOM.settingFolderName.value.trim() || 'DriveNotes';
+  state.geminiApiKey = DOM.settingGeminiKey.value.trim();
+
   localStorage.setItem('cloudnotes_client_id', state.clientId);
   localStorage.setItem('cloudnotes_folder_name', state.folderName);
+  localStorage.setItem('cloudnotes_gemini_key', state.geminiApiKey);
+
   DOM.headerFolder.textContent = state.folderName;
   DOM.sidebarFolderLabel.textContent = state.folderName;
   closeSettings();
+  checkAiKeyStatus();
   showToast('設定已儲存');
   setupGoogleAuth();
 }
@@ -384,7 +409,7 @@ async function fetchNotesList() {
   }
 }
 
-// ----------------- 圖片與影片上傳模組 (Resumable Upload) -----------------
+// ----------------- 多媒體直接上傳與當場播放模組 -----------------
 async function uploadMediaFile(file) {
   if (!state.accessToken) {
     showToast('請先登入 Google 帳號以進行圖影上傳');
@@ -393,20 +418,26 @@ async function uploadMediaFile(file) {
   if (!state.folderId) await ensureNotesFolder();
 
   const isVideo = file.type.startsWith('video/');
+  const isAudio = file.type.startsWith('audio/');
   const isImage = file.type.startsWith('image/');
-  if (!isImage && !isVideo) {
-    showToast('僅支援圖片或影片檔案');
+
+  if (!isImage && !isVideo && !isAudio) {
+    showToast('僅支援圖片、影片或音訊檔案');
     return;
   }
+
+  let typeText = '圖片';
+  if (isVideo) typeText = '影片';
+  if (isAudio) typeText = '音訊';
 
   if (DOM.uploadProgressBar) {
     DOM.uploadProgressBar.classList.remove('hidden');
     DOM.uploadProgressBar.style.width = '30%';
   }
-  showToast(`正在上傳 ${isVideo ? '影片' : '圖片'} 至 Google Drive...`);
+  showToast(`正在上傳 ${typeText} 至 Google Drive...`);
 
   try {
-    // 1. 發起 Resumable Upload 請求
+    // 1. 發起 Resumable Upload
     const initRes = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable', {
       method: 'POST',
       headers: {
@@ -430,9 +461,7 @@ async function uploadMediaFile(file) {
     // 2. 上傳二進位資料
     const uploadRes = await fetch(uploadUrl, {
       method: 'PUT',
-      headers: {
-        'Content-Type': file.type
-      },
+      headers: { 'Content-Type': file.type },
       body: file
     });
 
@@ -442,7 +471,7 @@ async function uploadMediaFile(file) {
 
     if (DOM.uploadProgressBar) DOM.uploadProgressBar.style.width = '90%';
 
-    // 3. 設定公開唯讀權限，讓 Markdown 預覽能直接展示
+    // 3. 設定公開唯讀權限以便直接串流播放
     try {
       await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}/permissions`, {
         method: 'POST',
@@ -464,18 +493,22 @@ async function uploadMediaFile(file) {
       }, 500);
     }
 
-    // 4. 插入 Markdown 代碼
+    // 4. 插入就地即時播放組件
     let snippet = '';
     if (isImage) {
       const imgUrl = `https://lh3.googleusercontent.com/d/${fileId}`;
       snippet = `\n![${file.name}](${imgUrl})\n`;
-    } else {
-      // 影片支援 Google 內嵌播放器與下載播放
-      snippet = `\n<iframe src="https://drive.google.com/file/d/${fileId}/preview" width="100%" height="320" allow="autoplay" class="rounded-lg my-2 border-0"></iframe>\n`;
+    } else if (isVideo) {
+      // 內嵌 Google Drive 播放器，支援跨手機與電腦原地串流與全螢幕
+      snippet = `\n<iframe src="https://drive.google.com/file/d/${fileId}/preview" width="100%" height="320" allow="autoplay; fullscreen" class="rounded-lg my-2 border-0 shadow"></iframe>\n`;
+    } else if (isAudio) {
+      // 內建 HTML5 音訊播放器
+      const audioUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+      snippet = `\n<audio controls class="w-full my-2" src="${audioUrl}" preload="metadata"></audio>\n`;
     }
 
     insertTextAtCursor(snippet);
-    showToast(`${isVideo ? '影片' : '圖片'} 上傳完成並已插入！`);
+    showToast(`${typeText} 上傳成功，已就地放入播放器！`);
   } catch (err) {
     console.error('上傳失敗:', err);
     if (DOM.uploadProgressBar) DOM.uploadProgressBar.classList.add('hidden');
@@ -496,6 +529,117 @@ function insertTextAtCursor(snippet) {
   updateStats(newText);
   renderOutline(newText);
   triggerAutoSaveDebounce();
+}
+
+// ----------------- ✨ 進駐 AI 智能解惑助理 (Gemini API) -----------------
+function toggleAiPanel() {
+  DOM.aiPanel.classList.toggle('translate-x-full');
+  if (DOM.aiBackdrop) DOM.aiBackdrop.classList.toggle('hidden');
+  checkAiKeyStatus();
+}
+
+function closeAiPanel() {
+  DOM.aiPanel.classList.add('translate-x-full');
+  if (DOM.aiBackdrop) DOM.aiBackdrop.classList.add('hidden');
+}
+
+function checkAiKeyStatus() {
+  if (!state.geminiApiKey) {
+    DOM.aiKeyBanner.classList.remove('hidden');
+  } else {
+    DOM.aiKeyBanner.classList.add('hidden');
+  }
+}
+
+async function sendAiMessage(userPrompt, actionType = 'chat') {
+  if (!state.geminiApiKey) {
+    DOM.aiKeyBanner.classList.remove('hidden');
+    showToast('請先填入免費的 Gemini API Key');
+    return;
+  }
+
+  // 加入使用者氣泡
+  appendAiBubble('user', userPrompt);
+  DOM.aiUserInput.value = '';
+  DOM.aiSendBtn.disabled = true;
+
+  // 加入機器人思考中氣泡
+  const botBubble = appendAiBubble('bot', '<span class="flex items-center gap-1.5 text-purple-500 animate-pulse"><i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> AI 正在思考中...</span>');
+  initLucide();
+
+  // 整理當前筆記上下文
+  const currentTitle = DOM.noteTitle.value || '無標題筆記';
+  const currentContent = DOM.markdownInput.value || '（筆記內容為空）';
+
+  let systemPrompt = `你是一位進駐在個人雲端筆記網站中的專業 AI 智能助手。
+請以繁體中文回答，語氣親切、專業、客觀清晰，善用條理分明的 Markdown 排版。
+目前使用者正在檢視/編輯的筆記如下：
+【標題】：${currentTitle}
+【內容】：
+${currentContent.substring(0, 4000)}
+
+請根據使用者的需求進行解答、分析、摘要或創作。`;
+
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${state.geminiApiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: systemPrompt + '\n\n【使用者指示】：' + userPrompt }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048
+        }
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '抱歉，暫時無法取得回覆。';
+
+    // 渲染 Markdown 回覆，並附上「插入至筆記」功能
+    const renderedHtml = window.marked ? window.marked.parse(replyText) : replyText;
+    botBubble.innerHTML = `
+      <div class="prose dark:prose-invert text-xs">${renderedHtml}</div>
+      <div class="mt-2 pt-2 border-t border-purple-100 dark:border-purple-900/40 flex justify-end">
+        <button class="insert-to-note-btn text-[11px] text-purple-600 dark:text-purple-400 hover:text-purple-800 flex items-center gap-1 bg-purple-50 dark:bg-purple-950/60 px-2 py-0.5 rounded border border-purple-200 dark:border-purple-800">
+          <i data-lucide="plus" class="w-3 h-3"></i> 插入至當前筆記
+        </button>
+      </div>
+    `;
+
+    // 綁定「插入至筆記」按鈕事件
+    botBubble.querySelector('.insert-to-note-btn').addEventListener('click', () => {
+      insertTextAtCursor(`\n\n> 🤖 **AI 解惑建議：**\n${replyText}\n`);
+      showToast('已將 AI 內容插入至筆記！');
+    });
+
+    initLucide();
+  } catch (err) {
+    botBubble.innerHTML = `<span class="text-red-500">AI 解答出錯：${escapeHtml(err.message)}</span>`;
+  } finally {
+    DOM.aiSendBtn.disabled = false;
+  }
+}
+
+function appendAiBubble(role, contentHtml) {
+  const bubble = document.createElement('div');
+  bubble.className = role === 'user' ? 'ai-user-bubble' : 'ai-bot-bubble';
+  bubble.innerHTML = contentHtml;
+  DOM.aiMessages.appendChild(bubble);
+  DOM.aiMessages.scrollTop = DOM.aiMessages.scrollHeight;
+  return bubble;
 }
 
 // ----------------- Frontmatter 解析與序列化 -----------------
@@ -540,7 +684,7 @@ function buildFrontmatterString(meta) {
   return `---\nicon: "${meta.icon || '📝'}"\nstatus: "${meta.status || '💡 構思中'}"\ntags: ${JSON.stringify(meta.tags || [])}\npinned: ${meta.pinned ? 'true' : 'false'}\nupdated: "${new Date().toISOString()}"\n---\n\n`;
 }
 
-// ----------------- 側邊欄渲染 (清單 vs 畫廊卡片) -----------------
+// ----------------- 側邊欄渲染 -----------------
 function renderNotesList() {
   const query = DOM.searchInput.value.toLowerCase().trim();
   
@@ -614,7 +758,6 @@ function renderNotesList() {
   });
 }
 
-// 手機側邊欄開關控制
 function toggleSidebar() {
   DOM.sidebar.classList.toggle('-translate-x-full');
   DOM.sidebarBackdrop.classList.toggle('hidden');
@@ -678,7 +821,7 @@ function createNewNote() {
       tags: ['靈感'],
       pinned: false
     },
-    bodyContent: '# 新建筆記\n\n在此處輸入內容，或按上方「圖影」上傳照片與影片！\n'
+    bodyContent: '# 新建筆記\n\n在此處輸入內容，或點擊「圖影音」放入播放器！\n'
   };
 
   DOM.noteTitle.value = state.currentNote.name;
@@ -844,7 +987,7 @@ function clearEditor() {
   DOM.previewContent.innerHTML = '';
 }
 
-// ----------------- 即時渲染與大綱目錄 (TOC) -----------------
+// ----------------- 即時渲染 (支援影音就地播放) -----------------
 function renderMarkdown(content) {
   if (!window.marked || !window.DOMPurify) {
     DOM.previewContent.textContent = content;
@@ -852,8 +995,8 @@ function renderMarkdown(content) {
   }
   const rawHtml = window.marked.parse(content || '');
   const cleanHtml = window.DOMPurify.sanitize(rawHtml, {
-    ADD_TAGS: ['iframe', 'video', 'source'],
-    ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class']
+    ADD_TAGS: ['iframe', 'video', 'audio', 'source'],
+    ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type']
   });
   DOM.previewContent.innerHTML = cleanHtml;
 }
@@ -898,7 +1041,6 @@ function renderOutline(content) {
   }
 }
 
-// ----------------- 字數統計與閱讀時間 -----------------
 function updateStats(content) {
   const text = content.replace(/```[\s\S]*?```/g, '').replace(/[#*`_~[\]]/g, '');
   const chars = text.replace(/\s/g, '').length;
@@ -927,6 +1069,11 @@ function handleSlashMenu(e) {
 }
 
 function insertSlashSnippet(type) {
+  if (type === 'ai') {
+    DOM.slashMenu.classList.add('hidden');
+    toggleAiPanel();
+    return;
+  }
   if (type === 'media') {
     DOM.slashMenu.classList.add('hidden');
     DOM.mediaUploadInput.click();
@@ -981,7 +1128,7 @@ function exportHTML() {
   <title>${escapeHtml(DOM.noteTitle.value)}</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 30px auto; padding: 0 15px; line-height: 1.6; color: #333; }
-    img, video { max-width: 100%; border-radius: 6px; }
+    img, video, audio { max-width: 100%; border-radius: 6px; }
     blockquote { border-left: 4px solid #2383e2; background: #f7f6f3; padding: 10px 16px; margin: 16px 0; }
   </style>
 </head>
@@ -1056,7 +1203,6 @@ function initViewModes() {
 function setViewMode(mode) {
   state.viewMode = mode;
 
-  // 電腦端按鈕高亮狀態
   [DOM.viewSplitBtn, DOM.viewEditBtn, DOM.viewPreviewBtn].forEach(btn => {
     if (btn) btn.classList.remove('bg-white', 'dark:bg-gray-700', 'shadow-sm', 'text-blue-600', 'dark:text-blue-400');
   });
@@ -1092,7 +1238,48 @@ function bindEvents() {
   DOM.notePinBtn.addEventListener('click', togglePin);
   DOM.refreshBtn.addEventListener('click', fetchNotesList);
 
-  // 媒體上傳按鈕 (頂部與手機列)
+  // ✨ AI 助理開關
+  DOM.toggleAiBtn.addEventListener('click', toggleAiPanel);
+  DOM.closeAiBtn.addEventListener('click', closeAiPanel);
+  if (DOM.aiBackdrop) DOM.aiBackdrop.addEventListener('click', closeAiPanel);
+  if (DOM.mbToolAi) DOM.mbToolAi.addEventListener('click', toggleAiPanel);
+
+  // AI Key 快速儲存
+  DOM.aiKeyQuickSave.addEventListener('click', () => {
+    const key = DOM.aiKeyQuickInput.value.trim();
+    if (key) {
+      state.geminiApiKey = key;
+      localStorage.setItem('cloudnotes_gemini_key', key);
+      DOM.settingGeminiKey.value = key;
+      DOM.aiKeyBanner.classList.add('hidden');
+      showToast('Gemini API Key 已儲存！');
+    }
+  });
+
+  // AI 快捷按鈕 (摘要、潤飾、延伸思考)
+  DOM.aiBtnSummarize.addEventListener('click', () => {
+    sendAiMessage('請為我摘要這篇筆記的核心要點，條列總結。', 'summarize');
+  });
+  DOM.aiBtnPolish.addEventListener('click', () => {
+    sendAiMessage('請幫我潤飾這篇筆記的文筆與句子結構，改善閱讀流暢度並修正錯字。', 'polish');
+  });
+  DOM.aiBtnIdeas.addEventListener('click', () => {
+    sendAiMessage('根據這篇筆記的主題，請為我提出 3 個深入思考的延伸問題或創意觀點。', 'ideas');
+  });
+
+  // AI 自訂發送
+  DOM.aiSendBtn.addEventListener('click', () => {
+    const text = DOM.aiUserInput.value.trim();
+    if (text) sendAiMessage(text);
+  });
+  DOM.aiUserInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const text = DOM.aiUserInput.value.trim();
+      if (text) sendAiMessage(text);
+    }
+  });
+
+  // 媒體上傳按鈕
   DOM.insertMediaBtn.addEventListener('click', () => DOM.mediaUploadInput.click());
   if (DOM.mbToolMedia) DOM.mbToolMedia.addEventListener('click', () => DOM.mediaUploadInput.click());
 
@@ -1104,13 +1291,13 @@ function bindEvents() {
     DOM.mediaUploadInput.value = '';
   });
 
-  // 支援直接剪貼簿貼上圖片 (Ctrl+V 或 手機截圖貼上)
+  // 支援直接剪貼簿貼上圖片
   DOM.markdownInput.addEventListener('paste', async (e) => {
     const items = (e.clipboardData || window.clipboardData).items;
     for (const item of items) {
       if (item.kind === 'file') {
         const file = item.getAsFile();
-        if (file && (file.type.startsWith('image/') || file.type.startsWith('video/'))) {
+        if (file && (file.type.startsWith('image/') || file.type.startsWith('video/') || file.type.startsWith('audio/'))) {
           e.preventDefault();
           await uploadMediaFile(file);
         }
@@ -1118,13 +1305,13 @@ function bindEvents() {
     }
   });
 
-  // 支援拖曳圖影到編輯區
+  // 支援拖曳圖影音
   DOM.markdownInput.addEventListener('dragover', (e) => e.preventDefault());
   DOM.markdownInput.addEventListener('drop', async (e) => {
     e.preventDefault();
     if (e.dataTransfer && e.dataTransfer.files) {
       for (const file of e.dataTransfer.files) {
-        if (file.type.startsWith('image/') || file.type.startsWith('video/')) {
+        if (file.type.startsWith('image/') || file.type.startsWith('video/') || file.type.startsWith('audio/')) {
           await uploadMediaFile(file);
         }
       }

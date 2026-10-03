@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>CloudNotes Pro - 雲端筆記工作區</title>
+  <title>CloudNotes Pro - 雲端筆記與 AI 智慧工作區</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -41,11 +41,13 @@
 </head>
 <body class="bg-white text-gray-800 dark:bg-notion-dark dark:text-gray-100 flex flex-col h-screen overflow-hidden font-sans select-none md:select-auto">
 
-  <!-- 隱藏的檔案上傳輸入項 (支援照片、圖片、影片多選) -->
-  <input type="file" id="media-upload-input" accept="image/*,video/*" multiple class="hidden">
+  <!-- 隱藏的檔案上傳輸入項 (支援照片、圖片、影片、音訊多選) -->
+  <input type="file" id="media-upload-input" accept="image/*,video/*,audio/*" multiple class="hidden">
 
   <!-- 手機側邊欄遮罩 -->
   <div id="sidebar-backdrop" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden backdrop-blur-xs transition-opacity"></div>
+  <!-- AI 助理遮罩 (手機端) -->
+  <div id="ai-backdrop" class="fixed inset-0 bg-black/40 z-30 hidden md:hidden backdrop-blur-xs transition-opacity"></div>
 
   <!-- 頂部導覽列 -->
   <header class="h-12 border-b border-gray-200 dark:border-notion-borderDark bg-white dark:bg-notion-dark flex items-center justify-between px-3 z-20 shrink-0">
@@ -61,7 +63,7 @@
           <span id="header-folder-name">DriveNotes</span>
         </span>
         <span>/</span>
-        <span id="header-note-title" class="truncate max-w-[110px] sm:max-w-xs text-gray-900 dark:text-white font-medium">未命名筆記</span>
+        <span id="header-note-title" class="truncate max-w-[100px] sm:max-w-xs text-gray-900 dark:text-white font-medium">未命名筆記</span>
       </div>
 
       <!-- 同步狀態指示燈 -->
@@ -74,10 +76,16 @@
     <!-- 右側工具按鈕 -->
     <div class="flex items-center space-x-1 shrink-0">
       
-      <!-- 📷 插入圖片/影片 按鈕 -->
-      <button id="insert-media-btn" class="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-gray-800 text-blue-600 dark:text-blue-400 flex items-center gap-1 text-xs font-medium" title="上傳照片、圖片或影片">
-        <i data-lucide="image-plus" class="w-4 h-4"></i>
-        <span class="hidden sm:inline">圖影</span>
+      <!-- ✨ AI 解惑助理按鈕 -->
+      <button id="toggle-ai-btn" class="px-2.5 py-1 rounded-md bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white flex items-center gap-1.5 text-xs font-medium shadow-sm transition" title="打開 AI 解惑助手">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5 animate-pulse"></i>
+        <span class="inline">AI 助理</span>
+      </button>
+
+      <!-- 📷 插入圖片/影片/音訊 按鈕 -->
+      <button id="insert-media-btn" class="p-1.5 rounded-md hover:bg-blue-50 dark:hover:bg-gray-800 text-blue-600 dark:text-blue-400 flex items-center gap-1 text-xs font-medium" title="上傳照片、影片或音樂">
+        <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">圖影音</span>
       </button>
 
       <!-- 手機專屬：編輯/預覽 快速切換鈕 -->
@@ -122,7 +130,7 @@
       </button>
 
       <!-- 設定 -->
-      <button id="settings-btn" class="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" title="設定 Google API">
+      <button id="settings-btn" class="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" title="設定 Google API / AI">
         <i data-lucide="settings" class="w-4 h-4"></i>
       </button>
 
@@ -219,7 +227,7 @@
     <main class="flex-1 flex flex-col bg-white dark:bg-notion-dark overflow-hidden relative">
       
       <!-- 上傳進度提示條 -->
-      <div id="upload-progress-bar" class="h-1 bg-blue-500 w-0 transition-all duration-300 hidden"></div>
+      <div id="upload-progress-bar" class="h-1 bg-gradient-to-r from-blue-500 to-indigo-600 w-0 transition-all duration-300 hidden z-10"></div>
 
       <!-- Notion 頁首屬性欄 (Page Header & Properties) -->
       <div id="page-header" class="px-4 sm:px-8 pt-4 pb-3 border-b border-gray-100 dark:border-notion-borderDark shrink-0 bg-white dark:bg-notion-dark">
@@ -284,13 +292,16 @@
         
         <!-- Markdown 原始碼編輯區 -->
         <div id="editor-wrapper" class="flex-1 h-full overflow-hidden border-r border-gray-100 dark:border-notion-borderDark relative flex flex-col">
-          <textarea id="markdown-input" class="w-full flex-1 p-4 sm:p-6 resize-none bg-white dark:bg-notion-dark text-gray-800 dark:text-gray-200 font-mono text-sm leading-relaxed focus:outline-none" placeholder="輸入內容... 支援直接貼上圖片，或按上方「圖影」上傳照片與影片！"></textarea>
+          <textarea id="markdown-input" class="w-full flex-1 p-4 sm:p-6 resize-none bg-white dark:bg-notion-dark text-gray-800 dark:text-gray-200 font-mono text-sm leading-relaxed focus:outline-none" placeholder="輸入內容... 支援直接貼上圖片/影片，或點右上角「AI 助理」幫您解答或摘要！"></textarea>
 
           <!-- 浮動 Slash 指令選單 (Notion / Command Menu) -->
-          <div id="slash-menu" class="absolute hidden bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark rounded-lg shadow-2xl w-60 p-1 z-50 text-xs">
+          <div id="slash-menu" class="absolute hidden bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark rounded-lg shadow-2xl w-60 p-1 z-30 text-xs">
             <div class="px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">常用積木</div>
+            <button data-slash="ai" class="w-full text-left px-2.5 py-1.5 hover:bg-purple-50 dark:hover:bg-purple-950/40 rounded flex items-center gap-2 text-purple-600 dark:text-purple-400 font-medium">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> 呼叫 AI 助理寫作
+            </button>
             <button data-slash="media" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
-              <i data-lucide="image" class="w-3.5 h-3.5"></i> 上傳圖片 / 影片
+              <i data-lucide="image" class="w-3.5 h-3.5"></i> 上傳圖片 / 影片 / 音訊
             </button>
             <button data-slash="h1" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
               <span class="font-bold text-gray-500">H1</span> 大標題 1
@@ -304,9 +315,6 @@
             <button data-slash="todo" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
               <i data-lucide="check-square" class="w-3.5 h-3.5 text-blue-500"></i> 待辦清單 (Todo)
             </button>
-            <button data-slash="bullet" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
-              <i data-lucide="list" class="w-3.5 h-3.5 text-gray-500"></i> 項目符號清單
-            </button>
             <button data-slash="callout" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
               <i data-lucide="message-square" class="w-3.5 h-3.5 text-amber-500"></i> 醒目提示框 (Callout)
             </button>
@@ -314,12 +322,12 @@
               <i data-lucide="table" class="w-3.5 h-3.5 text-emerald-500"></i> 資料表格 (Table)
             </button>
             <button data-slash="code" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
-              <i data-lucide="code" class="w-3.5 h-3.5 text-purple-500"></i> 程式碼區塊
+              <i data-lucide="code" class="w-3.5 h-3.5 text-indigo-500"></i> 程式碼區塊
             </button>
           </div>
         </div>
 
-        <!-- Markdown 渲染預覽區 -->
+        <!-- Markdown 渲染預覽區 (內建原生影音播放器) -->
         <div id="preview-wrapper" class="flex-1 h-full overflow-y-auto p-4 sm:p-8 bg-white dark:bg-notion-dark prose dark:prose-invert max-w-none hidden md:block">
           <div id="preview-content"></div>
         </div>
@@ -333,12 +341,85 @@
             <span class="text-gray-400 italic text-[11px]">暫無標題</span>
           </div>
         </aside>
+
+        <!-- ✨ 內嵌 AI 智能解惑助理側欄 (Notion AI 抽屜) -->
+        <aside id="ai-panel" class="w-full sm:w-96 border-l border-gray-200 dark:border-notion-borderDark bg-white dark:bg-notion-card flex flex-col transition-all duration-300 z-40 fixed md:absolute inset-y-0 right-0 translate-x-full shadow-2xl h-full">
+          <!-- AI 面板標題列 -->
+          <div class="p-3 border-b border-gray-100 dark:border-notion-borderDark flex items-center justify-between bg-purple-50/50 dark:bg-purple-950/20">
+            <div class="flex items-center space-x-2">
+              <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center text-white text-xs shadow-sm">
+                <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+              </div>
+              <span class="text-xs font-semibold text-gray-800 dark:text-gray-100">AI 解惑助理</span>
+              <span id="ai-status-badge" class="text-[10px] px-1.5 py-0.5 rounded bg-green-100 dark:bg-green-950 text-green-700 dark:text-green-300 font-mono">Gemini</span>
+            </div>
+            <button id="close-ai-btn" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500" title="關閉 AI 助理">
+              <i data-lucide="x" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- AI API Key 提示條（若尚未填寫） -->
+          <div id="ai-key-banner" class="p-2.5 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-900/50 text-[11px] text-amber-800 dark:text-amber-200 flex flex-col gap-1.5 hidden">
+            <span>💡 尚未設定免費的 Google Gemini API Key：</span>
+            <div class="flex items-center gap-1">
+              <input type="password" id="ai-key-quick-input" placeholder="貼上 AI Studio Key" class="flex-1 px-2 py-1 text-xs rounded bg-white dark:bg-notion-dark border border-amber-300 dark:border-amber-800 focus:outline-none">
+              <button id="ai-key-quick-save" class="px-2 py-1 bg-amber-600 text-white rounded text-xs">儲存</button>
+            </div>
+            <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-blue-500 underline text-[10px]">👉 點此免費獲取 Google Gemini API Key (10秒取得)</a>
+          </div>
+
+          <!-- AI 快捷指令列 (一鍵摘要、潤飾、問答) -->
+          <div class="p-2 border-b border-gray-100 dark:border-notion-borderDark bg-gray-50/50 dark:bg-notion-darker/50 flex gap-1.5 overflow-x-auto text-[11px]">
+            <button id="ai-btn-summarize" class="px-2 py-1 rounded bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark hover:border-purple-400 text-gray-700 dark:text-gray-300 shrink-0 flex items-center gap-1">
+              📝 摘要本筆記
+            </button>
+            <button id="ai-btn-polish" class="px-2 py-1 rounded bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark hover:border-purple-400 text-gray-700 dark:text-gray-300 shrink-0 flex items-center gap-1">
+              ✍️ 潤飾文筆
+            </button>
+            <button id="ai-btn-ideas" class="px-2 py-1 rounded bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark hover:border-purple-400 text-gray-700 dark:text-gray-300 shrink-0 flex items-center gap-1">
+              💡 延伸發想
+            </button>
+          </div>
+
+          <!-- AI 訊息歷史區 -->
+          <div id="ai-messages" class="flex-1 overflow-y-auto p-3 space-y-3 text-xs leading-relaxed">
+            <!-- 歡迎卡片 -->
+            <div class="ai-msg p-3 rounded-xl bg-purple-50/60 dark:bg-purple-950/30 border border-purple-100 dark:border-purple-900/40 text-gray-800 dark:text-gray-200 space-y-1.5">
+              <div class="font-semibold flex items-center gap-1 text-purple-700 dark:text-purple-300">
+                <i data-lucide="bot" class="w-3.5 h-3.5"></i> 您好！我是您的專屬筆記 AI 助理
+              </div>
+              <p class="text-gray-600 dark:text-gray-300">
+                我進駐在您的筆記中，能為您：
+              </p>
+              <ul class="list-disc list-inside space-y-0.5 text-gray-500 dark:text-gray-400 text-[11px]">
+                <li>解答您在思考與寫作上的任何疑惑</li>
+                <li>讀取並重點整理當前筆記內容</li>
+                <li>潤飾文字、提供結構建議</li>
+                <li>將回答一鍵插入您的 Markdown 筆記中</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- AI 輸入框 -->
+          <div class="p-2.5 border-t border-gray-200 dark:border-notion-borderDark bg-white dark:bg-notion-card">
+            <div class="flex items-center space-x-1.5 bg-gray-50 dark:bg-notion-dark border border-gray-200 dark:border-notion-borderDark rounded-lg px-2 py-1 focus-within:ring-1 focus-within:ring-purple-500">
+              <input type="text" id="ai-user-input" placeholder="向 AI 提問或要求處理此筆記..." class="flex-1 bg-transparent border-none focus:outline-none text-xs text-gray-800 dark:text-gray-200">
+              <button id="ai-send-btn" class="p-1 rounded bg-purple-600 hover:bg-purple-700 text-white transition disabled:opacity-50" title="發送">
+                <i data-lucide="send" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </aside>
       </div>
 
-      <!-- 手機專屬：底部快捷編輯工具列 (Mobile Floating Toolbar) -->
+      <!-- 手機專屬：底部快捷編輯工具列 -->
       <div id="mobile-toolbar" class="md:hidden h-10 border-t border-gray-200 dark:border-notion-borderDark bg-white dark:bg-notion-dark flex items-center justify-around px-2 z-20 shrink-0 text-gray-600 dark:text-gray-300">
-        <button id="mb-tool-media" class="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" title="上傳圖影">
-          <i data-lucide="image-plus" class="w-4 h-4"></i>
+        <button id="mb-tool-ai" class="p-1 text-purple-600 dark:text-purple-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded font-bold text-xs flex items-center gap-0.5" title="AI 助理">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+          <span>AI</span>
+        </button>
+        <button id="mb-tool-media" class="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded" title="上傳圖影音">
+          <i data-lucide="upload-cloud" class="w-4 h-4"></i>
         </button>
         <button id="mb-tool-bold" class="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded font-bold text-xs" title="粗體">
           B
@@ -378,22 +459,18 @@
 
   <!-- 設定對話框 (Modal) -->
   <div id="settings-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
-    <div class="bg-white dark:bg-notion-card rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-200 dark:border-notion-borderDark space-y-4">
+    <div class="bg-white dark:bg-notion-card rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-200 dark:border-notion-borderDark space-y-3">
       <div class="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-notion-borderDark">
         <h3 class="text-sm font-semibold flex items-center gap-1.5 text-gray-900 dark:text-white">
           <i data-lucide="settings" class="w-4 h-4 text-blue-500"></i>
-          Google Cloud 設定
+          Google Cloud & AI 助理設定
         </h3>
         <button id="close-settings-btn" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
           <i data-lucide="x" class="w-4 h-4"></i>
         </button>
       </div>
 
-      <p class="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
-        設定儲存於本機瀏覽器，筆記與媒體直接同步至您的 Google Drive。
-      </p>
-
-      <div class="space-y-3">
+      <div class="space-y-2.5">
         <div>
           <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Google OAuth Client ID</label>
           <input type="text" id="setting-client-id" placeholder="例如：xxxxxx.apps.googleusercontent.com" class="w-full px-3 py-1.5 text-xs bg-gray-50 dark:bg-notion-dark border border-gray-300 dark:border-notion-borderDark rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none">
@@ -402,11 +479,18 @@
           <label class="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">Google Drive 資料夾名稱</label>
           <input type="text" id="setting-folder-name" value="DriveNotes" class="w-full px-3 py-1.5 text-xs bg-gray-50 dark:bg-notion-dark border border-gray-300 dark:border-notion-borderDark rounded-md focus:ring-1 focus:ring-blue-500 focus:outline-none">
         </div>
+        <div class="pt-1 border-t border-gray-100 dark:border-notion-borderDark">
+          <label class="block text-xs font-semibold text-purple-600 dark:text-purple-400 mb-1 flex items-center gap-1">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Google Gemini AI API Key (進駐助理)
+          </label>
+          <input type="password" id="setting-gemini-key" placeholder="AIzaSy..." class="w-full px-3 py-1.5 text-xs bg-gray-50 dark:bg-notion-dark border border-purple-300 dark:border-purple-900 rounded-md focus:ring-1 focus:ring-purple-500 focus:outline-none">
+          <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-[11px] text-blue-500 underline mt-1 inline-block">👉 點此免費獲取 Google Gemini API Key</a>
+        </div>
       </div>
 
-      <div class="pt-1 flex justify-end space-x-2">
+      <div class="pt-2 flex justify-end space-x-2">
         <button id="save-settings-btn" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition shadow-sm">
-          儲存設定
+          儲存所有設定
         </button>
       </div>
     </div>
