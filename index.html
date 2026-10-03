@@ -39,7 +39,7 @@
   <script src="https://cdn.jsdelivr.net/npm/turndown@7.1.2/dist/turndown.js"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <link rel="stylesheet" href="styles.css?v=20261003_v3">
+  <link rel="stylesheet" href="styles.css?v=20261004_papaya">
 </head>
 <body class="bg-white text-gray-800 dark:bg-notion-dark dark:text-gray-100 flex flex-col h-screen overflow-hidden font-sans select-none md:select-auto">
 
@@ -137,6 +137,11 @@
         <i data-lucide="list" class="w-4 h-4"></i>
       </button>
 
+      <!-- 全寬模式切換 -->
+      <button id="toggle-fullwidth-btn" class="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" title="切換全寬模式 (Full Width)">
+        <i data-lucide="maximize-2" class="w-4 h-4"></i>
+      </button>
+
       <!-- 明暗主題切換 -->
       <button id="theme-toggle-btn" class="p-1.5 rounded-md text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800" title="切換主題">
         <i data-lucide="sun" class="w-4 h-4 hidden dark:block"></i>
@@ -205,6 +210,14 @@
         </div>
       </div>
 
+      <!-- ⭐ 我的最愛區塊 (Favorites) -->
+      <div id="favorites-container" class="px-3 pt-2 pb-1 border-b border-gray-200/50 dark:border-notion-borderDark hidden">
+        <div class="text-[11px] uppercase tracking-wider font-semibold text-gray-400 flex items-center gap-1 mb-1">
+          <i data-lucide="star" class="w-3.5 h-3.5 text-amber-400 fill-amber-400"></i> 我的最愛
+        </div>
+        <div id="favorites-list" class="space-y-0.5"></div>
+      </div>
+
       <!-- 無限層級資料夾樹狀目錄 (Nested Folder Tree) -->
       <div class="px-3 pt-2 flex items-center justify-between text-xs text-gray-400">
         <span class="text-[11px] uppercase tracking-wider font-semibold flex items-center gap-1">
@@ -269,7 +282,7 @@
 
       <!-- 捲動容器 (居中 Notion 版型) -->
       <div id="main-scroll-container" class="flex-1 overflow-y-auto px-4 sm:px-12 py-6 flex justify-center">
-        <div class="w-full max-w-3xl flex flex-col min-h-full">
+        <div id="canvas-inner-wrapper" class="w-full max-w-3xl flex flex-col min-h-full transition-all duration-200">
           
           <!-- Notion 頂部麵包屑導航 (Breadcrumbs) -->
           <div id="page-breadcrumbs" class="notion-breadcrumb">
@@ -453,6 +466,15 @@
         </button>
         <button data-slash="code" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
           <i data-lucide="code" class="w-3.5 h-3.5 text-indigo-500"></i> 程式碼區塊
+        </button>
+        <button data-slash="columns" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2 text-cyan-600 dark:text-cyan-400 font-medium">
+          <i data-lucide="columns" class="w-3.5 h-3.5"></i> 雙欄左右並排 (2 Columns)
+        </button>
+        <button data-slash="quote" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
+          <i data-lucide="quote" class="w-3.5 h-3.5 text-gray-500"></i> 引言 (Quote)
+        </button>
+        <button data-slash="divider" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2">
+          <i data-lucide="minus" class="w-3.5 h-3.5 text-gray-400"></i> 分隔線 (Divider)
         </button>
       </div>
 
@@ -690,6 +712,63 @@
     </div>
   </div>
 
+  <!-- 🔤 反白文字浮動選單 (Floating Selection Toolbar) -->
+  <div id="selection-toolbar" class="selection-toolbar hidden">
+    <button data-cmd="bold" title="粗體 (Ctrl+B)"><i data-lucide="bold" class="w-3 h-3"></i></button>
+    <button data-cmd="italic" title="斜體 (Ctrl+I)"><i data-lucide="italic" class="w-3 h-3"></i></button>
+    <button data-cmd="underline" title="底線 (Ctrl+U)"><i data-lucide="underline" class="w-3 h-3"></i></button>
+    <button data-cmd="strikeThrough" title="刪除線"><i data-lucide="strikethrough" class="w-3 h-3"></i></button>
+    <button data-cmd="code" title="行內代碼"><i data-lucide="code" class="w-3 h-3"></i></button>
+    <div class="divider"></div>
+    <button id="sel-turn-h1" title="轉為大標題">H1</button>
+    <button id="sel-turn-h2" title="轉為中標題">H2</button>
+    <button id="sel-turn-todo" title="轉為待辦清單"><i data-lucide="check-square" class="w-3 h-3 text-blue-400"></i></button>
+    <button id="sel-turn-callout" title="轉為醒目提示"><i data-lucide="message-square" class="w-3 h-3 text-amber-400"></i></button>
+    <div class="divider"></div>
+    <button id="sel-ai-btn" class="text-purple-400 font-semibold flex items-center gap-1" title="請 AI 潤飾"><i data-lucide="sparkles" class="w-3 h-3"></i> AI</button>
+  </div>
+
+  <!-- ⌨️ 空白行按 Space 呼叫 AI 提示框 (Space to Ask AI) -->
+  <div id="space-ai-box" class="space-ai-box hidden">
+    <div class="flex items-center justify-between text-xs text-purple-600 dark:text-purple-400 font-semibold">
+      <span class="flex items-center gap-1.5"><i data-lucide="sparkles" class="w-3.5 h-3.5"></i> 請 AI 協助撰寫或處理內容</span>
+      <span class="text-[10px] text-gray-400 font-normal">Esc 取消</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <input type="text" id="space-ai-input" placeholder="例如：撰寫專案會議結論、提供 3 個點子、翻譯成英文..." class="flex-1 px-3 py-1.5 text-xs bg-gray-50 dark:bg-notion-dark border border-purple-200 dark:border-purple-900 rounded-md focus:outline-none focus:ring-1 focus:ring-purple-500">
+      <button id="space-ai-submit" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-md text-xs font-medium shrink-0">發送</button>
+    </div>
+    <div class="flex items-center gap-1 text-[11px] text-gray-400 overflow-x-auto pt-1 border-t border-gray-100 dark:border-purple-950/60">
+      <button class="space-ai-quick px-2 py-0.5 rounded hover:bg-purple-50 dark:hover:bg-purple-950 text-gray-600 dark:text-gray-300 shrink-0" data-prompt="為我草擬一段精簡的引言與背景說明">✍️ 草擬引言</button>
+      <button class="space-ai-quick px-2 py-0.5 rounded hover:bg-purple-50 dark:hover:bg-purple-950 text-gray-600 dark:text-gray-300 shrink-0" data-prompt="列出本主題的 5 大關鍵行動待辦 (Action Items)">📋 待辦行動</button>
+      <button class="space-ai-quick px-2 py-0.5 rounded hover:bg-purple-50 dark:hover:bg-purple-950 text-gray-600 dark:text-gray-300 shrink-0" data-prompt="深入思考這個主題的 3 個可能挑戰與對策">💡 延伸點子</button>
+      <button class="space-ai-quick px-2 py-0.5 rounded hover:bg-purple-50 dark:hover:bg-purple-950 text-gray-600 dark:text-gray-300 shrink-0" data-prompt="請將這段文字翻譯成通順精準的英文">🌐 翻成英文</button>
+    </div>
+  </div>
+
+  <!-- 🔗 Notion 貼上網址 4 合 1 智慧選單 (Smart URL Paste Menu) -->
+  <div id="smart-url-menu" class="smart-url-menu hidden">
+    <div class="text-[10px] text-gray-400 font-semibold px-2 py-1 uppercase tracking-wider">選擇貼上方式</div>
+    <button id="paste-embed-btn" class="w-full text-left px-2.5 py-1.5 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded flex items-center gap-2 text-blue-600 dark:text-blue-400 text-xs font-medium">
+      <i data-lucide="play-circle" class="w-4 h-4"></i> 內嵌播放器 (Embed Video)
+    </button>
+    <button id="paste-bookmark-btn" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2 text-xs">
+      <i data-lucide="bookmark" class="w-4 h-4 text-amber-500"></i> 建立網頁書籤卡片 (Bookmark)
+    </button>
+    <button id="paste-mention-btn" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2 text-xs">
+      <i data-lucide="link" class="w-4 h-4 text-emerald-500"></i> 建立行內文字連結 (Link)
+    </button>
+    <button id="paste-raw-btn" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2 text-xs text-gray-400">
+      <i data-lucide="file-text" class="w-4 h-4"></i> 貼上純網址 (Standard URL)
+    </button>
+  </div>
+
+  <!-- 📑 Notion @ 提及筆記浮動選單 (Page Mention Picker) -->
+  <div id="mention-menu" class="notion-mention-menu hidden">
+    <div class="text-[10px] text-gray-400 font-semibold px-2 py-1 uppercase tracking-wider">提及其他筆記頁面</div>
+    <div id="mention-options" class="space-y-0.5"></div>
+  </div>
+
   <!-- 設定對話框 (Modal) -->
   <div id="settings-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white dark:bg-notion-card rounded-xl max-w-md w-full p-5 shadow-2xl border border-gray-200 dark:border-notion-borderDark space-y-3">
@@ -738,6 +817,6 @@
     <span id="toast-message">訊息提示</span>
   </div>
 
-  <script src="app.js?v=20261003_v3"></script>
+  <script src="app.js?v=20261004_papaya"></script>
 </body>
 </html>

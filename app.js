@@ -75,6 +75,9 @@ const state = {
   isDirty: false,
   layoutMode: localStorage.getItem('cloudnotes_layout') || 'list',
   filterMode: 'all', // all, pinned, doing
+  isFullWidth: localStorage.getItem('cloudnotes_fullwidth') === 'true',
+  pendingPasteUrl: null,
+  pendingPasteRange: null,
   theme: localStorage.getItem('cloudnotes_theme') || 'light',
   autoSaveTimer: null,
   tokenRefreshTimer: null
@@ -235,7 +238,29 @@ const DOM = {
 
   // Toast
   toast: document.getElementById('toast'),
-  toastMessage: document.getElementById('toast-message')
+  toastMessage: document.getElementById('toast-message'),
+
+  // PAPAYA 電腦教室 Notion 旗艦功能元素
+  toggleFullwidthBtn: document.getElementById('toggle-fullwidth-btn'),
+  canvasInnerWrapper: document.getElementById('canvas-inner-wrapper'),
+  favoritesContainer: document.getElementById('favorites-container'),
+  favoritesList: document.getElementById('favorites-list'),
+  selectionToolbar: document.getElementById('selection-toolbar'),
+  selAiBtn: document.getElementById('sel-ai-btn'),
+  selTurnH1: document.getElementById('sel-turn-h1'),
+  selTurnH2: document.getElementById('sel-turn-h2'),
+  selTurnTodo: document.getElementById('sel-turn-todo'),
+  selTurnCallout: document.getElementById('sel-turn-callout'),
+  spaceAiBox: document.getElementById('space-ai-box'),
+  spaceAiInput: document.getElementById('space-ai-input'),
+  spaceAiSubmit: document.getElementById('space-ai-submit'),
+  smartUrlMenu: document.getElementById('smart-url-menu'),
+  pasteEmbedBtn: document.getElementById('paste-embed-btn'),
+  pasteBookmarkBtn: document.getElementById('paste-bookmark-btn'),
+  pasteMentionBtn: document.getElementById('paste-mention-btn'),
+  pasteRawBtn: document.getElementById('paste-raw-btn'),
+  mentionMenu: document.getElementById('mention-menu'),
+  mentionOptions: document.getElementById('mention-options')
 };
 
 // 初始化入口
@@ -247,6 +272,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initTags();
   initLayout();
   initCoverPresetsUI();
+  initFullWidth();
   bindEvents();
   setupGoogleAuth();
   checkAiKeyStatus();
@@ -1689,6 +1715,7 @@ function buildFrontmatterString(meta) {
 // ----------------- 筆記清單渲染 -----------------
 function renderNotesList() {
   if (!DOM.notesList) return;
+  renderFavoritesList();
   DOM.notesList.innerHTML = '';
 
   let filtered = state.notes.slice();
@@ -2160,12 +2187,378 @@ function insertSlashSnippet(type) {
     case 'code':
       html = '<pre><code>// 在此輸入代碼\nconsole.log("Hello Notion");</code></pre><p><br></p>';
       break;
+    case 'columns':
+      html = '<div class="notion-columns"><div class="notion-col" contenteditable="true"><p>左欄內容...</p></div><div class="notion-col" contenteditable="true"><p>右欄內容...</p></div></div><p><br></p>';
+      break;
+    case 'quote':
+      html = '<blockquote>在此輸入引述重點...</blockquote><p><br></p>';
+      break;
+    case 'divider':
+      html = '<hr class="notion-divider"><p><br></p>';
+      break;
   }
 
   if (html) {
     insertHtmlAtCursor(html);
     attachCodeCopyButtons();
     triggerAutoSaveDebounce();
+  }
+}
+
+
+// ==========================================================================
+// PAPAYA 電腦教室 Notion 旗艦功能模組：
+// 反白浮動選單、Space AI、4合1貼上、全寬模式、我的最愛、@提及、雙欄
+// ==========================================================================
+
+// 1. 全寬模式 (Full Width Mode)
+function initFullWidth() {
+  if (state.isFullWidth && DOM.canvasInnerWrapper) {
+    DOM.canvasInnerWrapper.classList.add('full-width-canvas');
+  }
+}
+
+function toggleFullWidth() {
+  state.isFullWidth = !state.isFullWidth;
+  localStorage.setItem('cloudnotes_fullwidth', state.isFullWidth ? 'true' : 'false');
+  if (DOM.canvasInnerWrapper) {
+    DOM.canvasInnerWrapper.classList.toggle('full-width-canvas', state.isFullWidth);
+  }
+  showToast(state.isFullWidth ? '已切換為全寬模式 (Full Width)' : '已還原標準置中寬度');
+}
+
+// 2. ⭐ 我的最愛 (Favorites Section)
+function renderFavoritesList() {
+  if (!DOM.favoritesContainer || !DOM.favoritesList) return;
+  const pinnedNotes = state.notes.filter(n => n.meta && n.meta.pinned);
+
+  if (pinnedNotes.length === 0) {
+    DOM.favoritesContainer.classList.add('hidden');
+    return;
+  }
+
+  DOM.favoritesContainer.classList.remove('hidden');
+  DOM.favoritesList.innerHTML = '';
+
+  pinnedNotes.forEach(note => {
+    const item = document.createElement('div');
+    const isActive = state.currentNote && state.currentNote.id === note.id;
+    item.className = `folder-item-row ${isActive ? 'active' : ''}`;
+    const cleanTitle = (note.name || '未命名').replace(/\.md$/i, '');
+    const icon = (note.meta && note.meta.icon) || '📝';
+
+    item.innerHTML = `
+      <span class="text-sm shrink-0">${icon}</span>
+      <span class="truncate flex-1 font-medium text-xs">${escapeHtml(cleanTitle)}</span>
+      <span class="text-amber-400 text-xs">⭐</span>
+    `;
+
+    item.onclick = () => {
+      selectNote(note.id);
+      if (window.innerWidth < 768) closeSidebar();
+    };
+
+    DOM.favoritesList.appendChild(item);
+  });
+}
+
+// 3. 反白文字浮動選單 (Floating Selection Toolbar)
+function handleTextSelection() {
+  if (!DOM.selectionToolbar) return;
+  const sel = window.getSelection();
+
+  if (!sel || sel.isCollapsed || !sel.rangeCount) {
+    DOM.selectionToolbar.classList.add('hidden');
+    return;
+  }
+
+  const range = sel.getRangeAt(0);
+  const commonAncestor = range.commonAncestorContainer;
+
+  // 確保是在編輯器內部選取
+  if (!DOM.editor.contains(commonAncestor)) {
+    DOM.selectionToolbar.classList.add('hidden');
+    return;
+  }
+
+  const text = sel.toString().trim();
+  if (!text) {
+    DOM.selectionToolbar.classList.add('hidden');
+    return;
+  }
+
+  const rect = range.getBoundingClientRect();
+  const toolbarWidth = 280;
+  const left = Math.max(10, Math.min(rect.left + rect.width / 2 - toolbarWidth / 2, window.innerWidth - toolbarWidth - 10));
+  const top = Math.max(10, rect.top + window.scrollY - 46);
+
+  DOM.selectionToolbar.style.left = `${left}px`;
+  DOM.selectionToolbar.style.top = `${top}px`;
+  DOM.selectionToolbar.classList.remove('hidden');
+}
+
+function turnSelectionInto(type) {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed) return;
+  const text = sel.toString().trim() || '內容';
+
+  let html = '';
+  switch(type) {
+    case 'h1':
+      html = `<h1>${escapeHtml(text)}</h1>`;
+      break;
+    case 'h2':
+      html = `<h2>${escapeHtml(text)}</h2>`;
+      break;
+    case 'todo':
+      html = `<div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text">${escapeHtml(text)}</span></div>`;
+      break;
+    case 'callout':
+      html = `<div class="notion-callout"><span class="notion-callout-icon">💡</span><div class="notion-callout-body">${escapeHtml(text)}</div></div>`;
+      break;
+  }
+
+  if (html) {
+    document.execCommand('insertHTML', false, html);
+    if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('hidden');
+    triggerAutoSaveDebounce();
+  }
+}
+
+// 4. 空白行按 Space 呼叫 AI 提示框 (Space to Ask AI)
+function handleSpaceAiTrigger(e) {
+  if (e.key === ' ' && !e.ctrlKey && !e.metaKey) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+
+    // 檢查當前行是否為空（或剛換行）
+    const node = range.startContainer;
+    const textBefore = node.textContent ? node.textContent.substring(0, range.startOffset) : '';
+
+    if (textBefore.trim() === '') {
+      e.preventDefault();
+      const rect = range.getBoundingClientRect();
+      const left = Math.max(10, Math.min(rect.left, window.innerWidth - 460));
+      const top = rect.bottom + window.scrollY + 6;
+
+      DOM.spaceAiBox.style.left = `${left}px`;
+      DOM.spaceAiBox.style.top = `${top}px`;
+      DOM.spaceAiBox.classList.remove('hidden');
+      DOM.spaceAiInput.value = '';
+      setTimeout(() => DOM.spaceAiInput.focus(), 50);
+    }
+  } else if (e.key === 'Escape') {
+    if (DOM.spaceAiBox) DOM.spaceAiBox.classList.add('hidden');
+    if (DOM.smartUrlMenu) DOM.smartUrlMenu.classList.add('hidden');
+    if (DOM.mentionMenu) DOM.mentionMenu.classList.add('hidden');
+    if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('hidden');
+  }
+}
+
+async function executeSpaceAi(customPrompt = null) {
+  const prompt = customPrompt || (DOM.spaceAiInput ? DOM.spaceAiInput.value.trim() : '');
+  if (!prompt) return;
+
+  DOM.spaceAiBox.classList.add('hidden');
+
+  if (!state.geminiApiKey) {
+    checkAiKeyStatus();
+    DOM.aiPanel.classList.remove('translate-x-full');
+    showToast('請先填入 Google Gemini API Key');
+    return;
+  }
+
+  showToast('Gemini 3.8 正在為您撰寫內容...', 4000);
+  const loadingHtml = `<div id="space_ai_loading" class="p-3 my-2 border border-purple-200 dark:border-purple-900 rounded-lg text-xs text-purple-600 dark:text-purple-400 flex items-center gap-2 animate-pulse"><i data-lucide="loader" class="w-4 h-4 animate-spin"></i> AI 正在撰寫：${escapeHtml(prompt)}...</div>`;
+  insertHtmlAtCursor(loadingHtml);
+  initLucide();
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${state.geminiApiKey}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [
+          { role: 'user', parts: [{ text: `你是一位頂尖的 Notion 內容寫作助理。請根據使用者指令直接生成高質感的繁體中文內容，排版清晰優雅，不需要前言或結語：\n\n指令：${prompt}` }] }
+        ]
+      })
+    });
+    const data = await res.json();
+    const replyText = data.candidates?.[0]?.content?.parts?.[0]?.text || '（無內容）';
+    const parsedHtml = window.marked ? window.marked.parse(replyText) : replyText;
+
+    const loader = document.getElementById('space_ai_loading');
+    if (loader) {
+      loader.outerHTML = parsedHtml + '<p><br></p>';
+    } else {
+      insertHtmlAtCursor(parsedHtml + '<p><br></p>');
+    }
+
+    showToast('✅ AI 已將內容插入至筆記畫布！');
+    triggerAutoSaveDebounce();
+  } catch(err) {
+    console.error('Space AI 錯誤:', err);
+    const loader = document.getElementById('space_ai_loading');
+    if (loader) loader.outerHTML = `<div class="text-rose-500 text-xs">⚠️ AI 撰寫失敗：${escapeHtml(err.message)}</div>`;
+  }
+}
+
+// 5. 貼上 URL 4 合 1 智慧選單 (Smart URL Paste Menu)
+function handleUrlPaste(url, e) {
+  state.pendingPasteUrl = url;
+  const sel = window.getSelection();
+  if (sel && sel.rangeCount) {
+    state.pendingPasteRange = sel.getRangeAt(0).cloneRange();
+    const rect = state.pendingPasteRange.getBoundingClientRect();
+    const left = Math.max(10, Math.min(rect.left, window.innerWidth - 300));
+    const top = rect.bottom + window.scrollY + 6;
+
+    DOM.smartUrlMenu.style.left = `${left}px`;
+    DOM.smartUrlMenu.style.top = `${top}px`;
+    DOM.smartUrlMenu.classList.remove('hidden');
+  }
+}
+
+function executePasteAction(type) {
+  const url = state.pendingPasteUrl;
+  if (!url) return;
+  DOM.smartUrlMenu.classList.add('hidden');
+
+  let domain = 'link';
+  try { domain = new URL(url).hostname; } catch(e) {}
+
+  let html = '';
+  switch(type) {
+    case 'embed':
+      const ytMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+      if (ytMatch && ytMatch[1]) {
+        html = `<div class="my-3"><iframe src="https://www.youtube.com/embed/${ytMatch[1]}" class="w-full aspect-video rounded-lg shadow-md border-0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div><p><br></p>`;
+      } else {
+        html = `<div class="my-3"><iframe src="${url}" class="w-full min-h-[360px] rounded-lg shadow-md border-0" allowfullscreen></iframe></div><p><br></p>`;
+      }
+      break;
+    case 'bookmark':
+      html = `<p><a href="${url}" target="_blank" rel="noopener noreferrer" class="notion-bookmark-card"><div class="notion-bookmark-content"><div class="notion-bookmark-title">${escapeHtml(domain)}</div><div class="notion-bookmark-desc">點擊造訪：${escapeHtml(url)}</div><div class="notion-bookmark-url">🔗 ${escapeHtml(domain)}</div></div><div class="notion-bookmark-cover" style="background-image: url('https://www.google.com/s2/favicons?domain=${domain}&sz=128'); background-size: 48px; background-repeat: no-repeat;"></div></a></p><p><br></p>`;
+      break;
+    case 'mention':
+      html = `<a href="${url}" target="_blank" rel="noopener noreferrer" class="notion-page-link"><span>🔗</span><span>${escapeHtml(domain)}</span></a>&nbsp;`;
+      break;
+    case 'raw':
+      html = `<a href="${url}" target="_blank" class="text-blue-500 underline">${escapeHtml(url)}</a>&nbsp;`;
+      break;
+  }
+
+  if (html) {
+    insertHtmlAtCursor(html);
+    triggerAutoSaveDebounce();
+  }
+}
+
+// 6. @ 提及筆記頁面 (Page Mention)
+function handleMentionTrigger(e) {
+  const sel = window.getSelection();
+  if (!sel || !sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  const textBefore = range.startContainer.textContent || '';
+  const lastChar = textBefore[range.startOffset - 1];
+
+  if (lastChar === '@') {
+    const rect = range.getBoundingClientRect();
+    DOM.mentionMenu.style.left = `${Math.min(rect.left, window.innerWidth - 270)}px`;
+    DOM.mentionMenu.style.top = `${rect.bottom + window.scrollY + 6}px`;
+    renderMentionOptions();
+    DOM.mentionMenu.classList.remove('hidden');
+  } else {
+    DOM.mentionMenu.classList.add('hidden');
+  }
+}
+
+function renderMentionOptions() {
+  if (!DOM.mentionOptions) return;
+  DOM.mentionOptions.innerHTML = '';
+
+  const otherNotes = state.notes.filter(n => !state.currentNote || n.id !== state.currentNote.id);
+  if (!otherNotes.length) {
+    DOM.mentionOptions.innerHTML = '<div class="text-[11px] text-gray-400 py-1 px-2">無其他筆記可提及</div>';
+    return;
+  }
+
+  otherNotes.slice(0, 8).forEach(note => {
+    const cleanTitle = (note.name || '未命名').replace(/\.md$/i, '');
+    const icon = (note.meta && note.meta.icon) || '📝';
+
+    const item = document.createElement('div');
+    item.className = 'flex items-center gap-1.5 px-2 py-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer text-xs transition';
+    item.innerHTML = `<span>${icon}</span><span class="truncate flex-1">${escapeHtml(cleanTitle)}</span>`;
+
+    item.onclick = (e) => {
+      e.stopPropagation();
+      DOM.mentionMenu.classList.add('hidden');
+
+      // 移除剛剛輸入的 '@'
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        const range = sel.getRangeAt(0);
+        if (range.startOffset > 0) {
+          range.setStart(range.startContainer, range.startOffset - 1);
+          range.deleteContents();
+        }
+      }
+
+      const html = `<span class="notion-page-link" data-note-id="${note.id}"><span>${icon}</span><span>${escapeHtml(cleanTitle)}</span></span>&nbsp;`;
+      insertHtmlAtCursor(html);
+      triggerAutoSaveDebounce();
+    };
+
+    DOM.mentionOptions.appendChild(item);
+  });
+}
+
+// 7. Markdown 行首即時轉換語法
+function handleMarkdownInputRules(e) {
+  if (e.inputType === 'insertText' && e.data === ' ') {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const range = sel.getRangeAt(0);
+    const node = range.startContainer;
+    const textBefore = node.textContent ? node.textContent.substring(0, range.startOffset) : '';
+
+    let replaceHtml = null;
+    let matchLen = 0;
+
+    if (textBefore === '# ') {
+      replaceHtml = '<h1>標題 1</h1>';
+      matchLen = 2;
+    } else if (textBefore === '## ') {
+      replaceHtml = '<h2>標題 2</h2>';
+      matchLen = 3;
+    } else if (textBefore === '### ') {
+      replaceHtml = '<h3>標題 3</h3>';
+      matchLen = 4;
+    } else if (textBefore === '- ' || textBefore === '* ') {
+      replaceHtml = '<ul><li>清單項目</li></ul>';
+      matchLen = 2;
+    } else if (textBefore === '1. ') {
+      replaceHtml = '<ol><li>編號項目</li></ol>';
+      matchLen = 3;
+    } else if (textBefore === '[] ' || textBefore === '[ ] ') {
+      replaceHtml = '<div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text">待辦事項</span></div>';
+      matchLen = textBefore.length;
+    } else if (textBefore === '> ') {
+      replaceHtml = '<blockquote>在此輸入引言...</blockquote>';
+      matchLen = 2;
+    }
+
+    if (replaceHtml) {
+      e.preventDefault();
+      range.setStart(node, 0);
+      range.setEnd(node, range.startOffset);
+      range.deleteContents();
+      document.execCommand('insertHTML', false, replaceHtml);
+      triggerAutoSaveDebounce();
+    }
   }
 }
 
@@ -2646,6 +3039,120 @@ function bindEvents() {
     btn.addEventListener('click', () => {
       insertSlashSnippet(btn.dataset.slash);
     });
+  });
+
+  // 全寬模式切換按鈕
+  if (DOM.toggleFullwidthBtn) {
+    DOM.toggleFullwidthBtn.addEventListener('click', toggleFullWidth);
+  }
+
+  // 反白文字工具列事件
+  document.addEventListener('selectionchange', handleTextSelection);
+  if (DOM.selectionToolbar) {
+    DOM.selectionToolbar.querySelectorAll('button[data-cmd]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const cmd = btn.dataset.cmd;
+        if (cmd === 'code') {
+          const sel = window.getSelection();
+          if (sel && !sel.isCollapsed) {
+            document.execCommand('insertHTML', false, `<code>${escapeHtml(sel.toString())}</code>`);
+          }
+        } else {
+          document.execCommand(cmd, false, null);
+        }
+        triggerAutoSaveDebounce();
+      });
+    });
+
+    if (DOM.selTurnH1) DOM.selTurnH1.addEventListener('click', () => turnSelectionInto('h1'));
+    if (DOM.selTurnH2) DOM.selTurnH2.addEventListener('click', () => turnSelectionInto('h2'));
+    if (DOM.selTurnTodo) DOM.selTurnTodo.addEventListener('click', () => turnSelectionInto('todo'));
+    if (DOM.selTurnCallout) DOM.selTurnCallout.addEventListener('click', () => turnSelectionInto('callout'));
+
+    if (DOM.selAiBtn) {
+      DOM.selAiBtn.addEventListener('click', () => {
+        const sel = window.getSelection();
+        const text = sel ? sel.toString().trim() : '';
+        DOM.selectionToolbar.classList.add('hidden');
+        toggleAiPanel();
+        if (text) {
+          DOM.aiUserInput.value = `請幫我潤飾這段文字：\n"${text}"`;
+        }
+      });
+    }
+  }
+
+  // Space 鍵觸發 AI 提示框
+  DOM.editor.addEventListener('keydown', (e) => {
+    handleSpaceAiTrigger(e);
+
+    // Notion 快速鍵支援：Ctrl+Shift+1/2/3/4/7
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey) {
+      if (e.key === '1' || e.key === '!') {
+        e.preventDefault();
+        insertSlashSnippet('h1');
+      } else if (e.key === '2' || e.key === '@') {
+        e.preventDefault();
+        insertSlashSnippet('h2');
+      } else if (e.key === '3' || e.key === '#') {
+        e.preventDefault();
+        insertSlashSnippet('h3');
+      } else if (e.key === '4' || e.key === '$') {
+        e.preventDefault();
+        insertSlashSnippet('todo');
+      } else if (e.key === '7' || e.key === '&') {
+        e.preventDefault();
+        insertSlashSnippet('toggle');
+      }
+    }
+  });
+
+  if (DOM.spaceAiSubmit) {
+    DOM.spaceAiSubmit.addEventListener('click', () => executeSpaceAi());
+  }
+  if (DOM.spaceAiInput) {
+    DOM.spaceAiInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        executeSpaceAi();
+      }
+    });
+  }
+  document.querySelectorAll('.space-ai-quick').forEach(btn => {
+    btn.addEventListener('click', () => executeSpaceAi(btn.dataset.prompt));
+  });
+
+  // 貼上 URL 智慧 4 合 1 選單
+  if (DOM.pasteEmbedBtn) DOM.pasteEmbedBtn.addEventListener('click', () => executePasteAction('embed'));
+  if (DOM.pasteBookmarkBtn) DOM.pasteBookmarkBtn.addEventListener('click', () => executePasteAction('bookmark'));
+  if (DOM.pasteMentionBtn) DOM.pasteMentionBtn.addEventListener('click', () => executePasteAction('mention'));
+  if (DOM.pasteRawBtn) DOM.pasteRawBtn.addEventListener('click', () => executePasteAction('raw'));
+
+  // 智能攔截網址貼上
+  const origPasteHandler = DOM.editor.onpaste;
+  DOM.editor.addEventListener('paste', (e) => {
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    if (text && /^https?:\/\/[^\s]+$/i.test(text.trim())) {
+      e.preventDefault();
+      handleUrlPaste(text.trim(), e);
+      return;
+    }
+  });
+
+  // 監聽 @ 提及與 Markdown 行首規則
+  DOM.editor.addEventListener('input', (e) => {
+    handleMentionTrigger(e);
+    handleMarkdownInputRules(e);
+  });
+
+  // 點擊提及筆記直接跳轉
+  DOM.editor.addEventListener('click', (e) => {
+    const pageLink = e.target.closest('.notion-page-link');
+    if (pageLink && pageLink.dataset.noteId) {
+      e.preventDefault();
+      selectNote(pageLink.dataset.noteId);
+    }
   });
 
   // 快捷鍵 (Ctrl+S, Ctrl+N)
