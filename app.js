@@ -50,9 +50,14 @@ const CURATED_EMOJIS = [
   '🔬', '🎧', '🧭', '💎', '📑', '🔑', '🛠️', '✨', '🌈', '🧩'
 ];
 
+// 預設 Google Client ID 與 指定帳號
+const DEFAULT_CLIENT_ID = '582047821145-ekcolq9q6at8p1r5308ia2jer44a7g1a.apps.googleusercontent.com';
+const DEFAULT_USER_EMAIL = 'vincent30511@gmail.com';
+
 // 全域狀態
 const state = {
-  clientId: localStorage.getItem('cloudnotes_client_id') || '',
+  clientId: localStorage.getItem('cloudnotes_client_id') || DEFAULT_CLIENT_ID,
+  userEmail: localStorage.getItem('cloudnotes_user_email') || DEFAULT_USER_EMAIL,
   folderName: localStorage.getItem('cloudnotes_folder_name') || 'DriveNotes',
   geminiApiKey: localStorage.getItem('cloudnotes_gemini_key') || '',
   folderId: null,
@@ -198,6 +203,7 @@ const DOM = {
   closeSettingsBtn: document.getElementById('close-settings-btn'),
   saveSettingsBtn: document.getElementById('save-settings-btn'),
   settingClientId: document.getElementById('setting-client-id'),
+  settingUserEmail: document.getElementById('setting-user-email'),
   settingFolderName: document.getElementById('setting-folder-name'),
   settingGeminiKey: document.getElementById('setting-gemini-key'),
 
@@ -279,6 +285,7 @@ function showToast(message, duration = 3000) {
 // ----------------- 設定與 Google 自動授權 -----------------
 function initSettingsUI() {
   if (DOM.settingClientId) DOM.settingClientId.value = state.clientId;
+  if (DOM.settingUserEmail) DOM.settingUserEmail.value = state.userEmail;
   if (DOM.settingFolderName) DOM.settingFolderName.value = state.folderName;
   if (DOM.settingGeminiKey) DOM.settingGeminiKey.value = state.geminiApiKey;
   if (DOM.headerFolder) DOM.headerFolder.textContent = state.folderName;
@@ -287,6 +294,7 @@ function initSettingsUI() {
 
 function openSettings() {
   DOM.settingClientId.value = state.clientId;
+  if (DOM.settingUserEmail) DOM.settingUserEmail.value = state.userEmail;
   DOM.settingFolderName.value = state.folderName;
   DOM.settingGeminiKey.value = state.geminiApiKey;
   DOM.settingsModal.classList.remove('hidden');
@@ -297,11 +305,13 @@ function closeSettings() {
 }
 
 function saveSettings() {
-  state.clientId = DOM.settingClientId.value.trim();
+  state.clientId = DOM.settingClientId.value.trim() || DEFAULT_CLIENT_ID;
+  if (DOM.settingUserEmail) state.userEmail = DOM.settingUserEmail.value.trim() || DEFAULT_USER_EMAIL;
   state.folderName = DOM.settingFolderName.value.trim() || 'DriveNotes';
   state.geminiApiKey = DOM.settingGeminiKey.value.trim();
 
   localStorage.setItem('cloudnotes_client_id', state.clientId);
+  localStorage.setItem('cloudnotes_user_email', state.userEmail);
   localStorage.setItem('cloudnotes_folder_name', state.folderName);
   localStorage.setItem('cloudnotes_gemini_key', state.geminiApiKey);
 
@@ -312,16 +322,16 @@ function saveSettings() {
   showToast('設定已儲存！');
   checkAiKeyStatus();
 
-  if (state.clientId) {
-    setupGoogleAuth();
-  }
+  setupGoogleAuth();
 }
 
 function setupGoogleAuth() {
   if (!state.clientId) {
-    updateSyncStatus('offline', '尚未設定 Client ID');
-    return;
+    state.clientId = DEFAULT_CLIENT_ID;
+    localStorage.setItem('cloudnotes_client_id', DEFAULT_CLIENT_ID);
   }
+
+  const targetEmail = state.userEmail || DEFAULT_USER_EMAIL;
 
   const checkGsi = setInterval(() => {
     if (window.google && window.google.accounts && window.google.accounts.oauth2) {
@@ -331,33 +341,68 @@ function setupGoogleAuth() {
         state.tokenClient = google.accounts.oauth2.initTokenClient({
           client_id: state.clientId,
           scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile',
+          hint: targetEmail,
           callback: async (resp) => {
             if (resp.error) {
+              if (resp.error === 'immediate_failed') {
+                console.log('靜默授權未通過，等待使用者手動點擊登入');
+                updateSyncStatus('offline', '未登入 Google');
+                return;
+              }
+              if (resp.error === 'popup_closed_by_user') {
+                showToast('登入視窗已關閉');
+                updateSyncStatus('offline', '未登入');
+                return;
+              }
+              if (resp.error === 'popup_failed_to_open') {
+                showToast('⚠️ 瀏覽器攔截了登入彈跳視窗，請點擊網址列右側允許彈跳視窗後重試！', 5000);
+                updateSyncStatus('error', '彈窗被攔截');
+                return;
+              }
+              if (resp.error === 'access_denied') {
+                showToast('存取授權遭取消');
+                localStorage.removeItem('cloudnotes_authorized');
+                updateSyncStatus('offline', '未登入');
+                return;
+              }
               console.error('Google 授權失敗:', resp);
-              updateSyncStatus('error', '授權失敗');
-              showToast('Google 授權出錯');
+              updateSyncStatus('error', '授權出錯');
+              showToast('Google 授權失敗: ' + (resp.error || '未知錯誤') + '（請檢查網址來源是否已加入 Google Cloud 憑證）', 5000);
               return;
             }
+
             state.accessToken = resp.access_token;
             localStorage.setItem('cloudnotes_access_token', resp.access_token);
-            scheduleTokenRefresh(resp.expires_in || 3500);
+            localStorage.setItem('cloudnotes_authorized', 'true');
+            const expiresIn = resp.expires_in ? parseInt(resp.expires_in, 10) : 3600;
+            scheduleTokenRefresh(expiresIn);
             await onLoginSuccess();
           }
         });
 
-        // 自動嘗試載入先前 token
+        // 自動嘗試靜默登入指定的使用者帳號
         const cachedToken = localStorage.getItem('cloudnotes_access_token');
         if (cachedToken) {
           state.accessToken = cachedToken;
-          onLoginSuccess();
+          onLoginSuccess().catch(() => {
+            state.accessToken = null;
+            localStorage.removeItem('cloudnotes_access_token');
+            if (state.tokenClient) {
+              state.tokenClient.requestAccessToken({ prompt: '', hint: targetEmail });
+            }
+          });
+        } else if (localStorage.getItem('cloudnotes_authorized') === 'true') {
+          updateSyncStatus('syncing', '正在自動連線...');
+          state.tokenClient.requestAccessToken({ prompt: '', hint: targetEmail });
         } else {
           updateSyncStatus('offline', '未登入 Google');
         }
       } catch (err) {
         console.error('初始化 Google Token Client 錯誤:', err);
+        updateSyncStatus('error', 'Google SDK 載入異常');
       }
     }
-  }, 200);
+  }, 100);
 }
 
 function scheduleTokenRefresh(expiresIn) {
@@ -365,26 +410,41 @@ function scheduleTokenRefresh(expiresIn) {
   const refreshMs = Math.max((expiresIn - 300) * 1000, 60000);
   state.tokenRefreshTimer = setTimeout(() => {
     if (state.tokenClient) {
-      state.tokenClient.requestAccessToken({ prompt: '' });
+      console.log('背景自動更新 Google Drive 存取憑證...');
+      state.tokenClient.requestAccessToken({ prompt: '', hint: state.userEmail || DEFAULT_USER_EMAIL });
     }
   }, refreshMs);
 }
 
 function handleLogin() {
   if (!state.clientId) {
-    openSettings();
-    showToast('請先填入 Google OAuth Client ID');
-    return;
+    state.clientId = DEFAULT_CLIENT_ID;
+    localStorage.setItem('cloudnotes_client_id', DEFAULT_CLIENT_ID);
   }
+
+  const targetEmail = state.userEmail || DEFAULT_USER_EMAIL;
+
   if (state.tokenClient) {
-    state.tokenClient.requestAccessToken();
+    updateSyncStatus('syncing', '正在呼叫 Google 授權...');
+    // 傳入 hint 指定 vincent30511@gmail.com，Google 將自動跳過「選擇使用者」畫面！
+    state.tokenClient.requestAccessToken({
+      hint: targetEmail
+    });
+  } else {
+    showToast('Google 認證元件載入中，請稍候重試...');
+    setupGoogleAuth();
   }
 }
 
 function handleLogout() {
+  if (state.tokenRefreshTimer) clearTimeout(state.tokenRefreshTimer);
+  if (state.accessToken && window.google && window.google.accounts && window.google.accounts.oauth2) {
+    google.accounts.oauth2.revoke(state.accessToken, () => {});
+  }
   state.accessToken = null;
   state.user = null;
   localStorage.removeItem('cloudnotes_access_token');
+  localStorage.removeItem('cloudnotes_authorized');
   DOM.userProfile.classList.add('hidden');
   DOM.loginBtn.classList.remove('hidden');
   updateSyncStatus('offline', '未登入');
@@ -1596,9 +1656,12 @@ function applyTemplate(type) {
 
 // ----------------- Frontmatter 解析與建構 -----------------
 function parseFrontmatter(rawContent) {
-  const match = rawContent.match(/^---?
-([\s\S]*?)?
----?
+  const match = rawContent.match(/^---
+?
+([\s\S]*?)
+?
+---
+?
 ([\s\S]*)$/);
   if (!match) return { meta: {}, body: rawContent };
 
