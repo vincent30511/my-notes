@@ -571,11 +571,8 @@ async function saveWorkspaceConfigToDrive() {
     const data = await res.json();
 
     const boundary = '-------CloudNotesConfigBoundary7788';
-    const delimiter = "
---" + boundary + "
-";
-    const closeDelimiter = "
---" + boundary + "--";
+    const delimiter = '\r\n--' + boundary + '\r\n';
+    const closeDelimiter = '\r\n--' + boundary + '--';
 
     let url, method;
     if (data.files && data.files.length > 0) {
@@ -592,18 +589,15 @@ async function saveWorkspaceConfigToDrive() {
       parents: [state.folderId]
     };
 
-    const multipartRequestBody =
-      delimiter +
-      'Content-Type: application/json; charset=UTF-8
-
-' +
-      JSON.stringify(metadata) +
-      delimiter +
-      'Content-Type: application/json
-
-' +
-      configData +
-      closeDelimiter;
+    const multipartRequestBody = [
+      delimiter,
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n',
+      JSON.stringify(metadata),
+      delimiter,
+      'Content-Type: application/json\r\n\r\n',
+      configData,
+      closeDelimiter
+    ].join('');
 
     await fetch(url, {
       method,
@@ -1314,11 +1308,8 @@ async function uploadMediaFile(file) {
 
   try {
     const boundary = '-------CloudNotesMediaBoundary8899';
-    const delimiter = "
---" + boundary + "
-";
-    const closeDelimiter = "
---" + boundary + "--";
+    const delimiter = '\r\n--' + boundary + '\r\n';
+    const closeDelimiter = '\r\n--' + boundary + '--';
 
     const metadata = {
       name: file.name,
@@ -1334,19 +1325,16 @@ async function uploadMediaFile(file) {
       reader.readAsArrayBuffer(file);
     });
 
-    const metadataPart = delimiter +
-      'Content-Type: application/json; charset=UTF-8
-
-' +
-      JSON.stringify(metadata) +
-      delimiter +
-      `Content-Type: ${file.type || 'application/octet-stream'}
-` +
-      'Content-Transfer-Encoding: base64
-
-' +
-      btoa(new Uint8Array(fileData).reduce((data, byte) => data + String.fromCharCode(byte), '')) +
-      closeDelimiter;
+    const metadataPart = [
+      delimiter,
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n',
+      JSON.stringify(metadata),
+      delimiter,
+      `Content-Type: ${file.type || 'application/octet-stream'}\r\n`,
+      'Content-Transfer-Encoding: base64\r\n\r\n',
+      btoa(new Uint8Array(fileData).reduce((data, byte) => data + String.fromCharCode(byte), '')),
+      closeDelimiter
+    ].join('');
 
     const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
       method: 'POST',
@@ -1656,21 +1644,14 @@ function applyTemplate(type) {
 
 // ----------------- Frontmatter 解析與建構 -----------------
 function parseFrontmatter(rawContent) {
-  const match = rawContent.match(/^---
-?
-([\s\S]*?)
-?
----
-?
-([\s\S]*)$/);
+  const match = rawContent.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n([\s\S]*)$/);
   if (!match) return { meta: {}, body: rawContent };
 
   const frontmatterStr = match[1];
   const body = match[2];
   const meta = {};
 
-  frontmatterStr.split('
-').forEach(line => {
+  frontmatterStr.split(/\r?\n/).forEach(line => {
     const colonIdx = line.indexOf(':');
     if (colonIdx !== -1) {
       const k = line.substring(0, colonIdx).trim();
@@ -1702,8 +1683,7 @@ function buildFrontmatterString(meta) {
   if (meta.tags && meta.tags.length) lines.push(`tags: ${JSON.stringify(meta.tags)}`);
   lines.push('---');
   lines.push('');
-  return lines.join('
-');
+  return lines.join('\n');
 }
 
 // ----------------- 筆記清單渲染 -----------------
@@ -1914,20 +1894,11 @@ function convertHtmlToMarkdown(html) {
     td.keep(['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span']);
     return td.turndown(html);
   }
-  return html.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1
-
-')
-             .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1
-
-')
-             .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1
-
-')
-             .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1
-
-')
-             .replace(/<br\s*\/?>/gi, '
-');
+  return html.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n')
+             .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n')
+             .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n')
+             .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n')
+             .replace(/<br\s*\/?>/gi, '\n');
 }
 
 async function saveCurrentNote() {
@@ -1954,11 +1925,8 @@ async function saveCurrentNote() {
 
   try {
     const boundary = '-------CloudNotesBoundary7788';
-    const delimiter = "
---" + boundary + "
-";
-    const closeDelimiter = "
---" + boundary + "--";
+    const delimiter = '\r\n--' + boundary + '\r\n';
+    const closeDelimiter = '\r\n--' + boundary + '--';
 
     let url;
     let method;
@@ -1978,18 +1946,15 @@ async function saveCurrentNote() {
       }
     }
 
-    const multipartRequestBody =
-      delimiter +
-      'Content-Type: application/json; charset=UTF-8
-
-' +
-      JSON.stringify(metadata) +
-      delimiter +
-      'Content-Type: text/markdown; charset=UTF-8
-
-' +
-      fullContent +
-      closeDelimiter;
+    const multipartRequestBody = [
+      delimiter,
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n',
+      JSON.stringify(metadata),
+      delimiter,
+      'Content-Type: text/markdown; charset=UTF-8\r\n\r\n',
+      fullContent,
+      closeDelimiter
+    ].join('');
 
     const res = await fetch(url, {
       method: method,
@@ -2193,8 +2158,7 @@ function insertSlashSnippet(type) {
       html = '<table><thead><tr><th>欄位 1</th><th>欄位 2</th><th>欄位 3</th></tr></thead><tbody><tr><td>內容</td><td>內容</td><td>內容</td></tr><tr><td>內容</td><td>內容</td><td>內容</td></tr></tbody></table><p><br></p>';
       break;
     case 'code':
-      html = '<pre><code>// 在此輸入代碼
-console.log("Hello Notion");</code></pre><p><br></p>';
+      html = '<pre><code>// 在此輸入代碼\nconsole.log("Hello Notion");</code></pre><p><br></p>';
       break;
   }
 
