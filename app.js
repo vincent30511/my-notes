@@ -1,3 +1,5 @@
+const APP_VERSION = 'v2.4.0'; // 2026.10.08
+console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
   localStorage.setItem('cloudnotes_folder_name', 'LVI_Note');
@@ -3474,6 +3476,7 @@ async function uploadMediaFile(file) {
       insertHtmlAtCursor(finalEmbedHtml);
     }
 
+    try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
     updateSyncStatus('synced', '媒體已就地渲染');
     showToast(`✅ ${file.name} 已就地嵌入至筆記`);
     triggerAutoSaveDebounce();
@@ -3740,9 +3743,10 @@ async function uploadGenericFile(file) {
       placeholder.outerHTML = cardHtml;
     } else {
       insertHtmlAtCursor(cardHtml);
-    ensureEditableSpacesAroundMediaBlocks(DOM.editor);
+      ensureEditableSpacesAroundMediaBlocks(DOM.editor);
     }
 
+    try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
     initLucide();
     updateSyncStatus('synced', '檔案已就地嵌入');
     showToast(`✅ 檔案「${file.name}」已加入筆記，可隨時下載`);
@@ -5185,94 +5189,140 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
       }
     }
   });
-  // 4. 為所有圖片卡片附加「🎨 編輯圖片」按鈕 (標題列、浮動懸停鈕、底部資訊列三重齊全)
+  // 4. 🛡️ 核心修復：為「每一張圖片卡片」附加「🎨 編輯圖片」按鈕 (標題列、浮動懸停鈕、底部資訊列三重齊全)，並實作卡片隔離保護杜絕中斷
   container.querySelectorAll('details.notion-media-collapse').forEach(details => {
-    const content = details.querySelector('.media-collapse-content') || details.querySelector('.p-3');
-    if (content) content.classList.add('media-collapse-content');
+    try {
+      const content = details.querySelector('.media-collapse-content') || details.querySelector('.p-3');
+      if (content) content.classList.add('media-collapse-content');
 
-    const img = details.querySelector('img');
-    if (img) {
-      // 4.1 在卡片頂部標題列 (summary) 右側加入醒目的「🎨 編輯圖片」按鈕
-      const summary = details.querySelector('summary');
-      if (summary && !summary.querySelector('.summary-edit-img-btn')) {
-        const rightArea = summary.querySelector('.flex.items-center.gap-2.shrink-0') || summary.lastElementChild;
-        if (rightArea) {
-          const sumEditBtn = document.createElement('button');
-          sumEditBtn.type = 'button';
-          sumEditBtn.className = 'summary-edit-img-btn px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-700 active:scale-95 text-white transition flex items-center gap-1 shadow-xs cursor-pointer mr-1.5 shrink-0 z-10';
-          sumEditBtn.title = '編輯此圖片 (畫筆劃記、螢光筆、旋轉、裁切)';
-          sumEditBtn.innerHTML = '<span>🎨 編輯圖片</span>';
+      const img = details.querySelector('img');
+      if (img) {
+        // 4.1 在卡片頂部標題列 (summary) 右側加入醒目的「🎨 編輯圖片」按鈕
+        const summary = details.querySelector('summary');
+        if (summary && !summary.querySelector('.summary-edit-img-btn')) {
+          let rightArea = summary.querySelector('.flex.items-center.gap-2.shrink-0');
+          if (!rightArea) {
+            const divs = summary.querySelectorAll('div');
+            if (divs.length >= 2) {
+              rightArea = divs[divs.length - 1];
+            } else {
+              rightArea = summary.lastElementChild;
+            }
+          }
+          if (rightArea) {
+            const sumEditBtn = document.createElement('button');
+            sumEditBtn.type = 'button';
+            sumEditBtn.className = 'summary-edit-img-btn px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-700 active:scale-95 text-white transition flex items-center gap-1 shadow-xs cursor-pointer mr-1.5 shrink-0 z-10';
+            sumEditBtn.title = '編輯此圖片 (畫筆劃記、螢光筆、旋轉、裁切)';
+            sumEditBtn.innerHTML = '<span>🎨 編輯圖片</span>';
 
-          sumEditBtn.addEventListener('click', (e) => {
+            sumEditBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              openImageEditor(img);
+            });
+
+            rightArea.prepend(sumEditBtn);
+          }
+        }
+
+        // 4.2 智慧比對底部說明列 (相容所有 Google Drive 既存筆記格式，安全插入杜絕 NotFoundError)
+        let captionBar = details.querySelector('.media-caption-bar');
+        const downloadLink = details.querySelector('a[download]') || details.querySelector('a');
+        if (!captionBar && downloadLink) {
+          captionBar = downloadLink.closest('div');
+          if (captionBar) captionBar.classList.add('media-caption-bar');
+        }
+        if (!captionBar) {
+          const allDivs = Array.from(details.querySelectorAll('div')).reverse();
+          for (const d of allDivs) {
+            if (d.querySelector('a[download]') || (d.textContent && (d.textContent.includes('下載原圖') || d.textContent.includes('雲端檢視')))) {
+              captionBar = d;
+              captionBar.classList.add('media-caption-bar');
+              break;
+            }
+          }
+        }
+
+        if (captionBar && !captionBar.querySelector('.caption-edit-img-btn')) {
+          const editBtn = document.createElement('button');
+          editBtn.type = 'button';
+          editBtn.className = 'caption-edit-img-btn image-edit-btn px-2.5 py-0.5 rounded text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200/80 dark:border-blue-800/80 transition flex items-center gap-1 cursor-pointer shadow-2xs';
+          editBtn.title = '簡易編輯圖片 (畫筆劃記、螢光筆、旋轉、裁切)';
+          editBtn.innerHTML = '<span>🎨 編輯圖片</span>';
+
+          const dot = document.createElement('span');
+          dot.className = 'text-gray-400 mx-1';
+          dot.textContent = '•';
+
+          if (downloadLink && downloadLink.parentNode) {
+            downloadLink.parentNode.insertBefore(editBtn, downloadLink);
+            downloadLink.parentNode.insertBefore(dot, downloadLink);
+          } else {
+            captionBar.appendChild(dot);
+            captionBar.appendChild(editBtn);
+          }
+
+          editBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             e.preventDefault();
             openImageEditor(img);
           });
-
-          rightArea.prepend(sumEditBtn);
         }
-      }
 
-      // 4.2 智慧比對底部說明列 (相容所有 Google Drive 既存筆記格式)
-      let captionBar = details.querySelector('.media-caption-bar');
-      if (!captionBar) {
-        const allDivs = details.querySelectorAll('div');
-        for (const d of allDivs) {
-          if (d.querySelector('a[download]') || (d.textContent && (d.textContent.includes('下載原圖') || d.textContent.includes('雲端檢視')))) {
-            captionBar = d;
-            captionBar.classList.add('media-caption-bar');
-            break;
+        // 4.3 圖片本身的懸停浮動按鈕與雙擊事件
+        if (!img.parentElement || !img.parentElement.classList.contains('image-preview-wrapper')) {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'image-preview-wrapper relative inline-block mx-auto group max-w-full';
+          if (img.parentNode) {
+            img.parentNode.insertBefore(wrapper, img);
+            wrapper.appendChild(img);
+
+            const hoverBtn = document.createElement('button');
+            hoverBtn.type = 'button';
+            hoverBtn.className = 'image-hover-edit-btn absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-black/75 hover:bg-blue-600 text-white text-xs font-semibold backdrop-blur-md shadow-lg transition opacity-90 sm:opacity-0 group-hover:opacity-100 flex items-center gap-1.5 cursor-pointer z-10';
+            hoverBtn.title = '點擊編輯此圖片';
+            hoverBtn.innerHTML = '<span>🎨 編輯圖片</span>';
+            hoverBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              openImageEditor(img);
+            });
+            wrapper.appendChild(hoverBtn);
           }
         }
-      }
 
-      if (captionBar && !captionBar.querySelector('.caption-edit-img-btn')) {
-        const editBtn = document.createElement('button');
-        editBtn.type = 'button';
-        editBtn.className = 'caption-edit-img-btn image-edit-btn px-2.5 py-0.5 rounded text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200/80 dark:border-blue-800/80 transition flex items-center gap-1 cursor-pointer shadow-2xs';
-        editBtn.title = '簡易編輯圖片 (畫筆劃記、螢光筆、旋轉、裁切)';
-        editBtn.innerHTML = '<span>🎨 編輯圖片</span>';
-
-        const dot = document.createElement('span');
-        dot.className = 'text-gray-400 mx-1';
-        dot.textContent = '•';
-
-        const downloadLink = captionBar.querySelector('a[download]') || captionBar.querySelector('a');
-        if (downloadLink) {
-          captionBar.insertBefore(editBtn, downloadLink);
-          captionBar.insertBefore(dot, downloadLink);
-        } else {
-          captionBar.appendChild(dot);
-          captionBar.appendChild(editBtn);
+        if (!img.dataset.dblEditBound) {
+          img.dataset.dblEditBound = 'true';
+          img.title = '雙擊進行圖片簡易編輯 (劃記/旋轉/裁切)';
+          img.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            openImageEditor(img);
+          });
         }
-
-        editBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          openImageEditor(img);
-        });
       }
 
-      // 4.3 圖片本身的懸停浮動按鈕與雙擊事件
-      if (!img.parentElement.classList.contains('image-preview-wrapper')) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'image-preview-wrapper relative inline-block mx-auto group max-w-full';
-        img.parentNode.insertBefore(wrapper, img);
-        wrapper.appendChild(img);
-
-        const hoverBtn = document.createElement('button');
-        hoverBtn.type = 'button';
-        hoverBtn.className = 'image-hover-edit-btn absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-black/75 hover:bg-blue-600 text-white text-xs font-semibold backdrop-blur-md shadow-lg transition opacity-90 sm:opacity-0 group-hover:opacity-100 flex items-center gap-1.5 cursor-pointer z-10';
-        hoverBtn.title = '點擊編輯此圖片';
-        hoverBtn.innerHTML = '<span>🎨 編輯圖片</span>';
-        hoverBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
+      // 🌟 極致平滑收折/展開動畫綁定 (Smooth Collapsible Animation)
+      const summary = details.querySelector('summary');
+      if (summary && !summary.dataset.animatedCollapseBound && content) {
+        summary.dataset.animatedCollapseBound = 'true';
+        summary.addEventListener('click', (e) => {
+          if (e.target.closest('.drag-handle') || e.target.closest('button') || e.target.closest('a')) {
+            return;
+          }
           e.preventDefault();
-          openImageEditor(img);
+          toggleCollapsibleWithAnimation(details, content);
         });
-        wrapper.appendChild(hoverBtn);
       }
+    } catch (cardErr) {
+      console.warn('單張媒體卡片渲染編輯按鈕錯誤，已安全略過不影響其餘圖片:', cardErr);
+    }
+  });
 
+  // 5. 確保任何獨立圖片 (如非收折區塊) 也具備雙擊編輯功能
+  container.querySelectorAll('img:not(.emoji-opt img)').forEach(img => {
+    try {
+      if (img.closest('button, nav, header, select, .notion-popover, #image-editor-modal')) return;
       if (!img.dataset.dblEditBound) {
         img.dataset.dblEditBound = 'true';
         img.title = '雙擊進行圖片簡易編輯 (劃記/旋轉/裁切)';
@@ -5281,19 +5331,8 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
           openImageEditor(img);
         });
       }
-    }
-
-    // 🌟 極致平滑收折/展開動畫綁定 (Smooth Collapsible Animation)
-    const summary = details.querySelector('summary');
-    if (summary && !summary.dataset.animatedCollapseBound && content) {
-      summary.dataset.animatedCollapseBound = 'true';
-      summary.addEventListener('click', (e) => {
-        if (e.target.closest('.drag-handle') || e.target.closest('button') || e.target.closest('a')) {
-          return;
-        }
-        e.preventDefault();
-        toggleCollapsibleWithAnimation(details, content);
-      });
+    } catch (e) {
+      console.warn('獨立圖片綁定錯誤:', e);
     }
   });
 
@@ -8773,6 +8812,7 @@ function bindEvents() {
               n.content = oldHtml;
               if (state.currentNote && state.currentNote.id === noteId) {
                 DOM.editor.innerHTML = oldHtml;
+                try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
                 updateStats();
                 renderOutline();
               }
@@ -8785,6 +8825,7 @@ function bindEvents() {
               n.content = newHtml;
               if (state.currentNote && state.currentNote.id === noteId) {
                 DOM.editor.innerHTML = newHtml;
+                try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
                 updateStats();
                 renderOutline();
               }
