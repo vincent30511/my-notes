@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.4.1'; // 2026.10.08
+const APP_VERSION = 'v2.4.2'; // 2026.10.08
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -748,6 +748,7 @@ async function autoLoginFlow() {
       });
       if (testRes.ok) {
         state.accessToken = cachedToken;
+        scheduleTokenRefresh(3600);
         await onLoginSuccess();
         return;
       } else {
@@ -772,6 +773,27 @@ async function autoLoginFlow() {
     DOM.loginBtn.classList.remove('hidden');
     DOM.userProfile.classList.add('hidden');
   }
+}
+
+
+function refreshGoogleToken() {
+  return new Promise((resolve, reject) => {
+    if (!state.tokenClient) return reject(new Error('Token Client 尚未初始化'));
+    const prevCallback = state.tokenClient.callback;
+    state.tokenClient.callback = async (resp) => {
+      state.tokenClient.callback = prevCallback;
+      if (resp.error) {
+        reject(new Error(resp.error));
+      } else if (resp.access_token) {
+        state.accessToken = resp.access_token;
+        localStorage.setItem('cloudnotes_access_token', resp.access_token);
+        const expiresIn = resp.expires_in ? parseInt(resp.expires_in, 10) : 3600;
+        scheduleTokenRefresh(expiresIn);
+        resolve(resp.access_token);
+      }
+    };
+    state.tokenClient.requestAccessToken({ prompt: '', hint: state.userEmail || DEFAULT_USER_EMAIL });
+  });
 }
 
 function scheduleTokenRefresh(expiresIn) {
@@ -1262,10 +1284,12 @@ async function saveWorkspaceConfigToDrive() {
 }
 
 // 3. 獲取所有筆記清單，完全以 Google Drive 為單一真理源，並具備自我學習修復機制
-async function fetchNotesList() {
+async function fetchNotesList(silent = false) {
   if (!state.folderId || !state.accessToken) return;
-  updateSyncStatus('syncing', '正在載入雲端筆記清單...');
-  showGlobalLoading('正在載入雲端筆記...');
+  if (!silent) {
+    updateSyncStatus('syncing', '正在載入雲端筆記清單...');
+    showGlobalLoading('正在載入雲端筆記...');
+  }
 
   try {
     // 1. 完整搜尋 LVI_Note 下的所有分類子資料夾
@@ -1378,7 +1402,9 @@ async function fetchNotesList() {
     renderWorkTagLists();
     renderSidebarTags();
     renderNotesList();
-    updateSyncStatus('synced', '已完全同步 (雲端)');
+    if (!silent && !state.isDirty && !state.isSaving) {
+      updateSyncStatus('synced', '已完全同步 (雲端)');
+    }
     state.lastSyncTime = Date.now();
 
     // 🎯 全域排序：所有筆記依據「最後一次編輯時間 (modifiedTime)」由新到舊排序
@@ -1394,8 +1420,10 @@ async function fetchNotesList() {
     }
   } catch (e) {
     console.error('載入雲端筆記清單失敗:', e);
-    updateSyncStatus('error', '雲端同步出錯');
-  } finally { hideGlobalLoading(); }
+    if (!silent) updateSyncStatus('error', '雲端同步出錯');
+  } finally {
+    if (!silent) hideGlobalLoading();
+  }
 }
 
 async function fullSyncWithDrive(showFeedback = true) {
@@ -1403,7 +1431,7 @@ async function fullSyncWithDrive(showFeedback = true) {
   if (showFeedback) updateSyncStatus('syncing', '正在雙向同步所有筆記與分類...');
   try {
     await syncWorkspaceConfigWithDrive();
-    await fetchNotesList();
+    await fetchNotesList(!showFeedback);
     state.lastSyncTime = Date.now();
     if (showFeedback) {
       updateSyncStatus('synced', '已完全同步');
@@ -4616,15 +4644,33 @@ function createNewNote() {
   return createQuickNote();
 }
 
+let autoSaveMaxTimer = null;
+
 function triggerAutoSaveDebounce() {
   state.isDirty = true;
-  DOM.statAutosave.innerHTML = '<i data-lucide="loader" class="w-3 h-3 text-blue-500 animate-spin"></i> 準備自動儲存...';
-  initLucide();
+  DOM.statAutosave.innerHTML = '<svg class="w-3 h-3 text-blue-500 animate-spin inline-block mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> 準備自動儲存...';
 
+  // 1. 防抖計時器 (Debounce)：停筆 800ms 後立即儲存
   if (state.autoSaveTimer) clearTimeout(state.autoSaveTimer);
   state.autoSaveTimer = setTimeout(() => {
+    if (autoSaveMaxTimer) {
+      clearTimeout(autoSaveMaxTimer);
+      autoSaveMaxTimer = null;
+    }
     saveCurrentNote();
-  }, 1200);
+  }, 800);
+
+  // 2. 節流保底計時器 (Max Wait Throttle)：若持續不間斷輸入，每 4 秒保證觸發儲存一次，杜絕長時間不存檔
+  if (!autoSaveMaxTimer) {
+    autoSaveMaxTimer = setTimeout(() => {
+      autoSaveMaxTimer = null;
+      if (state.autoSaveTimer) {
+        clearTimeout(state.autoSaveTimer);
+        state.autoSaveTimer = null;
+      }
+      saveCurrentNote();
+    }, 4000);
+  }
 }
 
 function convertHtmlToMarkdown(html) {
@@ -4644,10 +4690,33 @@ function convertHtmlToMarkdown(html) {
 }
 
 async function saveCurrentNote() {
-  if (!state.accessToken) return;
+  if (!state.accessToken) {
+    console.warn('saveCurrentNote: 未登入或無 accessToken');
+    updateSyncStatus('offline', '尚未登入 Google');
+    DOM.statAutosave.innerHTML = '<span class="text-amber-500 font-medium">⚠️ 尚未登入 Google，草稿暫存於本機</span>';
+    return;
+  }
+
+  // 🛡️ 平行儲存互斥鎖：若已有請求在傳輸中，排入佇列待完成後立即發動最新儲存
+  if (state.isSaving) {
+    state.savePending = true;
+    return;
+  }
+  state.isSaving = true;
+
+  if (state.autoSaveTimer) {
+    clearTimeout(state.autoSaveTimer);
+    state.autoSaveTimer = null;
+  }
+  if (autoSaveMaxTimer) {
+    clearTimeout(autoSaveMaxTimer);
+    autoSaveMaxTimer = null;
+  }
+
   if (!state.folderId) await ensureNotesFolder();
 
   updateSyncStatus('syncing', '儲存至 Google Drive...');
+  DOM.statAutosave.innerHTML = '<svg class="w-3 h-3 text-blue-500 animate-spin inline-block mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> 正在同步至雲端...';
 
   let title = DOM.noteTitle.value.trim() || '未命名筆記';
   DOM.headerTitle.textContent = title;
@@ -4659,7 +4728,7 @@ async function saveCurrentNote() {
     machineModel: DOM.noteMachineSelect ? DOM.noteMachineSelect.value : '未分類',
     workContent: DOM.noteContentSelect ? DOM.noteContentSelect.value : '未分類',
     urgency: DOM.noteUrgencySelect ? DOM.noteUrgencySelect.value : '未分類',
-        dueDate: DOM.noteDueDate ? DOM.noteDueDate.value : '',
+    dueDate: DOM.noteDueDate ? DOM.noteDueDate.value : '',
     tags: (state.currentNote && state.currentNote.meta && state.currentNote.meta.tags) || [],
     pinned: state.currentNote ? state.currentNote.meta.pinned : false
   };
@@ -4668,9 +4737,7 @@ async function saveCurrentNote() {
   const fullContent = buildFrontmatterString(meta) + markdownBody;
 
   try {
-    const boundary = '-------CloudNotesBoundary7788';
-    const delimiter = '\r\n--' + boundary + '\r\n';
-    const closeDelimiter = '\r\n--' + boundary + '--';
+    const boundary = '-------CloudNotesBoundary' + Math.random().toString(36).substring(2);
 
     let url;
     let method;
@@ -4700,24 +4767,53 @@ async function saveCurrentNote() {
       metadata.parents = [targetFolderId];
     }
 
-    const multipartRequestBody = [
-      delimiter,
-      'Content-Type: application/json; charset=UTF-8\r\n\r\n',
-      JSON.stringify(metadata),
-      delimiter,
-      'Content-Type: text/markdown; charset=UTF-8\r\n\r\n',
-      fullContent,
-      closeDelimiter
-    ].join('');
+    // 🚀 原生 Blob Multipart 串流傳輸：徹底解決多位元組中文字元 Content-Length 錯誤與截斷問題
+    const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json; charset=UTF-8' });
+    const contentBlob = new Blob([fullContent], { type: 'text/markdown; charset=UTF-8' });
+    const multipartBody = new Blob([
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
+      metadataBlob,
+      `\r\n--${boundary}\r\nContent-Type: text/markdown; charset=UTF-8\r\n\r\n`,
+      contentBlob,
+      `\r\n--${boundary}--`
+    ], { type: `multipart/related; boundary=${boundary}` });
 
-    const res = await fetch(url, {
+    let res = await fetch(url, {
       method: method,
       headers: {
         Authorization: `Bearer ${state.accessToken}`,
         'Content-Type': `multipart/related; boundary=${boundary}`
       },
-      body: multipartRequestBody
+      body: multipartBody
     });
+
+    // 🛡️ 401 Token 過期自我修復：背景靜默無感重新取得 Token 並自動重試儲存
+    if (res.status === 401) {
+      console.warn('Google 登入 Token 已過期 (401)，嘗試無感更新並自動重試儲存...');
+      try {
+        await refreshGoogleToken();
+        res = await fetch(url, {
+          method: method,
+          headers: {
+            Authorization: `Bearer ${state.accessToken}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`
+          },
+          body: multipartBody
+        });
+      } catch (refErr) {
+        console.warn('無感更新 Token 失敗:', refErr);
+        localStorage.removeItem('cloudnotes_access_token');
+        updateSyncStatus('offline', '憑證過期 (請點擊登入)');
+        DOM.loginBtn.classList.remove('hidden');
+        DOM.userProfile.classList.add('hidden');
+        throw new Error('Google 登入憑證已過期，請點擊右上角登入按鈕重新授權 (內容已妥善保留於畫布)');
+      }
+    }
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Google Drive API 回應錯誤 (HTTP ${res.status}): ${errText}`);
+    }
 
     const savedFile = await res.json();
 
@@ -4748,7 +4844,7 @@ async function saveCurrentNote() {
           name: title,
           parentId: targetFolderId,
           meta: meta,
-          modifiedTime: new Date().toISOString(),
+          modifiedTime: nowIso,
           _cachedBody: markdownBody,
           _cachedHtml: DOM.editor.innerHTML,
           _cachedMeta: meta
@@ -4757,8 +4853,7 @@ async function saveCurrentNote() {
     }
 
     updateSyncStatus('synced', '已儲存');
-    DOM.statAutosave.innerHTML = '<i data-lucide="check" class="w-3 h-3 text-emerald-500"></i> 已自動同步至 Google Drive';
-    initLucide();
+    DOM.statAutosave.innerHTML = '<span class="text-emerald-500 font-medium">✓ 已自動同步至 Google Drive</span>';
     renderWorkTagLists();
     renderSidebarTags();
     renderNotesList();
@@ -4767,8 +4862,15 @@ async function saveCurrentNote() {
   } catch (e) {
     console.error('儲存筆記失敗:', e);
     updateSyncStatus('error', '儲存失敗');
-    DOM.statAutosave.innerHTML = '<i data-lucide="alert-circle" class="w-3 h-3 text-red-500"></i> 同步失敗';
-    initLucide();
+    DOM.statAutosave.innerHTML = `<span class="text-red-500 font-medium cursor-pointer hover:underline" title="${escapeHtml(e.message || '')}">⚠️ 同步失敗 (點此重試)</span>`;
+    DOM.statAutosave.onclick = () => saveCurrentNote();
+    showToast(`⚠️ 儲存失敗：${e.message || '請檢查網路連線或授權狀態'}`);
+  } finally {
+    state.isSaving = false;
+    if (state.savePending) {
+      state.savePending = false;
+      setTimeout(() => saveCurrentNote(), 100);
+    }
   }
 }
 
@@ -8723,6 +8825,27 @@ function bindEvents() {
     }, 800);
   });
 
+
+  // 畫布與標題失焦時若有未存修改，立即觸發即時儲存 (Instant Blur Save)
+  DOM.editor.addEventListener('blur', () => {
+    if (state.isDirty && !state.isSaving) {
+      saveCurrentNote();
+    }
+  });
+  DOM.noteTitle.addEventListener('blur', () => {
+    if (state.isDirty && !state.isSaving) {
+      saveCurrentNote();
+    }
+  });
+
+  // 關閉或重載視窗時安全提示
+  window.addEventListener('beforeunload', (e) => {
+    if (state.isDirty) {
+      e.preventDefault();
+      e.returnValue = '您有尚未同步至 Google Drive 的內容，確定要離開嗎？';
+    }
+  });
+
   // 畫布點擊事件（Todo 待辦打勾切換）
   DOM.editor.addEventListener('click', (e) => {
     if (e.target && e.target.classList.contains('notion-todo-checkbox')) {
@@ -9010,10 +9133,13 @@ function escapeHtml(str) {
 // ----------------- 📱 多裝置前景切換與自動喚醒同步 (PC / 手機無縫自動連動) -----------------
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && state.accessToken && state.folderId) {
+    const isEditing = document.activeElement === DOM.editor || DOM.editor.contains(document.activeElement);
+    if (isEditing) return; // 正在編輯輸入中，絕不干擾
+
     const elapsed = Date.now() - (state.lastSyncTime || 0);
-    // 超過 10 秒未同步且沒有未儲存的輸入，切換回前景時自動拉取雲端最新資料
-    if (elapsed > 10000 && !state.isDirty) {
-      console.log('📱 頁面切換回前景，自動自 Google Drive 同步最新筆記與分類...');
+    // 超過 60 秒未同步且沒有進行中修改，前景切換時靜默拉取最新資料
+    if (elapsed > 60000 && !state.isDirty && !state.isSaving) {
+      console.log('📱 頁面切換回前景，靜默同步最新筆記與分類...');
       fullSyncWithDrive(false);
     }
   }
@@ -9021,16 +9147,22 @@ document.addEventListener('visibilitychange', () => {
 
 window.addEventListener('focus', () => {
   if (state.accessToken && state.folderId) {
+    const isEditing = document.activeElement === DOM.editor || DOM.editor.contains(document.activeElement);
+    if (isEditing) return;
+
     const elapsed = Date.now() - (state.lastSyncTime || 0);
-    if (elapsed > 10000 && !state.isDirty) {
+    if (elapsed > 60000 && !state.isDirty && !state.isSaving) {
       fullSyncWithDrive(false);
     }
   }
 });
 
-// 每 60 秒定時背景自動輪詢檢查雲端變更
+// 每 60 秒定時背景自動輪詢檢查雲端變更 (確保完全靜默且不干擾使用者編輯)
 setInterval(() => {
-  if (document.visibilityState === 'visible' && state.accessToken && state.folderId && !state.isDirty) {
+  if (document.visibilityState === 'visible' && state.accessToken && state.folderId && !state.isDirty && !state.isSaving) {
+    const isEditing = document.activeElement === DOM.editor || DOM.editor.contains(document.activeElement);
+    if (isEditing) return;
+
     const elapsed = Date.now() - (state.lastSyncTime || 0);
     if (elapsed > 55000) {
       fullSyncWithDrive(false);
