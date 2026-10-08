@@ -1944,6 +1944,61 @@ mark.notion-highlight {
   }
 }
 
+
+/* ==========================================================================
+   🎨 圖片簡易編輯器 (Image Editor Modal) & 裁切控制樣式
+   ========================================================================== */
+
+#image-editor-modal .img-tool-btn.active-tool {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+#image-editor-modal .img-tool-btn.active-tool i {
+  color: #ffffff !important;
+}
+
+#image-editor-modal .img-color-dot.active-color {
+  transform: scale(1.22);
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4);
+}
+.dark #image-editor-modal .img-color-dot.active-color {
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.4);
+}
+
+#image-editor-modal .img-size-btn.active-size {
+  border-color: #2563eb !important;
+  background-color: rgba(37, 99, 235, 0.12) !important;
+  color: #2563eb !important;
+  font-weight: 700;
+}
+.dark #image-editor-modal .img-size-btn.active-size {
+  border-color: #60a5fa !important;
+  background-color: rgba(96, 165, 250, 0.2) !important;
+  color: #93c5fd !important;
+}
+
+/* 互動式裁切框樣式 (Interactive Crop Box) */
+#img-crop-box {
+  position: absolute;
+  box-sizing: border-box;
+  touch-action: none;
+}
+.crop-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background-color: #4f46e5;
+  border: 2px solid #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.crop-handle-nw { top: -6px; left: -6px; cursor: nwse-resize; }
+.crop-handle-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+.crop-handle-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+.crop-handle-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+
 /* 🌟 自然流暢骨架屏光影流動動畫 (Natural Flowing Shimmer Animation) */
 .note-skeleton-wrapper {
   animation: fadeInSlow 0.25s ease-out;
@@ -1999,6 +2054,72 @@ details.notion-media-collapse[open] summary .collapse-arrow {
   transform-origin: top center;
   will-change: max-height, opacity, transform;
 }
+
+/* 🎨 圖片編輯按鈕醒目樣式 (Triple-Placement Image Edit Buttons) */
+.summary-edit-img-btn {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3) !important;
+}
+.summary-edit-img-btn:hover {
+  background-color: #1d4ed8 !important;
+}
+
+.caption-edit-img-btn {
+  background-color: rgba(37, 99, 235, 0.08) !important;
+  color: #2563eb !important;
+  border: 1px solid rgba(37, 99, 235, 0.25) !important;
+}
+.dark .caption-edit-img-btn {
+  background-color: rgba(96, 165, 250, 0.15) !important;
+  color: #60a5fa !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+}
+.caption-edit-img-btn:hover {
+  background-color: rgba(37, 99, 235, 0.15) !important;
+}
+
+.image-preview-wrapper:hover .image-hover-edit-btn {
+  opacity: 1 !important;
+  transform: translateY(0) scale(1) !important;
+}
+.image-hover-edit-btn {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+
+/* 手機端圖片編輯畫布防捲動與觸控強化 (Mobile Touch & Pointer Drawing Optimization) */
+#img-editor-canvas, #img-canvas-viewport, #img-canvas-container, #img-crop-overlay, #img-crop-box {
+  touch-action: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+.crop-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background-color: #4f46e5;
+  border: 2px solid #ffffff;
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+  touch-action: none !important;
+}
+
+/* 觸控螢幕輔助：將點擊目標擴大至 38px，防止手指滑動失靈 */
+.crop-handle::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  right: -12px;
+  bottom: -12px;
+  touch-action: none;
+}
+
+.crop-handle-nw { top: -7px; left: -7px; cursor: nwse-resize; }
+.crop-handle-ne { top: -7px; right: -7px; cursor: nesw-resize; }
+.crop-handle-sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
+.crop-handle-se { bottom: -7px; right: -7px; cursor: nwse-resize; }
 
 .no-scrollbar::-webkit-scrollbar {
   display: none;
