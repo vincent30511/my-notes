@@ -556,6 +556,7 @@ document.addEventListener('DOMContentLoaded', () => {
   try { setupGoogleAuth(); } catch (e) { console.error('setupGoogleAuth error:', e); }
   try { checkAiKeyStatus(); } catch (e) { console.error('checkAiKeyStatus error:', e); }
   try { renderNotesList(); } catch (e) { console.error('renderNotesList error:', e); }
+  try { initImageEditor(); } catch (e) { console.error('initImageEditor error:', e); }
 });
 
 function initLucide() {
@@ -9118,6 +9119,7 @@ setInterval(() => {
 // ==========================================================================
 
 const imageEditorState = {
+  initialized: false,
   targetImg: null,
   canvas: null,
   ctx: null,
@@ -9132,12 +9134,14 @@ const imageEditorState = {
 };
 
 function initImageEditor() {
+  if (imageEditorState.initialized) return;
   const modal = document.getElementById('image-editor-modal');
   if (!modal) return;
 
   const canvas = document.getElementById('img-editor-canvas');
   imageEditorState.canvas = canvas;
-  imageEditorState.ctx = canvas ? canvas.getContext('2d') : null;
+  imageEditorState.ctx = canvas ? canvas.getContext('2d', { willReadFrequently: true }) : null;
+  imageEditorState.initialized = true;
 
   // 工具按鈕切換
   const toolBtns = {
@@ -9165,82 +9169,138 @@ function initImageEditor() {
 
     const cropBar = document.getElementById('img-crop-bar');
     const cropOverlay = document.getElementById('img-crop-overlay');
+    const optionsRow = document.getElementById('img-tool-options-row');
+
     if (tool === 'crop') {
       if (cropBar) cropBar.classList.remove('hidden');
       if (cropOverlay) cropOverlay.classList.remove('hidden');
+      if (optionsRow) optionsRow.classList.add('hidden');
       initCropBox();
     } else {
       if (cropBar) cropBar.classList.add('hidden');
       if (cropOverlay) cropOverlay.classList.add('hidden');
+      if (optionsRow) optionsRow.classList.remove('hidden');
     }
   }
 
-  if (toolBtns.pen) toolBtns.pen.onclick = () => setActiveTool('pen');
-  if (toolBtns.highlighter) toolBtns.highlighter.onclick = () => setActiveTool('highlighter');
-  if (toolBtns.eraser) toolBtns.eraser.onclick = () => setActiveTool('eraser');
-  if (toolBtns.rect) toolBtns.rect.onclick = () => setActiveTool('rect');
-  if (toolBtns.crop) toolBtns.crop.onclick = () => setActiveTool('crop');
-
-  // 顏色選擇器
-  document.querySelectorAll('.img-color-dot').forEach(dot => {
-    dot.onclick = () => {
-      document.querySelectorAll('.img-color-dot').forEach(d => d.classList.remove('active-color'));
-      dot.classList.add('active-color');
-      imageEditorState.currentColor = dot.dataset.color || '#ef4444';
-      if (imageEditorState.currentTool === 'eraser' || imageEditorState.currentTool === 'crop') {
-        setActiveTool('pen');
-      }
-    };
+  ['click', 'touchend'].forEach(evt => {
+    if (toolBtns.pen) toolBtns.pen.addEventListener(evt, (e) => { e.preventDefault(); setActiveTool('pen'); });
+    if (toolBtns.highlighter) toolBtns.highlighter.addEventListener(evt, (e) => { e.preventDefault(); setActiveTool('highlighter'); });
+    if (toolBtns.eraser) toolBtns.eraser.addEventListener(evt, (e) => { e.preventDefault(); setActiveTool('eraser'); });
+    if (toolBtns.rect) toolBtns.rect.addEventListener(evt, (e) => { e.preventDefault(); setActiveTool('rect'); });
+    if (toolBtns.crop) toolBtns.crop.addEventListener(evt, (e) => { e.preventDefault(); setActiveTool('crop'); });
   });
 
-  // 粗細選擇器
+  // 顏色選擇器 (支援手機觸控)
+  document.querySelectorAll('.img-color-dot').forEach(dot => {
+    ['click', 'touchend'].forEach(evt => {
+      dot.addEventListener(evt, (e) => {
+        e.preventDefault();
+        document.querySelectorAll('.img-color-dot').forEach(d => d.classList.remove('active-color'));
+        dot.classList.add('active-color');
+        imageEditorState.currentColor = dot.dataset.color || '#ef4444';
+        if (imageEditorState.currentTool === 'eraser' || imageEditorState.currentTool === 'crop') {
+          setActiveTool('pen');
+        }
+      });
+    });
+  });
+
+  // 粗細選擇器 (支援手機觸控)
   document.querySelectorAll('.img-size-btn').forEach(btn => {
-    btn.onclick = () => {
-      document.querySelectorAll('.img-size-btn').forEach(b => b.classList.remove('active-size'));
-      btn.classList.add('active-size');
-      imageEditorState.currentSize = parseInt(btn.dataset.size, 10) || 6;
-    };
+    ['click', 'touchend'].forEach(evt => {
+      btn.addEventListener(evt, (e) => {
+        e.preventDefault();
+        document.querySelectorAll('.img-size-btn').forEach(b => {
+          b.classList.remove('active-size', 'border-blue-500', 'bg-blue-50', 'text-blue-700', 'dark:bg-blue-950/60', 'dark:text-blue-300');
+          b.classList.add('border-transparent', 'text-gray-600', 'dark:text-gray-400');
+        });
+        btn.classList.add('active-size', 'border-blue-500', 'bg-blue-50', 'text-blue-700', 'dark:bg-blue-950/60', 'dark:text-blue-300');
+        btn.classList.remove('border-transparent', 'text-gray-600', 'dark:text-gray-400');
+        imageEditorState.currentSize = parseInt(btn.dataset.size, 10) || 6;
+      });
+    });
   });
 
   // 旋轉 (向左 / 向右 90°)
   const rotateLeftBtn = document.getElementById('img-rotate-left-btn');
-  if (rotateLeftBtn) rotateLeftBtn.onclick = () => rotateImage(-Math.PI / 2);
+  if (rotateLeftBtn) {
+    ['click', 'touchend'].forEach(evt => {
+      rotateLeftBtn.addEventListener(evt, (e) => { e.preventDefault(); rotateImage(-Math.PI / 2); });
+    });
+  }
 
   const rotateRightBtn = document.getElementById('img-rotate-right-btn');
-  if (rotateRightBtn) rotateRightBtn.onclick = () => rotateImage(Math.PI / 2);
+  if (rotateRightBtn) {
+    ['click', 'touchend'].forEach(evt => {
+      rotateRightBtn.addEventListener(evt, (e) => { e.preventDefault(); rotateImage(Math.PI / 2); });
+    });
+  }
 
   // 水平翻轉
   const flipHBtn = document.getElementById('img-flip-h-btn');
-  if (flipHBtn) flipHBtn.onclick = () => flipImageHorizontal();
+  if (flipHBtn) {
+    ['click', 'touchend'].forEach(evt => {
+      flipHBtn.addEventListener(evt, (e) => { e.preventDefault(); flipImageHorizontal(); });
+    });
+  }
 
   // 另存下載
   const downloadBtn = document.getElementById('img-download-btn');
-  if (downloadBtn) downloadBtn.onclick = () => downloadEditedImage();
+  if (downloadBtn) {
+    ['click', 'touchend'].forEach(evt => {
+      downloadBtn.addEventListener(evt, (e) => { e.preventDefault(); downloadEditedImage(); });
+    });
+  }
 
   // 復原
   const undoBtn = document.getElementById('img-editor-undo-btn');
-  if (undoBtn) undoBtn.onclick = () => undoImageEditor();
+  if (undoBtn) {
+    ['click', 'touchend'].forEach(evt => {
+      undoBtn.addEventListener(evt, (e) => { e.preventDefault(); undoImageEditor(); });
+    });
+  }
 
   // 重設
   const resetBtn = document.getElementById('img-editor-reset-btn');
-  if (resetBtn) resetBtn.onclick = () => resetImageEditor();
+  if (resetBtn) {
+    ['click', 'touchend'].forEach(evt => {
+      resetBtn.addEventListener(evt, (e) => { e.preventDefault(); resetImageEditor(); });
+    });
+  }
 
   // 取消
   const cancelBtn = document.getElementById('img-editor-cancel-btn');
-  if (cancelBtn) cancelBtn.onclick = () => closeImageEditor();
+  if (cancelBtn) {
+    ['click', 'touchend'].forEach(evt => {
+      cancelBtn.addEventListener(evt, (e) => { e.preventDefault(); closeImageEditor(); });
+    });
+  }
 
   // 儲存套用
   const saveBtn = document.getElementById('img-editor-save-btn');
-  if (saveBtn) saveBtn.onclick = () => saveImageEditorChanges();
+  if (saveBtn) {
+    ['click', 'touchend'].forEach(evt => {
+      saveBtn.addEventListener(evt, (e) => { e.preventDefault(); saveImageEditorChanges(); });
+    });
+  }
 
   // 裁切確認與取消
   const cropConfirmBtn = document.getElementById('img-crop-confirm-btn');
-  if (cropConfirmBtn) cropConfirmBtn.onclick = () => applyCrop();
+  if (cropConfirmBtn) {
+    ['click', 'touchend'].forEach(evt => {
+      cropConfirmBtn.addEventListener(evt, (e) => { e.preventDefault(); applyCrop(); });
+    });
+  }
 
   const cropCancelBtn = document.getElementById('img-crop-cancel-btn');
-  if (cropCancelBtn) cropCancelBtn.onclick = () => setActiveTool('pen');
+  if (cropCancelBtn) {
+    ['click', 'touchend'].forEach(evt => {
+      cropCancelBtn.addEventListener(evt, (e) => { e.preventDefault(); setActiveTool('pen'); });
+    });
+  }
 
-  // Canvas 繪圖與裁切拖曳事件
+  // Canvas 繪圖與裁切拖曳事件 (使用現代 Pointer Events，完美融合觸控與滑鼠)
   setupCanvasDrawingEvents(canvas);
   setupCropDragEvents();
 
@@ -9261,12 +9321,18 @@ function getCanvasPointerPos(e, canvas) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
   const scaleY = canvas.height / rect.height;
+
   let clientX = e.clientX;
   let clientY = e.clientY;
-  if (e.touches && e.touches.length > 0) {
+
+  if ((clientX === undefined || clientX === null) && e.touches && e.touches.length > 0) {
     clientX = e.touches[0].clientX;
     clientY = e.touches[0].clientY;
+  } else if ((clientX === undefined || clientX === null) && e.changedTouches && e.changedTouches.length > 0) {
+    clientX = e.changedTouches[0].clientX;
+    clientY = e.changedTouches[0].clientY;
   }
+
   return {
     x: (clientX - rect.left) * scaleX,
     y: (clientY - rect.top) * scaleY
@@ -9276,7 +9342,7 @@ function getCanvasPointerPos(e, canvas) {
 function pushUndoSnapshot() {
   const { canvas, ctx } = imageEditorState;
   if (!canvas || !ctx) return;
-  if (imageEditorState.undoStack.length >= 25) {
+  if (imageEditorState.undoStack.length >= 20) {
     imageEditorState.undoStack.shift();
   }
   imageEditorState.undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
@@ -9354,11 +9420,22 @@ function flipImageHorizontal() {
   showToast('已水平翻轉 ⇄');
 }
 
+// 📱 核心手機觸控繪圖監聽 (Pointer Events 融合觸控與手勢防衝突)
 function setupCanvasDrawingEvents(canvas) {
   if (!canvas) return;
 
-  function onStart(e) {
+  canvas.style.touchAction = 'none';
+
+  function onPointerDown(e) {
     if (imageEditorState.currentTool === 'crop') return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+    try {
+      if (canvas.setPointerCapture && e.pointerId !== undefined) {
+        canvas.setPointerCapture(e.pointerId);
+      }
+    } catch(err) {}
+
     const pos = getCanvasPointerPos(e, canvas);
     imageEditorState.isDrawing = true;
     imageEditorState.startX = pos.x;
@@ -9373,11 +9450,14 @@ function setupCanvasDrawingEvents(canvas) {
       ctx.beginPath();
       ctx.moveTo(pos.x, pos.y);
       applyDrawingStyle(ctx);
+      // 📱 手機觸控支援：單點觸碰立即繪出圓點，解決手指輕點無滑動時完全沒有筆跡的問題
+      ctx.lineTo(pos.x + 0.1, pos.y + 0.1);
+      ctx.stroke();
     }
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
   }
 
-  function onMove(e) {
+  function onPointerMove(e) {
     if (!imageEditorState.isDrawing || imageEditorState.currentTool === 'crop') return;
     const pos = getCanvasPointerPos(e, canvas);
     const ctx = imageEditorState.ctx;
@@ -9393,12 +9473,17 @@ function setupCanvasDrawingEvents(canvas) {
       ctx.lineTo(pos.x, pos.y);
       ctx.stroke();
     }
-    e.preventDefault();
+    if (e.cancelable) e.preventDefault();
   }
 
-  function onEnd() {
+  function onPointerUp(e) {
     if (!imageEditorState.isDrawing) return;
     imageEditorState.isDrawing = false;
+    try {
+      if (canvas.releasePointerCapture && e.pointerId !== undefined) {
+        canvas.releasePointerCapture(e.pointerId);
+      }
+    } catch(err) {}
     const ctx = imageEditorState.ctx;
     if (ctx) {
       ctx.closePath();
@@ -9407,14 +9492,21 @@ function setupCanvasDrawingEvents(canvas) {
     }
   }
 
-  canvas.addEventListener('mousedown', onStart);
-  canvas.addEventListener('mousemove', onMove);
-  canvas.addEventListener('mouseup', onEnd);
-  canvas.addEventListener('mouseleave', onEnd);
-
-  canvas.addEventListener('touchstart', onStart, { passive: false });
-  canvas.addEventListener('touchmove', onMove, { passive: false });
-  canvas.addEventListener('touchend', onEnd);
+  if (window.PointerEvent) {
+    canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
+    canvas.addEventListener('pointermove', onPointerMove, { passive: false });
+    canvas.addEventListener('pointerup', onPointerUp);
+    canvas.addEventListener('pointercancel', onPointerUp);
+  } else {
+    canvas.addEventListener('touchstart', onPointerDown, { passive: false });
+    canvas.addEventListener('touchmove', onPointerMove, { passive: false });
+    canvas.addEventListener('touchend', onPointerUp);
+    canvas.addEventListener('touchcancel', onPointerUp);
+    canvas.addEventListener('mousedown', onPointerDown);
+    canvas.addEventListener('mousemove', onPointerMove);
+    canvas.addEventListener('mouseup', onPointerUp);
+    canvas.addEventListener('mouseleave', onPointerUp);
+  }
 }
 
 function applyDrawingStyle(ctx) {
@@ -9430,7 +9522,7 @@ function applyDrawingStyle(ctx) {
   } else if (currentTool === 'highlighter') {
     ctx.strokeStyle = currentColor;
     ctx.lineWidth = currentSize * 2.8;
-    ctx.globalAlpha = 0.35;
+    ctx.globalAlpha = 0.38;
     ctx.globalCompositeOperation = 'source-over';
   } else if (currentTool === 'eraser') {
     ctx.lineWidth = currentSize * 3;
@@ -9444,7 +9536,7 @@ function applyDrawingStyle(ctx) {
   }
 }
 
-// 裁切控制引擎 (Crop Engine)
+// 📱 裁切控制引擎 (適配手機手指拖曳與四角大把手)
 function initCropBox() {
   const canvas = imageEditorState.canvas;
   const cropBox = document.getElementById('img-crop-box');
@@ -9468,6 +9560,9 @@ function setupCropDragEvents() {
   const canvas = imageEditorState.canvas;
   if (!cropBox || !cropOverlay) return;
 
+  cropBox.style.touchAction = 'none';
+  cropOverlay.style.touchAction = 'none';
+
   let isMoving = false;
   let activeHandle = null;
   let startX = 0, startY = 0;
@@ -9475,8 +9570,8 @@ function setupCropDragEvents() {
 
   function onPointerDown(e) {
     if (imageEditorState.currentTool !== 'crop') return;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
 
     const handle = e.target.closest('.crop-handle');
     if (handle) {
@@ -9499,8 +9594,8 @@ function setupCropDragEvents() {
 
   function onPointerMove(e) {
     if (!isMoving && !activeHandle) return;
-    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
     const dx = clientX - startX;
     const dy = clientY - startY;
 
@@ -9540,7 +9635,6 @@ function setupCropDragEvents() {
         let newTop = initTop + (initH - newH);
         if (newLeft >= 0 && newTop >= 0) {
           cropBox.style.left = newLeft + 'px';
-          cropBox.style.top = newTop + 'px';
           cropBox.style.width = newW + 'px';
           cropBox.style.height = newH + 'px';
         }
@@ -9554,9 +9648,10 @@ function setupCropDragEvents() {
     activeHandle = null;
   }
 
-  cropOverlay.addEventListener('mousedown', onPointerDown);
-  window.addEventListener('mousemove', onPointerMove);
-  window.addEventListener('mouseup', onPointerUp);
+  cropOverlay.addEventListener('pointerdown', onPointerDown);
+  window.addEventListener('pointermove', onPointerMove);
+  window.addEventListener('pointerup', onPointerUp);
+  window.addEventListener('pointercancel', onPointerUp);
 
   cropOverlay.addEventListener('touchstart', onPointerDown, { passive: false });
   window.addEventListener('touchmove', onPointerMove, { passive: false });
@@ -9603,9 +9698,14 @@ function applyCrop() {
   showToast('✅ 圖片已成功裁切！');
 }
 
+// 📱 打開編輯器：自動初始化保證、限制最大解析度 1600px，杜絕手機大圖記憶體不足黑屏崩潰！
 async function openImageEditor(img) {
   if (!img) return;
   imageEditorState.targetImg = img;
+
+  if (!imageEditorState.initialized) {
+    initImageEditor();
+  }
 
   const modal = document.getElementById('image-editor-modal');
   const filenameEl = document.getElementById('img-editor-filename');
@@ -9617,7 +9717,7 @@ async function openImageEditor(img) {
 
   const canvas = imageEditorState.canvas || document.getElementById('img-editor-canvas');
   imageEditorState.canvas = canvas;
-  imageEditorState.ctx = canvas.getContext('2d');
+  imageEditorState.ctx = canvas.getContext('2d', { willReadFrequently: true });
 
   try {
     let imgSrc = img.src;
@@ -9646,12 +9746,24 @@ async function openImageEditor(img) {
 
     const imageObj = new Image();
     imageObj.crossOrigin = 'anonymous';
+
     imageObj.onload = () => {
       hideGlobalLoading();
-      canvas.width = imageObj.naturalWidth;
-      canvas.height = imageObj.naturalHeight;
+
+      // 🛡️ 核心修復：手機大圖記憶體限制 (Max 1600px)，杜絕 4000x3000 照片引起 48MB/幀的記憶體爆炸與黑屏崩潰
+      const MAX_DIM = 1600;
+      let drawW = imageObj.naturalWidth || 800;
+      let drawH = imageObj.naturalHeight || 600;
+      if (drawW > MAX_DIM || drawH > MAX_DIM) {
+        const scale = Math.min(MAX_DIM / drawW, MAX_DIM / drawH);
+        drawW = Math.round(drawW * scale);
+        drawH = Math.round(drawH * scale);
+      }
+
+      canvas.width = drawW;
+      canvas.height = drawH;
       imageEditorState.ctx.clearRect(0, 0, canvas.width, canvas.height);
-      imageEditorState.ctx.drawImage(imageObj, 0, 0);
+      imageEditorState.ctx.drawImage(imageObj, 0, 0, drawW, drawH);
 
       // 初始化歷史棧
       imageEditorState.undoStack = [imageEditorState.ctx.getImageData(0, 0, canvas.width, canvas.height)];
@@ -9665,7 +9777,34 @@ async function openImageEditor(img) {
 
     imageObj.onerror = () => {
       hideGlobalLoading();
-      showToast('⚠️ 圖片載入失敗，無法開啟編輯器');
+      if (imageObj.crossOrigin) {
+        console.warn('CORS anonymous 載入失敗，嘗試一般模式載入...');
+        const fallbackImg = new Image();
+        fallbackImg.onload = () => {
+          const MAX_DIM = 1600;
+          let drawW = fallbackImg.naturalWidth || 800;
+          let drawH = fallbackImg.naturalHeight || 600;
+          if (drawW > MAX_DIM || drawH > MAX_DIM) {
+            const scale = Math.min(MAX_DIM / drawW, MAX_DIM / drawH);
+            drawW = Math.round(drawW * scale);
+            drawH = Math.round(drawH * scale);
+          }
+          canvas.width = drawW;
+          canvas.height = drawH;
+          imageEditorState.ctx.drawImage(fallbackImg, 0, 0, drawW, drawH);
+          imageEditorState.undoStack = [imageEditorState.ctx.getImageData(0, 0, canvas.width, canvas.height)];
+          modal.classList.remove('hidden');
+          initLucide();
+          const penBtn = document.getElementById('img-tool-pen');
+          if (penBtn) penBtn.click();
+        };
+        fallbackImg.onerror = () => {
+          showToast('⚠️ 圖片載入失敗，無法開啟編輯器');
+        };
+        fallbackImg.src = imgSrc;
+      } else {
+        showToast('⚠️ 圖片載入失敗，無法開啟編輯器');
+      }
     };
 
     imageObj.src = imgSrc;
@@ -9699,7 +9838,7 @@ function saveImageEditorChanges() {
 
     closeImageEditor();
     triggerAutoSaveDebounce();
-    showToast('✅ 圖片已成功更新至筆記！');
+    showToast('✅ 圖片已成功儲存並同步至筆記！');
   } catch (e) {
     console.error('儲存編輯後圖片失敗:', e);
     showToast('儲存失敗：' + (e.message || '無法匯出畫布'));

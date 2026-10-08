@@ -2086,3 +2086,45 @@ details.notion-media-collapse[open] summary .collapse-arrow {
 .image-hover-edit-btn {
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
+
+
+/* 手機端圖片編輯畫布防捲動與觸控強化 (Mobile Touch & Pointer Drawing Optimization) */
+#img-editor-canvas, #img-canvas-viewport, #img-canvas-container, #img-crop-overlay, #img-crop-box {
+  touch-action: none !important;
+  -webkit-touch-callout: none !important;
+}
+
+.crop-handle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background-color: #4f46e5;
+  border: 2px solid #ffffff;
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+  touch-action: none !important;
+}
+
+/* 觸控螢幕輔助：將點擊目標擴大至 38px，防止手指滑動失靈 */
+.crop-handle::after {
+  content: '';
+  position: absolute;
+  top: -12px;
+  left: -12px;
+  right: -12px;
+  bottom: -12px;
+  touch-action: none;
+}
+
+.crop-handle-nw { top: -7px; left: -7px; cursor: nwse-resize; }
+.crop-handle-ne { top: -7px; right: -7px; cursor: nesw-resize; }
+.crop-handle-sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
+.crop-handle-se { bottom: -7px; right: -7px; cursor: nwse-resize; }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
