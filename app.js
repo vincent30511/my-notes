@@ -4693,7 +4693,8 @@ async function saveCurrentNote() {
   if (!state.accessToken) {
     console.warn('saveCurrentNote: 未登入或無 accessToken');
     updateSyncStatus('offline', '尚未登入 Google');
-    DOM.statAutosave.innerHTML = '<span class="text-amber-500 font-medium">⚠️ 尚未登入 Google，草稿暫存於本機</span>';
+    DOM.statAutosave.innerHTML = '<span class="text-amber-500 font-medium cursor-pointer hover:underline">⚠️ 尚未登入 Google (點此登入儲存)</span>';
+    DOM.statAutosave.onclick = () => handleLogin();
     return;
   }
 
@@ -4787,6 +4788,20 @@ async function saveCurrentNote() {
       body: multipartBody
     });
 
+    // 🛡️ 400 Bad Request 容錯降級：若因 parentParam 目錄不一致報錯，立即移除 parentParam 重試純內容儲存
+    if (!res.ok && res.status === 400 && parentParam) {
+      console.warn('帶 parentParam 儲存失敗 (400)，降級為純內容與屬性更新...');
+      url = `https://www.googleapis.com/upload/drive/v3/files/${state.currentNote.id}?uploadType=multipart`;
+      res = await fetch(url, {
+        method: method,
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body: multipartBody
+      });
+    }
+
     // 🛡️ 401 Token 過期自我修復：背景靜默無感重新取得 Token 並自動重試儲存
     if (res.status === 401) {
       console.warn('Google 登入 Token 已過期 (401)，嘗試無感更新並自動重試儲存...');
@@ -4861,6 +4876,12 @@ async function saveCurrentNote() {
     state.isDirty = false;
   } catch (e) {
     console.error('儲存筆記失敗:', e);
+    // 🛡️ 本地緊急備份草稿，確保文字 100% 絕不丟失
+    try {
+      const draftKey = 'lvi_emergency_draft_' + (state.currentNote ? state.currentNote.id : 'current');
+      localStorage.setItem(draftKey, fullContent);
+    } catch(err) {}
+
     updateSyncStatus('error', '儲存失敗');
     DOM.statAutosave.innerHTML = `<span class="text-red-500 font-medium cursor-pointer hover:underline" title="${escapeHtml(e.message || '')}">⚠️ 同步失敗 (點此重試)</span>`;
     DOM.statAutosave.onclick = () => saveCurrentNote();
