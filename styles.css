@@ -1,0 +1,2088 @@
+/* Notion 風格純淨所見即所得（WYSIWYG）無網址樣式表 */
+
+/* 捲軸美化 */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 163, 175, 0.3);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 163, 175, 0.6);
+}
+
+/* 觸控捲動平滑 */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 筆記卡片點擊狀態 (清單檢視) */
+.note-item {
+  transition: all 0.12s ease-in-out;
+  border-left: 2px solid transparent;
+}
+
+.note-item:hover {
+  background-color: rgba(55, 53, 47, 0.06);
+}
+
+.dark .note-item:hover {
+  background-color: rgba(255, 255, 255, 0.055);
+}
+
+.note-item.active {
+  background-color: rgba(35, 131, 226, 0.1) !important;
+  border-left: 2px solid #2383e2 !important;
+}
+
+.dark .note-item.active {
+  background-color: rgba(35, 131, 226, 0.2) !important;
+  border-left: 2px solid #38bdf8 !important;
+}
+
+/* 畫廊卡片模式 (Grid / Cards Layout) */
+#notes-list.grid-view {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 0.5rem;
+}
+
+#notes-list.grid-view .note-item {
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 0.5rem;
+  padding: 0.6rem;
+  background: white;
+  min-height: 90px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.dark #notes-list.grid-view .note-item {
+  border-color: #2f2f2f;
+  background: #202020;
+}
+
+/* 標籤 Badge 樣式 */
+.tag-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 10px;
+  font-weight: 500;
+  margin-right: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.tag-blue { background-color: #e0f2fe; color: #0369a1; }
+.dark .tag-blue { background-color: rgba(14, 165, 233, 0.2); color: #38bdf8; }
+
+/* 所見即所得畫布 (WYSIWYG Editor) 排版 */
+#editor {
+  font-size: 16px;
+  line-height: 1.7;
+  color: #37352f;
+  outline: none;
+}
+
+.dark #editor {
+  color: #d4d4d4;
+}
+
+#editor:empty:before {
+  content: attr(placeholder);
+  color: #9ca3af;
+  pointer-events: none;
+  display: block;
+}
+
+.dark #editor:empty:before {
+  color: #6b7280;
+}
+
+#editor h1 {
+  font-size: 1.85rem;
+  font-weight: 700;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  line-height: 1.25;
+}
+
+#editor h2 {
+  font-size: 1.45rem;
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.4rem;
+  line-height: 1.3;
+}
+
+#editor h3 {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+#editor p {
+  margin-top: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+
+#editor ul {
+  list-style-type: disc;
+  padding-left: 1.4rem;
+  margin-bottom: 0.6rem;
+}
+
+#editor ol {
+  list-style-type: decimal;
+  padding-left: 1.4rem;
+  margin-bottom: 0.6rem;
+}
+
+#editor li {
+  margin-bottom: 0.25rem;
+}
+
+/* Notion 折疊列表 Toggle List */
+#editor details {
+  margin: 0.6rem 0;
+  padding: 0.5rem 0.8rem;
+  border-radius: 0.375rem;
+  background-color: rgba(55, 53, 47, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.dark #editor details {
+  background-color: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+#editor details[open] {
+  background-color: rgba(55, 53, 47, 0.05);
+}
+
+.dark #editor details[open] {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+#editor summary {
+  font-weight: 600;
+  outline: none;
+  user-select: none;
+}
+
+/* 圖片、音訊與影片自適應排版（純淨無網址） */
+#editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.5rem;
+  margin: 0.75rem auto;
+  display: block;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+#editor video {
+  max-width: 100%;
+  border-radius: 0.5rem;
+  margin: 0.75rem 0;
+  display: block;
+  background: black;
+}
+
+#editor audio {
+  width: 100%;
+  margin: 0.5rem 0;
+}
+
+#editor iframe {
+  width: 100%;
+  min-height: 320px;
+  border-radius: 0.5rem;
+  margin: 0.75rem 0;
+  display: block;
+  border: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Notion Callout 提示框排版 */
+#editor blockquote {
+  margin: 0.75rem 0;
+  padding: 0.65rem 0.9rem;
+  background-color: #f7f6f3;
+  border-left: 4px solid #2383e2;
+  border-radius: 0.375rem;
+  color: #4b5563;
+  font-style: normal;
+}
+
+.dark #editor blockquote {
+  background-color: #202020;
+  border-left-color: #38bdf8;
+  color: #9ca3af;
+}
+
+/* 程式碼區塊與複製按鈕 */
+#editor pre {
+  position: relative;
+  background-color: #1e1e1e;
+  color: #f8fafc;
+  padding: 0.85rem;
+  border-radius: 0.5rem;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+
+#editor pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+}
+
+#editor code {
+  background-color: rgba(135, 131, 120, 0.15);
+  color: #eb5757;
+  padding: 0.15rem 0.35rem;
+  border-radius: 0.25rem;
+  font-size: 85%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.dark #editor code {
+  color: #f87171;
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.copy-code-btn {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  padding: 0.2rem 0.5rem;
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  transition: all 0.15s;
+}
+
+.copy-code-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+/* 資料表格 */
+#editor table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 13px;
+  overflow-x: auto;
+  display: block;
+}
+
+#editor th, #editor td {
+  border: 1px solid #e9e9e7;
+  padding: 0.45rem 0.65rem;
+  text-align: left;
+}
+
+.dark #editor th, .dark #editor td {
+  border-color: #2f2f2f;
+}
+
+#editor th {
+  background-color: #f7f6f3;
+  font-weight: 600;
+}
+
+.dark #editor th {
+  background-color: #1f1f1f;
+}
+
+/* 待辦事項 Checkbox */
+#editor input[type="checkbox"] {
+  margin-right: 0.4rem;
+  accent-color: #2383e2;
+  cursor: pointer;
+}
+
+/* 大綱目錄 (Outline TOC) 縮排 */
+.toc-h1 { font-weight: 600; padding-left: 0.25rem; }
+.toc-h2 { padding-left: 0.75rem; color: #6b7280; }
+.toc-h3 { padding-left: 1.25rem; color: #9ca3af; }
+
+/* AI 對話氣泡樣式 */
+.ai-user-bubble {
+  background-color: #f3f4f6;
+  color: #1f2937;
+  border-radius: 0.75rem;
+  border-bottom-right-radius: 0.125rem;
+  padding: 0.6rem 0.8rem;
+  align-self: flex-end;
+  max-width: 85%;
+  margin-left: auto;
+}
+
+.dark .ai-user-bubble {
+  background-color: #2d2d2d;
+  color: #f3f4f6;
+}
+
+.ai-bot-bubble {
+  background-color: #faf5ff;
+  border: 1px solid #f3e8ff;
+  color: #374151;
+  border-radius: 0.75rem;
+  border-bottom-left-radius: 0.125rem;
+  padding: 0.75rem 0.9rem;
+  align-self: flex-start;
+  max-width: 95%;
+  margin-right: auto;
+}
+
+.dark .ai-bot-bubble {
+  background-color: #1f1a29;
+  border-color: #3b2d54;
+  color: #e5e7eb;
+}
+
+.ai-bot-bubble p {
+  margin-bottom: 0.35rem;
+}
+
+.ai-bot-bubble ul, .ai-bot-bubble ol {
+  padding-left: 1rem;
+  margin-bottom: 0.35rem;
+}
+
+.ai-bot-bubble code {
+  background-color: rgba(147, 51, 234, 0.1);
+  color: #9333ea;
+  padding: 0.1rem 0.3rem;
+  border-radius: 0.2rem;
+  font-size: 85%;
+}
+
+.dark .ai-bot-bubble code {
+  color: #c084fc;
+}
+
+/* 行動端抽屜側邊欄動畫 */
+@media (max-width: 767px) {
+  #sidebar, #ai-panel {
+    will-change: transform;
+  }
+}
+
+/* 列印 / PDF 匯出優化 */
+@media print {
+  header, aside, #editor-header, #outline-panel, footer, #settings-modal, #toast, #slash-menu, #mobile-toolbar, #ai-panel {
+    display: none !important;
+  }
+  body, main, #main-scroll-container, #editor {
+    overflow: visible !important;
+    height: auto !important;
+    background: white !important;
+    color: black !important;
+    display: block !important;
+    padding: 0 !important;
+  }
+}
+
+
+/* ==========================================================================
+   Notion 級別升級：無限資料夾、彩色標籤系統、封面與麵包屑樣式表
+   ========================================================================== */
+
+/* Notion 經典 9 款柔和膠囊配色 */
+.notion-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 11px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  user-select: none;
+  line-height: 1.3;
+  border: 1px solid transparent;
+}
+.notion-tag .tag-remove-btn {
+  opacity: 0.6;
+  border-radius: 50%;
+  padding: 1px;
+  transition: opacity 0.1s;
+  cursor: pointer;
+}
+.notion-tag:hover .tag-remove-btn {
+  opacity: 1;
+}
+
+.notion-tag-gray { background-color: #ebeced; color: #37352f; border-color: #e0e1e2; }
+.dark .notion-tag-gray { background-color: #2f2f2f; color: #9b9a97; border-color: #3d3d3d; }
+
+.notion-tag-brown { background-color: #e9e5e3; color: #64473a; border-color: #ded9d6; }
+.dark .notion-tag-brown { background-color: #382e2b; color: #b39b94; border-color: #493b37; }
+
+.notion-tag-orange { background-color: #faece3; color: #d9730d; border-color: #f5dcce; }
+.dark .notion-tag-orange { background-color: #492f24; color: #e78b39; border-color: #5c3b2d; }
+
+.notion-tag-yellow { background-color: #fbf3db; color: #cb901b; border-color: #f5e7c1; }
+.dark .notion-tag-yellow { background-color: #403b29; color: #e5b746; border-color: #554e36; }
+
+.notion-tag-green { background-color: #edf3ec; color: #448361; border-color: #dce7db; }
+.dark .notion-tag-green { background-color: #283b32; color: #6ab589; border-color: #344c40; }
+
+.notion-tag-blue { background-color: #e7f3f8; color: #337ea9; border-color: #d4e7f1; }
+.dark .notion-tag-blue { background-color: #203c4b; color: #529cca; border-color: #2b4c5e; }
+
+.notion-tag-purple { background-color: #f4f0f7; color: #9065b0; border-color: #e8e0ee; }
+.dark .notion-tag-purple { background-color: #352944; color: #b48ee0; border-color: #453558; }
+
+.notion-tag-pink { background-color: #fbf0f5; color: #c14c8a; border-color: #f5e0ec; }
+.dark .notion-tag-pink { background-color: #442838; color: #e274a9; border-color: #573347; }
+
+.notion-tag-red { background-color: #fdebec; color: #d44c47; border-color: #fadcd9; }
+.dark .notion-tag-red { background-color: #432929; color: #e66a65; border-color: #563434; }
+
+/* 下拉式標籤浮動面板 Popover */
+.notion-popover {
+  position: absolute;
+  z-index: 60;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 0.5rem;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+  animation: popoverFadeIn 0.12s ease-out;
+}
+.dark .notion-popover {
+  background: #252525;
+  border-color: #383838;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+}
+@keyframes popoverFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* 無限層級資料夾樹狀目錄 (Infinite Nested Folders) */
+.folder-tree-node {
+  position: relative;
+  user-select: none;
+}
+.folder-item-row {
+  display: flex;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-size: 12px;
+  color: #37352f;
+  transition: all 0.1s ease;
+  gap: 0.35rem;
+}
+.dark .folder-item-row {
+  color: #d4d4d4;
+}
+.folder-item-row:hover {
+  background-color: rgba(55, 53, 47, 0.06);
+}
+.dark .folder-item-row:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+.folder-item-row.active {
+  background-color: rgba(35, 131, 226, 0.12) !important;
+  color: #2383e2 !important;
+  font-weight: 600;
+}
+.dark .folder-item-row.active {
+  background-color: rgba(35, 131, 226, 0.22) !important;
+  color: #38bdf8 !important;
+}
+.folder-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  color: #9ca3af;
+  transition: transform 0.15s ease;
+}
+.folder-toggle-btn.open {
+  transform: rotate(90deg);
+}
+.folder-quick-actions {
+  display: none;
+  margin-left: auto;
+  align-items: center;
+  gap: 2px;
+}
+.folder-item-row:hover .folder-quick-actions {
+  display: flex;
+}
+.folder-action-icon {
+  padding: 2px;
+  border-radius: 3px;
+  color: #6b7280;
+  transition: background-color 0.1s;
+}
+.folder-action-icon:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #111827;
+}
+.dark .folder-action-icon:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  color: #f3f4f6;
+}
+.folder-sub-tree {
+  margin-left: 0.85rem;
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+  padding-left: 0.25rem;
+}
+.dark .folder-sub-tree {
+  border-left-color: rgba(255, 255, 255, 0.08);
+}
+
+/* 頂部麵包屑導航 (Breadcrumbs) */
+.notion-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 4px;
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 0 !important;
+  scrollbar-width: none;
+}
+.notion-breadcrumb::-webkit-scrollbar {
+  display: none;
+}
+.notion-breadcrumb-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 4px;
+  transition: background 0.1s;
+  color: inherit;
+  text-decoration: none;
+}
+.notion-breadcrumb-item:hover {
+  background: rgba(55, 53, 47, 0.08);
+  color: #111827;
+}
+.dark .notion-breadcrumb-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3f4f6;
+}
+
+/* 頁面封面橫幅 (Page Cover Banner) */
+.notion-cover-wrapper {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  border-radius: 0.6rem;
+  overflow: hidden;
+  margin-bottom: 12px;
+  background-size: cover;
+  background-position: center;
+  transition: all 0.2s ease;
+}
+.notion-cover-wrapper:hover .cover-btn-group {
+  opacity: 1;
+}
+.cover-btn-group {
+  position: absolute;
+  bottom: 8px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  z-index: 10;
+}
+.cover-action-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+  background: rgba(0, 0, 0, 0.6);
+  color: white;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.cover-action-btn:hover {
+  background: rgba(0, 0, 0, 0.85);
+}
+
+/* Notion Callout 提示方塊 */
+.notion-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background-color: #f7f6f3;
+  margin: 10px 0;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+.dark .notion-callout {
+  background-color: #222222;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+.notion-callout-icon {
+  font-size: 18px;
+  line-height: 1;
+  user-select: none;
+  cursor: pointer;
+}
+.notion-callout-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Notion 待辦清單 (Todo Item) */
+.notion-todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 4px 0;
+}
+.notion-todo-checkbox {
+  margin-top: 5px !important;
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.notion-todo-text.checked {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+/* 分隔線 */
+.notion-divider {
+  border: 0;
+  height: 1px;
+  background: rgba(0, 0, 0, 0.1);
+  margin: 1.25rem 0;
+}
+.dark .notion-divider {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+
+/* ==========================================================================
+   PAPAYA 電腦教室 Notion 旗艦功能：反白浮動選單、Space AI、雙欄、書籤
+   ========================================================================== */
+
+/* 反白文字浮動選單 (Floating Selection Toolbar) */
+.selection-toolbar {
+  position: absolute;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  background: #202020;
+  color: white;
+  border-radius: 6px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  animation: popoverFadeIn 0.1s ease-out;
+}
+.selection-toolbar button {
+  padding: 3px 6px;
+  border-radius: 4px;
+  color: #e2e8f0;
+  transition: all 0.1s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+.selection-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+}
+.selection-toolbar .divider {
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.2);
+  margin: 0 3px;
+}
+
+/* 空白行按 Space 呼叫 AI 提示框 (Space to Ask AI) */
+.space-ai-box {
+  position: absolute;
+  z-index: 65;
+  width: 440px;
+  max-width: 90vw;
+  background: white;
+  border: 1px solid rgba(147, 51, 234, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 12px 30px rgba(147, 51, 234, 0.18);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: popoverFadeIn 0.12s ease-out;
+}
+.dark .space-ai-box {
+  background: #1f1a29;
+  border-color: rgba(168, 85, 247, 0.4);
+}
+
+/* 全寬模式 (Full Width Mode) */
+.full-width-canvas {
+  max-width: 96% !important;
+  padding-left: 2rem !important;
+  padding-right: 2rem !important;
+}
+
+/* 雙欄/多欄佈局 (Multi-Column Layout Block) */
+.notion-columns {
+  display: flex;
+  gap: 1.5rem;
+  margin: 0.75rem 0;
+  width: 100%;
+}
+.notion-col {
+  flex: 1;
+  min-width: 0;
+  padding: 0.5rem;
+  border: 1px dashed rgba(0, 0, 0, 0.1);
+  border-radius: 6px;
+  min-height: 80px;
+}
+.dark .notion-col {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+@media (max-width: 640px) {
+  .notion-columns {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+/* Notion 貼上 URL 智慧選單 (Smart URL Paste Menu) */
+.smart-url-menu {
+  position: absolute;
+  z-index: 75;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+  width: 290px;
+  padding: 6px;
+  animation: popoverFadeIn 0.1s ease-out;
+}
+.dark .smart-url-menu {
+  background: #252525;
+  border-color: #383838;
+}
+
+/* Notion 網頁書籤卡片 (Web Bookmark Card) */
+.notion-bookmark-card {
+  display: flex;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 0.75rem 0;
+  text-decoration: none;
+  background: white;
+  transition: background-color 0.15s;
+  max-height: 110px;
+}
+.dark .notion-bookmark-card {
+  background: #202020;
+  border-color: #333;
+}
+.notion-bookmark-card:hover {
+  background: rgba(55, 53, 47, 0.04);
+}
+.notion-bookmark-content {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.notion-bookmark-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1f2937;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dark .notion-bookmark-title { color: #f3f4f6; }
+.notion-bookmark-desc {
+  font-size: 11px;
+  color: #6b7280;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.notion-bookmark-url {
+  font-size: 10px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+.notion-bookmark-cover {
+  width: 140px;
+  background-size: cover;
+  background-position: center;
+  background-color: #e5e7eb;
+}
+
+/* Notion @ 提及選單 (Page Mention Picker) */
+.notion-mention-menu {
+  position: absolute;
+  z-index: 60;
+  width: 260px;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 4px;
+  animation: popoverFadeIn 0.1s ease-out;
+}
+.dark .notion-mention-menu {
+  background: #252525;
+  border-color: #383838;
+}
+.notion-page-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: rgba(35, 131, 226, 0.1);
+  color: #2383e2;
+  font-weight: 500;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.dark .notion-page-link {
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+}
+
+/* ==========================================================================
+   薑餅資 Notion 教學系列核心系統樣式 (Multi-Views, GTD, Daily Review, Budget)
+   ========================================================================== */
+
+/* 視圖切換標籤列 */
+.view-tab-btn {
+  color: #6b7280;
+  border-radius: 6px;
+  font-size: 12px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.view-tab-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #1f2937;
+}
+.dark .view-tab-btn {
+  color: #9ca3af;
+}
+.dark .view-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3f4f6;
+}
+.view-tab-btn.active {
+  background: #ffffff;
+  color: #111827;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.06);
+}
+.dark .view-tab-btn.active {
+  background: #262626;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* 耗能程度膠囊標籤 */
+.energy-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.energy-high {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.dark .energy-high {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+}
+.energy-medium {
+  background: #fef3c7;
+  color: #b45309;
+}
+.dark .energy-medium {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fcd34d;
+}
+.energy-low {
+  background: #dcfce7;
+  color: #15803d;
+}
+.dark .energy-low {
+  background: rgba(34, 197, 94, 0.2);
+  color: #86efac;
+}
+
+/* 看板 (Kanban Board) 樣式 */
+.kanban-column {
+  min-width: 270px;
+  max-width: 320px;
+  border-radius: 8px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+.dark .kanban-column {
+  background: #1e1e1e;
+  border-color: #2e2e2e;
+}
+.kanban-card {
+  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+  padding: 10px 12px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: grab;
+}
+.kanban-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+.dark .kanban-card {
+  background: #252525;
+  border-color: #333333;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.dark .kanban-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+/* 行事曆 (Calendar) 樣式 */
+.calendar-cell {
+  min-height: 96px;
+  transition: background 0.12s ease;
+}
+.calendar-cell:hover {
+  background: rgba(243, 244, 246, 0.6);
+}
+.dark .calendar-cell:hover {
+  background: rgba(38, 38, 38, 0.5);
+}
+.calendar-pill {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: opacity 0.12s ease;
+}
+.calendar-pill:hover {
+  opacity: 0.85;
+}
+
+/* 每日檢視 (Daily Review) 樣式 */
+
+.dark 
+
+/* 記帳統計卡片 */
+
+.dark 
+
+/* 全層級標籤管理中心分頁 */
+.tm-tab-btn {
+  transition: all 0.15s ease;
+  outline: none;
+}
+.tm-tab-btn.active {
+  border-bottom-color: #2563eb !important;
+  color: #2563eb !important;
+}
+.dark .tm-tab-btn.active {
+  border-bottom-color: #60a5fa !important;
+  color: #60a5fa !important;
+}
+
+/* 歷史動作時間線項目 */
+.history-item {
+  transition: all 0.12s ease;
+}
+.history-item:hover {
+  background-color: rgba(243, 244, 246, 0.7);
+}
+.dark .history-item:hover {
+  background-color: rgba(38, 38, 38, 0.6);
+}
+.history-item.is-current {
+  background-color: rgba(239, 246, 255, 0.85);
+  border-left: 3px solid #3b82f6;
+}
+.dark .history-item.is-current {
+  background-color: rgba(30, 58, 138, 0.3);
+  border-left: 3px solid #60a5fa;
+}
+
+
+/* ============================================================
+   📱 手機與觸控螢幕極致體驗深度優化 (Mobile UX Enhancements)
+   ============================================================ */
+@media (max-width: 768px) {
+  /* 確保主編輯區在未隱藏時滿版呈現，徹底杜絕畫面被擠成雙欄 */
+  #main-scroll-container:not(.hidden) {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+    padding-top: 0.75rem !important;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* 📱 手機端表格、看板、行事曆、檢視、記帳等各視圖在顯示時滿版呈現，並提供流暢滾動 */
+  #view-table-container:not(.hidden),
+  #view-tasks-container:not(.hidden),
+  #view-calendar-container:not(.hidden),
+  #view-uncategorized-container:not(.hidden) {
+    padding: 0.5rem 0.35rem !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    flex: 1 1 0% !important;
+    min-height: 0 !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 手機端表格資料庫過濾列自適應排版 */
+  #view-table-container .flex-wrap {
+    gap: 0.4rem !important;
+  }
+  #table-search-input {
+    min-width: 130px;
+  }
+
+  #canvas-inner-wrapper {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* 編輯器在手機上的排版與虛擬鍵盤避讓高度 */
+  #editor {
+    font-size: 15.5px !important;
+    line-height: 1.65 !important;
+    padding-bottom: 8rem !important;
+    min-height: calc(100vh - 280px) !important;
+    word-break: break-word;
+  }
+
+  /* 手機底部快捷列置底與半透明模糊效果 (支援 iPhone / Android 安全區) */
+  #mobile-toolbar {
+    position: relative;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 48px;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .dark #mobile-toolbar {
+    background-color: rgba(25, 25, 25, 0.95);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.35);
+  }
+
+  /* 頂部視圖切換列 (筆記編輯、表格、看板等) 橫向平滑滾動並隱藏原生捲軸 */
+  #view-mode-bar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  #view-mode-bar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 屬性下拉選單與操作按鈕在手機上的觸控友善尺寸 */
+  #note-properties-container select {
+    font-size: 12px;
+    min-height: 30px;
+  }
+
+  #note-properties-container button {
+    min-height: 28px;
+    min-width: 28px;
+  }
+}
+
+
+/* ============================================================
+   🌳 側邊欄工作分類樹狀選單樣式 (Work Taxonomy Tree Menu)
+   ============================================================ */
+.tree-branch {
+  user-select: none;
+}
+.tree-branch-header {
+  transition: all 0.12s ease;
+}
+.tree-branch-header:hover {
+  background-color: rgba(55, 53, 47, 0.06);
+}
+.dark .tree-branch-header:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+.tree-caret {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.tree-caret.collapsed {
+  transform: rotate(-90deg);
+}
+.tree-sub-list {
+  max-height: 1200px;
+  opacity: 1;
+  overflow: hidden;
+  transition: max-height 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.22s ease;
+}
+.tree-sub-list.collapsed {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  pointer-events: none;
+}
+.tree-sub-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.28rem 0.5rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-size: 11.5px;
+  color: #4b5563;
+  transition: all 0.1s ease;
+  position: relative;
+}
+.dark .tree-sub-item {
+  color: #9ca3af;
+}
+.tree-sub-item:hover {
+  background-color: rgba(55, 53, 47, 0.06);
+  color: #111827;
+}
+.dark .tree-sub-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #f3f4f6;
+}
+.tree-sub-item.active {
+  background-color: rgba(35, 131, 226, 0.12) !important;
+  color: #1d4ed8 !important;
+  font-weight: 600;
+  border-left: 2.5px solid #2563eb !important;
+}
+.dark .tree-sub-item.active {
+  background-color: rgba(35, 131, 226, 0.25) !important;
+  color: #60a5fa !important;
+  border-left: 2.5px solid #38bdf8 !important;
+}
+
+
+/* ============================================================
+   🔒 嚴格視圖隱藏規則：徹底杜絕手機與電腦端多重視圖重疊破碎
+   ============================================================ */
+.hidden,
+[hidden],
+#main-scroll-container.hidden,
+#view-table-container.hidden,
+#view-tasks-container.hidden,
+#view-calendar-container.hidden,
+#view-uncategorized-container.hidden,
+#view-budget-container.hidden {
+  display: none !important;
+}
+
+
+/* ============================================================
+   📋 待處理事件管理 (Google Tasks) 樣式
+   ============================================================ */
+.tasks-urgency-col {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.tasks-urgency-col:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+.task-item-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.2s ease;
+}
+.task-item-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.task-item-card.completed {
+  opacity: 0.65;
+}
+.task-item-card.completed:hover {
+  opacity: 0.9;
+}
+
+
+/* ============================================================
+   ✨ 絲滑流暢 60FPS 轉場動效引擎 (Hardware-Accelerated Smooth Motion)
+   ============================================================ */
+
+/* 1. 視圖切換流暢上升淡入 (零卡頓 GPU 合成渲染) */
+@keyframes viewFadeInSmooth {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.view-transition-active {
+  animation: viewFadeInSmooth 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+/* 2. 側邊欄抽屜極致絲滑滑入滑出 */
+#sidebar {
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  will-change: transform;
+}
+
+/* 3. 視圖標籤切換滑順過渡 */
+.view-tab-btn {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* 4. 筆記清單與卡片微交互動效 */
+.note-item {
+  transition: background-color 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.note-item:hover {
+  transform: translateX(2px);
+}
+
+/* 5. 日曆活動與藥丸膠囊樣式 */
+.calendar-pill {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  cursor: pointer;
+}
+.calendar-pill:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+.calendar-pill-google {
+  background-color: rgba(79, 70, 229, 0.1);
+  color: #4f46e5;
+  border-left: 2.5px solid #4f46e5;
+}
+.dark .calendar-pill-google {
+  background-color: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+  border-left: 2.5px solid #818cf8;
+}
+
+/* 6. 彈跳視窗絲滑縮放進場 */
+@keyframes modalPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.96) translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.modal-animated > div {
+  animation: modalPopIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+
+
+/* ============================================================
+   📱 POCO X8 Pro 與極致全螢幕最佳化 (Maximized Screen Real Estate)
+   ============================================================ */
+@media (max-width: 768px) {
+  /* 頂部 Header 緊湊收縮，省出上方寶貴視野 */
+  header {
+    height: 42px !important;
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+
+  /* 頂部多重視圖切換列緊湊化 */
+  #view-mode-bar {
+    height: 36px !important;
+    padding-left: 0.35rem !important;
+    padding-right: 0.35rem !important;
+  }
+  .view-tab-btn {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 11.5px !important;
+  }
+  #view-count-badge {
+    display: none;
+  }
+
+  /* 主編輯區外距極小化，滿版視覺不浪費邊緣空間 */
+  #main-scroll-container:not(.hidden) {
+    padding: 0.35rem 0.5rem 2.5rem 0.5rem !important;
+  }
+
+  /* 日曆月曆格子在手機上彈性延展滿版 */
+  #view-calendar-container:not(.hidden) {
+    padding: 0.35rem 0.25rem !important;
+  }
+  .calendar-cell {
+    min-height: 72px !important;
+    padding: 2px !important;
+  }
+  .calendar-pill {
+    padding: 1px 3px !important;
+    font-size: 10px !important;
+    line-height: 1.25 !important;
+    margin-bottom: 2px !important;
+  }
+
+  /* 待處理事件在手機上緊湊呈現 */
+  #view-tasks-container:not(.hidden) {
+    padding: 0.35rem 0.35rem !important;
+  }
+  .tasks-urgency-col {
+    margin-bottom: 0.5rem !important;
+  }
+  .task-item-card {
+    padding: 0.5rem !important;
+  }
+
+  /* 表格資料庫與未分類檢視在手機上全寬延伸 */
+  #view-table-container:not(.hidden),
+  #view-uncategorized-container:not(.hidden) {
+    padding: 0.35rem 0.25rem !important;
+  }
+
+  /* 底部抽屜 Modal 在手機端支援原生 Bottom Sheet 樣式 */
+  #day-schedule-modal > div {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    max-height: 85vh !important;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+
+/* ============================================================
+   ⚡ 全域載入中動效、按鈕微交互與未分類卡片樣式
+   ============================================================ */
+
+/* 按鈕非同步載入過渡樣式 (Button Loading Transitions) */
+.btn-loading {
+  position: relative !important;
+  pointer-events: none !important;
+  opacity: 0.8 !important;
+  cursor: wait !important;
+  transform: scale(0.98);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+/* 全域頂部載入動態條 (Global Progress Bar) */
+#global-top-loader {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: linear-gradient(90deg, #3b82f6, #6366f1, #ec4899, #3b82f6);
+  background-size: 200% 100%;
+  animation: shimmerLoader 1.5s infinite linear;
+  z-index: 9999;
+  transition: opacity 0.25s ease;
+}
+
+@keyframes shimmerLoader {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* 浮動載入提示膠囊 (Floating Loading Pill) */
+#global-floating-loader {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 9990;
+  animation: floatPillIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes floatPillIn {
+  0% { opacity: 0; transform: translateY(12px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 未分類卡片過渡動效 */
+.uncat-card {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.uncat-card:hover {
+  transform: translateY(-2px);
+}
+
+/* ============================================================
+   📎 筆記內檔案附件卡片與下載樣式 (File Attachment & Download Card)
+   ============================================================ */
+.notion-file-attachment {
+  user-select: none;
+  cursor: default;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.notion-file-attachment:hover {
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.08);
+}
+.dark .notion-file-attachment:hover {
+  box-shadow: 0 4px 14px -2px rgba(0, 0, 0, 0.35);
+}
+.notion-file-attachment a {
+  text-decoration: none !important;
+}
+
+/* ============================================================
+   🖍️ 螢光筆劃記重點樣式與浮動調色盤 (Highlighter & Palette)
+   ============================================================ */
+/* 🖍️ 螢光筆文字高對比保證 (深色與淺色模式通用) */
+#editor span[style*="background-color"],
+#editor mark,
+.notion-highlight,
+.dark #editor span[style*="background-color"],
+.dark #editor mark,
+.dark .notion-highlight {
+  color: #111827 !important; /* 強制文字為深黑高對比色，徹底防止深色模式下白色文字與淺色螢光底色重疊看不清 */
+  border-radius: 3px;
+  padding: 0.12em 0.28em;
+  font-weight: 600;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* 若背景為透明或清除，回復為正常繼承字色 */
+#editor span[style*="background-color: transparent"],
+#editor span[style*="background-color: rgba(0, 0, 0, 0)"],
+.dark #editor span[style*="background-color: transparent"],
+.dark #editor span[style*="background-color: rgba(0, 0, 0, 0)"] {
+  color: inherit !important;
+  background-color: transparent !important;
+}
+
+/* 🖍️ 螢光筆浮動調色盤與圓形色彩按鈕專用樣式 */
+.selection-toolbar #sel-highlight-palette {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  background: #1e293b !important;
+  border: 1px solid #475569 !important;
+  border-radius: 8px !important;
+  padding: 6px 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
+  z-index: 100 !important;
+  animation: popoverFadeIn 0.12s ease-out;
+}
+.selection-toolbar #sel-highlight-palette.hidden {
+  display: none !important;
+}
+.selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color]:not([data-color="transparent"]) {
+  width: 20px !important;
+  height: 20px !important;
+  min-width: 20px !important;
+  min-height: 20px !important;
+  max-width: 20px !important;
+  max-height: 20px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: inline-block !important;
+  cursor: pointer !important;
+  border: 2px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease !important;
+}
+.selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color]:not([data-color="transparent"]):hover {
+  transform: scale(1.3) !important;
+  border-color: #ffffff !important;
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.8) !important;
+}
+.selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color="#fef08a"] {
+  background-color: #fef08a !important;
+}
+.selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color="#bbf7d0"] {
+  background-color: #86efac !important;
+}
+.selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color="#fbcfe8"] {
+  background-color: #f472b6 !important;
+}
+.selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color="#bfdbfe"] {
+  background-color: #93c5fd !important;
+}
+.selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color="#fed7aa"] {
+  background-color: #fb923c !important;
+}
+.selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color="transparent"] {
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #e2e8f0 !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  cursor: pointer !important;
+  transition: all 0.12s ease !important;
+}
+.selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color="transparent"]:hover {
+  background: rgba(255, 255, 255, 0.25) !important;
+  color: #ffffff !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+}
+
+/* 🎯 畫布與編輯器點擊體驗加強 */
+#editor {
+  min-height: 60vh;
+  cursor: text;
+}
+#main-scroll-container {
+  cursor: text;
+}
+#main-scroll-container * {
+  cursor: auto;
+}
+#main-scroll-container button,
+#main-scroll-container a,
+#main-scroll-container select,
+#main-scroll-container input,
+#main-scroll-container summary,
+#main-scroll-container .cursor-pointer,
+#main-scroll-container .drag-handle {
+  cursor: pointer;
+}
+#editor {
+  cursor: text !important;
+}
+
+/* ============================================================
+   📷 照片與影片收折卡片 (Collapsible Media Component)
+   ============================================================ */
+details.notion-media-collapse {
+  user-select: none;
+  transition: border-color 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+details.notion-media-collapse:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+}
+.dark details.notion-media-collapse:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+details.notion-media-collapse summary::-webkit-details-marker {
+  display: none;
+}
+details.notion-media-collapse summary {
+  list-style: none;
+  transition: background-color 0.18s ease, transform 0.12s ease;
+}
+details.notion-media-collapse summary:active {
+  transform: scale(0.995);
+}
+details.notion-media-collapse summary .collapse-arrow {
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+details.notion-media-collapse[open] summary .collapse-arrow {
+  transform: rotate(180deg);
+}
+details.notion-media-collapse[open] > div {
+  animation: mediaSlideDown 0.26s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top center;
+}
+@keyframes mediaSlideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+details.notion-media-collapse:not([open]) {
+  background: rgba(243, 244, 246, 0.6);
+}
+.dark details.notion-media-collapse:not([open]) {
+  background: rgba(32, 32, 32, 0.6);
+}
+
+/* ============================================================
+   🖐️ 元件拖曳改變位置與放置指示線 (Draggable Blocks & Drop Indicator)
+   ============================================================ */
+.notion-draggable-block {
+  position: relative;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.notion-draggable-block.dragging {
+  opacity: 0.45 !important;
+  transform: scale(0.99);
+}
+.drag-handle {
+  opacity: 0.45;
+  transition: opacity 0.15s ease;
+}
+.notion-draggable-block:hover .drag-handle {
+  opacity: 1;
+}
+.drop-indicator-top {
+  border-top: 3px solid #3b82f6 !important;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+}
+.drop-indicator-bottom {
+  border-bottom: 3px solid #3b82f6 !important;
+  border-bottom-left-radius: 4px;
+  border-bottom-right-radius: 4px;
+}
+
+/* 側欄分類拖曳管理樣式 */
+.tree-sub-item.cursor-grab {
+  cursor: grab;
+}
+.tree-sub-item.cursor-grab:active {
+  cursor: grabbing;
+}
+.tree-sub-item.dragging-cat {
+  opacity: 0.4 !important;
+  background: rgba(59, 130, 246, 0.1) !important;
+}
+.tree-sub-item.cat-drop-above {
+  border-top: 2px solid #3b82f6 !important;
+}
+.tree-sub-item.cat-drop-below {
+  border-bottom: 2px solid #3b82f6 !important;
+}
+
+/* ==========================================================================
+   ✨ 現代化極速動效與文字選取強化 (Smooth Animations & Text Selection Fixes)
+   ========================================================================== */
+
+/* 確保編輯器內部所有文字可自由反白選取 */
+#editor, #editor * {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* 僅摘要標題、拖曳手把與功能按鈕防反白 */
+.notion-media-collapse summary,
+.notion-media-collapse .drag-handle,
+.tree-branch,
+.tree-branch-header,
+.nav-item,
+button {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.notion-media-collapse .media-caption-bar {
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
+
+/* 筆記開啟滑入動態 (Note Open Smooth Transition) */
+@keyframes noteOpenFadeSlide {
+  0% {
+    opacity: 0.2;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.note-open-animate {
+  animation: noteOpenFadeSlide 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* 骨架屏載入動效 (Skeleton Loader Shimmer) */
+.note-skeleton-loader {
+  opacity: 0.75;
+}
+
+/* 手機介面深度優化 (Deep Mobile Touch & Keyboard Clearance) */
+@media (max-width: 768px) {
+  #main-scroll-container {
+    padding-bottom: max(6rem, env(safe-area-inset-bottom, 32px)) !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  #editor {
+    font-size: 15px;
+    line-height: 1.65;
+    padding-bottom: 5rem;
+  }
+  button, .nav-item, select {
+    touch-action: manipulation;
+  }
+  .notion-media-collapse summary {
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+  }
+}
+
+/* ==========================================================================
+   🎬 全站極致平滑動效與選單微互動 (Smooth Transitions & Dropdown Polish)
+   ========================================================================== */
+
+/* 🌟 下拉選項與選擇框平滑過渡動態 (Dropdown & Select Smooth Transitions) */
+select {
+  transition: border-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.15s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer;
+}
+select:hover {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
+}
+select:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25) !important;
+  outline: none;
+}
+select option {
+  padding: 8px 12px;
+  background-color: #ffffff;
+  color: #111827;
+}
+.dark select option {
+  background-color: #1e293b;
+  color: #f1f5f9;
+}
+
+/* 🌟 彈窗、選單與浮動條平滑放大縮小動效 (Popovers & Menus Scale-in Animation) */
+@keyframes popoverScaleIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.96);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.notion-popover,
+#export-menu,
+#template-menu,
+#slash-menu,
+#sel-highlight-palette,
+#space-ai-box,
+#view-calendar-dropdown,
+#tag-picker-popover {
+  animation: popoverScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  transform-origin: top center;
+}
+
+/* 🌟 視圖切換淡入與微幅滑入 (View Switching Transitions) */
+#editor-view:not(.hidden),
+#table-view:not(.hidden),
+#uncategorized-view:not(.hidden),
+#tasks-view:not(.hidden),
+#calendar-view:not(.hidden) {
+  animation: viewSlideIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes viewSlideIn {
+  0% {
+    opacity: 0.15;
+    transform: translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 🌟 彈窗本體彈入過渡 (Modal Container Zoom In) */
+@keyframes modalZoomFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.93) translateY(12px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+#work-tag-modal > div:last-child,
+#settings-modal > div:last-child,
+#cover-modal > div:last-child,
+#action-history-modal > div:last-child,
+#calendar-day-modal > div:last-child {
+  animation: modalZoomFadeIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+}
+
+/* 🌟 Toast 訊息滑入動態 */
+#toast-msg:not(.hidden) {
+  animation: toastFloatUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes toastFloatUp {
+  0% {
+    opacity: 0;
+    transform: translateY(16px) scale(0.94);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 🖍️ 螢光筆醒目標記樣式 (Notion Highlight Clean Styling) */
+mark.notion-highlight {
+  font-family: inherit !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  line-height: inherit !important;
+  text-decoration: inherit !important;
+  transition: background-color 0.15s ease;
+}
+
+/* 📱 手機端文字浮動工具列響應式增強 (Mobile Floating Toolbar Optimization) */
+@media (max-width: 768px) {
+  .selection-toolbar {
+    max-width: 96vw !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    padding: 6px 8px !important;
+    gap: 3px !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  }
+  .selection-toolbar::-webkit-scrollbar {
+    display: none !important;
+  }
+  .selection-toolbar button {
+    min-width: 34px !important;
+    min-height: 34px !important;
+    padding: 4px 6px !important;
+    font-size: 13px !important;
+    touch-action: manipulation !important;
+  }
+  .selection-toolbar #sel-highlight-palette {
+    top: 44px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    max-width: 94vw !important;
+    padding: 8px 12px !important;
+    gap: 8px !important;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65) !important;
+  }
+  .selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color]:not([data-color="transparent"]) {
+    width: 28px !important;
+    height: 28px !important;
+    min-width: 28px !important;
+    min-height: 28px !important;
+    border-radius: 50% !important;
+  }
+  .selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color="transparent"] {
+    min-height: 28px !important;
+    padding: 4px 10px !important;
+    font-size: 12px !important;
+  }
+}
+
+
+/* ==========================================================================
+   🎨 圖片簡易編輯器 (Image Editor Modal) & 裁切控制樣式
+   ========================================================================== */
+
+#image-editor-modal .img-tool-btn.active-tool {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+#image-editor-modal .img-tool-btn.active-tool i {
+  color: #ffffff !important;
+}
+
+#image-editor-modal .img-color-dot.active-color {
+  transform: scale(1.22);
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.4);
+}
+.dark #image-editor-modal .img-color-dot.active-color {
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.4);
+}
+
+#image-editor-modal .img-size-btn.active-size {
+  border-color: #2563eb !important;
+  background-color: rgba(37, 99, 235, 0.12) !important;
+  color: #2563eb !important;
+  font-weight: 700;
+}
+.dark #image-editor-modal .img-size-btn.active-size {
+  border-color: #60a5fa !important;
+  background-color: rgba(96, 165, 250, 0.2) !important;
+  color: #93c5fd !important;
+}
+
+/* 互動式裁切框樣式 (Interactive Crop Box) */
+#img-crop-box {
+  position: absolute;
+  box-sizing: border-box;
+  touch-action: none;
+}
+.crop-handle {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background-color: #4f46e5;
+  border: 2px solid #ffffff;
+  border-radius: 2px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+.crop-handle-nw { top: -6px; left: -6px; cursor: nwse-resize; }
+.crop-handle-ne { top: -6px; right: -6px; cursor: nesw-resize; }
+.crop-handle-sw { bottom: -6px; left: -6px; cursor: nesw-resize; }
+.crop-handle-se { bottom: -6px; right: -6px; cursor: nwse-resize; }
+
+/* 🌟 自然流暢骨架屏光影流動動畫 (Natural Flowing Shimmer Animation) */
+.note-skeleton-wrapper {
+  animation: fadeInSlow 0.25s ease-out;
+}
+@keyframes fadeInSlow {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(229, 231, 235, 0.5) 0%,
+    rgba(243, 244, 246, 0.95) 50%,
+    rgba(229, 231, 235, 0.5) 100%
+  );
+  background-size: 200% 100%;
+  animation: naturalShimmerWave 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+.dark .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(38, 38, 38, 0.6) 0%,
+    rgba(63, 63, 70, 0.95) 50%,
+    rgba(38, 38, 38, 0.6) 100%
+  );
+  background-size: 200% 100%;
+  animation: naturalShimmerWave 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes naturalShimmerWave {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+/* 🖼️ 圖片與影片極致流暢收折與展開動畫 (Silky Smooth Collapse & Expand Animation) */
+details.notion-media-collapse {
+  overflow: hidden;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+details.notion-media-collapse summary .collapse-arrow {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+details.notion-media-collapse[open] summary .collapse-arrow {
+  transform: rotate(180deg) !important;
+}
+.media-collapse-content {
+  overflow: hidden;
+  transform-origin: top center;
+  will-change: max-height, opacity, transform;
+}
+
+/* 🎨 圖片編輯按鈕醒目樣式 (Triple-Placement Image Edit Buttons) */
+.summary-edit-img-btn {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3) !important;
+}
+.summary-edit-img-btn:hover {
+  background-color: #1d4ed8 !important;
+}
+
+.caption-edit-img-btn {
+  background-color: rgba(37, 99, 235, 0.08) !important;
+  color: #2563eb !important;
+  border: 1px solid rgba(37, 99, 235, 0.25) !important;
+}
+.dark .caption-edit-img-btn {
+  background-color: rgba(96, 165, 250, 0.15) !important;
+  color: #60a5fa !important;
+  border-color: rgba(96, 165, 250, 0.35) !important;
+}
+.caption-edit-img-btn:hover {
+  background-color: rgba(37, 99, 235, 0.15) !important;
+}
+
+.image-preview-wrapper:hover .image-hover-edit-btn {
+  opacity: 1 !important;
+  transform: translateY(0) scale(1) !important;
+}
+.image-hover-edit-btn {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
