@@ -50,9 +50,9 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LVI_Note">
   <meta name="application-name" content="LVI_Note">
-  <meta name="version" content="v2.4.0">
+  <meta name="version" content="v2.4.2">
   <meta name="theme-color" content="#191919">
-  <link rel="stylesheet" href="styles.css?v=20261007_v49">
+  <link rel="stylesheet" href="styles.css?v=20261008_v2.4.2">
 </head>
 <body class="bg-white text-gray-800 dark:bg-notion-dark dark:text-gray-100 flex flex-col h-screen overflow-hidden font-sans">
 
@@ -85,7 +85,7 @@
       <!-- 麵包屑導航 (手機緊湊化) -->
       <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1 truncate max-w-[110px] sm:max-w-xs">
         <span class="hidden sm:inline font-medium text-gray-700 dark:text-gray-300 shrink-0">
-          <span id="header-folder-name">LVI_Note</span>
+          <span id="header-folder-name">LVI_Note</span><span class="ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 shrink-0" title="當前版本號">v2.4.2</span>
           <span class="mx-0.5">/</span>
         </span>
         <span id="header-note-title" class="truncate text-gray-900 dark:text-white font-medium">未命名筆記</span>
@@ -219,7 +219,7 @@
           <img src="logo.png" alt="LVI_Note Logo" class="w-7 h-7 rounded-full border border-blue-500/40 shadow-sm object-cover shrink-0">
           <div class="flex items-center gap-1.5">
             <span class="text-sm font-bold tracking-tight text-gray-800 dark:text-gray-100">LVI_Note</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號">v2.4.0</span>
+            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號">v2.4.2</span>
           </div>
         </div>
         <div class="flex items-center space-x-1">
@@ -1403,7 +1403,11 @@
 
       </div>
 
-      <div class="pt-2 flex justify-end space-x-2">
+      <div class="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-notion-borderDark">
+        <div class="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+          <span>系統版本</span>
+          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.4.2</span>
+        </div>
         <button id="save-settings-btn" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition shadow-sm">
           儲存所有設定
         </button>
@@ -1416,7 +1420,7 @@
     <span id="toast-message">訊息提示</span>
   </div>
 
-  <script src="app.js?v=20261007_v49"></script>
+  <script src="app.js?v=20261008_v2.4.2"></script>
 
   <!-- 🏢 工作標籤新增彈窗 (Work Tag Modal) -->
   <div id="work-tag-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden backdrop-blur-xs">
@@ -1536,148 +1540,6 @@
           </div>
           <div id="day-modal-notes-list" class="space-y-2">
             <!-- 動態筆記卡片 -->
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- 🎨 圖片簡易編輯器彈窗 (Image Editor Modal: 畫筆劃記、螢光筆、旋轉、裁切，全面適配手機與桌面) -->
-  <div id="image-editor-modal" class="fixed inset-0 z-[99990] flex items-center justify-center bg-black/85 backdrop-blur-md hidden transition-opacity duration-200">
-    <div class="bg-white dark:bg-notion-dark border-0 sm:border border-gray-200 dark:border-notion-borderDark rounded-none sm:rounded-2xl shadow-2xl w-full h-[100dvh] sm:h-auto sm:max-h-[94vh] sm:max-w-4xl flex flex-col overflow-hidden">
-      <!-- 頂部標題與核心動作列 (手機高度緊湊、桌面大方) -->
-      <div class="px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 dark:border-notion-borderDark flex items-center justify-between bg-gray-50/95 dark:bg-notion-darker/95 shrink-0">
-        <div class="flex items-center gap-1.5 min-w-0">
-          <button id="img-editor-cancel-btn" class="p-1.5 sm:px-3 sm:py-1.5 text-xs rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium transition touch-manipulation flex items-center gap-1 cursor-pointer" title="取消退出">
-            <i data-lucide="x" class="w-4 h-4 sm:hidden"></i>
-            <span class="hidden sm:inline">取消</span>
-          </button>
-          <div class="w-px h-4 bg-gray-300 dark:bg-gray-700 mx-1 hidden sm:block"></div>
-          <div class="flex items-center gap-1.5 min-w-0">
-            <i data-lucide="palette" class="w-4 h-4 text-blue-500 shrink-0"></i>
-            <h3 class="font-bold text-xs sm:text-sm text-gray-900 dark:text-gray-100 truncate">
-              <span>圖片編輯</span>
-              <span id="img-editor-filename" class="text-[11px] font-normal text-gray-400 truncate max-w-[140px] sm:max-w-[200px] ml-1 hidden xs:inline"></span>
-            </h3>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
-          <button id="img-editor-undo-btn" class="p-1.5 sm:px-2.5 sm:py-1 text-xs rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition flex items-center gap-1 touch-manipulation cursor-pointer" title="復原 (Ctrl+Z)">
-            <i data-lucide="undo" class="w-4 h-4 sm:w-3.5 sm:h-3.5"></i>
-            <span class="hidden md:inline">復原</span>
-          </button>
-          <button id="img-editor-reset-btn" class="p-1.5 sm:px-2.5 sm:py-1 text-xs rounded-lg hover:bg-gray-200 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-300 transition flex items-center gap-1 touch-manipulation cursor-pointer" title="重設為原圖">
-            <i data-lucide="rotate-ccw" class="w-4 h-4 sm:w-3.5 sm:h-3.5"></i>
-            <span class="hidden md:inline">重設</span>
-          </button>
-          <button id="img-editor-save-btn" class="px-3.5 py-1.5 text-xs rounded-lg bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-semibold transition flex items-center gap-1 shadow-sm touch-manipulation cursor-pointer">
-            <i data-lucide="check" class="w-4 h-4 sm:w-3.5 sm:h-3.5"></i>
-            <span>儲存套用</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- 工具選單與調整列 (適配手機橫向滑動與觸控) -->
-      <div class="px-3 sm:px-4 py-2 border-b border-gray-200/80 dark:border-notion-borderDark/80 bg-white dark:bg-notion-dark flex flex-col gap-2 shrink-0 select-none">
-        <!-- 第 1 排：核心工具與旋轉操作 -->
-        <div class="flex items-center justify-between gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-          <div class="inline-flex rounded-lg p-0.5 bg-gray-100 dark:bg-notion-darker border border-gray-200/60 dark:border-notion-borderDark/60 shrink-0">
-            <button id="img-tool-pen" class="img-tool-btn px-2.5 py-1.5 rounded-md text-xs font-medium transition active-tool touch-manipulation cursor-pointer flex items-center gap-1" title="畫筆劃記">
-              <i data-lucide="pencil" class="w-3.5 h-3.5 text-blue-500"></i>
-              <span class="text-[11px]">畫筆</span>
-            </button>
-            <button id="img-tool-highlighter" class="img-tool-btn px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 transition touch-manipulation cursor-pointer flex items-center gap-1" title="螢光筆劃記 (半透明)">
-              <i data-lucide="highlighter" class="w-3.5 h-3.5 text-amber-500"></i>
-              <span class="text-[11px]">螢光筆</span>
-            </button>
-            <button id="img-tool-eraser" class="img-tool-btn px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 transition touch-manipulation cursor-pointer flex items-center gap-1" title="橡皮擦">
-              <i data-lucide="eraser" class="w-3.5 h-3.5 text-rose-500"></i>
-              <span class="text-[11px]">橡皮擦</span>
-            </button>
-            <button id="img-tool-rect" class="img-tool-btn px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 transition touch-manipulation cursor-pointer flex items-center gap-1" title="重點方框">
-              <i data-lucide="square" class="w-3.5 h-3.5 text-emerald-500"></i>
-              <span class="text-[11px]">方框</span>
-            </button>
-            <button id="img-tool-crop" class="img-tool-btn px-2.5 py-1.5 rounded-md text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 transition touch-manipulation cursor-pointer flex items-center gap-1" title="裁切圖片">
-              <i data-lucide="crop" class="w-3.5 h-3.5 text-indigo-500"></i>
-              <span class="text-[11px]">裁切</span>
-            </button>
-          </div>
-
-          <!-- 旋轉與下載 -->
-          <div class="flex items-center gap-1 shrink-0 ml-auto">
-            <button id="img-rotate-left-btn" class="p-1.5 rounded-lg border border-gray-200 dark:border-notion-borderDark hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition touch-manipulation cursor-pointer" title="向左旋轉 90°">
-              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-            </button>
-            <button id="img-rotate-right-btn" class="p-1.5 rounded-lg border border-gray-200 dark:border-notion-borderDark hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition touch-manipulation cursor-pointer" title="向右旋轉 90°">
-              <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
-            </button>
-            <button id="img-flip-h-btn" class="p-1.5 rounded-lg border border-gray-200 dark:border-notion-borderDark hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition touch-manipulation cursor-pointer" title="水平翻轉">
-              <i data-lucide="flip-horizontal" class="w-3.5 h-3.5"></i>
-            </button>
-            <button id="img-download-btn" class="p-1.5 rounded-lg border border-gray-200 dark:border-notion-borderDark hover:bg-gray-100 dark:hover:bg-gray-800 text-emerald-600 dark:text-emerald-400 transition touch-manipulation cursor-pointer" title="另存下載圖片">
-              <i data-lucide="download" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- 第 2 排：顏色盤與筆刷粗細 -->
-        <div id="img-tool-options-row" class="flex items-center justify-between gap-2 overflow-x-auto no-scrollbar pt-1 border-t border-gray-100 dark:border-gray-800/60">
-          <!-- 顏色點 -->
-          <div class="flex items-center gap-2">
-            <span class="text-gray-400 text-[11px] shrink-0">顏色:</span>
-            <div class="flex items-center gap-1.5">
-              <button class="img-color-dot w-6 h-6 sm:w-5 sm:h-5 rounded-full border-2 border-white dark:border-gray-800 shadow-xs transition hover:scale-110 active-color touch-manipulation cursor-pointer" data-color="#ef4444" style="background-color: #ef4444;" title="紅色"></button>
-              <button class="img-color-dot w-6 h-6 sm:w-5 sm:h-5 rounded-full border-2 border-transparent shadow-xs transition hover:scale-110 touch-manipulation cursor-pointer" data-color="#facc15" style="background-color: #facc15;" title="黃色"></button>
-              <button class="img-color-dot w-6 h-6 sm:w-5 sm:h-5 rounded-full border-2 border-transparent shadow-xs transition hover:scale-110 touch-manipulation cursor-pointer" data-color="#22c55e" style="background-color: #22c55e;" title="綠色"></button>
-              <button class="img-color-dot w-6 h-6 sm:w-5 sm:h-5 rounded-full border-2 border-transparent shadow-xs transition hover:scale-110 touch-manipulation cursor-pointer" data-color="#3b82f6" style="background-color: #3b82f6;" title="藍色"></button>
-              <button class="img-color-dot w-6 h-6 sm:w-5 sm:h-5 rounded-full border-2 border-transparent shadow-xs transition hover:scale-110 touch-manipulation cursor-pointer" data-color="#a855f7" style="background-color: #a855f7;" title="紫色"></button>
-              <button class="img-color-dot w-6 h-6 sm:w-5 sm:h-5 rounded-full border-2 border-transparent shadow-xs transition hover:scale-110 touch-manipulation cursor-pointer" data-color="#ffffff" style="background-color: #ffffff;" title="白色"></button>
-              <button class="img-color-dot w-6 h-6 sm:w-5 sm:h-5 rounded-full border-2 border-transparent shadow-xs transition hover:scale-110 touch-manipulation cursor-pointer" data-color="#111827" style="background-color: #111827;" title="黑色"></button>
-            </div>
-          </div>
-
-          <!-- 筆刷粗細 -->
-          <div class="flex items-center gap-1 shrink-0 ml-auto">
-            <span class="text-gray-400 text-[11px]">粗細:</span>
-            <div class="inline-flex rounded p-0.5 bg-gray-100 dark:bg-notion-darker">
-              <button class="img-size-btn px-2 py-0.5 rounded text-[11px] font-medium border border-transparent text-gray-600 dark:text-gray-400 touch-manipulation cursor-pointer" data-size="3">細</button>
-              <button class="img-size-btn px-2 py-0.5 rounded text-[11px] font-medium border border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-300 active-size touch-manipulation cursor-pointer" data-size="6">中</button>
-              <button class="img-size-btn px-2 py-0.5 rounded text-[11px] font-medium border border-transparent text-gray-600 dark:text-gray-400 touch-manipulation cursor-pointer" data-size="12">粗</button>
-              <button class="img-size-btn px-2 py-0.5 rounded text-[11px] font-medium border border-transparent text-gray-600 dark:text-gray-400 touch-manipulation cursor-pointer" data-size="24">特粗</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 裁切專用控制條 -->
-      <div id="img-crop-bar" class="px-4 py-2 bg-indigo-50/90 dark:bg-indigo-950/50 border-b border-indigo-100 dark:border-indigo-900/50 flex items-center justify-between gap-2 text-xs shrink-0 hidden">
-        <div class="flex items-center gap-1.5">
-          <span class="font-semibold text-indigo-700 dark:text-indigo-300">裁切模式：</span>
-          <span class="text-gray-500 dark:text-gray-400 text-[11px]">拖曳選取裁切範圍</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <button id="img-crop-cancel-btn" class="px-2.5 py-1 rounded bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-300 transition touch-manipulation cursor-pointer">取消</button>
-          <button id="img-crop-confirm-btn" class="px-3.5 py-1 rounded bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold transition flex items-center gap-1 shadow-xs touch-manipulation cursor-pointer">
-            <i data-lucide="check" class="w-3.5 h-3.5"></i><span>確認裁切</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- 畫布工作區 (Canvas Viewport: 支援觸控防滾動與手勢適配) -->
-      <div id="img-canvas-viewport" class="flex-1 bg-gray-100/90 dark:bg-black/60 p-2 sm:p-4 overflow-hidden flex items-center justify-center relative select-none touch-none">
-        <div id="img-canvas-container" class="relative shadow-xl rounded-lg overflow-hidden border border-gray-300/80 dark:border-gray-700/80 bg-[repeating-conic-gradient(#f0f0f0_0_25%,#fff_0_50%)] dark:bg-[repeating-conic-gradient(#1f1f1f_0_25%,#262626_0_50%)] [background-size:20px_20px] max-w-full max-h-full flex items-center justify-center">
-          <canvas id="img-editor-canvas" class="block cursor-crosshair max-w-full max-h-[72dvh] sm:max-h-[62vh] object-contain touch-none"></canvas>
-          <!-- 互動式裁切框疊加層 -->
-          <div id="img-crop-overlay" class="absolute inset-0 pointer-events-none hidden touch-none">
-            <div id="img-crop-box" class="absolute border-2 border-dashed border-indigo-500 bg-indigo-500/15 pointer-events-auto cursor-move touch-none">
-              <div class="crop-handle crop-handle-nw" data-handle="nw"></div>
-              <div class="crop-handle crop-handle-ne" data-handle="ne"></div>
-              <div class="crop-handle crop-handle-sw" data-handle="sw"></div>
-              <div class="crop-handle crop-handle-se" data-handle="se"></div>
-            </div>
           </div>
         </div>
       </div>

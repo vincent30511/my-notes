@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.4.0'; // 2026.10.08
+const APP_VERSION = 'v2.4.2'; // 2026.10.08
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -748,6 +748,7 @@ async function autoLoginFlow() {
       });
       if (testRes.ok) {
         state.accessToken = cachedToken;
+        scheduleTokenRefresh(3600);
         await onLoginSuccess();
         return;
       } else {
@@ -772,6 +773,27 @@ async function autoLoginFlow() {
     DOM.loginBtn.classList.remove('hidden');
     DOM.userProfile.classList.add('hidden');
   }
+}
+
+
+function refreshGoogleToken() {
+  return new Promise((resolve, reject) => {
+    if (!state.tokenClient) return reject(new Error('Token Client 尚未初始化'));
+    const prevCallback = state.tokenClient.callback;
+    state.tokenClient.callback = async (resp) => {
+      state.tokenClient.callback = prevCallback;
+      if (resp.error) {
+        reject(new Error(resp.error));
+      } else if (resp.access_token) {
+        state.accessToken = resp.access_token;
+        localStorage.setItem('cloudnotes_access_token', resp.access_token);
+        const expiresIn = resp.expires_in ? parseInt(resp.expires_in, 10) : 3600;
+        scheduleTokenRefresh(expiresIn);
+        resolve(resp.access_token);
+      }
+    };
+    state.tokenClient.requestAccessToken({ prompt: '', hint: state.userEmail || DEFAULT_USER_EMAIL });
+  });
 }
 
 function scheduleTokenRefresh(expiresIn) {
@@ -1262,10 +1284,12 @@ async function saveWorkspaceConfigToDrive() {
 }
 
 // 3. 獲取所有筆記清單，完全以 Google Drive 為單一真理源，並具備自我學習修復機制
-async function fetchNotesList() {
+async function fetchNotesList(silent = false) {
   if (!state.folderId || !state.accessToken) return;
-  updateSyncStatus('syncing', '正在載入雲端筆記清單...');
-  showGlobalLoading('正在載入雲端筆記...');
+  if (!silent) {
+    updateSyncStatus('syncing', '正在載入雲端筆記清單...');
+    showGlobalLoading('正在載入雲端筆記...');
+  }
 
   try {
     // 1. 完整搜尋 LVI_Note 下的所有分類子資料夾
@@ -1378,7 +1402,9 @@ async function fetchNotesList() {
     renderWorkTagLists();
     renderSidebarTags();
     renderNotesList();
-    updateSyncStatus('synced', '已完全同步 (雲端)');
+    if (!silent && !state.isDirty && !state.isSaving) {
+      updateSyncStatus('synced', '已完全同步 (雲端)');
+    }
     state.lastSyncTime = Date.now();
 
     // 🎯 全域排序：所有筆記依據「最後一次編輯時間 (modifiedTime)」由新到舊排序
@@ -1394,8 +1420,10 @@ async function fetchNotesList() {
     }
   } catch (e) {
     console.error('載入雲端筆記清單失敗:', e);
-    updateSyncStatus('error', '雲端同步出錯');
-  } finally { hideGlobalLoading(); }
+    if (!silent) updateSyncStatus('error', '雲端同步出錯');
+  } finally {
+    if (!silent) hideGlobalLoading();
+  }
 }
 
 async function fullSyncWithDrive(showFeedback = true) {
@@ -1403,7 +1431,7 @@ async function fullSyncWithDrive(showFeedback = true) {
   if (showFeedback) updateSyncStatus('syncing', '正在雙向同步所有筆記與分類...');
   try {
     await syncWorkspaceConfigWithDrive();
-    await fetchNotesList();
+    await fetchNotesList(!showFeedback);
     state.lastSyncTime = Date.now();
     if (showFeedback) {
       updateSyncStatus('synced', '已完全同步');
@@ -3476,6 +3504,7 @@ async function uploadMediaFile(file) {
       insertHtmlAtCursor(finalEmbedHtml);
     }
 
+    try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
     updateSyncStatus('synced', '媒體已就地渲染');
     showToast(`✅ ${file.name} 已就地嵌入至筆記`);
     triggerAutoSaveDebounce();
@@ -3742,9 +3771,10 @@ async function uploadGenericFile(file) {
       placeholder.outerHTML = cardHtml;
     } else {
       insertHtmlAtCursor(cardHtml);
-    ensureEditableSpacesAroundMediaBlocks(DOM.editor);
+      ensureEditableSpacesAroundMediaBlocks(DOM.editor);
     }
 
+    try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
     initLucide();
     updateSyncStatus('synced', '檔案已就地嵌入');
     showToast(`✅ 檔案「${file.name}」已加入筆記，可隨時下載`);
@@ -4614,15 +4644,33 @@ function createNewNote() {
   return createQuickNote();
 }
 
+let autoSaveMaxTimer = null;
+
 function triggerAutoSaveDebounce() {
   state.isDirty = true;
-  DOM.statAutosave.innerHTML = '<i data-lucide="loader" class="w-3 h-3 text-blue-500 animate-spin"></i> 準備自動儲存...';
-  initLucide();
+  DOM.statAutosave.innerHTML = '<svg class="w-3 h-3 text-blue-500 animate-spin inline-block mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> 準備自動儲存...';
 
+  // 1. 防抖計時器 (Debounce)：停筆 800ms 後立即儲存
   if (state.autoSaveTimer) clearTimeout(state.autoSaveTimer);
   state.autoSaveTimer = setTimeout(() => {
+    if (autoSaveMaxTimer) {
+      clearTimeout(autoSaveMaxTimer);
+      autoSaveMaxTimer = null;
+    }
     saveCurrentNote();
-  }, 1200);
+  }, 800);
+
+  // 2. 節流保底計時器 (Max Wait Throttle)：若持續不間斷輸入，每 4 秒保證觸發儲存一次，杜絕長時間不存檔
+  if (!autoSaveMaxTimer) {
+    autoSaveMaxTimer = setTimeout(() => {
+      autoSaveMaxTimer = null;
+      if (state.autoSaveTimer) {
+        clearTimeout(state.autoSaveTimer);
+        state.autoSaveTimer = null;
+      }
+      saveCurrentNote();
+    }, 4000);
+  }
 }
 
 function convertHtmlToMarkdown(html) {
@@ -4642,10 +4690,34 @@ function convertHtmlToMarkdown(html) {
 }
 
 async function saveCurrentNote() {
-  if (!state.accessToken) return;
+  if (!state.accessToken) {
+    console.warn('saveCurrentNote: 未登入或無 accessToken');
+    updateSyncStatus('offline', '尚未登入 Google');
+    DOM.statAutosave.innerHTML = '<span class="text-amber-500 font-medium cursor-pointer hover:underline">⚠️ 尚未登入 Google (點此登入儲存)</span>';
+    DOM.statAutosave.onclick = () => handleLogin();
+    return;
+  }
+
+  // 🛡️ 平行儲存互斥鎖：若已有請求在傳輸中，排入佇列待完成後立即發動最新儲存
+  if (state.isSaving) {
+    state.savePending = true;
+    return;
+  }
+  state.isSaving = true;
+
+  if (state.autoSaveTimer) {
+    clearTimeout(state.autoSaveTimer);
+    state.autoSaveTimer = null;
+  }
+  if (autoSaveMaxTimer) {
+    clearTimeout(autoSaveMaxTimer);
+    autoSaveMaxTimer = null;
+  }
+
   if (!state.folderId) await ensureNotesFolder();
 
   updateSyncStatus('syncing', '儲存至 Google Drive...');
+  DOM.statAutosave.innerHTML = '<svg class="w-3 h-3 text-blue-500 animate-spin inline-block mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> 正在同步至雲端...';
 
   let title = DOM.noteTitle.value.trim() || '未命名筆記';
   DOM.headerTitle.textContent = title;
@@ -4657,7 +4729,7 @@ async function saveCurrentNote() {
     machineModel: DOM.noteMachineSelect ? DOM.noteMachineSelect.value : '未分類',
     workContent: DOM.noteContentSelect ? DOM.noteContentSelect.value : '未分類',
     urgency: DOM.noteUrgencySelect ? DOM.noteUrgencySelect.value : '未分類',
-        dueDate: DOM.noteDueDate ? DOM.noteDueDate.value : '',
+    dueDate: DOM.noteDueDate ? DOM.noteDueDate.value : '',
     tags: (state.currentNote && state.currentNote.meta && state.currentNote.meta.tags) || [],
     pinned: state.currentNote ? state.currentNote.meta.pinned : false
   };
@@ -4666,9 +4738,7 @@ async function saveCurrentNote() {
   const fullContent = buildFrontmatterString(meta) + markdownBody;
 
   try {
-    const boundary = '-------CloudNotesBoundary7788';
-    const delimiter = '\r\n--' + boundary + '\r\n';
-    const closeDelimiter = '\r\n--' + boundary + '--';
+    const boundary = '-------CloudNotesBoundary' + Math.random().toString(36).substring(2);
 
     let url;
     let method;
@@ -4698,24 +4768,67 @@ async function saveCurrentNote() {
       metadata.parents = [targetFolderId];
     }
 
-    const multipartRequestBody = [
-      delimiter,
-      'Content-Type: application/json; charset=UTF-8\r\n\r\n',
-      JSON.stringify(metadata),
-      delimiter,
-      'Content-Type: text/markdown; charset=UTF-8\r\n\r\n',
-      fullContent,
-      closeDelimiter
-    ].join('');
+    // 🚀 原生 Blob Multipart 串流傳輸：徹底解決多位元組中文字元 Content-Length 錯誤與截斷問題
+    const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json; charset=UTF-8' });
+    const contentBlob = new Blob([fullContent], { type: 'text/markdown; charset=UTF-8' });
+    const multipartBody = new Blob([
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
+      metadataBlob,
+      `\r\n--${boundary}\r\nContent-Type: text/markdown; charset=UTF-8\r\n\r\n`,
+      contentBlob,
+      `\r\n--${boundary}--`
+    ], { type: `multipart/related; boundary=${boundary}` });
 
-    const res = await fetch(url, {
+    let res = await fetch(url, {
       method: method,
       headers: {
         Authorization: `Bearer ${state.accessToken}`,
         'Content-Type': `multipart/related; boundary=${boundary}`
       },
-      body: multipartRequestBody
+      body: multipartBody
     });
+
+    // 🛡️ 400 Bad Request 容錯降級：若因 parentParam 目錄不一致報錯，立即移除 parentParam 重試純內容儲存
+    if (!res.ok && res.status === 400 && parentParam) {
+      console.warn('帶 parentParam 儲存失敗 (400)，降級為純內容與屬性更新...');
+      url = `https://www.googleapis.com/upload/drive/v3/files/${state.currentNote.id}?uploadType=multipart`;
+      res = await fetch(url, {
+        method: method,
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body: multipartBody
+      });
+    }
+
+    // 🛡️ 401 Token 過期自我修復：背景靜默無感重新取得 Token 並自動重試儲存
+    if (res.status === 401) {
+      console.warn('Google 登入 Token 已過期 (401)，嘗試無感更新並自動重試儲存...');
+      try {
+        await refreshGoogleToken();
+        res = await fetch(url, {
+          method: method,
+          headers: {
+            Authorization: `Bearer ${state.accessToken}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`
+          },
+          body: multipartBody
+        });
+      } catch (refErr) {
+        console.warn('無感更新 Token 失敗:', refErr);
+        localStorage.removeItem('cloudnotes_access_token');
+        updateSyncStatus('offline', '憑證過期 (請點擊登入)');
+        DOM.loginBtn.classList.remove('hidden');
+        DOM.userProfile.classList.add('hidden');
+        throw new Error('Google 登入憑證已過期，請點擊右上角登入按鈕重新授權 (內容已妥善保留於畫布)');
+      }
+    }
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`Google Drive API 回應錯誤 (HTTP ${res.status}): ${errText}`);
+    }
 
     const savedFile = await res.json();
 
@@ -4746,7 +4859,7 @@ async function saveCurrentNote() {
           name: title,
           parentId: targetFolderId,
           meta: meta,
-          modifiedTime: new Date().toISOString(),
+          modifiedTime: nowIso,
           _cachedBody: markdownBody,
           _cachedHtml: DOM.editor.innerHTML,
           _cachedMeta: meta
@@ -4755,8 +4868,7 @@ async function saveCurrentNote() {
     }
 
     updateSyncStatus('synced', '已儲存');
-    DOM.statAutosave.innerHTML = '<i data-lucide="check" class="w-3 h-3 text-emerald-500"></i> 已自動同步至 Google Drive';
-    initLucide();
+    DOM.statAutosave.innerHTML = '<span class="text-emerald-500 font-medium">✓ 已自動同步至 Google Drive</span>';
     renderWorkTagLists();
     renderSidebarTags();
     renderNotesList();
@@ -4764,9 +4876,22 @@ async function saveCurrentNote() {
     state.isDirty = false;
   } catch (e) {
     console.error('儲存筆記失敗:', e);
+    // 🛡️ 本地緊急備份草稿，確保文字 100% 絕不丟失
+    try {
+      const draftKey = 'lvi_emergency_draft_' + (state.currentNote ? state.currentNote.id : 'current');
+      localStorage.setItem(draftKey, fullContent);
+    } catch(err) {}
+
     updateSyncStatus('error', '儲存失敗');
-    DOM.statAutosave.innerHTML = '<i data-lucide="alert-circle" class="w-3 h-3 text-red-500"></i> 同步失敗';
-    initLucide();
+    DOM.statAutosave.innerHTML = `<span class="text-red-500 font-medium cursor-pointer hover:underline" title="${escapeHtml(e.message || '')}">⚠️ 同步失敗 (點此重試)</span>`;
+    DOM.statAutosave.onclick = () => saveCurrentNote();
+    showToast(`⚠️ 儲存失敗：${e.message || '請檢查網路連線或授權狀態'}`);
+  } finally {
+    state.isSaving = false;
+    if (state.savePending) {
+      state.savePending = false;
+      setTimeout(() => saveCurrentNote(), 100);
+    }
   }
 }
 
@@ -5156,7 +5281,7 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
       <div class="p-3 text-center border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content">
         <img src="${src}" alt="${escapeHtml(alt)}" loading="lazy" class="rounded-xl shadow-xs border border-gray-200 dark:border-notion-borderDark max-h-[520px] mx-auto object-contain cursor-pointer hover:opacity-95 transition" onclick="window.open('${src}', '_blank')" />
         <div class="text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar">
-          ${captionHtml || `<span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(alt)}</span><span>•</span><button type="button" class="image-edit-btn text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-semibold cursor-pointer" title="簡易編輯圖片 (畫筆劃記、螢光筆、旋轉、裁切)"><i data-lucide="palette" class="w-3 h-3"></i><span>編輯圖片</span></button><span>•</span><a href="${src}" target="_blank" download="${escapeHtml(alt)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載原圖"><i data-lucide="download" class="w-3 h-3"></i><span>下載原圖</span></a><span>•</span><a href="${src}" target="_blank" rel="noopener noreferrer" class="hover:text-blue-500 flex items-center gap-1" title="在 Google 雲端開啟"><i data-lucide="external-link" class="w-3 h-3"></i><span>雲端檢視</span></a>`}
+          ${captionHtml || `<span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(alt)}</span><span>•</span><a href="${src}" target="_blank" download="${escapeHtml(alt)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載原圖"><i data-lucide="download" class="w-3 h-3"></i><span>下載原圖</span></a><span>•</span><a href="${src}" target="_blank" rel="noopener noreferrer" class="hover:text-blue-500 flex items-center gap-1" title="在 Google 雲端開啟"><i data-lucide="external-link" class="w-3 h-3"></i><span>雲端檢視</span></a>`}
         </div>
       </div>
     `;
@@ -5187,115 +5312,35 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
       }
     }
   });
-  // 4. 為所有圖片卡片附加「🎨 編輯圖片」按鈕 (標題列、浮動懸停鈕、底部資訊列三重齊全)
-  container.querySelectorAll('details.notion-media-collapse').forEach(details => {
-    const content = details.querySelector('.media-collapse-content') || details.querySelector('.p-3');
-    if (content) content.classList.add('media-collapse-content');
-
-    const img = details.querySelector('img');
-    if (img) {
-      // 4.1 在卡片頂部標題列 (summary) 右側加入醒目的「🎨 編輯圖片」按鈕
-      const summary = details.querySelector('summary');
-      if (summary && !summary.querySelector('.summary-edit-img-btn')) {
-        const rightArea = summary.querySelector('.flex.items-center.gap-2.shrink-0') || summary.lastElementChild;
-        if (rightArea) {
-          const sumEditBtn = document.createElement('button');
-          sumEditBtn.type = 'button';
-          sumEditBtn.className = 'summary-edit-img-btn px-2.5 py-0.5 rounded-md text-xs font-semibold bg-blue-600 hover:bg-blue-700 active:scale-95 text-white transition flex items-center gap-1 shadow-xs cursor-pointer mr-1.5 shrink-0 z-10';
-          sumEditBtn.title = '編輯此圖片 (畫筆劃記、螢光筆、旋轉、裁切)';
-          sumEditBtn.innerHTML = '<span>🎨 編輯圖片</span>';
-
-          sumEditBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            openImageEditor(img);
-          });
-
-          rightArea.prepend(sumEditBtn);
-        }
-      }
-
-      // 4.2 智慧比對底部說明列 (相容所有 Google Drive 既存筆記格式)
-      let captionBar = details.querySelector('.media-caption-bar');
-      if (!captionBar) {
-        const allDivs = details.querySelectorAll('div');
-        for (const d of allDivs) {
-          if (d.querySelector('a[download]') || (d.textContent && (d.textContent.includes('下載原圖') || d.textContent.includes('雲端檢視')))) {
-            captionBar = d;
-            captionBar.classList.add('media-caption-bar');
-            break;
-          }
-        }
-      }
-
-      if (captionBar && !captionBar.querySelector('.caption-edit-img-btn')) {
-        const editBtn = document.createElement('button');
-        editBtn.type = 'button';
-        editBtn.className = 'caption-edit-img-btn image-edit-btn px-2.5 py-0.5 rounded text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200/80 dark:border-blue-800/80 transition flex items-center gap-1 cursor-pointer shadow-2xs';
-        editBtn.title = '簡易編輯圖片 (畫筆劃記、螢光筆、旋轉、裁切)';
-        editBtn.innerHTML = '<span>🎨 編輯圖片</span>';
-
-        const dot = document.createElement('span');
-        dot.className = 'text-gray-400 mx-1';
-        dot.textContent = '•';
-
-        const downloadLink = captionBar.querySelector('a[download]') || captionBar.querySelector('a');
-        if (downloadLink) {
-          captionBar.insertBefore(editBtn, downloadLink);
-          captionBar.insertBefore(dot, downloadLink);
-        } else {
-          captionBar.appendChild(dot);
-          captionBar.appendChild(editBtn);
-        }
-
-        editBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          openImageEditor(img);
-        });
-      }
-
-      // 4.3 圖片本身的懸停浮動按鈕與雙擊事件
-      if (!img.parentElement.classList.contains('image-preview-wrapper')) {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'image-preview-wrapper relative inline-block mx-auto group max-w-full';
-        img.parentNode.insertBefore(wrapper, img);
-        wrapper.appendChild(img);
-
-        const hoverBtn = document.createElement('button');
-        hoverBtn.type = 'button';
-        hoverBtn.className = 'image-hover-edit-btn absolute top-3 right-3 px-3 py-1.5 rounded-lg bg-black/75 hover:bg-blue-600 text-white text-xs font-semibold backdrop-blur-md shadow-lg transition opacity-90 sm:opacity-0 group-hover:opacity-100 flex items-center gap-1.5 cursor-pointer z-10';
-        hoverBtn.title = '點擊編輯此圖片';
-        hoverBtn.innerHTML = '<span>🎨 編輯圖片</span>';
-        hoverBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          e.preventDefault();
-          openImageEditor(img);
-        });
-        wrapper.appendChild(hoverBtn);
-      }
-
-      if (!img.dataset.dblEditBound) {
-        img.dataset.dblEditBound = 'true';
-        img.title = '雙擊進行圖片簡易編輯 (劃記/旋轉/裁切)';
-        img.addEventListener('dblclick', (e) => {
-          e.stopPropagation();
-          openImageEditor(img);
-        });
-      }
+  // 4. 清理歷史編輯按鈕殘留，並為卡片綁定平滑收折/展開動畫 (Smooth Collapsible Animation)
+  container.querySelectorAll('.summary-edit-img-btn, .caption-edit-img-btn, .image-hover-edit-btn').forEach(el => el.remove());
+  container.querySelectorAll('.image-preview-wrapper').forEach(wrapper => {
+    const img = wrapper.querySelector('img');
+    if (img && wrapper.parentNode) {
+      wrapper.parentNode.insertBefore(img, wrapper);
     }
+    wrapper.remove();
+  });
 
-    // 🌟 極致平滑收折/展開動畫綁定 (Smooth Collapsible Animation)
-    const summary = details.querySelector('summary');
-    if (summary && !summary.dataset.animatedCollapseBound && content) {
-      summary.dataset.animatedCollapseBound = 'true';
-      summary.addEventListener('click', (e) => {
-        if (e.target.closest('.drag-handle') || e.target.closest('button') || e.target.closest('a')) {
-          return;
-        }
-        e.preventDefault();
-        toggleCollapsibleWithAnimation(details, content);
-      });
+  container.querySelectorAll('details.notion-media-collapse').forEach(details => {
+    try {
+      const content = details.querySelector('.media-collapse-content') || details.querySelector('.p-3');
+      if (content) content.classList.add('media-collapse-content');
+
+      // 🌟 極致平滑收折/展開動畫綁定 (Smooth Collapsible Animation)
+      const summary = details.querySelector('summary');
+      if (summary && !summary.dataset.animatedCollapseBound && content) {
+        summary.dataset.animatedCollapseBound = 'true';
+        summary.addEventListener('click', (e) => {
+          if (e.target.closest('.drag-handle') || e.target.closest('button') || e.target.closest('a')) {
+            return;
+          }
+          e.preventDefault();
+          toggleCollapsibleWithAnimation(details, content);
+        });
+      }
+    } catch (cardErr) {
+      console.warn('媒體卡片動畫綁定錯誤:', cardErr);
     }
   });
 
@@ -8649,11 +8694,13 @@ function bindEvents() {
   DOM.noteTitle.addEventListener('focus', () => {
     state.titleBeforeEdit = DOM.noteTitle.value;
   });
-  DOM.noteTitle.addEventListener('input', () => {
-    DOM.headerTitle.textContent = DOM.noteTitle.value || '未命名筆記';
-    renderBreadcrumbs();
-    triggerAutoSaveDebounce();
-  });
+  if (DOM.noteTitle) {
+    DOM.noteTitle.addEventListener('input', () => {
+      DOM.headerTitle.textContent = DOM.noteTitle.value || '未命名筆記';
+      renderBreadcrumbs();
+      triggerAutoSaveDebounce();
+    });
+  }
   DOM.noteTitle.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -8701,56 +8748,58 @@ function bindEvents() {
     }
   });
 
-  DOM.noteStatusSelect.addEventListener('change', () => {
-    if (state.currentNote && state.currentNote.meta) {
-      const oldStatus = state.currentNote.meta.status || '🚀 處理中';
-      const newStatus = DOM.noteStatusSelect.value;
-      state.currentNote.meta.status = newStatus;
-      renderNotesList();
-      triggerAutoSaveDebounce();
+  if (DOM.noteStatusSelect) {
+    DOM.noteStatusSelect.addEventListener('change', () => {
+      if (state.currentNote && state.currentNote.meta) {
+        const oldStatus = state.currentNote.meta.status || '🚀 處理中';
+        const newStatus = DOM.noteStatusSelect.value;
+        state.currentNote.meta.status = newStatus;
+        renderNotesList();
+        triggerAutoSaveDebounce();
 
-      const noteId = state.currentNote.id;
-      const noteTitle = state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
-      recordAction({
-        type: 'change_status',
-        title: `🔄 變更狀態為「${newStatus}」`,
-        subtitle: `筆記：「${noteTitle}」 (原：${oldStatus})`,
-        noteId: noteId,
-        undo: () => {
-          const n = state.notes.find(note => note.id === noteId);
-          if (n && n.meta) {
-            n.meta.status = oldStatus;
-            if (state.currentNote && state.currentNote.id === noteId) DOM.noteStatusSelect.value = oldStatus;
-            renderNotesList();
-            renderCurrentView();
-            triggerAutoSaveDebounce();
+        const noteId = state.currentNote.id;
+        const noteTitle = state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
+        recordAction({
+          type: 'change_status',
+          title: `🔄 變更狀態為「${newStatus}」`,
+          subtitle: `筆記：「${noteTitle}」 (原：${oldStatus})`,
+          noteId: noteId,
+          undo: () => {
+            const n = state.notes.find(note => note.id === noteId);
+            if (n && n.meta) {
+              n.meta.status = oldStatus;
+              if (state.currentNote && state.currentNote.id === noteId && DOM.noteStatusSelect) DOM.noteStatusSelect.value = oldStatus;
+              renderNotesList();
+              renderCurrentView();
+              triggerAutoSaveDebounce();
+            }
+          },
+          redo: () => {
+            const n = state.notes.find(note => note.id === noteId);
+            if (n && n.meta) {
+              n.meta.status = newStatus;
+              if (state.currentNote && state.currentNote.id === noteId && DOM.noteStatusSelect) DOM.noteStatusSelect.value = newStatus;
+              renderNotesList();
+              renderCurrentView();
+              triggerAutoSaveDebounce();
+            }
           }
-        },
-        redo: () => {
-          const n = state.notes.find(note => note.id === noteId);
-          if (n && n.meta) {
-            n.meta.status = newStatus;
-            if (state.currentNote && state.currentNote.id === noteId) DOM.noteStatusSelect.value = newStatus;
-            renderNotesList();
-            renderCurrentView();
-            triggerAutoSaveDebounce();
-          }
-        }
-      });
-    }
-  });
+        });
+      }
+    });
+  }
 
   // 畫布輸入事件與內容編輯回朔快照記錄
-  DOM.editor.addEventListener('focus', () => {
-    if (state.editorSnapshotBeforeEdit === null) {
-      state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
-    }
-  });
-  DOM.editor.addEventListener('input', (e) => {
-    updateStats();
-    renderOutline();
-    handleSlashMenu(e);
-    triggerAutoSaveDebounce();
+  if (DOM.editor) DOM.editor.addEventListener('focus', () => {
+      if (state.editorSnapshotBeforeEdit === null) {
+        state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+      }
+    });
+  if (DOM.editor) DOM.editor.addEventListener('input', (e) => {
+      try { updateStats(); } catch(err) { console.warn(err); }
+      try { renderOutline(); } catch(err) { console.warn(err); }
+      try { handleSlashMenu(e); } catch(err) { console.warn(err); }
+      triggerAutoSaveDebounce();
 
     if (state.editorSnapshotBeforeEdit === null) {
       state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
@@ -8775,6 +8824,7 @@ function bindEvents() {
               n.content = oldHtml;
               if (state.currentNote && state.currentNote.id === noteId) {
                 DOM.editor.innerHTML = oldHtml;
+                try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
                 updateStats();
                 renderOutline();
               }
@@ -8787,6 +8837,7 @@ function bindEvents() {
               n.content = newHtml;
               if (state.currentNote && state.currentNote.id === noteId) {
                 DOM.editor.innerHTML = newHtml;
+                try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
                 updateStats();
                 renderOutline();
               }
@@ -8797,6 +8848,31 @@ function bindEvents() {
         state.editorSnapshotBeforeEdit = newHtml;
       }
     }, 800);
+  });
+
+
+  // 畫布與標題失焦時若有未存修改，立即觸發即時儲存 (Instant Blur Save)
+  if (DOM.editor) {
+    DOM.editor.addEventListener('blur', () => {
+      if (state.isDirty && !state.isSaving) {
+        saveCurrentNote();
+      }
+    });
+  }
+  if (DOM.noteTitle) {
+    DOM.noteTitle.addEventListener('blur', () => {
+      if (state.isDirty && !state.isSaving) {
+        saveCurrentNote();
+      }
+    });
+  }
+
+  // 關閉或重載視窗時安全提示
+  window.addEventListener('beforeunload', (e) => {
+    if (state.isDirty) {
+      e.preventDefault();
+      e.returnValue = '您有尚未同步至 Google Drive 的內容，確定要離開嗎？';
+    }
   });
 
   // 畫布點擊事件（Todo 待辦打勾切換）
@@ -9086,10 +9162,13 @@ function escapeHtml(str) {
 // ----------------- 📱 多裝置前景切換與自動喚醒同步 (PC / 手機無縫自動連動) -----------------
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && state.accessToken && state.folderId) {
+    const isEditing = document.activeElement === DOM.editor || DOM.editor.contains(document.activeElement);
+    if (isEditing) return; // 正在編輯輸入中，絕不干擾
+
     const elapsed = Date.now() - (state.lastSyncTime || 0);
-    // 超過 10 秒未同步且沒有未儲存的輸入，切換回前景時自動拉取雲端最新資料
-    if (elapsed > 10000 && !state.isDirty) {
-      console.log('📱 頁面切換回前景，自動自 Google Drive 同步最新筆記與分類...');
+    // 超過 60 秒未同步且沒有進行中修改，前景切換時靜默拉取最新資料
+    if (elapsed > 60000 && !state.isDirty && !state.isSaving) {
+      console.log('📱 頁面切換回前景，靜默同步最新筆記與分類...');
       fullSyncWithDrive(false);
     }
   }
@@ -9097,762 +9176,25 @@ document.addEventListener('visibilitychange', () => {
 
 window.addEventListener('focus', () => {
   if (state.accessToken && state.folderId) {
+    const isEditing = document.activeElement === DOM.editor || DOM.editor.contains(document.activeElement);
+    if (isEditing) return;
+
     const elapsed = Date.now() - (state.lastSyncTime || 0);
-    if (elapsed > 10000 && !state.isDirty) {
+    if (elapsed > 60000 && !state.isDirty && !state.isSaving) {
       fullSyncWithDrive(false);
     }
   }
 });
 
-// 每 60 秒定時背景自動輪詢檢查雲端變更
+// 每 60 秒定時背景自動輪詢檢查雲端變更 (確保完全靜默且不干擾使用者編輯)
 setInterval(() => {
-  if (document.visibilityState === 'visible' && state.accessToken && state.folderId && !state.isDirty) {
+  if (document.visibilityState === 'visible' && state.accessToken && state.folderId && !state.isDirty && !state.isSaving) {
+    const isEditing = document.activeElement === DOM.editor || DOM.editor.contains(document.activeElement);
+    if (isEditing) return;
+
     const elapsed = Date.now() - (state.lastSyncTime || 0);
     if (elapsed > 55000) {
       fullSyncWithDrive(false);
     }
   }
 }, 60000);
-
-
-// ==========================================================================
-// 🎨 圖片簡易編輯器核心引擎 (Image Editor Modal Engine)
-// 支援功能：多種顏色畫筆、螢光劃記、重點方框、橡皮擦、向左/向右旋轉 90°、水平翻轉、自由裁切
-// ==========================================================================
-
-const imageEditorState = {
-  initialized: false,
-  targetImg: null,
-  canvas: null,
-  ctx: null,
-  currentTool: 'pen', // 'pen', 'highlighter', 'eraser', 'rect', 'crop'
-  currentColor: '#ef4444',
-  currentSize: 6,
-  isDrawing: false,
-  startX: 0,
-  startY: 0,
-  undoStack: [],
-  snapshotBeforeRect: null
-};
-
-function initImageEditor() {
-  if (imageEditorState.initialized) return;
-  const modal = document.getElementById('image-editor-modal');
-  if (!modal) return;
-
-  const canvas = document.getElementById('img-editor-canvas');
-  imageEditorState.canvas = canvas;
-  imageEditorState.ctx = canvas ? canvas.getContext('2d', { willReadFrequently: true }) : null;
-  imageEditorState.initialized = true;
-
-  // 工具按鈕切換
-  const toolBtns = {
-    pen: document.getElementById('img-tool-pen'),
-    highlighter: document.getElementById('img-tool-highlighter'),
-    eraser: document.getElementById('img-tool-eraser'),
-    rect: document.getElementById('img-tool-rect'),
-    crop: document.getElementById('img-tool-crop')
-  };
-
-  function setActiveTool(tool) {
-    imageEditorState.currentTool = tool;
-    Object.keys(toolBtns).forEach(k => {
-      const btn = toolBtns[k];
-      if (btn) {
-        if (k === tool) {
-          btn.classList.add('active-tool');
-          btn.classList.remove('text-gray-600', 'dark:text-gray-400');
-        } else {
-          btn.classList.remove('active-tool');
-          btn.classList.add('text-gray-600', 'dark:text-gray-400');
-        }
-      }
-    });
-
-    const cropBar = document.getElementById('img-crop-bar');
-    const cropOverlay = document.getElementById('img-crop-overlay');
-    const optionsRow = document.getElementById('img-tool-options-row');
-
-    if (tool === 'crop') {
-      if (cropBar) cropBar.classList.remove('hidden');
-      if (cropOverlay) cropOverlay.classList.remove('hidden');
-      if (optionsRow) optionsRow.classList.add('hidden');
-      initCropBox();
-    } else {
-      if (cropBar) cropBar.classList.add('hidden');
-      if (cropOverlay) cropOverlay.classList.add('hidden');
-      if (optionsRow) optionsRow.classList.remove('hidden');
-    }
-  }
-
-  ['click', 'touchend'].forEach(evt => {
-    if (toolBtns.pen) toolBtns.pen.addEventListener(evt, (e) => { e.preventDefault(); setActiveTool('pen'); });
-    if (toolBtns.highlighter) toolBtns.highlighter.addEventListener(evt, (e) => { e.preventDefault(); setActiveTool('highlighter'); });
-    if (toolBtns.eraser) toolBtns.eraser.addEventListener(evt, (e) => { e.preventDefault(); setActiveTool('eraser'); });
-    if (toolBtns.rect) toolBtns.rect.addEventListener(evt, (e) => { e.preventDefault(); setActiveTool('rect'); });
-    if (toolBtns.crop) toolBtns.crop.addEventListener(evt, (e) => { e.preventDefault(); setActiveTool('crop'); });
-  });
-
-  // 顏色選擇器 (支援手機觸控)
-  document.querySelectorAll('.img-color-dot').forEach(dot => {
-    ['click', 'touchend'].forEach(evt => {
-      dot.addEventListener(evt, (e) => {
-        e.preventDefault();
-        document.querySelectorAll('.img-color-dot').forEach(d => d.classList.remove('active-color'));
-        dot.classList.add('active-color');
-        imageEditorState.currentColor = dot.dataset.color || '#ef4444';
-        if (imageEditorState.currentTool === 'eraser' || imageEditorState.currentTool === 'crop') {
-          setActiveTool('pen');
-        }
-      });
-    });
-  });
-
-  // 粗細選擇器 (支援手機觸控)
-  document.querySelectorAll('.img-size-btn').forEach(btn => {
-    ['click', 'touchend'].forEach(evt => {
-      btn.addEventListener(evt, (e) => {
-        e.preventDefault();
-        document.querySelectorAll('.img-size-btn').forEach(b => {
-          b.classList.remove('active-size', 'border-blue-500', 'bg-blue-50', 'text-blue-700', 'dark:bg-blue-950/60', 'dark:text-blue-300');
-          b.classList.add('border-transparent', 'text-gray-600', 'dark:text-gray-400');
-        });
-        btn.classList.add('active-size', 'border-blue-500', 'bg-blue-50', 'text-blue-700', 'dark:bg-blue-950/60', 'dark:text-blue-300');
-        btn.classList.remove('border-transparent', 'text-gray-600', 'dark:text-gray-400');
-        imageEditorState.currentSize = parseInt(btn.dataset.size, 10) || 6;
-      });
-    });
-  });
-
-  // 旋轉 (向左 / 向右 90°)
-  const rotateLeftBtn = document.getElementById('img-rotate-left-btn');
-  if (rotateLeftBtn) {
-    ['click', 'touchend'].forEach(evt => {
-      rotateLeftBtn.addEventListener(evt, (e) => { e.preventDefault(); rotateImage(-Math.PI / 2); });
-    });
-  }
-
-  const rotateRightBtn = document.getElementById('img-rotate-right-btn');
-  if (rotateRightBtn) {
-    ['click', 'touchend'].forEach(evt => {
-      rotateRightBtn.addEventListener(evt, (e) => { e.preventDefault(); rotateImage(Math.PI / 2); });
-    });
-  }
-
-  // 水平翻轉
-  const flipHBtn = document.getElementById('img-flip-h-btn');
-  if (flipHBtn) {
-    ['click', 'touchend'].forEach(evt => {
-      flipHBtn.addEventListener(evt, (e) => { e.preventDefault(); flipImageHorizontal(); });
-    });
-  }
-
-  // 另存下載
-  const downloadBtn = document.getElementById('img-download-btn');
-  if (downloadBtn) {
-    ['click', 'touchend'].forEach(evt => {
-      downloadBtn.addEventListener(evt, (e) => { e.preventDefault(); downloadEditedImage(); });
-    });
-  }
-
-  // 復原
-  const undoBtn = document.getElementById('img-editor-undo-btn');
-  if (undoBtn) {
-    ['click', 'touchend'].forEach(evt => {
-      undoBtn.addEventListener(evt, (e) => { e.preventDefault(); undoImageEditor(); });
-    });
-  }
-
-  // 重設
-  const resetBtn = document.getElementById('img-editor-reset-btn');
-  if (resetBtn) {
-    ['click', 'touchend'].forEach(evt => {
-      resetBtn.addEventListener(evt, (e) => { e.preventDefault(); resetImageEditor(); });
-    });
-  }
-
-  // 取消
-  const cancelBtn = document.getElementById('img-editor-cancel-btn');
-  if (cancelBtn) {
-    ['click', 'touchend'].forEach(evt => {
-      cancelBtn.addEventListener(evt, (e) => { e.preventDefault(); closeImageEditor(); });
-    });
-  }
-
-  // 儲存套用
-  const saveBtn = document.getElementById('img-editor-save-btn');
-  if (saveBtn) {
-    ['click', 'touchend'].forEach(evt => {
-      saveBtn.addEventListener(evt, (e) => { e.preventDefault(); saveImageEditorChanges(); });
-    });
-  }
-
-  // 裁切確認與取消
-  const cropConfirmBtn = document.getElementById('img-crop-confirm-btn');
-  if (cropConfirmBtn) {
-    ['click', 'touchend'].forEach(evt => {
-      cropConfirmBtn.addEventListener(evt, (e) => { e.preventDefault(); applyCrop(); });
-    });
-  }
-
-  const cropCancelBtn = document.getElementById('img-crop-cancel-btn');
-  if (cropCancelBtn) {
-    ['click', 'touchend'].forEach(evt => {
-      cropCancelBtn.addEventListener(evt, (e) => { e.preventDefault(); setActiveTool('pen'); });
-    });
-  }
-
-  // Canvas 繪圖與裁切拖曳事件 (使用現代 Pointer Events，完美融合觸控與滑鼠)
-  setupCanvasDrawingEvents(canvas);
-  setupCropDragEvents();
-
-  // 鍵盤快速鍵
-  window.addEventListener('keydown', (e) => {
-    if (modal && !modal.classList.contains('hidden')) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
-        e.preventDefault();
-        undoImageEditor();
-      } else if (e.key === 'Escape') {
-        closeImageEditor();
-      }
-    }
-  });
-}
-
-function getCanvasPointerPos(e, canvas) {
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
-
-  let clientX = e.clientX;
-  let clientY = e.clientY;
-
-  if ((clientX === undefined || clientX === null) && e.touches && e.touches.length > 0) {
-    clientX = e.touches[0].clientX;
-    clientY = e.touches[0].clientY;
-  } else if ((clientX === undefined || clientX === null) && e.changedTouches && e.changedTouches.length > 0) {
-    clientX = e.changedTouches[0].clientX;
-    clientY = e.changedTouches[0].clientY;
-  }
-
-  return {
-    x: (clientX - rect.left) * scaleX,
-    y: (clientY - rect.top) * scaleY
-  };
-}
-
-function pushUndoSnapshot() {
-  const { canvas, ctx } = imageEditorState;
-  if (!canvas || !ctx) return;
-  if (imageEditorState.undoStack.length >= 20) {
-    imageEditorState.undoStack.shift();
-  }
-  imageEditorState.undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-}
-
-function undoImageEditor() {
-  const { canvas, ctx, undoStack } = imageEditorState;
-  if (!canvas || !ctx || undoStack.length <= 1) {
-    showToast('已無更早的編輯記錄');
-    return;
-  }
-  undoStack.pop();
-  const prevState = undoStack[undoStack.length - 1];
-  if (canvas.width !== prevState.width || canvas.height !== prevState.height) {
-    canvas.width = prevState.width;
-    canvas.height = prevState.height;
-  }
-  ctx.putImageData(prevState, 0, 0);
-  showToast('已復原 ↺');
-}
-
-function resetImageEditor() {
-  const { canvas, ctx, undoStack } = imageEditorState;
-  if (!canvas || !ctx || undoStack.length === 0) return;
-  const initialState = undoStack[0];
-  imageEditorState.undoStack = [initialState];
-  if (canvas.width !== initialState.width || canvas.height !== initialState.height) {
-    canvas.width = initialState.width;
-    canvas.height = initialState.height;
-  }
-  ctx.putImageData(initialState, 0, 0);
-  showToast('已重設為原圖');
-}
-
-function rotateImage(angle) {
-  const { canvas, ctx } = imageEditorState;
-  if (!canvas || !ctx) return;
-  pushUndoSnapshot();
-
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = canvas.height;
-  tempCanvas.height = canvas.width;
-  const tempCtx = tempCanvas.getContext('2d');
-
-  tempCtx.translate(tempCanvas.width / 2, tempCanvas.height / 2);
-  tempCtx.rotate(angle);
-  tempCtx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
-
-  canvas.width = tempCanvas.width;
-  canvas.height = tempCanvas.height;
-  ctx.drawImage(tempCanvas, 0, 0);
-
-  imageEditorState.undoStack[imageEditorState.undoStack.length - 1] = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  showToast(angle > 0 ? '已向右旋轉 90° ↻' : '已向左旋轉 90° ↺');
-}
-
-function flipImageHorizontal() {
-  const { canvas, ctx } = imageEditorState;
-  if (!canvas || !ctx) return;
-  pushUndoSnapshot();
-
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = canvas.width;
-  tempCanvas.height = canvas.height;
-  const tempCtx = tempCanvas.getContext('2d');
-
-  tempCtx.translate(canvas.width, 0);
-  tempCtx.scale(-1, 1);
-  tempCtx.drawImage(canvas, 0, 0);
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(tempCanvas, 0, 0);
-
-  imageEditorState.undoStack[imageEditorState.undoStack.length - 1] = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  showToast('已水平翻轉 ⇄');
-}
-
-// 📱 核心手機觸控繪圖監聽 (Pointer Events 融合觸控與手勢防衝突)
-function setupCanvasDrawingEvents(canvas) {
-  if (!canvas) return;
-
-  canvas.style.touchAction = 'none';
-
-  function onPointerDown(e) {
-    if (imageEditorState.currentTool === 'crop') return;
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-
-    try {
-      if (canvas.setPointerCapture && e.pointerId !== undefined) {
-        canvas.setPointerCapture(e.pointerId);
-      }
-    } catch(err) {}
-
-    const pos = getCanvasPointerPos(e, canvas);
-    imageEditorState.isDrawing = true;
-    imageEditorState.startX = pos.x;
-    imageEditorState.startY = pos.y;
-
-    pushUndoSnapshot();
-
-    const ctx = imageEditorState.ctx;
-    if (imageEditorState.currentTool === 'rect') {
-      imageEditorState.snapshotBeforeRect = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(pos.x, pos.y);
-      applyDrawingStyle(ctx);
-      // 📱 手機觸控支援：單點觸碰立即繪出圓點，解決手指輕點無滑動時完全沒有筆跡的問題
-      ctx.lineTo(pos.x + 0.1, pos.y + 0.1);
-      ctx.stroke();
-    }
-    if (e.cancelable) e.preventDefault();
-  }
-
-  function onPointerMove(e) {
-    if (!imageEditorState.isDrawing || imageEditorState.currentTool === 'crop') return;
-    const pos = getCanvasPointerPos(e, canvas);
-    const ctx = imageEditorState.ctx;
-
-    if (imageEditorState.currentTool === 'rect') {
-      if (imageEditorState.snapshotBeforeRect) {
-        ctx.putImageData(imageEditorState.snapshotBeforeRect, 0, 0);
-      }
-      ctx.beginPath();
-      applyDrawingStyle(ctx);
-      ctx.strokeRect(imageEditorState.startX, imageEditorState.startY, pos.x - imageEditorState.startX, pos.y - imageEditorState.startY);
-    } else {
-      ctx.lineTo(pos.x, pos.y);
-      ctx.stroke();
-    }
-    if (e.cancelable) e.preventDefault();
-  }
-
-  function onPointerUp(e) {
-    if (!imageEditorState.isDrawing) return;
-    imageEditorState.isDrawing = false;
-    try {
-      if (canvas.releasePointerCapture && e.pointerId !== undefined) {
-        canvas.releasePointerCapture(e.pointerId);
-      }
-    } catch(err) {}
-    const ctx = imageEditorState.ctx;
-    if (ctx) {
-      ctx.closePath();
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 1.0;
-    }
-  }
-
-  if (window.PointerEvent) {
-    canvas.addEventListener('pointerdown', onPointerDown, { passive: false });
-    canvas.addEventListener('pointermove', onPointerMove, { passive: false });
-    canvas.addEventListener('pointerup', onPointerUp);
-    canvas.addEventListener('pointercancel', onPointerUp);
-  } else {
-    canvas.addEventListener('touchstart', onPointerDown, { passive: false });
-    canvas.addEventListener('touchmove', onPointerMove, { passive: false });
-    canvas.addEventListener('touchend', onPointerUp);
-    canvas.addEventListener('touchcancel', onPointerUp);
-    canvas.addEventListener('mousedown', onPointerDown);
-    canvas.addEventListener('mousemove', onPointerMove);
-    canvas.addEventListener('mouseup', onPointerUp);
-    canvas.addEventListener('mouseleave', onPointerUp);
-  }
-}
-
-function applyDrawingStyle(ctx) {
-  const { currentTool, currentColor, currentSize } = imageEditorState;
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-
-  if (currentTool === 'pen') {
-    ctx.strokeStyle = currentColor;
-    ctx.lineWidth = currentSize;
-    ctx.globalAlpha = 1.0;
-    ctx.globalCompositeOperation = 'source-over';
-  } else if (currentTool === 'highlighter') {
-    ctx.strokeStyle = currentColor;
-    ctx.lineWidth = currentSize * 2.8;
-    ctx.globalAlpha = 0.38;
-    ctx.globalCompositeOperation = 'source-over';
-  } else if (currentTool === 'eraser') {
-    ctx.lineWidth = currentSize * 3;
-    ctx.globalAlpha = 1.0;
-    ctx.globalCompositeOperation = 'destination-out';
-  } else if (currentTool === 'rect') {
-    ctx.strokeStyle = currentColor;
-    ctx.lineWidth = Math.max(3, currentSize);
-    ctx.globalAlpha = 1.0;
-    ctx.globalCompositeOperation = 'source-over';
-  }
-}
-
-// 📱 裁切控制引擎 (適配手機手指拖曳與四角大把手)
-function initCropBox() {
-  const canvas = imageEditorState.canvas;
-  const cropBox = document.getElementById('img-crop-box');
-  if (!canvas || !cropBox) return;
-
-  const rect = canvas.getBoundingClientRect();
-  const w = rect.width * 0.85;
-  const h = rect.height * 0.85;
-  const x = (rect.width - w) / 2;
-  const y = (rect.height - h) / 2;
-
-  cropBox.style.left = x + 'px';
-  cropBox.style.top = y + 'px';
-  cropBox.style.width = w + 'px';
-  cropBox.style.height = h + 'px';
-}
-
-function setupCropDragEvents() {
-  const cropBox = document.getElementById('img-crop-box');
-  const cropOverlay = document.getElementById('img-crop-overlay');
-  const canvas = imageEditorState.canvas;
-  if (!cropBox || !cropOverlay) return;
-
-  cropBox.style.touchAction = 'none';
-  cropOverlay.style.touchAction = 'none';
-
-  let isMoving = false;
-  let activeHandle = null;
-  let startX = 0, startY = 0;
-  let initLeft = 0, initTop = 0, initW = 0, initH = 0;
-
-  function onPointerDown(e) {
-    if (imageEditorState.currentTool !== 'crop') return;
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-
-    const handle = e.target.closest('.crop-handle');
-    if (handle) {
-      activeHandle = handle.dataset.handle;
-    } else if (e.target.closest('#img-crop-box')) {
-      isMoving = true;
-    } else {
-      return;
-    }
-
-    startX = clientX;
-    startY = clientY;
-    initLeft = parseFloat(cropBox.style.left) || 0;
-    initTop = parseFloat(cropBox.style.top) || 0;
-    initW = parseFloat(cropBox.style.width) || cropBox.offsetWidth;
-    initH = parseFloat(cropBox.style.height) || cropBox.offsetHeight;
-
-    e.preventDefault();
-  }
-
-  function onPointerMove(e) {
-    if (!isMoving && !activeHandle) return;
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-    const dx = clientX - startX;
-    const dy = clientY - startY;
-
-    const canvasRect = canvas.getBoundingClientRect();
-    const maxW = canvasRect.width;
-    const maxH = canvasRect.height;
-
-    if (isMoving) {
-      let nextLeft = Math.max(0, Math.min(maxW - initW, initLeft + dx));
-      let nextTop = Math.max(0, Math.min(maxH - initH, initTop + dy));
-      cropBox.style.left = nextLeft + 'px';
-      cropBox.style.top = nextTop + 'px';
-    } else if (activeHandle) {
-      if (activeHandle === 'se') {
-        cropBox.style.width = Math.max(30, Math.min(maxW - initLeft, initW + dx)) + 'px';
-        cropBox.style.height = Math.max(30, Math.min(maxH - initTop, initH + dy)) + 'px';
-      } else if (activeHandle === 'sw') {
-        let newW = Math.max(30, initW - dx);
-        let newLeft = initLeft + (initW - newW);
-        if (newLeft >= 0) {
-          cropBox.style.left = newLeft + 'px';
-          cropBox.style.width = newW + 'px';
-        }
-        cropBox.style.height = Math.max(30, Math.min(maxH - initTop, initH + dy)) + 'px';
-      } else if (activeHandle === 'ne') {
-        cropBox.style.width = Math.max(30, Math.min(maxW - initLeft, initW + dx)) + 'px';
-        let newH = Math.max(30, initH - dy);
-        let newTop = initTop + (initH - newH);
-        if (newTop >= 0) {
-          cropBox.style.top = newTop + 'px';
-          cropBox.style.height = newH + 'px';
-        }
-      } else if (activeHandle === 'nw') {
-        let newW = Math.max(30, initW - dx);
-        let newLeft = initLeft + (initW - newW);
-        let newH = Math.max(30, initH - dy);
-        let newTop = initTop + (initH - newH);
-        if (newLeft >= 0 && newTop >= 0) {
-          cropBox.style.left = newLeft + 'px';
-          cropBox.style.width = newW + 'px';
-          cropBox.style.height = newH + 'px';
-        }
-      }
-    }
-    e.preventDefault();
-  }
-
-  function onPointerUp() {
-    isMoving = false;
-    activeHandle = null;
-  }
-
-  cropOverlay.addEventListener('pointerdown', onPointerDown);
-  window.addEventListener('pointermove', onPointerMove);
-  window.addEventListener('pointerup', onPointerUp);
-  window.addEventListener('pointercancel', onPointerUp);
-
-  cropOverlay.addEventListener('touchstart', onPointerDown, { passive: false });
-  window.addEventListener('touchmove', onPointerMove, { passive: false });
-  window.addEventListener('touchend', onPointerUp);
-}
-
-function applyCrop() {
-  const { canvas, ctx } = imageEditorState;
-  const cropBox = document.getElementById('img-crop-box');
-  if (!canvas || !ctx || !cropBox) return;
-
-  const canvasRect = canvas.getBoundingClientRect();
-  const boxRect = cropBox.getBoundingClientRect();
-
-  const scaleX = canvas.width / canvasRect.width;
-  const scaleY = canvas.height / canvasRect.height;
-
-  let sx = (boxRect.left - canvasRect.left) * scaleX;
-  let sy = (boxRect.top - canvasRect.top) * scaleY;
-  let sw = boxRect.width * scaleX;
-  let sh = boxRect.height * scaleY;
-
-  sx = Math.max(0, Math.min(canvas.width, sx));
-  sy = Math.max(0, Math.min(canvas.height, sy));
-  sw = Math.max(10, Math.min(canvas.width - sx, sw));
-  sh = Math.max(10, Math.min(canvas.height - sy, sh));
-
-  pushUndoSnapshot();
-
-  const tempCanvas = document.createElement('canvas');
-  tempCanvas.width = sw;
-  tempCanvas.height = sh;
-  const tempCtx = tempCanvas.getContext('2d');
-  tempCtx.drawImage(canvas, sx, sy, sw, sh, 0, 0, sw, sh);
-
-  canvas.width = sw;
-  canvas.height = sh;
-  ctx.drawImage(tempCanvas, 0, 0);
-
-  imageEditorState.undoStack[imageEditorState.undoStack.length - 1] = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-  const penBtn = document.getElementById('img-tool-pen');
-  if (penBtn) penBtn.click();
-  showToast('✅ 圖片已成功裁切！');
-}
-
-// 📱 打開編輯器：自動初始化保證、限制最大解析度 1600px，杜絕手機大圖記憶體不足黑屏崩潰！
-async function openImageEditor(img) {
-  if (!img) return;
-  imageEditorState.targetImg = img;
-
-  if (!imageEditorState.initialized) {
-    initImageEditor();
-  }
-
-  const modal = document.getElementById('image-editor-modal');
-  const filenameEl = document.getElementById('img-editor-filename');
-  if (filenameEl) {
-    filenameEl.textContent = img.alt || '照片';
-  }
-
-  showGlobalLoading('正在載入編輯畫布...');
-
-  const canvas = imageEditorState.canvas || document.getElementById('img-editor-canvas');
-  imageEditorState.canvas = canvas;
-  imageEditorState.ctx = canvas.getContext('2d', { willReadFrequently: true });
-
-  try {
-    let imgSrc = img.src;
-
-    // 若為 Google Drive 圖片，透過 access token 取得 Blob 以防 tainted canvas
-    const details = img.closest('details.notion-media-collapse');
-    let fileId = details ? details.dataset.fileId : null;
-    if (!fileId && imgSrc) {
-      const m = imgSrc.match(/[?&]id=([a-zA-Z0-9_-]+)/) || imgSrc.match(/\/d\/([a-zA-Z0-9_-]+)/);
-      if (m) fileId = m[1];
-    }
-
-    if (fileId && state.accessToken) {
-      try {
-        const driveRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-          headers: { Authorization: `Bearer ${state.accessToken}` }
-        });
-        if (driveRes.ok) {
-          const blob = await driveRes.blob();
-          imgSrc = URL.createObjectURL(blob);
-        }
-      } catch (err) {
-        console.warn('無法從 Drive 讀取原始二進制圖檔，降級使用直連:', err);
-      }
-    }
-
-    const imageObj = new Image();
-    imageObj.crossOrigin = 'anonymous';
-
-    imageObj.onload = () => {
-      hideGlobalLoading();
-
-      // 🛡️ 核心修復：手機大圖記憶體限制 (Max 1600px)，杜絕 4000x3000 照片引起 48MB/幀的記憶體爆炸與黑屏崩潰
-      const MAX_DIM = 1600;
-      let drawW = imageObj.naturalWidth || 800;
-      let drawH = imageObj.naturalHeight || 600;
-      if (drawW > MAX_DIM || drawH > MAX_DIM) {
-        const scale = Math.min(MAX_DIM / drawW, MAX_DIM / drawH);
-        drawW = Math.round(drawW * scale);
-        drawH = Math.round(drawH * scale);
-      }
-
-      canvas.width = drawW;
-      canvas.height = drawH;
-      imageEditorState.ctx.clearRect(0, 0, canvas.width, canvas.height);
-      imageEditorState.ctx.drawImage(imageObj, 0, 0, drawW, drawH);
-
-      // 初始化歷史棧
-      imageEditorState.undoStack = [imageEditorState.ctx.getImageData(0, 0, canvas.width, canvas.height)];
-
-      modal.classList.remove('hidden');
-      initLucide();
-
-      const penBtn = document.getElementById('img-tool-pen');
-      if (penBtn) penBtn.click();
-    };
-
-    imageObj.onerror = () => {
-      hideGlobalLoading();
-      if (imageObj.crossOrigin) {
-        console.warn('CORS anonymous 載入失敗，嘗試一般模式載入...');
-        const fallbackImg = new Image();
-        fallbackImg.onload = () => {
-          const MAX_DIM = 1600;
-          let drawW = fallbackImg.naturalWidth || 800;
-          let drawH = fallbackImg.naturalHeight || 600;
-          if (drawW > MAX_DIM || drawH > MAX_DIM) {
-            const scale = Math.min(MAX_DIM / drawW, MAX_DIM / drawH);
-            drawW = Math.round(drawW * scale);
-            drawH = Math.round(drawH * scale);
-          }
-          canvas.width = drawW;
-          canvas.height = drawH;
-          imageEditorState.ctx.drawImage(fallbackImg, 0, 0, drawW, drawH);
-          imageEditorState.undoStack = [imageEditorState.ctx.getImageData(0, 0, canvas.width, canvas.height)];
-          modal.classList.remove('hidden');
-          initLucide();
-          const penBtn = document.getElementById('img-tool-pen');
-          if (penBtn) penBtn.click();
-        };
-        fallbackImg.onerror = () => {
-          showToast('⚠️ 圖片載入失敗，無法開啟編輯器');
-        };
-        fallbackImg.src = imgSrc;
-      } else {
-        showToast('⚠️ 圖片載入失敗，無法開啟編輯器');
-      }
-    };
-
-    imageObj.src = imgSrc;
-  } catch (err) {
-    hideGlobalLoading();
-    console.error('開啟圖片編輯器出錯:', err);
-    showToast('開啟編輯器失敗');
-  }
-}
-
-function closeImageEditor() {
-  const modal = document.getElementById('image-editor-modal');
-  if (modal) modal.classList.add('hidden');
-}
-
-function saveImageEditorChanges() {
-  const { canvas, targetImg } = imageEditorState;
-  if (!canvas || !targetImg) return;
-
-  try {
-    const dataUrl = canvas.toDataURL('image/png');
-    targetImg.src = dataUrl;
-
-    const details = targetImg.closest('details.notion-media-collapse');
-    if (details) {
-      const downloadLink = details.querySelector('a[download]');
-      if (downloadLink) {
-        downloadLink.href = dataUrl;
-      }
-    }
-
-    closeImageEditor();
-    triggerAutoSaveDebounce();
-    showToast('✅ 圖片已成功儲存並同步至筆記！');
-  } catch (e) {
-    console.error('儲存編輯後圖片失敗:', e);
-    showToast('儲存失敗：' + (e.message || '無法匯出畫布'));
-  }
-}
-
-function downloadEditedImage() {
-  const canvas = imageEditorState.canvas;
-  if (!canvas) return;
-  const a = document.createElement('a');
-  a.download = (imageEditorState.targetImg && imageEditorState.targetImg.alt ? imageEditorState.targetImg.alt.replace(/\.[^/.]+$/, "") : "edited_image") + "_edited.png";
-  a.href = canvas.toDataURL('image/png');
-  a.click();
-  showToast('已下載編輯後圖片 📥');
-}
