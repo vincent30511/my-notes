@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.4.2'; // 2026.10.08
+const APP_VERSION = 'v2.5.0'; // 2026.10.12
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -3463,8 +3463,11 @@ async function uploadMediaFile(file) {
   const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
 
   // 在光標處先插入暫存預覽骨架
+  state.activeUploadCount = (state.activeUploadCount || 0) + 1;
+  acquireWakeLock(); // 💡 啟用螢幕防休眠保持
+
   const placeholderId = 'media_loading_' + Date.now();
-  let loadingHtml = `<div id="${placeholderId}" class="p-3 my-2 border border-dashed border-blue-400 dark:border-blue-700 bg-blue-50/30 dark:bg-blue-950/20 rounded-lg text-xs text-blue-600 dark:text-blue-300 flex items-center gap-2 animate-pulse"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-500 shrink-0"></i> <span>正在上傳：${escapeHtml(file.name)} (${sizeMb} MB)...</span></div>`;
+  let loadingHtml = `<div id="${placeholderId}" data-pending-upload="true" class="p-3 my-2 border border-dashed border-blue-400 dark:border-blue-700 bg-blue-50/30 dark:bg-blue-950/20 rounded-lg text-xs text-blue-600 dark:text-blue-300 flex items-center justify-between gap-2 animate-pulse"><div class="flex items-center gap-2 min-w-0"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-500 shrink-0"></i> <span class="truncate">正在上傳：${escapeHtml(file.name)} (${sizeMb} MB)...</span></div><span class="text-[10px] text-blue-500 font-mono bg-blue-100/80 dark:bg-blue-900/60 px-2 py-0.5 rounded-full shrink-0">💡 螢幕常亮保護中</span></div>`;
   insertHtmlAtCursor(loadingHtml);
   initLucide();
 
@@ -3567,6 +3570,10 @@ async function uploadMediaFile(file) {
       placeholder.outerHTML = `<div class="text-red-500 text-xs p-2.5 rounded-lg border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20">⚠️ ${escapeHtml(file.name)} 上傳失敗，點擊重新上傳</div>`;
     }
   } finally {
+    state.activeUploadCount = Math.max(0, (state.activeUploadCount || 1) - 1);
+    if (state.activeUploadCount === 0) {
+      releaseWakeLock(); // 💡 所有傳輸完成，釋放螢幕常亮鎖
+    }
     hideGlobalLoading();
   }
 }
@@ -3838,6 +3845,10 @@ async function uploadGenericFile(file) {
       placeholder.outerHTML = `<div class="text-red-500 text-xs p-2.5 rounded-lg border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20">⚠️ ${escapeHtml(file.name)} 上傳失敗，點擊重新上傳</div>`;
     }
   } finally {
+    state.activeUploadCount = Math.max(0, (state.activeUploadCount || 1) - 1);
+    if (state.activeUploadCount === 0) {
+      releaseWakeLock(); // 💡 釋放防休眠鎖
+    }
     hideGlobalLoading();
   }
 }
@@ -4752,6 +4763,50 @@ function flushImmediateCloudSave() {
   }
 }
 
+
+// ==========================================================================
+// 💡 螢幕防休眠保持鎖 (Screen Wake Lock API) & 背景傳輸佇列引擎 (v2.5.0)
+// 專為 POCO X8 Pro (Android / Chrome) 與 MSI 電腦打造：
+// 上傳大檔影音期間自動保持螢幕常亮，傳畢即時釋放自動休眠；支援斷線/鎖屏喚醒後自動續傳
+// ==========================================================================
+
+let wakeLockSentinel = null;
+state.activeUploadCount = 0;
+
+async function acquireWakeLock() {
+  if ('wakeLock' in navigator && !wakeLockSentinel) {
+    try {
+      wakeLockSentinel = await navigator.wakeLock.request('screen');
+      wakeLockSentinel.addEventListener('release', () => {
+        wakeLockSentinel = null;
+      });
+      console.log('💡 成功啟用螢幕防休眠鎖 (Wake Lock)');
+    } catch (err) {
+      console.warn('⚠️ 申請 Wake Lock 失敗 (可能系統限制或低電量模式):', err);
+    }
+  }
+}
+
+async function releaseWakeLock() {
+  if (wakeLockSentinel) {
+    try {
+      await wakeLockSentinel.release();
+      wakeLockSentinel = null;
+      console.log('💡 螢幕防休眠鎖已釋放，恢復系統預設休眠');
+    } catch (err) {}
+  }
+}
+
+// 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js?v=20261012_v2.5.0')
+      .then(reg => console.log('🚀 PWA Service Worker 註冊成功 (v2.5.0)'))
+      .catch(err => console.warn('PWA Service Worker 註冊略過:', err));
+  });
+}
+
+
 function saveLocalDraftImmediately() {
   if (!state.currentNote || !state.currentNote.id) return;
   const noteId = state.currentNote.id;
@@ -4897,15 +4952,24 @@ function triggerAutoSaveDebounce() {
 }
 
 function convertHtmlToMarkdown(html) {
+  // 🛡️ 核心防護：嚴禁將未完成上傳的暫存骨架方塊寫入 Markdown 存上 Google Drive
+  let cleanHtml = html;
+  try {
+    const tempContainer = document.createElement('div');
+    tempContainer.innerHTML = html;
+    tempContainer.querySelectorAll('[data-pending-upload="true"]').forEach(el => el.remove());
+    cleanHtml = tempContainer.innerHTML;
+  } catch(e) {}
+
   if (window.TurndownService) {
     const td = new TurndownService({
       headingStyle: 'atx',
       codeBlockStyle: 'fenced'
     });
     td.keep(['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'a', 'img', 'mark', 'button', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g']);
-    return td.turndown(html);
+    return td.turndown(cleanHtml);
   }
-  return html.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n')
+  return cleanHtml.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n')
              .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n')
              .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n')
              .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n')
