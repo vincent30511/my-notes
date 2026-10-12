@@ -1297,7 +1297,7 @@ async function reloadCurrentNoteContentSilently(noteId, fileMeta) {
     const { meta: bodyMeta, body } = parseFrontmatter(rawText);
     const renderedHtml = DOMPurify.sanitize(window.marked ? window.marked.parse(body) : body, {
       ADD_TAGS: ['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'hr', 'div', 'span', 'a', 'mark', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g'],
-      ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd']
+      ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'data-color', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd']
     });
 
     if (DOM.editor && !state.isDirty) {
@@ -3555,7 +3555,7 @@ async function uploadMediaFile(file) {
       insertHtmlAtCursor(finalEmbedHtml);
     }
 
-    try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
+    try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn(e); }
     updateSyncStatus('synced', '媒體已就地渲染');
     showToast(`✅ ${file.name} 已就地嵌入至筆記`);
     triggerAutoSaveDebounce();
@@ -3829,7 +3829,7 @@ async function uploadGenericFile(file) {
       ensureEditableSpacesAroundMediaBlocks(DOM.editor);
     }
 
-    try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
+    try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn(e); }
     initLucide();
     updateSyncStatus('synced', '檔案已就地嵌入');
     showToast(`✅ 檔案「${file.name}」已加入筆記，可隨時下載`);
@@ -4570,7 +4570,7 @@ async function selectNote(noteId) {
     } else {
       DOM.editor.innerHTML = noteMeta._cachedHtml || (window.marked ? window.marked.parse(noteMeta._cachedBody) : noteMeta._cachedBody);
     }
-    try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
+    try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn(e); }
     try { updateToggleAllMediaBtnUI(true); } catch (e) { console.warn(e); }
     try { attachCodeCopyButtons(); } catch (e) { console.warn(e); }
     try { updateStats(); } catch (e) { console.warn(e); }
@@ -4666,7 +4666,7 @@ async function selectNote(noteId) {
 
     const renderedHtml = DOMPurify.sanitize(window.marked ? window.marked.parse(body) : body, {
       ADD_TAGS: ['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'hr', 'div', 'span', 'a', 'mark', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g'],
-      ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd']
+      ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'data-color', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd']
     });
 
     // 存入快取供後續瞬間切換
@@ -4692,7 +4692,7 @@ async function selectNote(noteId) {
         try { renderCurrentNote(); } catch(e) {}
       }
       showToast('⚡ 已為您自動救回關閉軟體前未完成上傳的最新內容！', 5000);
-      try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
+      try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn(e); }
       try { updateToggleAllMediaBtnUI(true); } catch (e) { console.warn(e); }
       try { attachCodeCopyButtons(); } catch (e) { console.warn(e); }
       try { updateStats(); } catch (e) { console.warn(e); }
@@ -4701,7 +4701,7 @@ async function selectNote(noteId) {
       triggerAutoSaveDebounce();
     } else if (!hasCache || DOM.editor.innerHTML !== renderedHtml) {
       DOM.editor.innerHTML = renderedHtml;
-      try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn('enhanceMediaCollapsibles error:', e); }
+      try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn('enhanceAllEditorBlocks error:', e); }
       try { updateToggleAllMediaBtnUI(true); } catch (e) { console.warn('updateToggleAllMediaBtnUI error:', e); }
       try { attachCodeCopyButtons(); } catch (e) { console.warn('attachCodeCopyButtons error:', e); }
       try { updateStats(); } catch (e) { console.warn('updateStats error:', e); }
@@ -4958,6 +4958,8 @@ function convertHtmlToMarkdown(html) {
     const tempContainer = document.createElement('div');
     tempContainer.innerHTML = html;
     tempContainer.querySelectorAll('[data-pending-upload="true"]').forEach(el => el.remove());
+    // 移除表格工具列 (避免控制按鈕被寫入雲端檔案)
+    tempContainer.querySelectorAll('.notion-table-toolbar, .notion-table-controls').forEach(el => el.remove());
     cleanHtml = tempContainer.innerHTML;
   } catch(e) {}
 
@@ -4966,7 +4968,7 @@ function convertHtmlToMarkdown(html) {
       headingStyle: 'atx',
       codeBlockStyle: 'fenced'
     });
-    td.keep(['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'div', 'span', 'a', 'img', 'mark', 'button', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g']);
+    td.keep(['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'div', 'span', 'a', 'img', 'mark', 'button', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g']);
     return td.turndown(cleanHtml);
   }
   return cleanHtml.replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n')
@@ -5280,59 +5282,106 @@ function attachCodeCopyButtons() {
 function applyHighlight(color) {
   let sel = window.getSelection();
   if ((!sel || sel.isCollapsed || !DOM.editor.contains(sel.anchorNode)) && savedSelectionRange) {
-    sel.removeAllRanges();
-    sel.addRange(savedSelectionRange);
+    try {
+      sel.removeAllRanges();
+      sel.addRange(savedSelectionRange);
+    } catch(e) {}
   }
   sel = window.getSelection();
-  if (!sel || sel.isCollapsed) return;
+  if (!sel || sel.isCollapsed || !DOM.editor.contains(sel.anchorNode)) {
+    showToast('請先反白選取要劃記的文字');
+    return;
+  }
 
   const range = sel.getRangeAt(0);
 
   if (color === 'transparent') {
-    // 🛡️ 取消螢光筆：徹底還原文字原生顏色與字體，不破壞字體與大小，也不留任何死黑樣式！
+    // 🛡️ 取消螢光筆：徹底還原文字原生顏色與字體
     clearHighlightFromSelection(range);
+    saveLocalDraftImmediately();
     triggerAutoSaveDebounce();
-    showToast('已清除螢光筆，還原預設顏色與字體 🧹');
-  } else {
-    // 🎨 塗上螢光筆
-    let existingMark = null;
-    let node = range.commonAncestorContainer;
-    if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
-    if (node && node.closest('mark.notion-highlight, mark')) {
-      existingMark = node.closest('mark.notion-highlight, mark');
-    }
+    showToast('已清除螢光筆 🧹');
+    return;
+  }
 
-    if (existingMark) {
-      existingMark.dataset.color = color;
-      existingMark.style.backgroundColor = color;
-      existingMark.style.color = '#111827';
+  // 🎨 塗上螢光筆
+  let node = range.commonAncestorContainer;
+  if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+  let existingMark = node ? node.closest('mark.notion-highlight, mark') : null;
+
+  if (existingMark && range.toString().trim() === existingMark.textContent.trim()) {
+    existingMark.dataset.color = color;
+    existingMark.style.backgroundColor = color;
+    existingMark.style.color = '#111827';
+    saveLocalDraftImmediately();
+    triggerAutoSaveDebounce();
+    showToast('已更新螢光筆色彩 🖍️');
+    return;
+  }
+
+  try {
+    const mark = document.createElement('mark');
+    mark.className = 'notion-highlight';
+    mark.dataset.color = color;
+    mark.style.backgroundColor = color;
+    mark.style.color = '#111827';
+    mark.style.borderRadius = '3px';
+    mark.style.padding = '0.12em 0.28em';
+    mark.style.fontWeight = '600';
+
+    if (range.startContainer === range.endContainer && range.startContainer.nodeType === Node.TEXT_NODE) {
+      // 🎯 最穩定之文字節點切割注入法（單節點內選取不破壞任何外層結構）
+      const textNode = range.startContainer;
+      const fullText = textNode.nodeValue;
+      const start = range.startOffset;
+      const end = range.endOffset;
+
+      const beforeText = fullText.substring(0, start);
+      const selText = fullText.substring(start, end);
+      const afterText = fullText.substring(end);
+
+      mark.textContent = selText;
+
+      const frag = document.createDocumentFragment();
+      if (beforeText) frag.appendChild(document.createTextNode(beforeText));
+      frag.appendChild(mark);
+      if (afterText) frag.appendChild(document.createTextNode(afterText));
+
+      textNode.parentNode.replaceChild(frag, textNode);
+
+      const newRange = document.createRange();
+      newRange.selectNodeContents(mark);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+      savedSelectionRange = newRange.cloneRange();
     } else {
-      try {
-        const selectedFragment = range.extractContents();
-        const mark = document.createElement('mark');
-        mark.className = 'notion-highlight';
-        mark.dataset.color = color;
-        mark.style.backgroundColor = color;
-        mark.style.color = '#111827';
-        mark.style.borderRadius = '3px';
-        mark.style.padding = '1px 3px';
-        mark.appendChild(selectedFragment);
-        range.insertNode(mark);
+      // 跨節點選取
+      const selectedFragment = range.extractContents();
+      mark.appendChild(selectedFragment);
+      range.insertNode(mark);
 
-        const newRange = document.createRange();
-        newRange.selectNodeContents(mark);
-        sel.removeAllRanges();
-        sel.addRange(newRange);
-        savedSelectionRange = newRange.cloneRange();
-      } catch (err) {
-        if (!document.execCommand('hiliteColor', false, color)) {
-          document.execCommand('backColor', false, color);
-        }
-        document.execCommand('foreColor', false, '#111827');
-      }
+      const newRange = document.createRange();
+      newRange.selectNodeContents(mark);
+      sel.removeAllRanges();
+      sel.addRange(newRange);
+      savedSelectionRange = newRange.cloneRange();
     }
+    saveLocalDraftImmediately();
     triggerAutoSaveDebounce();
     showToast('已劃記重點 🖍️');
+  } catch (err) {
+    console.warn('DOM 範圍劃記失敗，降級使用 execCommand:', err);
+    try {
+      if (!document.execCommand('hiliteColor', false, color)) {
+        document.execCommand('backColor', false, color);
+      }
+      document.execCommand('foreColor', false, '#111827');
+      saveLocalDraftImmediately();
+      triggerAutoSaveDebounce();
+      showToast('已劃記重點 🖍️');
+    } catch(e) {
+      console.error('execCommand 螢光筆亦失敗:', e);
+    }
   }
 }
 
@@ -5725,6 +5774,326 @@ function setupEditorDragAndDrop() {
   });
 }
 
+
+// ==========================================================================
+// 🚀 LVI_Note 旗艦功能模組：
+// 折疊清單 (Toggle List)、待辦清單 (Todo)、資料表格 (Table) 增強引擎
+// ==========================================================================
+
+function placeCaretAtStart(el) {
+  if (!el) return;
+  try {
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(true);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch(e) {
+    console.warn('placeCaretAtStart error:', e);
+  }
+}
+
+// 1. 折疊清單 (Toggle List) 增強：標題點選不干擾折疊、平滑開關、Lucide圖示
+function enhanceToggleItems(container) {
+  if (!container) return;
+  container.querySelectorAll('details.notion-toggle-item, details:not(.notion-media-collapse)').forEach(details => {
+    if (details.classList.contains('notion-media-collapse')) return;
+
+    if (!details.classList.contains('notion-toggle-item')) {
+      details.classList.add('notion-toggle-item');
+    }
+
+    const summary = details.querySelector('summary');
+    if (!summary) return;
+
+    let titleEl = summary.querySelector('.toggle-title');
+    if (!titleEl) {
+      const existingText = summary.textContent.trim() || '折疊清單標題';
+      summary.innerHTML = `
+        <span class="toggle-arrow-icon text-gray-400 shrink-0 inline-flex items-center justify-center w-4 h-4 cursor-pointer">
+          <i data-lucide="chevron-right" class="w-3.5 h-3.5 transition-transform duration-200 toggle-arrow"></i>
+        </span>
+        <span class="toggle-title flex-1 focus:outline-none" contenteditable="true">${escapeHtml(existingText)}</span>
+      `;
+      titleEl = summary.querySelector('.toggle-title');
+    } else {
+      titleEl.setAttribute('contenteditable', 'true');
+    }
+
+    let contentDiv = details.querySelector('.toggle-content');
+    if (!contentDiv) {
+      const childNodes = Array.from(details.childNodes).filter(n => n !== summary);
+      contentDiv = document.createElement('div');
+      contentDiv.className = 'px-4 py-2 pl-9 text-sm text-gray-700 dark:text-gray-200 border-t border-gray-200/50 dark:border-notion-borderDark/50 toggle-content focus:outline-none';
+      contentDiv.setAttribute('contenteditable', 'true');
+      childNodes.forEach(n => contentDiv.appendChild(n));
+      if (!contentDiv.textContent.trim()) {
+        contentDiv.innerHTML = '<p>在此輸入折疊內容...</p>';
+      }
+      details.appendChild(contentDiv);
+    } else {
+      contentDiv.setAttribute('contenteditable', 'true');
+    }
+
+    if (!summary._toggleBound) {
+      summary._toggleBound = true;
+      summary.addEventListener('click', (e) => {
+        // 點擊標題文字區域時：若為收合則自動展開並聚焦；若已展開則阻止收起，保證編輯順暢
+        if (e.target.closest('.toggle-title')) {
+          if (!details.open) {
+            details.open = true;
+            e.preventDefault();
+          } else {
+            e.preventDefault();
+          }
+          const t = e.target.closest('.toggle-title');
+          if (t) t.focus();
+        }
+      });
+    }
+  });
+}
+
+// 2. 待辦清單 (Todo Item) 增強：核取狀態同步與劃線
+function enhanceTodoItems(container) {
+  if (!container) return;
+  container.querySelectorAll('.notion-todo-item').forEach(item => {
+    const cb = item.querySelector('input[type="checkbox"]');
+    const textSpan = item.querySelector('.notion-todo-text');
+    if (cb) {
+      cb.removeAttribute('disabled');
+      const isChecked = cb.hasAttribute('checked') || cb.checked;
+      cb.checked = isChecked;
+      if (textSpan) {
+        textSpan.setAttribute('contenteditable', 'true');
+        if (isChecked) textSpan.classList.add('checked');
+        else textSpan.classList.remove('checked');
+      }
+    }
+  });
+
+  // 若 marked 解析了 task-list-item，自動標準化為 notion-todo-item
+  container.querySelectorAll('li.task-list-item').forEach(li => {
+    const cb = li.querySelector('input[type="checkbox"]');
+    if (cb && !li.closest('.notion-todo-item')) {
+      const isChecked = cb.checked || cb.hasAttribute('checked');
+      const text = li.textContent.trim();
+      const div = document.createElement('div');
+      div.className = 'notion-todo-item';
+      div.innerHTML = `<input type="checkbox" class="notion-todo-checkbox"${isChecked ? ' checked' : ''}><span class="notion-todo-text${isChecked ? ' checked' : ''}" contenteditable="true">${escapeHtml(text)}</span>`;
+      li.replaceWith(div);
+    }
+  });
+}
+
+// 3. 資料表格 (Data Table) 增強：外層容器包裹、動態增刪欄列工具列、行動端滾動
+function enhanceTables(container) {
+  if (!container) return;
+  const tables = container.querySelectorAll('table');
+  tables.forEach(table => {
+    let tableContainer = table.closest('.notion-table-container');
+    if (!tableContainer) {
+      tableContainer = document.createElement('div');
+      tableContainer.className = 'notion-table-container my-3 rounded-xl border border-gray-200 dark:border-notion-borderDark bg-white dark:bg-notion-card shadow-xs overflow-hidden transition';
+
+      const toolbar = document.createElement('div');
+      toolbar.className = 'notion-table-toolbar flex items-center justify-between px-3 py-1.5 bg-gray-50/90 dark:bg-notion-darker/70 border-b border-gray-200/80 dark:border-notion-borderDark/80 text-xs select-none';
+      toolbar.setAttribute('contenteditable', 'false');
+      toolbar.innerHTML = `
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-gray-400 font-medium text-[11px] mr-1 flex items-center gap-1"><i data-lucide="table" class="w-3.5 h-3.5 text-emerald-500"></i> 資料表格</span>
+          <button type="button" class="btn-table-add-row px-2 py-0.5 rounded bg-white dark:bg-notion-dark hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-gray-200/90 dark:border-notion-borderDark text-[11px] font-medium flex items-center gap-1 transition shadow-2xs" title="在最下方新增一列 (橫向)">
+            <i data-lucide="plus" class="w-3 h-3"></i> 新增列
+          </button>
+          <button type="button" class="btn-table-add-col px-2 py-0.5 rounded bg-white dark:bg-notion-dark hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 border border-gray-200/90 dark:border-notion-borderDark text-[11px] font-medium flex items-center gap-1 transition shadow-2xs" title="在最右方新增一欄 (直向)">
+            <i data-lucide="plus" class="w-3 h-3"></i> 新增欄
+          </button>
+          <button type="button" class="btn-table-del-row px-1.5 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 text-[11px] transition" title="刪除最後一列">
+            － 列
+          </button>
+          <button type="button" class="btn-table-del-col px-1.5 py-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 text-[11px] transition" title="刪除最後一欄">
+            － 欄
+          </button>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button type="button" class="btn-table-delete p-1 rounded hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-500 dark:text-rose-400 transition" title="刪除整個表格">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      `;
+
+      const scrollBox = document.createElement('div');
+      scrollBox.className = 'notion-table-scroll overflow-x-auto w-full p-2';
+
+      table.parentNode.insertBefore(tableContainer, table);
+      tableContainer.appendChild(toolbar);
+      tableContainer.appendChild(scrollBox);
+      scrollBox.appendChild(table);
+    }
+
+    table.querySelectorAll('th, td').forEach(cell => {
+      if (!cell.hasAttribute('contenteditable')) {
+        cell.setAttribute('contenteditable', 'true');
+      }
+    });
+
+    const toolbar = tableContainer.querySelector('.notion-table-toolbar');
+    if (toolbar && !toolbar._tableBound) {
+      toolbar._tableBound = true;
+
+      toolbar.querySelector('.btn-table-add-row')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        addTableRow(table);
+      });
+
+      toolbar.querySelector('.btn-table-add-col')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        getTableAddCol(table);
+      });
+
+      toolbar.querySelector('.btn-table-del-row')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteTableRow(table);
+      });
+
+      toolbar.querySelector('.btn-table-del-col')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        deleteTableCol(table);
+      });
+
+      toolbar.querySelector('.btn-table-delete')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (confirm('確定要刪除此資料表格嗎？')) {
+          const p = document.createElement('p');
+          p.innerHTML = '<br>';
+          tableContainer.replaceWith(p);
+          placeCaretAtStart(p);
+          saveLocalDraftImmediately();
+          triggerAutoSaveDebounce();
+        }
+      });
+    }
+  });
+}
+
+function addTableRow(table) {
+  let tbody = table.querySelector('tbody');
+  if (!tbody) {
+    tbody = document.createElement('tbody');
+    table.appendChild(tbody);
+  }
+  const firstRow = table.querySelector('tr');
+  const colCount = firstRow ? firstRow.children.length : 3;
+
+  const newTr = document.createElement('tr');
+  for (let i = 0; i < colCount; i++) {
+    const td = document.createElement('td');
+    td.setAttribute('contenteditable', 'true');
+    td.innerHTML = '<br>';
+    newTr.appendChild(td);
+  }
+  tbody.appendChild(newTr);
+
+  const firstCell = newTr.querySelector('td');
+  if (firstCell) placeCaretAtStart(firstCell);
+
+  saveLocalDraftImmediately();
+  triggerAutoSaveDebounce();
+}
+
+function getTableAddCol(table) {
+  const theadRows = table.querySelectorAll('thead tr');
+  if (theadRows.length > 0) {
+    theadRows.forEach(tr => {
+      const th = document.createElement('th');
+      th.setAttribute('contenteditable', 'true');
+      th.textContent = `欄位 ${tr.children.length + 1}`;
+      tr.appendChild(th);
+    });
+  } else {
+    const firstRow = table.querySelector('tr');
+    if (firstRow && firstRow.querySelector('th')) {
+      const th = document.createElement('th');
+      th.setAttribute('contenteditable', 'true');
+      th.textContent = `欄位 ${firstRow.children.length + 1}`;
+      firstRow.appendChild(th);
+    }
+  }
+
+  const tbodyRows = table.querySelectorAll('tbody tr');
+  if (tbodyRows.length > 0) {
+    tbodyRows.forEach(tr => {
+      const td = document.createElement('td');
+      td.setAttribute('contenteditable', 'true');
+      td.innerHTML = '<br>';
+      tr.appendChild(td);
+    });
+  } else {
+    const allRows = table.querySelectorAll('tr');
+    allRows.forEach((tr, idx) => {
+      if (idx === 0 && tr.querySelector('th')) return;
+      const td = document.createElement('td');
+      td.setAttribute('contenteditable', 'true');
+      td.innerHTML = '<br>';
+      tr.appendChild(td);
+    });
+  }
+
+  saveLocalDraftImmediately();
+  triggerAutoSaveDebounce();
+}
+
+function deleteTableRow(table) {
+  const tbodyRows = table.querySelectorAll('tbody tr');
+  if (tbodyRows.length > 1) {
+    tbodyRows[tbodyRows.length - 1].remove();
+    saveLocalDraftImmediately();
+    triggerAutoSaveDebounce();
+  } else if (tbodyRows.length === 1) {
+    showToast('表格至少需保留一列資料列');
+  } else {
+    const allRows = table.querySelectorAll('tr');
+    if (allRows.length > 1) {
+      allRows[allRows.length - 1].remove();
+      saveLocalDraftImmediately();
+      triggerAutoSaveDebounce();
+    }
+  }
+}
+
+function deleteTableCol(table) {
+  const rows = table.querySelectorAll('tr');
+  if (rows.length === 0) return;
+  const colCount = rows[0].children.length;
+  if (colCount <= 1) {
+    showToast('表格至少需保留一欄');
+    return;
+  }
+  rows.forEach(tr => {
+    if (tr.lastElementChild) tr.lastElementChild.remove();
+  });
+  saveLocalDraftImmediately();
+  triggerAutoSaveDebounce();
+}
+
+// 🌟 全域畫布積木統一渲染器 (涵蓋收折媒體、折疊清單、待辦清單、表格、代碼複製鈕、圖示)
+function enhanceAllEditorBlocks(container = DOM.editor) {
+  if (!container) return;
+  try { enhanceMediaCollapsiblesAndDraggables(container); } catch (e) { console.warn(e); }
+  try { enhanceToggleItems(container); } catch (e) { console.warn(e); }
+  try { enhanceTodoItems(container); } catch (e) { console.warn(e); }
+  try { enhanceTables(container); } catch (e) { console.warn(e); }
+  try { attachCodeCopyButtons(); } catch (e) { console.warn(e); }
+  try { initLucide(); } catch(e) {}
+}
+
 // 🔀 側邊欄分類拖曳管理排序 (拖動即同步雲端 Google Drive)
 let sidebarDragType = null;
 let sidebarDragIndex = -1;
@@ -5865,6 +6234,20 @@ function insertSlashSnippet(type) {
     case 'h2':
       html = '<h2>中標題 2</h2><p><br></p>';
       break;
+    case 'toggle':
+      html = `
+        <details class="notion-toggle-item my-2 border border-gray-200/80 dark:border-notion-borderDark rounded-lg overflow-hidden bg-gray-50/40 dark:bg-notion-darker/40 transition">
+          <summary class="cursor-pointer select-none px-3 py-1.5 font-medium text-sm flex items-center gap-2 hover:bg-gray-100/70 dark:hover:bg-gray-800/60 transition list-none">
+            <span class="toggle-arrow-icon text-gray-400 shrink-0 inline-flex items-center justify-center w-4 h-4 cursor-pointer"><i data-lucide="chevron-right" class="w-3.5 h-3.5 transition-transform duration-200 toggle-arrow"></i></span>
+            <span class="toggle-title flex-1 focus:outline-none" contenteditable="true">折疊清單標題</span>
+          </summary>
+          <div class="px-4 py-2 pl-9 text-sm text-gray-700 dark:text-gray-200 border-t border-gray-200/50 dark:border-notion-borderDark/50 toggle-content focus:outline-none" contenteditable="true">
+            <p>在此輸入折疊內容...</p>
+          </div>
+        </details>
+        <p><br></p>
+      `;
+      break;
     case 'h3':
       html = '<h3>小標題 3</h3><p><br></p>';
       break;
@@ -5899,7 +6282,7 @@ function insertSlashSnippet(type) {
 
   if (html) {
     insertHtmlAtCursor(html);
-    attachCodeCopyButtons();
+    enhanceAllEditorBlocks(DOM.editor);
     triggerAutoSaveDebounce();
   }
 }
@@ -6029,7 +6412,20 @@ function turnSelectionInto(type) {
       html = `<h2>${escapeHtml(text)}</h2>`;
       break;
     case 'todo':
-      html = `<div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text">${escapeHtml(text)}</span></div>`;
+      html = `<div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">${escapeHtml(text)}</span></div>`;
+      break;
+    case 'toggle':
+      html = `
+        <details class="notion-toggle-item my-2 border border-gray-200/80 dark:border-notion-borderDark rounded-lg overflow-hidden bg-gray-50/40 dark:bg-notion-darker/40 transition">
+          <summary class="cursor-pointer select-none px-3 py-1.5 font-medium text-sm flex items-center gap-2 hover:bg-gray-100/70 dark:hover:bg-gray-800/60 transition list-none">
+            <span class="toggle-arrow-icon text-gray-400 shrink-0 inline-flex items-center justify-center w-4 h-4 cursor-pointer"><i data-lucide="chevron-right" class="w-3.5 h-3.5 transition-transform duration-200 toggle-arrow"></i></span>
+            <span class="toggle-title flex-1 focus:outline-none" contenteditable="true">${escapeHtml(text)}</span>
+          </summary>
+          <div class="px-4 py-2 pl-9 text-sm text-gray-700 dark:text-gray-200 border-t border-gray-200/50 dark:border-notion-borderDark/50 toggle-content focus:outline-none" contenteditable="true">
+            <p>在此輸入折疊內容...</p>
+          </div>
+        </details>
+      `;
       break;
     case 'callout':
       html = `<div class="notion-callout"><span class="notion-callout-icon">💡</span><div class="notion-callout-body">${escapeHtml(text)}</div></div>`;
@@ -6039,20 +6435,35 @@ function turnSelectionInto(type) {
   if (html) {
     try {
       const range = sel.getRangeAt(0);
-      range.deleteContents();
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = html;
-      const frag = document.createDocumentFragment();
-      let node;
-      while ((node = tempDiv.firstChild)) {
-        frag.appendChild(node);
+      let container = range.commonAncestorContainer;
+      if (container.nodeType === Node.TEXT_NODE) container = container.parentElement;
+      const block = container ? container.closest('p, h1, h2, h3, blockquote') : null;
+
+      // 如果選取的文字接近整個段落，直接替換該區塊，防止在 <p> 裡面嵌套 <h1> 或 <div>
+      if (block && block !== DOM.editor && (block.textContent.trim() === text || text.length >= block.textContent.trim().length * 0.8)) {
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        if (tempDiv.firstElementChild) {
+          block.replaceWith(tempDiv.firstElementChild);
+        }
+      } else {
+        range.deleteContents();
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = html;
+        const frag = document.createDocumentFragment();
+        let node;
+        while ((node = tempDiv.firstChild)) {
+          frag.appendChild(node);
+        }
+        range.insertNode(frag);
       }
-      range.insertNode(frag);
     } catch (err) {
       document.execCommand('insertHTML', false, html);
     }
+    enhanceAllEditorBlocks(DOM.editor);
     if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('hidden');
     if (DOM.selHighlightPalette) DOM.selHighlightPalette.classList.add('hidden');
+    saveLocalDraftImmediately();
     triggerAutoSaveDebounce();
     showToast(type === 'callout' ? '已轉為醒目提示 💡' : (type === 'todo' ? '已轉為待辦清單 ☑️' : '已轉換格式'));
   }
@@ -6274,9 +6685,24 @@ function handleMarkdownInputRules(e) {
     } else if (textBefore === '1. ') {
       replaceHtml = '<ol><li>編號項目</li></ol>';
       matchLen = 3;
-    } else if (textBefore === '[] ' || textBefore === '[ ] ') {
-      replaceHtml = '<div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text">待辦事項</span></div>';
+    } else if (textBefore === '[] ' || textBefore === '[ ] ' || textBefore === '- [ ] ' || textBefore === '- [x] ') {
+      const isChecked = textBefore.includes('[x]');
+      replaceHtml = `<div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"${isChecked ? ' checked' : ''}><span class="notion-todo-text${isChecked ? ' checked' : ''}" contenteditable="true">待辦事項</span></div>`;
       matchLen = textBefore.length;
+    } else if (textBefore === '>> ') {
+      replaceHtml = `
+        <details class="notion-toggle-item my-2 border border-gray-200/80 dark:border-notion-borderDark rounded-lg overflow-hidden bg-gray-50/40 dark:bg-notion-darker/40 transition">
+          <summary class="cursor-pointer select-none px-3 py-1.5 font-medium text-sm flex items-center gap-2 hover:bg-gray-100/70 dark:hover:bg-gray-800/60 transition list-none">
+            <span class="toggle-arrow-icon text-gray-400 shrink-0 inline-flex items-center justify-center w-4 h-4 cursor-pointer"><i data-lucide="chevron-right" class="w-3.5 h-3.5 transition-transform duration-200 toggle-arrow"></i></span>
+            <span class="toggle-title flex-1 focus:outline-none" contenteditable="true">折疊清單標題</span>
+          </summary>
+          <div class="px-4 py-2 pl-9 text-sm text-gray-700 dark:text-gray-200 border-t border-gray-200/50 dark:border-notion-borderDark/50 toggle-content focus:outline-none" contenteditable="true">
+            <p>在此輸入折疊內容...</p>
+          </div>
+        </details>
+        <p><br></p>
+      `;
+      matchLen = 3;
     } else if (textBefore === '> ') {
       replaceHtml = '<blockquote>在此輸入引言...</blockquote>';
       matchLen = 2;
@@ -8095,28 +8521,7 @@ function bindEvents() {
 
   // 側邊欄快速導航
 
-  // 🖍️ 螢光筆功能 (Highlighter in Selection Toolbar)
-  if (DOM.selHighlightBtn) {
-    DOM.selHighlightBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (DOM.selHighlightPalette) {
-        DOM.selHighlightPalette.classList.toggle('hidden');
-      }
-    });
-  }
-
-  document.querySelectorAll('.highlight-color-btn').forEach(btn => {
-    btn.addEventListener('mousedown', (e) => {
-      e.preventDefault(); // 阻止按鈕奪取焦點，確保選取文字範圍不被清除
-    });
-    btn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const color = btn.dataset.color;
-      applyHighlight(color);
-      if (DOM.selHighlightPalette) DOM.selHighlightPalette.classList.add('hidden');
-      if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('hidden');
-    });
-  });
+  // （螢光筆按鈕統一於 initSelectionToolbar/bindToolbarButton 綁定，避免雙重監聽器衝突）
 
   // 🎯 畫布與任一非檔案位置點擊即輸入保證 (Universal Click-to-Type & Caret Navigation)
   const scrollContainer = document.getElementById('main-scroll-container');
@@ -9112,7 +9517,7 @@ function bindEvents() {
               n.content = oldHtml;
               if (state.currentNote && state.currentNote.id === noteId) {
                 DOM.editor.innerHTML = oldHtml;
-                try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
+                try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn(e); }
                 updateStats();
                 renderOutline();
               }
@@ -9125,7 +9530,7 @@ function bindEvents() {
               n.content = newHtml;
               if (state.currentNote && state.currentNote.id === noteId) {
                 DOM.editor.innerHTML = newHtml;
-                try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) { console.warn(e); }
+                try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn(e); }
                 updateStats();
                 renderOutline();
               }
@@ -9168,20 +9573,21 @@ function bindEvents() {
     }
   });
 
-  // 畫布點擊事件（Todo 待辦打勾切換）
+  // 畫布點擊事件（Todo 待辦打勾切換與即時屬性同步）
   DOM.editor.addEventListener('click', (e) => {
     if (e.target && e.target.classList.contains('notion-todo-checkbox')) {
       const parent = e.target.closest('.notion-todo-item');
       if (parent) {
         const textSpan = parent.querySelector('.notion-todo-text');
-        if (textSpan) {
-          if (e.target.checked) {
-            textSpan.classList.add('checked');
-          } else {
-            textSpan.classList.remove('checked');
-          }
-          triggerAutoSaveDebounce();
+        if (e.target.checked) {
+          e.target.setAttribute('checked', '');
+          if (textSpan) textSpan.classList.add('checked');
+        } else {
+          e.target.removeAttribute('checked');
+          if (textSpan) textSpan.classList.remove('checked');
         }
+        saveLocalDraftImmediately();
+        triggerAutoSaveDebounce();
       }
     }
   });
@@ -9261,6 +9667,18 @@ function bindEvents() {
   }
 
   if (DOM.selectionToolbar) {
+    // 阻止浮動工具列本體點擊奪取焦點，避免編輯器選取範圍消失
+    DOM.selectionToolbar.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+    });
+
+    if (DOM.selHighlightPalette) {
+      DOM.selHighlightPalette.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+    }
+
     DOM.selectionToolbar.querySelectorAll('button[data-cmd]').forEach(btn => {
       bindToolbarButton(btn, () => {
         let sel = window.getSelection();
@@ -9273,10 +9691,29 @@ function bindEvents() {
 
         const cmd = btn.dataset.cmd;
         if (cmd === 'code') {
-          document.execCommand('insertHTML', false, `<code>${escapeHtml(sel.toString())}</code>`);
+          let range = sel.getRangeAt(0);
+          let codeEl = range.commonAncestorContainer;
+          if (codeEl.nodeType === Node.TEXT_NODE) codeEl = codeEl.parentElement;
+          if (codeEl && codeEl.closest('code')) {
+            unwrapNode(codeEl.closest('code'));
+          } else {
+            const code = document.createElement('code');
+            code.appendChild(range.extractContents());
+            range.insertNode(code);
+            const newRange = document.createRange();
+            newRange.selectNodeContents(code);
+            sel.removeAllRanges();
+            sel.addRange(newRange);
+            savedSelectionRange = newRange.cloneRange();
+          }
         } else {
           document.execCommand(cmd, false, null);
+          const newSel = window.getSelection();
+          if (newSel && newSel.rangeCount) {
+            savedSelectionRange = newSel.getRangeAt(0).cloneRange();
+          }
         }
+        saveLocalDraftImmediately();
         triggerAutoSaveDebounce();
       });
     });
@@ -9287,7 +9724,7 @@ function bindEvents() {
     bindToolbarButton(DOM.selTurnCallout, () => turnSelectionInto('callout'));
 
     if (DOM.selHighlightBtn) {
-      bindToolbarButton(DOM.selHighlightBtn, () => {
+      bindToolbarButton(DOM.selHighlightBtn, (e) => {
         if (DOM.selHighlightPalette) {
           DOM.selHighlightPalette.classList.toggle('hidden');
         }
@@ -9295,7 +9732,7 @@ function bindEvents() {
     }
 
     document.querySelectorAll('.highlight-color-btn').forEach(btn => {
-      bindToolbarButton(btn, () => {
+      bindToolbarButton(btn, (e) => {
         const color = btn.dataset.color;
         applyHighlight(color);
         if (DOM.selHighlightPalette) DOM.selHighlightPalette.classList.add('hidden');
@@ -9318,8 +9755,123 @@ function bindEvents() {
     }
   }
 
-  // Space 鍵觸發 AI 提示框
+  // 畫布鍵盤快捷事件 (Tab, Enter, Backspace, Space AI, 標題快捷鍵)
   DOM.editor.addEventListener('keydown', (e) => {
+    // 1. 表格 Tab / Shift+Tab 導航與自動增列
+    if (e.key === 'Tab') {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        const anchor = sel.anchorNode?.nodeType === 1 ? sel.anchorNode : sel.anchorNode?.parentElement;
+        const cell = anchor?.closest('th, td');
+        if (cell) {
+          e.preventDefault();
+          const table = cell.closest('table');
+          if (table) {
+            const cells = Array.from(table.querySelectorAll('th, td'));
+            const idx = cells.indexOf(cell);
+            if (!e.shiftKey) {
+              if (idx >= 0 && idx < cells.length - 1) {
+                placeCaretAtStart(cells[idx + 1]);
+              } else if (idx === cells.length - 1) {
+                addTableRow(table);
+              }
+            } else {
+              if (idx > 0) {
+                placeCaretAtStart(cells[idx - 1]);
+              }
+            }
+          }
+          return;
+        }
+      }
+    }
+
+    // 2. Enter 鍵智能處理 (待辦清單連續新增/退出、折疊清單聚焦內容、表格換行)
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        const anchor = sel.anchorNode?.nodeType === 1 ? sel.anchorNode : sel.anchorNode?.parentElement;
+
+        // (a) 待辦清單 (Todo Item)
+        const todoItem = anchor?.closest('.notion-todo-item');
+        if (todoItem) {
+          e.preventDefault();
+          const textSpan = todoItem.querySelector('.notion-todo-text');
+          const text = textSpan ? textSpan.textContent.trim() : '';
+          if (!text || text === '') {
+            // 空白待辦：按下 Enter 轉為一般段落，優雅退出待辦模式
+            const p = document.createElement('p');
+            p.innerHTML = '<br>';
+            todoItem.replaceWith(p);
+            placeCaretAtStart(p);
+          } else {
+            // 有內容待辦：按下 Enter 自動新增下一列待辦事項
+            const newTodo = document.createElement('div');
+            newTodo.className = 'notion-todo-item';
+            newTodo.innerHTML = '<input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true"><br></span>';
+            todoItem.after(newTodo);
+            const newText = newTodo.querySelector('.notion-todo-text');
+            placeCaretAtStart(newText);
+          }
+          saveLocalDraftImmediately();
+          triggerAutoSaveDebounce();
+          return;
+        }
+
+        // (b) 折疊清單標題 (Toggle Title)
+        const toggleTitle = anchor?.closest('.toggle-title');
+        if (toggleTitle) {
+          e.preventDefault();
+          const details = toggleTitle.closest('.notion-toggle-item, details');
+          if (details) {
+            details.open = true;
+            let content = details.querySelector('.toggle-content');
+            if (!content) {
+              content = document.createElement('div');
+              content.className = 'px-4 py-2 pl-9 text-sm text-gray-700 dark:text-gray-200 border-t border-gray-200/50 dark:border-notion-borderDark/50 toggle-content focus:outline-none';
+              content.setAttribute('contenteditable', 'true');
+              content.innerHTML = '<p><br></p>';
+              details.appendChild(content);
+            }
+            const firstP = content.querySelector('p') || content;
+            placeCaretAtStart(firstP);
+          }
+          return;
+        }
+
+        // (c) 表格儲存格 (Table Cell)
+        const cell = anchor?.closest('th, td');
+        if (cell) {
+          e.preventDefault();
+          document.execCommand('insertLineBreak');
+          return;
+        }
+      }
+    }
+
+    // 3. Backspace 鍵智能處理 (空白待辦轉回一般段落)
+    if (e.key === 'Backspace' && !e.isComposing) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount) {
+        const anchor = sel.anchorNode?.nodeType === 1 ? sel.anchorNode : sel.anchorNode?.parentElement;
+        const todoItem = anchor?.closest('.notion-todo-item');
+        if (todoItem) {
+          const textSpan = todoItem.querySelector('.notion-todo-text');
+          const text = textSpan ? textSpan.textContent.trim() : '';
+          if (!text || text === '') {
+            e.preventDefault();
+            const p = document.createElement('p');
+            p.innerHTML = '<br>';
+            todoItem.replaceWith(p);
+            placeCaretAtStart(p);
+            saveLocalDraftImmediately();
+            triggerAutoSaveDebounce();
+            return;
+          }
+        }
+      }
+    }
+
     handleSpaceAiTrigger(e);
 
     // 快捷鍵支援：Ctrl+Shift+1/2/3/4/7

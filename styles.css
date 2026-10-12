@@ -153,34 +153,68 @@
   margin-bottom: 0.25rem;
 }
 
-/* Notion 折疊列表 Toggle List */
-#editor details {
+/* Notion 折疊清單 (Toggle List) 增強樣式 */
+details.notion-toggle-item {
   margin: 0.6rem 0;
-  padding: 0.5rem 0.8rem;
-  border-radius: 0.375rem;
-  background-color: rgba(55, 53, 47, 0.03);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  cursor: pointer;
-  transition: background-color 0.15s;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background-color: rgba(55, 53, 47, 0.02);
+  transition: all 0.2s ease;
+  overflow: hidden;
+  padding: 0 !important;
+  cursor: default;
 }
 
-.dark #editor details {
-  background-color: rgba(255, 255, 255, 0.03);
+.dark details.notion-toggle-item {
   border-color: rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.02);
 }
 
-#editor details[open] {
-  background-color: rgba(55, 53, 47, 0.05);
-}
-
-.dark #editor details[open] {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-#editor summary {
-  font-weight: 600;
-  outline: none;
+details.notion-toggle-item summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.75rem;
+  font-weight: 500;
   user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+  transition: background-color 0.15s ease;
+}
+
+details.notion-toggle-item summary::-webkit-details-marker {
+  display: none;
+}
+
+details.notion-toggle-item summary:hover {
+  background-color: rgba(55, 53, 47, 0.04);
+}
+
+.dark details.notion-toggle-item summary:hover {
+  background-color: rgba(255, 255, 255, 0.04);
+}
+
+details.notion-toggle-item summary .toggle-arrow {
+  display: inline-block;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+details.notion-toggle-item[open] summary .toggle-arrow {
+  transform: rotate(90deg);
+}
+
+details.notion-toggle-item .toggle-title {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+details.notion-toggle-item .toggle-content {
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 /* 圖片、音訊與影片自適應排版（純淨無網址） */
@@ -283,33 +317,73 @@
   color: white;
 }
 
-/* 資料表格 */
+/* 資料表格容器與工具列 (Data Table Container & Toolbar) */
+.notion-table-container {
+  margin: 1rem 0;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.dark .notion-table-container {
+  border-color: rgba(255, 255, 255, 0.08);
+  background-color: #191919;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.notion-table-toolbar {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.notion-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
 #editor table {
   width: 100%;
   border-collapse: collapse;
-  margin: 0.75rem 0;
-  font-size: 13px;
-  overflow-x: auto;
-  display: block;
+  margin: 0;
+  font-size: 13.5px;
+  border-spacing: 0;
+  display: table;
 }
 
 #editor th, #editor td {
-  border: 1px solid #e9e9e7;
-  padding: 0.45rem 0.65rem;
+  border: 1px solid #e5e7eb;
+  padding: 0.55rem 0.75rem;
   text-align: left;
+  min-width: 90px;
+  vertical-align: top;
+  outline: none;
 }
 
 .dark #editor th, .dark #editor td {
-  border-color: #2f2f2f;
+  border-color: #374151;
 }
 
 #editor th {
-  background-color: #f7f6f3;
+  background-color: #f9fafb;
   font-weight: 600;
+  color: #374151;
 }
 
 .dark #editor th {
-  background-color: #1f1f1f;
+  background-color: #1f2937;
+  color: #e5e7eb;
+}
+
+#editor td:focus, #editor th:focus {
+  background-color: rgba(35, 131, 226, 0.06);
+}
+
+.dark #editor td:focus, .dark #editor th:focus {
+  background-color: rgba(35, 131, 226, 0.15);
 }
 
 /* 待辦事項 Checkbox */
@@ -709,6 +783,7 @@
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
   font-size: 12px;
   animation: popoverFadeIn 0.1s ease-out;
+  overflow: visible !important;
 }
 .selection-toolbar button {
   padding: 3px 6px;
@@ -1519,10 +1594,22 @@
 }
 
 /* 🖍️ 螢光筆浮動調色盤與圓形色彩按鈕專用樣式 */
+@keyframes highlightPaletteIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-6px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0) scale(1);
+  }
+}
+
 .selection-toolbar #sel-highlight-palette {
   position: absolute;
   top: 36px;
-  left: 0;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
   background: #1e293b !important;
   border: 1px solid #475569 !important;
   border-radius: 8px !important;
@@ -1532,10 +1619,12 @@
   gap: 6px !important;
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5) !important;
   z-index: 100 !important;
-  animation: popoverFadeIn 0.12s ease-out;
+  animation: highlightPaletteIn 0.15s ease-out forwards;
+  white-space: nowrap !important;
 }
 .selection-toolbar #sel-highlight-palette.hidden {
   display: none !important;
+  animation: none !important;
 }
 .selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color]:not([data-color="transparent"]) {
   width: 20px !important;
@@ -1829,7 +1918,6 @@ select option {
 #export-menu,
 #template-menu,
 #slash-menu,
-#sel-highlight-palette,
 #space-ai-box,
 #view-calendar-dropdown,
 #tag-picker-popover {
@@ -1904,10 +1992,9 @@ mark.notion-highlight {
 @media (max-width: 768px) {
   .selection-toolbar {
     max-width: 96vw !important;
-    overflow-x: auto !important;
-    scrollbar-width: none !important;
-    padding: 6px 8px !important;
-    gap: 3px !important;
+    overflow: visible !important;
+    padding: 4px 6px !important;
+    gap: 2px !important;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
   }
@@ -1915,32 +2002,32 @@ mark.notion-highlight {
     display: none !important;
   }
   .selection-toolbar button {
-    min-width: 34px !important;
-    min-height: 34px !important;
-    padding: 4px 6px !important;
-    font-size: 13px !important;
+    min-width: 28px !important;
+    min-height: 30px !important;
+    padding: 3px 5px !important;
+    font-size: 12px !important;
     touch-action: manipulation !important;
   }
   .selection-toolbar #sel-highlight-palette {
-    top: 44px !important;
+    top: 42px !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
     max-width: 94vw !important;
-    padding: 8px 12px !important;
-    gap: 8px !important;
+    padding: 6px 10px !important;
+    gap: 6px !important;
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65) !important;
   }
   .selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color]:not([data-color="transparent"]) {
-    width: 28px !important;
-    height: 28px !important;
-    min-width: 28px !important;
-    min-height: 28px !important;
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    min-height: 24px !important;
     border-radius: 50% !important;
   }
   .selection-toolbar #sel-highlight-palette button.highlight-color-btn[data-color="transparent"] {
-    min-height: 28px !important;
-    padding: 4px 10px !important;
-    font-size: 12px !important;
+    min-height: 24px !important;
+    padding: 2px 8px !important;
+    font-size: 11px !important;
   }
 }
 
