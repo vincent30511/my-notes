@@ -81,6 +81,16 @@ const DEFAULT_WORK_CONTENTS = [
   '保養維護 🛠️'
 ];
 
+// 預設客戶或廠商 (符合現場工程與專案環境，可自由擴充管理)
+const DEFAULT_CLIENTS_VENDORS = [
+  '台積電 (TSMC)',
+  '聯電 (UMC)',
+  '日月光 (ASE)',
+  '艾司摩爾 (ASML)',
+  '應用材料 (AMAT)',
+  '東京威力 (TEL)'
+];
+
 // 預設急迫性等級 (符合使用者實際環境)
 const DEFAULT_URGENCIES = [
   { id: '特急', label: '🔴 特急 (當日完成)', short: '特急', color: 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300' },
@@ -127,9 +137,11 @@ const state = {
   machineModels: [],
   workContents: [],
   urgencies: [],
+  clientsVendors: [],
   currentMachineFilter: null,
   currentContentFilter: null,
   currentUrgencyFilter: null,
+  currentClientVendorFilter: null,
   workTagModalType: 'machine',
   tags: [],
   currentTagFilter: null, // null 表示不篩選標籤
@@ -203,6 +215,9 @@ const DOM = {
   sidebarContentList: document.getElementById('sidebar-content-list'),
   addContentTypeBtn: document.getElementById('add-content-type-btn'),
   sidebarUrgencyList: document.getElementById('sidebar-urgency-list'),
+  sidebarClientList: document.getElementById('sidebar-client-list'),
+  addClientBtn: document.getElementById('add-client-btn'),
+  manageClientBtn: document.getElementById('manage-client-btn'),
   activeFilterBar: document.getElementById('active-filter-bar'),
   activeFilterChips: document.getElementById('active-filter-chips'),
   clearAllFiltersBtn: document.getElementById('clear-all-filters-btn'),
@@ -235,10 +250,16 @@ const DOM = {
   tmTabMachine: document.getElementById('tm-tab-machine'),
   tmTabContent: document.getElementById('tm-tab-content'),
   tmTabUrgency: document.getElementById('tm-tab-urgency'),
+  tmTabClient: document.getElementById('tm-tab-client'),
   tmTabCustom: document.getElementById('tm-tab-custom'),
   tmPaneMachine: document.getElementById('tm-pane-machine'),
   tmPaneContent: document.getElementById('tm-pane-content'),
   tmPaneUrgency: document.getElementById('tm-pane-urgency'),
+  tmPaneClient: document.getElementById('tm-pane-client'),
+  tmNewClientInput: document.getElementById('tm-new-client-input'),
+  tmAddClientBtn: document.getElementById('tm-add-client-btn'),
+  tmClientTotalCount: document.getElementById('tm-client-total-count'),
+  tmClientList: document.getElementById('tm-client-list'),
   tmPaneCustom: document.getElementById('tm-pane-custom'),
   tmNewMachineInput: document.getElementById('tm-new-machine-input'),
   tmAddMachineBtn: document.getElementById('tm-add-machine-btn'),
@@ -274,6 +295,9 @@ const DOM = {
   noteContentSelect: document.getElementById('note-content-select'),
   btnQuickAddContent: document.getElementById('btn-quick-add-content'),
   noteUrgencySelect: document.getElementById('note-urgency-select'),
+  noteClientSelect: document.getElementById('note-client-select'),
+  btnQuickAddClient: document.getElementById('btn-quick-add-client'),
+  btnManageClient: document.getElementById('btn-manage-client'),
   noteStatusSelect: document.getElementById('note-status-select'),
   
   // 下拉式標籤選單
@@ -441,6 +465,7 @@ const DOM = {
   tableFilterMachine: document.getElementById('table-filter-machine'),
   tableFilterContent: document.getElementById('table-filter-content'),
   tableFilterUrgency: document.getElementById('table-filter-urgency'),
+  tableFilterClient: document.getElementById('table-filter-client'),
   tableFilterTag: document.getElementById('table-filter-tag'),
   toggleAllMediaBtn: document.getElementById('toggle-all-media-btn'),
   toggleAllMediaLabel: document.getElementById('toggle-all-media-label'),
@@ -1139,6 +1164,7 @@ async function syncWorkspaceConfigWithDrive() {
       const hasMachines = Array.isArray(config.machineModels) && config.machineModels.length > 0;
       const hasContents = Array.isArray(config.workContents) && config.workContents.length > 0;
       const hasUrgencies = Array.isArray(config.urgencies) && config.urgencies.length > 0;
+      const hasClients = Array.isArray(config.clientsVendors) && config.clientsVendors.length > 0;
 
       if (hasMachines) {
         state.machineModels = config.machineModels;
@@ -1159,6 +1185,13 @@ async function syncWorkspaceConfigWithDrive() {
         state.urgencies = config.urgencies;
       } else {
         state.urgencies = DEFAULT_URGENCIES.slice();
+        needUploadCompleteConfig = true;
+      }
+
+      if (hasClients) {
+        state.clientsVendors = config.clientsVendors;
+      } else {
+        state.clientsVendors = DEFAULT_CLIENTS_VENDORS.slice();
         needUploadCompleteConfig = true;
       }
 
@@ -1189,6 +1222,7 @@ async function syncWorkspaceConfigWithDrive() {
       state.machineModels = DEFAULT_MACHINE_MODELS.slice();
       state.workContents = DEFAULT_WORK_CONTENTS.slice();
       state.urgencies = DEFAULT_URGENCIES.slice();
+      state.clientsVendors = DEFAULT_CLIENTS_VENDORS.slice();
       state.tags = DEFAULT_TAGS.slice();
       state.folders = DEFAULT_FOLDERS.slice();
       await saveWorkspaceConfigToDrive();
@@ -1217,6 +1251,7 @@ async function saveWorkspaceConfigToDrive() {
       machineModels: state.machineModels || DEFAULT_MACHINE_MODELS,
       workContents: state.workContents || DEFAULT_WORK_CONTENTS,
       urgencies: state.urgencies || DEFAULT_URGENCIES,
+      clientsVendors: state.clientsVendors || DEFAULT_CLIENTS_VENDORS,
       tags: state.tags || DEFAULT_TAGS,
       folders: state.folders || DEFAULT_FOLDERS,
       tasks: state.googleTasks || [],
@@ -1769,7 +1804,7 @@ function renderHistoryTimeline() {
 // 預設機型 (符合使用者實際環境)
 // 🌲 側邊欄樹狀選單收合/展開控制器 (Tree Menu Collapse Controller)
 function initWorkTreeCollapse() {
-  const branches = ['machine', 'content', 'urgency'];
+  const branches = ['machine', 'content', 'urgency', 'client'];
   branches.forEach(branch => {
     const header = document.querySelector(`.tree-branch-header[data-branch="${branch}"]`);
     const subList = document.getElementById(`sidebar-${branch}-list`);
@@ -1967,6 +2002,56 @@ function renderWorkTagLists() {
     });
   }
 
+  // 4. 客戶與廠商樹分支子項目 (Client or Vendor Sub-tree)
+  if (DOM.sidebarClientList) {
+    DOM.sidebarClientList.innerHTML = '';
+
+    const isAllClientActive = state.currentClientVendorFilter === null;
+    const allClientRow = document.createElement('div');
+    allClientRow.className = `tree-sub-item ${isAllClientActive ? 'active' : ''}`;
+    allClientRow.innerHTML = `
+      <span class="flex items-center gap-1.5 truncate flex-1 font-medium">
+        <i data-lucide="building-2" class="w-3 h-3 text-indigo-500 shrink-0"></i> 全部客戶/廠商
+      </span>
+      <span class="text-[10px] text-gray-400 font-semibold">${state.notes.length}</span>
+    `;
+    allClientRow.onclick = () => {
+      state.currentClientVendorFilter = null;
+      renderWorkTagLists();
+      renderNotesList();
+      renderBreadcrumbs();
+      renderCurrentView();
+    };
+    DOM.sidebarClientList.appendChild(allClientRow);
+
+    const clientCountBadge = document.getElementById('tree-client-count-badge');
+    const clients = (state.clientsVendors && state.clientsVendors.length > 0) ? state.clientsVendors : DEFAULT_CLIENTS_VENDORS;
+    if (clientCountBadge) clientCountBadge.textContent = clients.length;
+
+    clients.forEach(c => {
+      const count = state.notes.filter(n => n.meta && n.meta.clientVendor === c).length;
+      const isActive = state.currentClientVendorFilter === c;
+
+      const row = document.createElement('div');
+      row.className = `tree-sub-item ${isActive ? 'active' : ''}`;
+      row.innerHTML = `
+        <span class="flex items-center gap-1.5 truncate flex-1 font-medium">
+          <span class="text-xs shrink-0">🏢</span>
+          <span class="truncate">${escapeHtml(c)}</span>
+        </span>
+        <span class="text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-indigo-600 text-white font-bold' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold'} shrink-0">${count}</span>
+      `;
+      row.onclick = () => {
+        state.currentClientVendorFilter = (state.currentClientVendorFilter === c) ? null : c;
+        renderWorkTagLists();
+        renderNotesList();
+        renderBreadcrumbs();
+        renderCurrentView();
+      };
+      DOM.sidebarClientList.appendChild(row);
+    });
+  }
+
   // 3. 急迫性樹分支子項目 (Urgency Levels Sub-tree)
   if (DOM.sidebarUrgencyList) {
     DOM.sidebarUrgencyList.innerHTML = '';
@@ -2034,7 +2119,7 @@ function renderWorkTagLists() {
 function renderActiveFilterBar() {
   if (!DOM.activeFilterBar || !DOM.activeFilterChips) return;
 
-  const hasFilter = !!(state.currentMachineFilter || state.currentContentFilter || state.currentUrgencyFilter || state.currentTagFilter);
+  const hasFilter = !!(state.currentMachineFilter || state.currentContentFilter || state.currentUrgencyFilter || state.currentClientVendorFilter || state.currentTagFilter);
 
   if (!hasFilter) {
     DOM.activeFilterBar.classList.add('hidden');
@@ -2068,6 +2153,16 @@ function renderActiveFilterBar() {
   if (state.currentUrgencyFilter) {
     DOM.activeFilterChips.appendChild(createFilterChip(`🚨 ${state.currentUrgencyFilter}`, () => {
       state.currentUrgencyFilter = null;
+      renderWorkTagLists();
+      renderNotesList();
+      renderBreadcrumbs();
+      renderCurrentView();
+    }));
+  }
+
+  if (state.currentClientVendorFilter) {
+    DOM.activeFilterChips.appendChild(createFilterChip(`🏢 ${state.currentClientVendorFilter}`, () => {
+      state.currentClientVendorFilter = null;
       renderWorkTagLists();
       renderNotesList();
       renderBreadcrumbs();
@@ -2132,6 +2227,148 @@ function renderWorkTagSelects() {
     DOM.noteContentSelect.value = curVal;
   }
 
+
+  // 🏢 客戶或廠商標籤即時變更事件
+  if (DOM.noteClientSelect) {
+    let prevClient = DOM.noteClientSelect.value;
+    DOM.noteClientSelect.addEventListener('focus', () => {
+      prevClient = DOM.noteClientSelect.value;
+    });
+    DOM.noteClientSelect.addEventListener('change', () => {
+      const val = DOM.noteClientSelect.value;
+      if (val === '__add_client__') {
+        DOM.noteClientSelect.value = (state.currentNote && state.currentNote.meta && state.currentNote.meta.clientVendor) || '';
+        const newName = prompt('請輸入新建客戶或廠商名稱：');
+        if (newName && newName.trim()) {
+          addClientVendor(newName.trim());
+          if (state.currentNote && state.currentNote.meta) {
+            state.currentNote.meta.clientVendor = newName.trim();
+            DOM.noteClientSelect.value = newName.trim();
+            saveLocalDraftImmediately();
+            triggerAutoSaveDebounce();
+          }
+        }
+        return;
+      }
+      if (val === '__manage_client__') {
+        DOM.noteClientSelect.value = (state.currentNote && state.currentNote.meta && state.currentNote.meta.clientVendor) || '';
+        openTagManagerModal('client');
+        return;
+      }
+
+      if (state.currentNote && state.currentNote.meta) {
+        const oldClient = state.currentNote.meta.clientVendor || prevClient;
+        const newClient = val;
+        state.currentNote.meta.clientVendor = newClient;
+        prevClient = newClient;
+
+        const noteId = state.currentNote.id;
+        recordAction({
+          type: 'change_client',
+          title: `🏢 變更客戶「${newClient || '未指定'}」`,
+          subtitle: `筆記：${state.currentNote.name || '當前筆記'}`,
+          noteId: noteId,
+          undo: () => {
+            const n = state.notes.find(note => note.id === noteId);
+            if (n && n.meta) {
+              n.meta.clientVendor = oldClient;
+              if (state.currentNote && state.currentNote.id === noteId && DOM.noteClientSelect) {
+                DOM.noteClientSelect.value = oldClient;
+              }
+              renderWorkTagLists();
+              renderCurrentView();
+              triggerAutoSaveDebounce();
+            }
+          },
+          redo: () => {
+            const n = state.notes.find(note => note.id === noteId);
+            if (n && n.meta) {
+              n.meta.clientVendor = newClient;
+              if (state.currentNote && state.currentNote.id === noteId && DOM.noteClientSelect) {
+                DOM.noteClientSelect.value = newClient;
+              }
+              renderWorkTagLists();
+              renderCurrentView();
+              triggerAutoSaveDebounce();
+            }
+          }
+        });
+
+        renderNotesList();
+        renderWorkTagLists();
+        saveLocalDraftImmediately();
+        triggerAutoSaveDebounce();
+      }
+    });
+  }
+
+  if (DOM.btnQuickAddClient) {
+    DOM.btnQuickAddClient.addEventListener('click', () => {
+      const name = prompt('請輸入新建客戶或廠商名稱：');
+      if (name && name.trim()) {
+        addClientVendor(name.trim());
+        if (state.currentNote && state.currentNote.meta && DOM.noteClientSelect) {
+          state.currentNote.meta.clientVendor = name.trim();
+          DOM.noteClientSelect.value = name.trim();
+          saveLocalDraftImmediately();
+          triggerAutoSaveDebounce();
+        }
+      }
+    });
+  }
+
+  if (DOM.btnManageClient) {
+    DOM.btnManageClient.addEventListener('click', () => {
+      openTagManagerModal('client');
+    });
+  }
+
+  if (DOM.addClientBtn) {
+    DOM.addClientBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const name = prompt('新增客戶或廠商：');
+      if (name && name.trim()) addClientVendor(name.trim());
+    });
+  }
+
+  if (DOM.manageClientBtn) {
+    DOM.manageClientBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openTagManagerModal('client');
+    });
+  }
+
+  if (DOM.tableFilterClient) {
+    DOM.tableFilterClient.addEventListener('change', () => {
+      renderTableView();
+    });
+  }
+
+  if (DOM.tmTabClient) {
+    DOM.tmTabClient.addEventListener('click', () => {
+      switchTagManagerTab('client');
+    });
+  }
+
+  if (DOM.tmAddClientBtn && DOM.tmNewClientInput) {
+    DOM.tmAddClientBtn.addEventListener('click', () => {
+      const val = DOM.tmNewClientInput.value.trim();
+      if (val) {
+        addClientVendor(val);
+        DOM.tmNewClientInput.value = '';
+      }
+    });
+    DOM.tmNewClientInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const val = DOM.tmNewClientInput.value.trim();
+        if (val) {
+          addClientVendor(val);
+          DOM.tmNewClientInput.value = '';
+        }
+      }
+    });
+  }
+
   if (DOM.noteUrgencySelect) {
     let curVal = (state.currentNote && state.currentNote.meta && state.currentNote.meta.urgency) || DOM.noteUrgencySelect.value;
     const urgList = (state.urgencies && state.urgencies.length > 0) ? state.urgencies : DEFAULT_URGENCIES;
@@ -2156,6 +2393,21 @@ function renderWorkTagSelects() {
     DOM.noteUrgencySelect.value = curVal;
   }
 
+  if (DOM.noteClientSelect) {
+    let curVal = (state.currentNote && state.currentNote.meta && state.currentNote.meta.clientVendor) || DOM.noteClientSelect.value || '';
+    const clients = (state.clientsVendors && state.clientsVendors.length > 0) ? state.clientsVendors : DEFAULT_CLIENTS_VENDORS;
+    DOM.noteClientSelect.innerHTML = `
+      <option value="" ${(!curVal || curVal === '未指定') ? 'selected' : ''}>🏢 未指定 (非強制)</option>
+    ` + clients.map(c => `
+      <option value="${escapeHtml(c)}" ${curVal === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>
+    `).join('') + `
+      <option disabled>──────────</option>
+      <option value="__add_client__">➕ 新建客戶或廠商...</option>
+      <option value="__manage_client__">⚙️ 管理客戶與廠商標籤...</option>
+    `;
+    DOM.noteClientSelect.value = curVal;
+  }
+
   if (DOM.tableFilterMachine) {
     const curVal = DOM.tableFilterMachine.value;
     DOM.tableFilterMachine.innerHTML = '<option value="">全部機型</option>' + state.machineModels.map(m => `
@@ -2174,6 +2426,14 @@ function renderWorkTagSelects() {
     const curVal = DOM.tableFilterUrgency.value;
     DOM.tableFilterUrgency.innerHTML = '<option value="">全部急迫性</option>' + (state.urgencies || DEFAULT_URGENCIES).map(u => `
       <option value="${escapeHtml(u.id)}" ${curVal === u.id ? 'selected' : ''}>${escapeHtml(u.short || u.id)}</option>
+    `).join('');
+  }
+
+  if (DOM.tableFilterClient) {
+    const curCl = DOM.tableFilterClient.value;
+    const clients = (state.clientsVendors && state.clientsVendors.length > 0) ? state.clientsVendors : DEFAULT_CLIENTS_VENDORS;
+    DOM.tableFilterClient.innerHTML = '<option value="">全部客戶/廠商</option><option value="__empty__">🏢 未指定</option>' + clients.map(c => `
+      <option value="${escapeHtml(c)}" ${curCl === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>
     `).join('');
   }
 
@@ -2220,6 +2480,10 @@ function renderCurrentNote() {
 
     if (DOM.noteStatusSelect) {
       DOM.noteStatusSelect.value = n.meta.status || '💡 構思中';
+    }
+
+    if (DOM.noteClientSelect) {
+      DOM.noteClientSelect.value = n.meta.clientVendor || '';
     }
 
     if (DOM.noteDueDate) {
@@ -2287,6 +2551,7 @@ function switchTagManagerTab(tab) {
     { id: 'machine', btn: DOM.tmTabMachine, pane: DOM.tmPaneMachine },
     { id: 'content', btn: DOM.tmTabContent, pane: DOM.tmPaneContent },
     { id: 'urgency', btn: DOM.tmTabUrgency, pane: DOM.tmPaneUrgency },
+    { id: 'client', btn: DOM.tmTabClient, pane: DOM.tmPaneClient },
     { id: 'custom', btn: DOM.tmTabCustom, pane: DOM.tmPaneCustom }
   ];
 
@@ -2307,6 +2572,7 @@ function switchTagManagerTab(tab) {
   if (tab === 'machine') renderTagManagerMachineList();
   else if (tab === 'content') renderTagManagerContentList();
   else if (tab === 'urgency') renderTagManagerUrgencyList();
+  else if (tab === 'client') renderTagManagerClientList();
   else if (tab === 'custom') renderTagManagerCustomTagsList();
 
   initLucide();
@@ -2476,6 +2742,190 @@ async function updateUrgencyLevel(urgencyId, newLabel, colorKey, shouldRecord = 
   renderTagManagerUrgencyList();
 
   showToast(`✅ 急迫性等級已更新為「${newLabel}」！`);
+  return true;
+}
+
+
+// ==========================================================================
+// 🏢 客戶或廠商 (Client or Vendor) 管理核心模組
+// ==========================================================================
+
+function renderTagManagerClientList() {
+  if (!DOM.tmClientList) return;
+  const clients = (state.clientsVendors && state.clientsVendors.length > 0) ? state.clientsVendors : DEFAULT_CLIENTS_VENDORS;
+  if (DOM.tmClientTotalCount) DOM.tmClientTotalCount.textContent = `共 ${clients.length} 項`;
+
+  DOM.tmClientList.innerHTML = clients.map((c, idx) => {
+    const count = state.notes.filter(n => n.meta && n.meta.clientVendor === c).length;
+    return `
+      <div class="flex items-center justify-between p-2 rounded-lg bg-gray-50 dark:bg-notion-darker border border-gray-200/60 dark:border-notion-borderDark text-xs group" data-client-index="${idx}">
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <i data-lucide="building-2" class="w-4 h-4 text-indigo-500 shrink-0"></i>
+          <span class="font-bold text-gray-800 dark:text-gray-200 truncate">${escapeHtml(c)}</span>
+          <span class="text-[10px] px-1.5 py-0.2 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 font-semibold shrink-0">關聯 ${count} 篇</span>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button class="tm-rename-client-btn p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 hover:text-indigo-600 transition" title="更名客戶/廠商" data-client-name="${escapeHtml(c)}">
+            <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+          </button>
+          <button class="tm-del-client-btn p-1 rounded hover:bg-rose-100 dark:hover:bg-rose-950/50 text-gray-400 hover:text-rose-600 transition" title="刪除此客戶/廠商" data-client-name="${escapeHtml(c)}">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  DOM.tmClientList.querySelectorAll('.tm-rename-client-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const oldName = btn.dataset.clientName;
+      const newName = prompt(`請輸入「${oldName}」的新名稱：`, oldName);
+      if (newName !== null) renameClientVendor(oldName, newName);
+    });
+  });
+
+  DOM.tmClientList.querySelectorAll('.tm-del-client-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.clientName;
+      deleteClientVendor(name);
+    });
+  });
+
+  initLucide();
+}
+
+async function addClientVendor(name, shouldRecord = true) {
+  name = (name || '').trim();
+  if (!name) {
+    showToast('請輸入客戶或廠商名稱！');
+    return false;
+  }
+  if (!state.clientsVendors) state.clientsVendors = DEFAULT_CLIENTS_VENDORS.slice();
+  if (state.clientsVendors.includes(name)) {
+    showToast(`客戶/廠商「${name}」已存在！`);
+    return false;
+  }
+
+  state.clientsVendors.push(name);
+  saveWorkspaceConfigToDrive();
+  renderWorkTagSelects();
+  renderWorkTagLists();
+  renderTagManagerClientList();
+  renderTableView();
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'add_client',
+      title: `🏢 新增客戶/廠商「${name}」`,
+      subtitle: '已加入工作區設定',
+      undo: () => { deleteClientVendor(name, false); },
+      redo: () => { addClientVendor(name, false); }
+    });
+  }
+
+  showToast(`✅ 已新增客戶/廠商「${name}」！`);
+  return true;
+}
+
+async function renameClientVendor(oldName, newName, shouldRecord = true) {
+  newName = (newName || '').trim();
+  if (!newName) {
+    showToast('名稱不能為空！');
+    return false;
+  }
+  if (newName === oldName) return true;
+  if (!state.clientsVendors) state.clientsVendors = DEFAULT_CLIENTS_VENDORS.slice();
+  if (state.clientsVendors.includes(newName)) {
+    showToast(`客戶/廠商「${newName}」已存在！`);
+    return false;
+  }
+
+  const idx = state.clientsVendors.indexOf(oldName);
+  if (idx === -1) return false;
+  state.clientsVendors[idx] = newName;
+
+  const affectedNotes = state.notes.filter(n => n.meta && n.meta.clientVendor === oldName);
+  affectedNotes.forEach(n => {
+    n.meta.clientVendor = newName;
+  });
+
+  if (state.currentClientVendorFilter === oldName) {
+    state.currentClientVendorFilter = newName;
+  }
+  if (state.currentNote && state.currentNote.meta && state.currentNote.meta.clientVendor === oldName) {
+    state.currentNote.meta.clientVendor = newName;
+  }
+
+  saveWorkspaceConfigToDrive();
+  renderWorkTagSelects();
+  renderWorkTagLists();
+  renderCurrentNote();
+  renderCurrentView();
+  renderTagManagerClientList();
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'rename_client',
+      title: `🏢 更名客戶/廠商「${oldName}」➔「${newName}」`,
+      subtitle: `已同步更新 ${affectedNotes.length} 篇筆記之客戶屬性`,
+      undo: () => { renameClientVendor(newName, oldName, false); },
+      redo: () => { renameClientVendor(oldName, newName, false); }
+    });
+  }
+
+  showToast(`✅ 已更名為「${newName}」並同步雲端！`);
+  return true;
+}
+
+async function deleteClientVendor(name, shouldRecord = true) {
+  if (!state.clientsVendors) state.clientsVendors = DEFAULT_CLIENTS_VENDORS.slice();
+  const idx = state.clientsVendors.indexOf(name);
+  if (idx === -1) return false;
+
+  const affectedNotes = state.notes.filter(n => n.meta && n.meta.clientVendor === name);
+  if (shouldRecord && affectedNotes.length > 0) {
+    if (!confirm(`確定要刪除「${name}」嗎？目前有 ${affectedNotes.length} 篇筆記關聯此客戶，刪除後將設為未指定。`)) {
+      return false;
+    }
+  }
+
+  state.clientsVendors.splice(idx, 1);
+  affectedNotes.forEach(n => {
+    n.meta.clientVendor = '';
+  });
+
+  if (state.currentClientVendorFilter === name) {
+    state.currentClientVendorFilter = null;
+  }
+  if (state.currentNote && state.currentNote.meta && state.currentNote.meta.clientVendor === name) {
+    state.currentNote.meta.clientVendor = '';
+  }
+
+  saveWorkspaceConfigToDrive();
+  renderWorkTagSelects();
+  renderWorkTagLists();
+  renderCurrentNote();
+  renderCurrentView();
+  renderTagManagerClientList();
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'delete_client',
+      title: `🏢 刪除客戶/廠商「${name}」`,
+      subtitle: `已解除 ${affectedNotes.length} 篇筆記之客戶標籤`,
+      undo: () => {
+        if (!state.clientsVendors.includes(name)) state.clientsVendors.splice(idx, 0, name);
+        affectedNotes.forEach(n => { n.meta.clientVendor = name; });
+        saveWorkspaceConfigToDrive();
+        renderWorkTagSelects();
+        renderWorkTagLists();
+        renderCurrentView();
+      },
+      redo: () => { deleteClientVendor(name, false); }
+    });
+  }
+
+  showToast(`🗑️ 已刪除客戶/廠商「${name}」！`);
   return true;
 }
 
@@ -4395,6 +4845,7 @@ function buildFrontmatterString(meta) {
   if (meta.machineModel) lines.push(`machineModel: ${meta.machineModel}`);
   if (meta.workContent) lines.push(`workContent: ${meta.workContent}`);
   if (meta.urgency) lines.push(`urgency: ${meta.urgency}`);
+  if (meta.clientVendor) lines.push(`clientVendor: ${meta.clientVendor}`);
   if (meta.dueDate) lines.push(`dueDate: ${meta.dueDate}`);
   if (meta.tags && meta.tags.length) lines.push(`tags: ${JSON.stringify(meta.tags)}`);
   lines.push('---');
@@ -4423,6 +4874,11 @@ function renderNotesList() {
   // 3. 🚨 急迫性篩選 (再來是)
   if (state.currentUrgencyFilter) {
     filtered = filtered.filter(n => n.meta && n.meta.urgency === state.currentUrgencyFilter);
+  }
+
+  // 4. 🏢 客戶或廠商篩選 (非強制)
+  if (state.currentClientVendorFilter) {
+    filtered = filtered.filter(n => n.meta && n.meta.clientVendor === state.currentClientVendorFilter);
   }
 
   // 4. 自訂通用標籤篩選
@@ -4501,6 +4957,7 @@ function renderNotesList() {
         ${machine ? `<span class="px-1.5 py-0.2 rounded bg-blue-50 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 font-medium">🚜 ${escapeHtml(machine)}</span>` : ''}
         ${content ? `<span class="px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300 font-medium">${escapeHtml(content)}</span>` : ''}
         ${urgency ? `<span class="px-1.5 py-0.2 rounded font-bold ${urgencyColor}">${escapeHtml(urgency.split(' ')[0])}</span>` : ''}
+        ${note.meta && note.meta.clientVendor ? `<span class="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300 font-medium border border-indigo-200/50 dark:border-indigo-800/50">🏢 ${escapeHtml(note.meta.clientVendor)}</span>` : ''}
       </div>
       <div class="flex items-center justify-end text-[10px] text-gray-400 mt-1">
         <span class="shrink-0 text-[10px] font-mono">${dateStr}</span>
@@ -5018,6 +5475,7 @@ async function saveCurrentNote() {
     machineModel: DOM.noteMachineSelect ? DOM.noteMachineSelect.value : '未分類',
     workContent: DOM.noteContentSelect ? DOM.noteContentSelect.value : '未分類',
     urgency: DOM.noteUrgencySelect ? DOM.noteUrgencySelect.value : '未分類',
+    clientVendor: DOM.noteClientSelect ? DOM.noteClientSelect.value.trim() : '',
     dueDate: DOM.noteDueDate ? DOM.noteDueDate.value : '',
     tags: (state.currentNote && state.currentNote.meta && state.currentNote.meta.tags) || [],
     pinned: state.currentNote ? state.currentNote.meta.pinned : false
@@ -7320,6 +7778,7 @@ function renderTableView() {
   const filterMachine = DOM.tableFilterMachine ? DOM.tableFilterMachine.value : '';
   const filterContent = DOM.tableFilterContent ? DOM.tableFilterContent.value : '';
   const filterUrgency = DOM.tableFilterUrgency ? DOM.tableFilterUrgency.value : '';
+  const filterClient = DOM.tableFilterClient ? DOM.tableFilterClient.value : '';
   const filterTag = DOM.tableFilterTag ? DOM.tableFilterTag.value : '';
 
   let filteredNotes = state.notes.filter(note => {
@@ -7330,6 +7789,10 @@ function renderTableView() {
     if (filterMachine && meta.machineModel !== filterMachine) return false;
     if (filterContent && meta.workContent !== filterContent) return false;
     if (filterUrgency && meta.urgency !== filterUrgency) return false;
+    if (filterClient) {
+      if (filterClient === '__empty__' && meta.clientVendor) return false;
+      if (filterClient !== '__empty__' && meta.clientVendor !== filterClient) return false;
+    }
     if (filterTag && (!Array.isArray(meta.tags) || !meta.tags.includes(filterTag))) return false;
     return true;
   });
@@ -7384,6 +7847,9 @@ function renderTableView() {
         <td class="p-2.5 font-medium text-amber-600 dark:text-amber-400">📋 ${escapeHtml(content)}</td>
         <td class="p-2.5">
           <span class="px-2 py-0.5 rounded text-[11px] font-bold ${urgencyClass}">${escapeHtml(urgency)}</span>
+        </td>
+        <td class="p-2.5 font-medium text-indigo-600 dark:text-indigo-400">
+          ${meta.clientVendor ? `<span class="px-2 py-0.5 rounded text-[11px] bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50">🏢 ${escapeHtml(meta.clientVendor)}</span>` : '<span class="text-gray-300 dark:text-gray-600 text-[11px]">未指定</span>'}
         </td>
         <td class="p-2.5 text-gray-500 font-mono text-[11px]">${dueDate || '<span class="text-gray-300 dark:text-gray-600">未排定</span>'}</td>
         <td class="p-2.5">
@@ -8961,6 +9427,7 @@ function bindEvents() {
       state.currentMachineFilter = null;
       state.currentContentFilter = null;
       state.currentUrgencyFilter = null;
+      state.currentClientVendorFilter = null;
       state.currentTagFilter = null;
       state.filterMode = 'all';
       if (DOM.searchInput) DOM.searchInput.value = '';
