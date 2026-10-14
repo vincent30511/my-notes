@@ -2094,3 +2094,35 @@ details.notion-media-collapse[open] summary .collapse-arrow {
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* 🗑️ 媒體卡片與附件刪除按鈕樣式 */
+.media-card-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.media-card-delete-btn:hover {
+  transform: scale(1.1);
+}
+.media-caption-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.media-caption-delete-btn:hover {
+  transform: scale(1.05);
+}
+.file-attachment-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.file-attachment-delete-btn:hover {
+  transform: scale(1.1);
+}

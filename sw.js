@@ -1,12 +1,12 @@
-// LVI_Note Service Worker (v2.5.0)
+// LVI_Note Service Worker (v2.6.1)
 // 支援離線快取、PWA 桌面安裝與背景排程監聽 (支援 Android / POCO X8 Pro & PC)
 
-const CACHE_NAME = 'lvi-note-cache-v2.5.0';
+const CACHE_NAME = 'lvi-note-cache-v2.6.1';
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './app.js?v=20261012_v2.5.0',
-  './styles.css?v=20261012_v2.5.0',
+  './app.js?v=20261012_v2.6.1',
+  './styles.css?v=20261012_v2.6.1',
   './manifest.json',
   './logo.png',
   './icon-192.png',

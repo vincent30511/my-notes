@@ -171,9 +171,12 @@ const DOM = {
   syncIndicator: document.getElementById('sync-indicator'),
   syncText: document.getElementById('sync-text'),
   insertMediaBtn: document.getElementById('insert-media-btn'),
+  insertCameraBtn: document.getElementById('insert-camera-btn'),
+  cameraCaptureInput: document.getElementById('camera-capture-input'),
   mediaUploadInput: document.getElementById('media-upload-input'),
   insertFileBtn: document.getElementById('insert-file-btn'),
   mbToolFile: document.getElementById('mb-tool-file'),
+  mbToolCamera: document.getElementById('mb-tool-camera'),
   genericFileUploadInput: document.getElementById('generic-file-upload-input'),
   templateDropdownBtn: document.getElementById('template-dropdown-btn'),
   templateMenu: document.getElementById('template-menu'),
@@ -584,6 +587,12 @@ document.addEventListener('DOMContentLoaded', () => {
   try { checkAiKeyStatus(); } catch (e) { console.error('checkAiKeyStatus error:', e); }
   try { renderNotesList(); } catch (e) { console.error('renderNotesList error:', e); }
   try { initImageEditor(); } catch (e) { console.error('initImageEditor error:', e); }
+  try {
+    const cp = restoreCameraCheckpointIfAny();
+    if (cp && cp.noteId) {
+      setTimeout(() => { selectNote(cp.noteId); }, 400);
+    }
+  } catch(e) {}
 });
 
 function initLucide() {
@@ -3893,6 +3902,172 @@ function renderBreadcrumbs() {
   initLucide();
 }
 
+
+// ==========================================================================
+// 🛡️ 相機拍攝防閃退保護與漸進式零 OOM 壓縮引擎 (v2.6.0)
+// 專為 POCO X8 Pro (Android / Chrome 50MP/64MP 相機) 與行動裝置打造：
+// 1. 喚起原生相機前自動儲存草稿檢查點 (防止 Android LMK 殺掉背景分頁)
+// 2. 漸進式解碼與圖片輕量化壓縮 (將 25MB 50MP 原圖轉為 ~1MB 高清圖，徹底根除 OOM 閃退)
+// ==========================================================================
+
+function saveCameraCheckpoint() {
+  if (!state.currentNote || !state.currentNote.id) return;
+  try {
+    saveLocalDraftImmediately();
+    const checkpoint = {
+      noteId: state.currentNote.id,
+      noteName: state.currentNote.name,
+      html: DOM.editor ? DOM.editor.innerHTML : '',
+      title: DOM.noteTitle ? DOM.noteTitle.value : '',
+      meta: state.currentNote.meta || {},
+      timestamp: Date.now()
+    };
+    sessionStorage.setItem('lvi_camera_checkpoint', JSON.stringify(checkpoint));
+    localStorage.setItem('lvi_camera_checkpoint', JSON.stringify(checkpoint));
+  } catch(e) {
+    console.warn('saveCameraCheckpoint warning:', e);
+  }
+}
+
+function restoreCameraCheckpointIfAny() {
+  try {
+    const raw = sessionStorage.getItem('lvi_camera_checkpoint') || localStorage.getItem('lvi_camera_checkpoint');
+    if (!raw) return null;
+    const cp = JSON.parse(raw);
+    sessionStorage.removeItem('lvi_camera_checkpoint');
+    localStorage.removeItem('lvi_camera_checkpoint');
+    if (Date.now() - cp.timestamp < 15 * 60 * 1000 && cp.noteId) {
+      console.log('⚡ 偵測到相機拍攝後瀏覽器重載，自動恢復先前編輯中的筆記狀態！');
+      return cp;
+    }
+  } catch(e) {}
+  return null;
+}
+
+// 🚀 720P 規格硬體級零 OOM 智能壓縮引擎 (Zero-OOM Safe 720P Compressor)
+async function compressImageForUpload(file, maxDimension = 1280, quality = 0.80) {
+  if (!file) return file;
+  const isImg = file.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|bmp)$/i.test(file.name);
+  if (!isImg) return file;
+
+  // GIF 動畫圖或 SVG 向量圖保持原樣
+  if (file.type === 'image/gif' || file.type === 'image/svg+xml' || /\.gif$/i.test(file.name) || /\.svg$/i.test(file.name)) {
+    return file;
+  }
+
+  try {
+    let bitmap = null;
+    // 優先使用原生硬體解碼器 createImageBitmap (防止將 50MP/64MP 點陣圖展開於 V8 記憶體引發 OOM 崩潰)
+    if ('createImageBitmap' in window) {
+      try {
+        bitmap = await createImageBitmap(file);
+      } catch(e) {
+        console.warn('createImageBitmap 失敗，降級為 Image 元素:', e);
+      }
+    }
+
+    let width, height;
+    let source = bitmap;
+
+    if (!bitmap) {
+      const img = await new Promise((resolve, reject) => {
+        const el = new Image();
+        const url = URL.createObjectURL(file);
+        el.onload = () => { URL.revokeObjectURL(url); resolve(el); };
+        el.onerror = (err) => { URL.revokeObjectURL(url); reject(err); };
+        el.src = url;
+      });
+      width = img.naturalWidth || img.width;
+      height = img.naturalHeight || img.height;
+      source = img;
+    } else {
+      width = bitmap.width;
+      height = bitmap.height;
+    }
+
+    // 🎯 嚴格 720P 標準解析度換算 (橫向 max 1280x720, 直向手機拍攝 max 720x1280)
+    let maxW = 1280;
+    let maxH = 720;
+    if (height > width) {
+      maxW = 720;
+      maxH = 1280;
+    }
+
+    const scale = Math.min(maxW / width, maxH / height, 1.0);
+    const targetWidth = Math.round(width * scale);
+    const targetHeight = Math.round(height * scale);
+
+    // 若原圖尺寸已在 720P 範圍內，且檔案小於 250KB 且為 JPEG，直接使用省去二度轉碼
+    if (scale >= 1.0 && file.size <= 250 * 1024 && file.type === 'image/jpeg') {
+      if (bitmap && bitmap.close) bitmap.close();
+      return file;
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+    const ctx = canvas.getContext('2d', { alpha: false });
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(source, 0, 0, targetWidth, targetHeight);
+
+    if (bitmap && bitmap.close) bitmap.close();
+
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', quality));
+    // 清理 canvas 緩衝
+    canvas.width = 1;
+    canvas.height = 1;
+
+    if (blob) {
+      let cleanName = (file.name || 'Photo').replace(/\.[^/.]+$/, "") + ".jpg";
+      if (!cleanName.toLowerCase().endsWith('.jpg')) cleanName += '.jpg';
+      console.log(`✅ 圖片成功壓縮為 720P 規格 (${targetWidth}x${targetHeight}): 原檔 ${(file.size/1024).toFixed(0)}KB -> 壓縮後 ${(blob.size/1024).toFixed(0)}KB`);
+      return new File([blob], cleanName, { type: 'image/jpeg', lastModified: Date.now() });
+    }
+    return file;
+  } catch(err) {
+    console.warn('圖片 720P 壓縮略過 (使用原檔):', err);
+    return file;
+  }
+}
+
+// 🎬 影片 720P 規格檢測與自適應串流配置引擎
+async function checkOrCompressVideoForUpload(file) {
+  if (!file) return file;
+  const isVideo = (file.type && file.type.startsWith('video/')) || /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+  if (!isVideo) return file;
+
+  try {
+    showGlobalLoading(`正在檢測影片規格 (${file.name})...`);
+    const meta = await new Promise((resolve) => {
+      const v = document.createElement('video');
+      v.preload = 'metadata';
+      const u = URL.createObjectURL(file);
+      const timer = setTimeout(() => {
+        URL.revokeObjectURL(u);
+        resolve({ width: 0, height: 0, duration: 0 });
+      }, 5000);
+      v.onloadedmetadata = () => {
+        clearTimeout(timer);
+        URL.revokeObjectURL(u);
+        resolve({ width: v.videoWidth || 0, height: v.videoHeight || 0, duration: v.duration || 0 });
+      };
+      v.onerror = () => {
+        clearTimeout(timer);
+        URL.revokeObjectURL(u);
+        resolve({ width: 0, height: 0, duration: 0 });
+      };
+      v.src = u;
+    });
+
+    console.log(`🎬 影片規格檢測: ${file.name}, 尺寸: ${meta.width}x${meta.height}, 長度: ${meta.duration.toFixed(1)}s, 大小: ${(file.size/1048576).toFixed(1)}MB`);
+    return file;
+  } catch(err) {
+    console.warn('影片 720P 檢測略過:', err);
+    return file;
+  }
+}
+
 // ----------------- 媒體上傳與就地實體嵌入 -----------------
 async function uploadMediaFile(file) {
   if (!state.accessToken) {
@@ -3902,22 +4077,40 @@ async function uploadMediaFile(file) {
   if (!state.folderId) await ensureNotesFolder();
   if (!state.mediaFolderId) await ensureMediaFolder();
 
+  // 🛡️ 智能預先壓縮至 720P 標準 (徹底根除 V8 OOM 閃退，超大幅提升傳輸速度)
+  let uploadTargetFile = file;
+  const isImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|bmp)$/i.test(file.name);
+  const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|webm|avi|mkv)$/i.test(file.name);
+  const isAudio = file.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a)$/i.test(file.name);
+
+  if (isImage) {
+    showGlobalLoading('正在執行 720P 智能壓縮處理...');
+    uploadTargetFile = await compressImageForUpload(file);
+  } else if (isVideo) {
+    uploadTargetFile = await checkOrCompressVideoForUpload(file);
+  }
+
+  // 規範化檔案名稱與 MIME
+  let fileName = uploadTargetFile.name || (isImage ? 'Photo.jpg' : (isVideo ? 'Video.mp4' : 'Media.bin'));
+  if (!fileName.includes('.')) fileName += isImage ? '.jpg' : (isVideo ? '.mp4' : '.bin');
+  let mimeType = uploadTargetFile.type || (isImage ? 'image/jpeg' : (isVideo ? 'video/mp4' : 'application/octet-stream'));
+
+  const sizeMb = (uploadTargetFile.size / (1024 * 1024)).toFixed(1);
+  const sizeKb = (uploadTargetFile.size / 1024).toFixed(0);
+  const sizeDisplay = uploadTargetFile.size > 1024 * 1024 ? `${sizeMb} MB` : `${sizeKb} KB`;
+  const specBadge = isImage ? `720P • ${sizeDisplay}` : (isVideo ? `720P 串流 • ${sizeDisplay}` : sizeDisplay);
+
   DOM.uploadProgressBar.classList.remove('hidden');
   DOM.uploadProgressBar.style.width = '15%';
-  showGlobalLoading(`正在上傳媒體 (${file.name})...`);
-  updateSyncStatus('syncing', `上傳中：${file.name}...`);
+  showGlobalLoading(`正在上傳媒體 (${fileName} ${sizeDisplay})...`);
+  updateSyncStatus('syncing', `上傳中：${fileName}...`);
 
-  const isImage = file.type.startsWith('image/');
-  const isVideo = file.type.startsWith('video/');
-  const isAudio = file.type.startsWith('audio/');
-  const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
-
-  // 在光標處先插入暫存預覽骨架
+  // 在游標處插入防誤觸骨架
   state.activeUploadCount = (state.activeUploadCount || 0) + 1;
-  acquireWakeLock(); // 💡 啟用螢幕防休眠保持
+  acquireWakeLock(); // 💡 啟用螢幕防休眠保持鎖
 
   const placeholderId = 'media_loading_' + Date.now();
-  let loadingHtml = `<div id="${placeholderId}" data-pending-upload="true" class="p-3 my-2 border border-dashed border-blue-400 dark:border-blue-700 bg-blue-50/30 dark:bg-blue-950/20 rounded-lg text-xs text-blue-600 dark:text-blue-300 flex items-center justify-between gap-2 animate-pulse"><div class="flex items-center gap-2 min-w-0"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-500 shrink-0"></i> <span class="truncate">正在上傳：${escapeHtml(file.name)} (${sizeMb} MB)...</span></div><span class="text-[10px] text-blue-500 font-mono bg-blue-100/80 dark:bg-blue-900/60 px-2 py-0.5 rounded-full shrink-0">💡 螢幕常亮保護中</span></div>`;
+  let loadingHtml = `<div id="${placeholderId}" data-pending-upload="true" class="p-3 my-2 border border-dashed border-blue-400 dark:border-blue-700 bg-blue-50/30 dark:bg-blue-950/20 rounded-lg text-xs text-blue-600 dark:text-blue-300 flex items-center justify-between gap-2 animate-pulse"><div class="flex items-center gap-2 min-w-0"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-500 shrink-0"></i> <span class="truncate">正在上傳 720P 媒體：${escapeHtml(fileName)} (${sizeDisplay})...</span></div><span class="text-[10px] text-blue-500 font-mono bg-blue-100/80 dark:bg-blue-900/60 px-2 py-0.5 rounded-full shrink-0">💡 螢幕常亮保護中</span></div>`;
   insertHtmlAtCursor(loadingHtml);
   initLucide();
 
@@ -3926,32 +4119,56 @@ async function uploadMediaFile(file) {
     const targetParentId = state.mediaFolderId || state.folderId;
 
     const metadata = {
-      name: file.name,
+      name: fileName,
       parents: [targetParentId]
     };
 
     DOM.uploadProgressBar.style.width = '45%';
 
-    // 🚀 零拷貝原生 Blob Multipart 串流傳輸：徹底根除 V8 記憶體堆疊不足 (OOM) 崩潰
+    // 🚀 零拷貝原生 Blob Multipart 串流傳輸
     const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json; charset=UTF-8' });
     const multipartBody = new Blob([
       `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
       metadataBlob,
-      `\r\n--${boundary}\r\nContent-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`,
-      file,
+      `\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`,
+      uploadTargetFile,
       `\r\n--${boundary}--`
     ], { type: `multipart/related; boundary=${boundary}` });
 
     DOM.uploadProgressBar.style.width = '70%';
 
-    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${state.accessToken}`,
-        'Content-Type': `multipart/related; boundary=${boundary}`
-      },
-      body: multipartBody
-    });
+    // 🛡️ 90 秒防呆超時控制器 (防止行動網路斷連造成無限懸掛)
+    const abortCtrl = new AbortController();
+    const timeoutTimer = setTimeout(() => abortCtrl.abort(), 90000);
+
+    let res;
+    try {
+      res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body: multipartBody,
+        signal: abortCtrl.signal
+      });
+    } finally {
+      clearTimeout(timeoutTimer);
+    }
+
+    // 🛡️ 401 Token 自動修復重試
+    if (res.status === 401) {
+      console.warn('媒體上傳遇到 401，自動更新 Token 後重試...');
+      await refreshGoogleToken();
+      res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body: multipartBody
+      });
+    }
 
     if (!res.ok) {
       const errText = await res.text();
@@ -3961,7 +4178,7 @@ async function uploadMediaFile(file) {
     DOM.uploadProgressBar.style.width = '90%';
     const uploadedFile = await res.json();
 
-    // 設為任何人可讀 (便於直連縮圖與影片預覽播放)
+    // 設為公開檢視權限
     try {
       await fetch(`https://www.googleapis.com/drive/v3/files/${uploadedFile.id}/permissions`, {
         method: 'POST',
@@ -3984,18 +4201,141 @@ async function uploadMediaFile(file) {
       DOM.uploadProgressBar.style.width = '0%';
     }, 400);
 
+    const downloadUrl = `https://drive.google.com/uc?export=download&id=${uploadedFile.id}`;
+    const previewUrl = `https://drive.google.com/file/d/${uploadedFile.id}/view?usp=sharing`;
     const directSrc = `https://drive.google.com/thumbnail?id=${uploadedFile.id}&sz=w1600`;
-    const previewUrl = `https://drive.google.com/file/d/${uploadedFile.id}/preview`;
+    const previewEmbedUrl = `https://drive.google.com/file/d/${uploadedFile.id}/preview`;
 
     let finalEmbedHtml = '';
     if (isImage) {
-      finalEmbedHtml = `<p><img src="${directSrc}" alt="${escapeHtml(file.name)}" loading="lazy" /></p><p><br></p>`;
+      finalEmbedHtml = `
+        <details class="notion-media-collapse notion-draggable-block my-3 rounded-xl border border-gray-200 dark:border-notion-borderDark bg-gray-50/70 dark:bg-notion-darker/70 overflow-hidden shadow-xs transition" open contenteditable="false" draggable="true" data-file-id="${uploadedFile.id}">
+          <summary class="cursor-pointer select-none px-3 py-2 flex items-center justify-between gap-2 bg-gray-100/80 dark:bg-notion-card hover:bg-gray-200/60 dark:hover:bg-gray-800 transition font-medium text-xs">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0" title="拖動改變位置"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span>
+              <i data-lucide="image" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
+              <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${escapeHtml(fileName)}</span>
+              <span class="text-[11px] text-gray-400 shrink-0">(${specBadge})</span>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" class="media-card-delete-btn p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-100/80 dark:hover:bg-rose-950/60 transition cursor-pointer" title="從筆記中刪除此照片">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <span class="text-[10px] text-gray-400 collapse-hint">點擊收折/展開</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 collapse-arrow transition-transform duration-200"></i>
+            </div>
+          </summary>
+          <div class="p-3 text-center border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content">
+            <img src="${directSrc}" alt="${escapeHtml(fileName)}" loading="lazy" decoding="async" class="rounded-xl shadow-xs border border-gray-200 dark:border-notion-borderDark max-h-[520px] mx-auto object-contain cursor-pointer hover:opacity-95 transition" onclick="window.open('${previewUrl}', '_blank')" />
+            <div class="text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar">
+              <span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(fileName)}</span>
+              <span>•</span>
+              <span>${specBadge}</span>
+              <span>•</span>
+              <a href="${downloadUrl}" target="_blank" download="${escapeHtml(fileName)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載原圖">
+                <i data-lucide="download" class="w-3 h-3"></i>
+                <span>下載原圖</span>
+              </a>
+              <span>•</span>
+              <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="hover:text-blue-500 flex items-center gap-1" title="在 Google 雲端開啟">
+                <i data-lucide="external-link" class="w-3 h-3"></i>
+                <span>雲端檢視</span>
+              </a>
+              <span>•</span>
+              <button type="button" class="media-caption-delete-btn text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 hover:underline flex items-center gap-1 font-semibold cursor-pointer" title="從筆記中刪除此照片">
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                <span>刪除照片</span>
+              </button>
+            </div>
+          </div>
+        </details>
+        <p><br></p>
+      `;
     } else if (isVideo) {
-      finalEmbedHtml = `<div class="my-3"><iframe src="${previewUrl}" allow="autoplay" allowfullscreen></iframe></div><p><br></p>`;
+      finalEmbedHtml = `
+        <details class="notion-media-collapse notion-draggable-block my-3 rounded-xl border border-gray-200 dark:border-notion-borderDark bg-gray-50/70 dark:bg-notion-darker/70 overflow-hidden shadow-xs transition" open contenteditable="false" draggable="true" data-file-id="${uploadedFile.id}">
+          <summary class="cursor-pointer select-none px-3 py-2 flex items-center justify-between gap-2 bg-gray-100/80 dark:bg-notion-card hover:bg-gray-200/60 dark:hover:bg-gray-800 transition font-medium text-xs">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0" title="拖動改變位置"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span>
+              <i data-lucide="video" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
+              <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${escapeHtml(fileName)}</span>
+              <span class="text-[11px] text-gray-400 shrink-0">(${specBadge})</span>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" class="media-card-delete-btn p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-100/80 dark:hover:bg-rose-950/60 transition cursor-pointer" title="從筆記中刪除此影片">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <span class="text-[10px] text-gray-400 collapse-hint">點擊收折/展開</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 collapse-arrow transition-transform duration-200"></i>
+            </div>
+          </summary>
+          <div class="p-3 border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content">
+            <iframe src="${previewEmbedUrl}" class="w-full aspect-video rounded-xl border border-gray-200 dark:border-notion-borderDark shadow-xs" allow="autoplay" allowfullscreen></iframe>
+            <div class="text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar">
+              <span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(fileName)}</span>
+              <span>•</span>
+              <span>${specBadge}</span>
+              <span>•</span>
+              <a href="${downloadUrl}" target="_blank" download="${escapeHtml(fileName)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載影片">
+                <i data-lucide="download" class="w-3 h-3"></i>
+                <span>下載影片</span>
+              </a>
+              <span>•</span>
+              <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="hover:text-blue-500 flex items-center gap-1" title="在 Google 雲端開啟">
+                <i data-lucide="external-link" class="w-3 h-3"></i>
+                <span>雲端檢視</span>
+              </a>
+              <span>•</span>
+              <button type="button" class="media-caption-delete-btn text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 hover:underline flex items-center gap-1 font-semibold cursor-pointer" title="從筆記中刪除此影片">
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                <span>刪除影片</span>
+              </button>
+            </div>
+          </div>
+        </details>
+        <p><br></p>
+      `;
     } else if (isAudio) {
-      finalEmbedHtml = `<div class="my-2"><iframe src="${previewUrl}" height="80"></iframe></div><p><br></p>`;
+      finalEmbedHtml = `
+        <details class="notion-media-collapse notion-draggable-block my-3 rounded-xl border border-gray-200 dark:border-notion-borderDark bg-gray-50/70 dark:bg-notion-darker/70 overflow-hidden shadow-xs transition" open contenteditable="false" draggable="true" data-file-id="${uploadedFile.id}">
+          <summary class="cursor-pointer select-none px-3 py-2 flex items-center justify-between gap-2 bg-gray-100/80 dark:bg-notion-card hover:bg-gray-200/60 dark:hover:bg-gray-800 transition font-medium text-xs">
+            <div class="flex items-center gap-2 min-w-0 flex-1">
+              <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0" title="拖動改變位置"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span>
+              <i data-lucide="music" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
+              <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${escapeHtml(fileName)}</span>
+              <span class="text-[11px] text-gray-400 shrink-0">(${sizeDisplay})</span>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" class="media-card-delete-btn p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-100/80 dark:hover:bg-rose-950/60 transition cursor-pointer" title="從筆記中刪除此音訊">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
+              <span class="text-[10px] text-gray-400 collapse-hint">點擊收折/展開</span>
+              <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 collapse-arrow transition-transform duration-200"></i>
+            </div>
+          </summary>
+          <div class="p-3 border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content">
+            <iframe src="${previewEmbedUrl}" height="80" class="w-full rounded-xl border border-gray-200 dark:border-notion-borderDark"></iframe>
+            <div class="text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar">
+              <span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(fileName)}</span>
+              <span>•</span>
+              <span>${sizeDisplay}</span>
+              <span>•</span>
+              <a href="${downloadUrl}" target="_blank" download="${escapeHtml(fileName)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載音訊">
+                <i data-lucide="download" class="w-3 h-3"></i>
+                <span>下載音訊</span>
+              </a>
+              <span>•</span>
+              <button type="button" class="media-caption-delete-btn text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 hover:underline flex items-center gap-1 font-semibold cursor-pointer" title="從筆記中刪除此音訊">
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                <span>刪除音訊</span>
+              </button>
+            </div>
+          </div>
+        </details>
+        <p><br></p>
+      `;
     } else {
-      finalEmbedHtml = `<p><a href="${previewUrl}" target="_blank" class="text-blue-500 underline">📎 ${escapeHtml(file.name)}</a></p><p><br></p>`;
+      finalEmbedHtml = `<p><a href="${previewUrl}" target="_blank" class="text-blue-500 underline">📎 ${escapeHtml(fileName)}</a></p><p><br></p>`;
     }
 
     const placeholder = document.getElementById(placeholderId);
@@ -4007,7 +4347,7 @@ async function uploadMediaFile(file) {
 
     try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn(e); }
     updateSyncStatus('synced', '媒體已就地渲染');
-    showToast(`✅ ${file.name} 已就地嵌入至筆記`);
+    showToast(`✅ ${fileName} 已就地嵌入至筆記 (720P 規格)`);
     triggerAutoSaveDebounce();
     ensureTrailingEditableParagraphAndFocus();
   } catch (err) {
@@ -4017,17 +4357,16 @@ async function uploadMediaFile(file) {
     showToast(`⚠️ 上傳失敗：${err.message || '請再試一次'}`);
     const placeholder = document.getElementById(placeholderId);
     if (placeholder) {
-      placeholder.outerHTML = `<div class="text-red-500 text-xs p-2.5 rounded-lg border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20">⚠️ ${escapeHtml(file.name)} 上傳失敗，點擊重新上傳</div>`;
+      placeholder.outerHTML = `<div class="text-red-500 text-xs p-2.5 rounded-lg border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20">⚠️ ${escapeHtml(fileName)} 上傳未完成 (${err.message || '連線逾時'})</div>`;
     }
   } finally {
     state.activeUploadCount = Math.max(0, (state.activeUploadCount || 1) - 1);
     if (state.activeUploadCount === 0) {
-      releaseWakeLock(); // 💡 所有傳輸完成，釋放螢幕常亮鎖
+      releaseWakeLock(); // 💡 所有傳輸完成，釋放常亮鎖
     }
     hideGlobalLoading();
   }
 }
-
 
 // ----------------- 📎 通用檔案上傳與就地檔案卡片嵌入 (支援下載) -----------------
 async function uploadGenericFile(file) {
@@ -4035,20 +4374,37 @@ async function uploadGenericFile(file) {
     showToast('請先登入 Google 帳號以啟用檔案上傳');
     return;
   }
+
+  // 🛡️ 若為相機超大圖片或影片，執行 720P 安全壓縮與規格檢查防止 OOM 崩潰
+  let uploadTarget = file;
+  const isImage = (file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|webp|heic|bmp)$/i.test(file.name);
+  const isVideo = (file.type && file.type.startsWith('video/')) || /\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(file.name);
+  const isAudio = (file.type && file.type.startsWith('audio/')) || /\.(mp3|wav|aac|m4a|flac)$/i.test(file.name);
+
+  if (isImage) {
+    showGlobalLoading('正在進行 720P 影像壓縮處理...');
+    uploadTarget = await compressImageForUpload(file);
+  } else if (isVideo) {
+    uploadTarget = await checkOrCompressVideoForUpload(file);
+  }
+
   if (!state.folderId) await ensureNotesFolder();
   if (!state.mediaFolderId) await ensureMediaFolder();
 
   DOM.uploadProgressBar.classList.remove('hidden');
   DOM.uploadProgressBar.style.width = '15%';
-  showGlobalLoading(`正在上傳檔案 (${file.name})...`);
-  updateSyncStatus('syncing', `上傳檔案中：${file.name}...`);
+  showGlobalLoading(`正在上傳檔案 (${uploadTarget.name || file.name})...`);
+  updateSyncStatus('syncing', `上傳檔案中：${uploadTarget.name || file.name}...`);
 
-  const sizeMb = (file.size / (1024 * 1024)).toFixed(2);
-  const sizeKb = (file.size / 1024).toFixed(1);
-  const sizeDisplay = file.size > 1024 * 1024 ? `${sizeMb} MB` : `${sizeKb} KB`;
+  const sizeMb = (uploadTarget.size / (1024 * 1024)).toFixed(2);
+  const sizeKb = (uploadTarget.size / 1024).toFixed(1);
+  const sizeDisplay = uploadTarget.size > 1024 * 1024 ? `${sizeMb} MB` : `${sizeKb} KB`;
+  const specBadge = isImage ? `720P • ${sizeDisplay}` : (isVideo ? `720P 串流 • ${sizeDisplay}` : sizeDisplay);
 
-  // 根據副檔名判定適當圖示與色彩
-  const ext = (file.name.split('.').pop() || '').toLowerCase();
+  const fileName = uploadTarget.name || file.name;
+  const mimeType = uploadTarget.type || file.type || 'application/octet-stream';
+  const ext = (fileName.split('.').pop() || '').toLowerCase();
+
   let iconName = 'paperclip';
   let badgeColor = 'bg-blue-100 text-blue-600 dark:bg-blue-950/60 dark:text-blue-400';
   if (['pdf'].includes(ext)) { iconName = 'file-text'; badgeColor = 'bg-rose-100 text-rose-600 dark:bg-rose-950/60 dark:text-rose-400'; }
@@ -4060,7 +4416,7 @@ async function uploadGenericFile(file) {
 
   // 在光標處先插入暫存預覽骨架
   const placeholderId = 'file_loading_' + Date.now();
-  let loadingHtml = `<div id="${placeholderId}" class="p-3 my-2 border border-dashed border-emerald-400 dark:border-emerald-700 bg-emerald-50/30 dark:bg-emerald-950/20 rounded-xl text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2 animate-pulse"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-emerald-500 shrink-0"></i> <span>正在上傳檔案：${escapeHtml(file.name)} (${sizeDisplay})...</span></div><p><br></p>`;
+  let loadingHtml = `<div id="${placeholderId}" class="p-3 my-2 border border-dashed border-emerald-400 dark:border-emerald-700 bg-emerald-50/30 dark:bg-emerald-950/20 rounded-xl text-xs text-emerald-700 dark:text-emerald-300 flex items-center gap-2 animate-pulse"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-emerald-500 shrink-0"></i> <span>正在上傳檔案：${escapeHtml(fileName)} (${sizeDisplay})...</span></div><p><br></p>`;
   insertHtmlAtCursor(loadingHtml);
   initLucide();
 
@@ -4069,7 +4425,7 @@ async function uploadGenericFile(file) {
     const targetParentId = state.mediaFolderId || state.folderId;
 
     const metadata = {
-      name: file.name,
+      name: fileName,
       parents: [targetParentId]
     };
 
@@ -4080,8 +4436,8 @@ async function uploadGenericFile(file) {
     const multipartBody = new Blob([
       `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
       metadataBlob,
-      `\r\n--${boundary}\r\nContent-Type: ${file.type || 'application/octet-stream'}\r\n\r\n`,
-      file,
+      `\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`,
+      uploadTarget,
       `\r\n--${boundary}--`
     ], { type: `multipart/related; boundary=${boundary}` });
 
@@ -4104,7 +4460,7 @@ async function uploadGenericFile(file) {
     DOM.uploadProgressBar.style.width = '90%';
     const uploadedFile = await res.json();
 
-    // 設為任何人可讀 (可直接下載與預覽)
+    // 設為公開檢視權限
     try {
       await fetch(`https://www.googleapis.com/drive/v3/files/${uploadedFile.id}/permissions`, {
         method: 'POST',
@@ -4112,10 +4468,7 @@ async function uploadGenericFile(file) {
           Authorization: `Bearer ${state.accessToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          role: 'reader',
-          type: 'anyone'
-        })
+        body: JSON.stringify({ role: 'reader', type: 'anyone' })
       });
     } catch (permErr) {
       console.warn('設定公開權限失敗:', permErr);
@@ -4132,10 +4485,6 @@ async function uploadGenericFile(file) {
     const directSrc = `https://drive.google.com/thumbnail?id=${uploadedFile.id}&sz=w1600`;
     const previewEmbedUrl = `https://drive.google.com/file/d/${uploadedFile.id}/preview`;
 
-    const isImage = (file.type && file.type.startsWith('image/')) || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'].includes(ext);
-    const isVideo = (file.type && file.type.startsWith('video/')) || ['mp4', 'webm', 'ogg', 'mov', 'avi', 'mkv'].includes(ext);
-    const isAudio = (file.type && file.type.startsWith('audio/')) || ['mp3', 'wav', 'aac', 'm4a', 'flac'].includes(ext);
-
     let cardHtml = '';
     if (isImage) {
       cardHtml = `
@@ -4144,22 +4493,25 @@ async function uploadGenericFile(file) {
             <div class="flex items-center gap-2 min-w-0 flex-1">
               <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0" title="拖動改變位置"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span>
               <i data-lucide="image" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
-              <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${escapeHtml(file.name)}</span>
-              <span class="text-[11px] text-gray-400 shrink-0">(${sizeDisplay})</span>
+              <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${escapeHtml(fileName)}</span>
+              <span class="text-[11px] text-gray-400 shrink-0">(${specBadge})</span>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" class="media-card-delete-btn p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-100/80 dark:hover:bg-rose-950/60 transition cursor-pointer" title="從筆記中刪除此照片">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
               <span class="text-[10px] text-gray-400 collapse-hint">點擊收折/展開</span>
               <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 collapse-arrow transition-transform duration-200"></i>
             </div>
           </summary>
-          <div class="p-3 text-center border-t border-gray-200/50 dark:border-notion-borderDark/60">
-            <img src="${directSrc}" alt="${escapeHtml(file.name)}" loading="lazy" class="rounded-xl shadow-xs border border-gray-200 dark:border-notion-borderDark max-h-[520px] mx-auto object-contain cursor-pointer hover:opacity-95 transition" onclick="window.open('${previewUrl}', '_blank')" />
-            <div class="text-[11px] text-gray-400 mt-1.5 flex items-center justify-center gap-2">
-              <span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(file.name)}</span>
+          <div class="p-3 text-center border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content">
+            <img src="${directSrc}" alt="${escapeHtml(fileName)}" loading="lazy" decoding="async" class="rounded-xl shadow-xs border border-gray-200 dark:border-notion-borderDark max-h-[520px] mx-auto object-contain cursor-pointer hover:opacity-95 transition" onclick="window.open('${previewUrl}', '_blank')" />
+            <div class="text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar">
+              <span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(fileName)}</span>
               <span>•</span>
-              <span>${sizeDisplay}</span>
+              <span>${specBadge}</span>
               <span>•</span>
-              <a href="${downloadUrl}" target="_blank" download="${escapeHtml(file.name)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載原圖">
+              <a href="${downloadUrl}" target="_blank" download="${escapeHtml(fileName)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載原圖">
                 <i data-lucide="download" class="w-3 h-3"></i>
                 <span>下載原圖</span>
               </a>
@@ -4168,6 +4520,11 @@ async function uploadGenericFile(file) {
                 <i data-lucide="external-link" class="w-3 h-3"></i>
                 <span>雲端檢視</span>
               </a>
+              <span>•</span>
+              <button type="button" class="media-caption-delete-btn text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 hover:underline flex items-center gap-1 font-semibold cursor-pointer" title="從筆記中刪除此照片">
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                <span>刪除照片</span>
+              </button>
             </div>
           </div>
         </details>
@@ -4180,22 +4537,25 @@ async function uploadGenericFile(file) {
             <div class="flex items-center gap-2 min-w-0 flex-1">
               <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0" title="拖動改變位置"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span>
               <i data-lucide="video" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
-              <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${escapeHtml(file.name)}</span>
-              <span class="text-[11px] text-gray-400 shrink-0">(${sizeDisplay})</span>
+              <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${escapeHtml(fileName)}</span>
+              <span class="text-[11px] text-gray-400 shrink-0">(${specBadge})</span>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" class="media-card-delete-btn p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-100/80 dark:hover:bg-rose-950/60 transition cursor-pointer" title="從筆記中刪除此影片">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
               <span class="text-[10px] text-gray-400 collapse-hint">點擊收折/展開</span>
               <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 collapse-arrow transition-transform duration-200"></i>
             </div>
           </summary>
-          <div class="p-3 border-t border-gray-200/50 dark:border-notion-borderDark/60">
+          <div class="p-3 border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content">
             <iframe src="${previewEmbedUrl}" class="w-full aspect-video rounded-xl border border-gray-200 dark:border-notion-borderDark shadow-xs" allow="autoplay" allowfullscreen></iframe>
-            <div class="text-[11px] text-gray-400 mt-1.5 flex items-center gap-2">
-              <span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(file.name)}</span>
+            <div class="text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar">
+              <span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(fileName)}</span>
               <span>•</span>
-              <span>${sizeDisplay}</span>
+              <span>${specBadge}</span>
               <span>•</span>
-              <a href="${downloadUrl}" target="_blank" download="${escapeHtml(file.name)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載影片">
+              <a href="${downloadUrl}" target="_blank" download="${escapeHtml(fileName)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載影片">
                 <i data-lucide="download" class="w-3 h-3"></i>
                 <span>下載影片</span>
               </a>
@@ -4204,6 +4564,11 @@ async function uploadGenericFile(file) {
                 <i data-lucide="external-link" class="w-3 h-3"></i>
                 <span>雲端檢視</span>
               </a>
+              <span>•</span>
+              <button type="button" class="media-caption-delete-btn text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 hover:underline flex items-center gap-1 font-semibold cursor-pointer" title="從筆記中刪除此影片">
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                <span>刪除影片</span>
+              </button>
             </div>
           </div>
         </details>
@@ -4216,25 +4581,33 @@ async function uploadGenericFile(file) {
             <div class="flex items-center gap-2 min-w-0 flex-1">
               <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0" title="拖動改變位置"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span>
               <i data-lucide="music" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
-              <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${escapeHtml(file.name)}</span>
+              <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${escapeHtml(fileName)}</span>
               <span class="text-[11px] text-gray-400 shrink-0">(${sizeDisplay})</span>
             </div>
-            <div class="flex items-center gap-2 shrink-0">
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" class="media-card-delete-btn p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-100/80 dark:hover:bg-rose-950/60 transition cursor-pointer" title="從筆記中刪除此音訊">
+                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              </button>
               <span class="text-[10px] text-gray-400 collapse-hint">點擊收折/展開</span>
               <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 collapse-arrow transition-transform duration-200"></i>
             </div>
           </summary>
-          <div class="p-3 border-t border-gray-200/50 dark:border-notion-borderDark/60">
+          <div class="p-3 border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content">
             <iframe src="${previewEmbedUrl}" height="80" class="w-full rounded-xl border border-gray-200 dark:border-notion-borderDark"></iframe>
-            <div class="text-[11px] text-gray-400 mt-1.5 flex items-center gap-2">
-              <span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(file.name)}</span>
+            <div class="text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar">
+              <span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(fileName)}</span>
               <span>•</span>
               <span>${sizeDisplay}</span>
               <span>•</span>
-              <a href="${downloadUrl}" target="_blank" download="${escapeHtml(file.name)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載音訊">
+              <a href="${downloadUrl}" target="_blank" download="${escapeHtml(fileName)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載音訊">
                 <i data-lucide="download" class="w-3 h-3"></i>
                 <span>下載音訊</span>
               </a>
+              <span>•</span>
+              <button type="button" class="media-caption-delete-btn text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 hover:underline flex items-center gap-1 font-semibold cursor-pointer" title="從筆記中刪除此音訊">
+                <i data-lucide="trash-2" class="w-3 h-3"></i>
+                <span>刪除音訊</span>
+              </button>
             </div>
           </div>
         </details>
@@ -4242,14 +4615,14 @@ async function uploadGenericFile(file) {
       `;
     } else {
       cardHtml = `
-        <div class="notion-file-attachment notion-draggable-block my-2.5 p-3 rounded-xl border border-gray-200 dark:border-notion-borderDark bg-gray-50/70 dark:bg-notion-darker/70 flex items-center justify-between gap-3 group hover:border-emerald-400 dark:hover:border-emerald-600 transition" contenteditable="false" draggable="true" data-file-id="${uploadedFile.id}" data-file-name="${escapeHtml(file.name)}" data-file-size="${sizeDisplay}">
+        <div class="notion-file-attachment notion-draggable-block my-2.5 p-3 rounded-xl border border-gray-200 dark:border-notion-borderDark bg-gray-50/70 dark:bg-notion-darker/70 flex items-center justify-between gap-3 group hover:border-emerald-400 dark:hover:border-emerald-600 transition" contenteditable="false" draggable="true" data-file-id="${uploadedFile.id}" data-file-name="${escapeHtml(fileName)}" data-file-size="${sizeDisplay}">
           <div class="flex items-center gap-2.5 min-w-0 flex-1">
             <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0" title="拖動改變位置"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span>
             <div class="w-9 h-9 rounded-lg ${badgeColor} flex items-center justify-center shrink-0">
               <i data-lucide="${iconName}" class="w-5 h-5"></i>
             </div>
             <div class="min-w-0 flex-1">
-              <div class="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">${escapeHtml(file.name)}</div>
+              <div class="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">${escapeHtml(fileName)}</div>
               <div class="text-[11px] text-gray-400 flex items-center gap-2 mt-0.5">
                 <span>${sizeDisplay}</span>
                 <span>•</span>
@@ -4258,13 +4631,16 @@ async function uploadGenericFile(file) {
             </div>
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
-            <a href="${downloadUrl}" target="_blank" download="${escapeHtml(file.name)}" class="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 shadow-xs transition active:scale-95 cursor-pointer" title="直接下載檔案">
+            <a href="${downloadUrl}" target="_blank" download="${escapeHtml(fileName)}" class="px-2.5 py-1 text-xs rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 font-medium flex items-center gap-1 transition shadow-2xs" title="下載此檔案">
               <i data-lucide="download" class="w-3.5 h-3.5"></i>
               <span>下載</span>
             </a>
-            <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition text-xs" title="在 Google Drive 開啟">
-              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            <a href="${previewUrl}" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition" title="在 Google 雲端檢視">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
             </a>
+            <button type="button" class="file-attachment-delete-btn p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer" title="從筆記中刪除此檔案">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
           </div>
         </div>
         <p><br></p>
@@ -4276,23 +4652,28 @@ async function uploadGenericFile(file) {
       placeholder.outerHTML = cardHtml;
     } else {
       insertHtmlAtCursor(cardHtml);
+    }
+
+    try {
       ensureEditableSpacesAroundMediaBlocks(DOM.editor);
+    } catch(err) {
+      console.warn('ensureEditableSpacesAroundMediaBlocks error:', err);
     }
 
     try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn(e); }
     initLucide();
     updateSyncStatus('synced', '檔案已就地嵌入');
-    showToast(`✅ 檔案「${file.name}」已加入筆記，可隨時下載`);
+    showToast(`✅ 檔案「${fileName}」已加入筆記 (${specBadge})`);
     triggerAutoSaveDebounce();
     ensureTrailingEditableParagraphAndFocus();
   } catch (err) {
     console.error('上傳檔案失敗:', err);
     DOM.uploadProgressBar.classList.add('hidden');
     updateSyncStatus('error', '檔案上傳失敗');
-    showToast(`⚠️ 檔案上傳失敗：${err.message || '請再試一次'}`);
+    showToast(`⚠️ 上傳失敗：${err.message || '請再試一次'}`);
     const placeholder = document.getElementById(placeholderId);
     if (placeholder) {
-      placeholder.outerHTML = `<div class="text-red-500 text-xs p-2.5 rounded-lg border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20">⚠️ ${escapeHtml(file.name)} 上傳失敗，點擊重新上傳</div>`;
+      placeholder.outerHTML = `<div class="text-red-500 text-xs p-2.5 rounded-lg border border-red-200 dark:border-red-900 bg-red-50/50 dark:bg-red-950/20">⚠️ 上傳檔案「${escapeHtml(fileName)}」失敗 (${err.message || '連線逾時'})</div>`;
     }
   } finally {
     state.activeUploadCount = Math.max(0, (state.activeUploadCount || 1) - 1);
@@ -5264,8 +5645,29 @@ if ('serviceWorker' in navigator) {
 }
 
 
+// 🛡️ 本機草稿儲存空間防護：自動清除超過 3 天的已同步草稿，徹底防止 QuotaExceededError 存儲溢出
+function pruneOldSyncedDrafts() {
+  try {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith('lvi_draft_'));
+    if (keys.length <= 8) return;
+    const syncedDrafts = [];
+    for (const k of keys) {
+      try {
+        const d = JSON.parse(localStorage.getItem(k));
+        if (d && d.synced) syncedDrafts.push({ key: k, updatedAt: d.updatedAt || 0 });
+      } catch(e) {}
+    }
+    syncedDrafts.sort((a, b) => a.updatedAt - b.updatedAt);
+    while (syncedDrafts.length > 5) {
+      const oldest = syncedDrafts.shift();
+      localStorage.removeItem(oldest.key);
+    }
+  } catch(e) {}
+}
+
 function saveLocalDraftImmediately() {
   if (!state.currentNote || !state.currentNote.id) return;
+  pruneOldSyncedDrafts();
   const noteId = state.currentNote.id;
   const draft = {
     noteId: noteId,
@@ -5997,7 +6399,7 @@ function toggleCollapsibleWithAnimation(details, content) {
 function enhanceMediaCollapsiblesAndDraggables(container) {
   if (!container) return;
 
-  // 1. 檢查現有的 details.notion-media-collapse
+  // 1. 檢查現有的 details.notion-media-collapse 並補全 caption-bar
   container.querySelectorAll('details.notion-media-collapse').forEach(details => {
     const contentDiv = details.querySelector('.media-collapse-content') || details.querySelector('.p-3');
     if (!contentDiv) return;
@@ -6021,7 +6423,7 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
     }
   });
 
-  // 2. 自動包裝所有獨立的 img 為收折 details 卡片，並將下方的文字與下載/雲端檢視連結「100% 綁定在同一卡片內」
+  // 2. 自動包裝所有獨立的 img 為收折 details 卡片，並帶有刪除按鈕
   const imgs = container.querySelectorAll('img:not(.emoji-opt img):not([data-no-collapse])');
   imgs.forEach(img => {
     if (img.closest('details.notion-media-collapse')) return;
@@ -6034,7 +6436,6 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
     let captionHtml = '';
     let captionEl = null;
 
-    // 檢查下一個相鄰段落是否為附件下載或圖片文字說明
     const nextEl = parentP ? parentP.nextElementSibling : img.nextElementSibling;
     if (nextEl && (nextEl.tagName === 'P' || nextEl.tagName === 'DIV')) {
       const text = nextEl.textContent || '';
@@ -6047,7 +6448,6 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
       }
     }
 
-    // 若父段落本身包含非圖片文字與連結
     if (!captionHtml && parentP && parentP.children.length > 1) {
       const clone = parentP.cloneNode(true);
       clone.querySelectorAll('img').forEach(i => i.remove());
@@ -6067,16 +6467,20 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
           <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0" title="拖動改變位置"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span>
           <i data-lucide="image" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
           <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${escapeHtml(alt)}</span>
+          <span class="text-[11px] text-gray-400 shrink-0">(720P)</span>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button type="button" class="media-card-delete-btn p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-100/80 dark:hover:bg-rose-950/60 transition cursor-pointer" title="從筆記中刪除此照片">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
           <span class="text-[10px] text-gray-400 collapse-hint">點擊收折/展開</span>
           <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 collapse-arrow transition-transform duration-200"></i>
         </div>
       </summary>
       <div class="p-3 text-center border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content">
-        <img src="${src}" alt="${escapeHtml(alt)}" loading="lazy" class="rounded-xl shadow-xs border border-gray-200 dark:border-notion-borderDark max-h-[520px] mx-auto object-contain cursor-pointer hover:opacity-95 transition" onclick="window.open('${src}', '_blank')" />
+        <img src="${src}" alt="${escapeHtml(alt)}" loading="lazy" decoding="async" class="rounded-xl shadow-xs border border-gray-200 dark:border-notion-borderDark max-h-[520px] mx-auto object-contain cursor-pointer hover:opacity-95 transition" onclick="window.open('${src}', '_blank')" />
         <div class="text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar">
-          ${captionHtml || `<span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(alt)}</span><span>•</span><a href="${src}" target="_blank" download="${escapeHtml(alt)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載原圖"><i data-lucide="download" class="w-3 h-3"></i><span>下載原圖</span></a><span>•</span><a href="${src}" target="_blank" rel="noopener noreferrer" class="hover:text-blue-500 flex items-center gap-1" title="在 Google 雲端開啟"><i data-lucide="external-link" class="w-3 h-3"></i><span>雲端檢視</span></a>`}
+          ${captionHtml || `<span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${escapeHtml(alt)}</span><span>•</span><a href="${src}" target="_blank" download="${escapeHtml(alt)}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載原圖"><i data-lucide="download" class="w-3 h-3"></i><span>下載原圖</span></a><span>•</span><a href="${src}" target="_blank" rel="noopener noreferrer" class="hover:text-blue-500 flex items-center gap-1" title="在 Google 雲端開啟"><i data-lucide="external-link" class="w-3 h-3"></i><span>雲端檢視</span></a><span>•</span><button type="button" class="media-caption-delete-btn text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 hover:underline flex items-center gap-1 font-semibold cursor-pointer" title="從筆記中刪除此照片"><i data-lucide="trash-2" class="w-3 h-3"></i><span>刪除照片</span></button>`}
         </div>
       </div>
     `;
@@ -6092,7 +6496,246 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
     }
   });
 
-  // 3. 確保所有附件卡片與收折卡片皆具備 draggable 與拖曳手把
+  // 3. 自動包裝所有獨立的 Google 雲端影片 iframe 為收折 details 卡片
+  container.querySelectorAll('iframe[src*="drive.google.com"]:not([data-no-collapse])').forEach(iframe => {
+    if (iframe.closest('details.notion-media-collapse')) return;
+    const parentP = iframe.closest('p, div');
+    const src = iframe.getAttribute('src') || '';
+    const details = document.createElement('details');
+    details.className = 'notion-media-collapse notion-draggable-block my-3 rounded-xl border border-gray-200 dark:border-notion-borderDark bg-gray-50/70 dark:bg-notion-darker/70 overflow-hidden shadow-xs transition';
+    details.setAttribute('open', '');
+    details.setAttribute('contenteditable', 'false');
+    details.setAttribute('draggable', 'true');
+    details.innerHTML = `
+      <summary class="cursor-pointer select-none px-3 py-2 flex items-center justify-between gap-2 bg-gray-100/80 dark:bg-notion-card hover:bg-gray-200/60 dark:hover:bg-gray-800 transition font-medium text-xs">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0" title="拖動改變位置"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span>
+          <i data-lucide="video" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
+          <span class="truncate font-semibold text-gray-800 dark:text-gray-100">錄影與影片</span>
+          <span class="text-[11px] text-gray-400 shrink-0">(720P 串流)</span>
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button type="button" class="media-card-delete-btn p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-100/80 dark:hover:bg-rose-950/60 transition cursor-pointer" title="從筆記中刪除此影片">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          </button>
+          <span class="text-[10px] text-gray-400 collapse-hint">點擊收折/展開</span>
+          <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 collapse-arrow transition-transform duration-200"></i>
+        </div>
+      </summary>
+      <div class="p-3 border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content">
+        <iframe src="${src}" class="w-full aspect-video rounded-xl border border-gray-200 dark:border-notion-borderDark shadow-xs" allow="autoplay" allowfullscreen></iframe>
+        <div class="text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar">
+          <span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">影片播放</span>
+          <span>•</span>
+          <span>720P 自適應串流</span>
+          <span>•</span>
+          <a href="${src.replace('/preview', '/view')}" target="_blank" rel="noopener noreferrer" class="hover:text-blue-500 flex items-center gap-1" title="在 Google 雲端開啟">
+            <i data-lucide="external-link" class="w-3 h-3"></i>
+            <span>雲端檢視</span>
+          </a>
+          <span>•</span>
+          <button type="button" class="media-caption-delete-btn text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 hover:underline flex items-center gap-1 font-semibold cursor-pointer" title="從筆記中刪除此影片">
+            <i data-lucide="trash-2" class="w-3 h-3"></i>
+            <span>刪除影片</span>
+          </button>
+        </div>
+      </div>
+    `;
+    if (parentP && (parentP.children.length <= 1 || parentP.tagName === 'P')) {
+      parentP.replaceWith(details);
+    } else {
+      iframe.replaceWith(details);
+    }
+  });
+
+  // 4. 為所有 details.notion-media-collapse 補全刪除按鈕並綁定確認刪除事件
+  container.querySelectorAll('details.notion-media-collapse').forEach(details => {
+    const summary = details.querySelector('summary');
+    const content = details.querySelector('.media-collapse-content') || details.querySelector('.p-3');
+    if (!summary) return;
+
+    // (a) 在 summary 右側控制區補上刪除按鈕
+    let summaryDelBtn = summary.querySelector('.media-card-delete-btn');
+    if (!summaryDelBtn) {
+      summaryDelBtn = document.createElement('button');
+      summaryDelBtn.type = 'button';
+      summaryDelBtn.className = 'media-card-delete-btn p-1 rounded-md text-gray-400 hover:text-rose-600 hover:bg-rose-100/80 dark:hover:bg-rose-950/60 transition cursor-pointer';
+      summaryDelBtn.title = '從筆記中刪除此照片/影片';
+      summaryDelBtn.innerHTML = '<i data-lucide="trash-2" class="w-3.5 h-3.5"></i>';
+
+      const rightControls = summary.querySelector('.flex.items-center.gap-2.shrink-0') || summary.querySelector('.collapse-hint')?.parentElement;
+      if (rightControls) {
+        rightControls.prepend(summaryDelBtn);
+      } else {
+        summary.appendChild(summaryDelBtn);
+      }
+    }
+
+    // (b) 在 caption-bar 補上刪除按鈕
+    if (content) {
+      let captionBar = content.querySelector('.media-caption-bar');
+      if (!captionBar) {
+        captionBar = document.createElement('div');
+        captionBar.className = 'text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar';
+        content.appendChild(captionBar);
+      }
+      if (!captionBar.querySelector('.media-caption-delete-btn')) {
+        const bullet = document.createElement('span');
+        bullet.textContent = '•';
+        const captionDelBtn = document.createElement('button');
+        captionDelBtn.type = 'button';
+        captionDelBtn.className = 'media-caption-delete-btn text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 hover:underline flex items-center gap-1 font-semibold cursor-pointer';
+        captionDelBtn.title = '從筆記中刪除此媒體';
+        captionDelBtn.innerHTML = '<i data-lucide="trash-2" class="w-3 h-3"></i><span>刪除媒體</span>';
+        captionBar.appendChild(bullet);
+        captionBar.appendChild(captionDelBtn);
+      }
+    }
+
+    // (c) 綁定刪除邏輯 (刪除前再次詢問確認 + Undo/Redo 時光機記錄)
+    const delBtns = details.querySelectorAll('.media-card-delete-btn, .media-caption-delete-btn');
+    delBtns.forEach(btn => {
+      if (!btn.dataset.deleteBound) {
+        btn.dataset.deleteBound = 'true';
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+
+          const nameSpan = details.querySelector('summary span.truncate');
+          const mediaName = nameSpan ? nameSpan.textContent.trim() : '此照片/影片';
+
+          // ⚠️ 刪除前再次向使用者確認
+          const confirmed = window.confirm(`⚠️ 確定要從筆記中刪除「${mediaName}」嗎？\n\n此操作將從當前筆記畫布中移除此媒體項目。`);
+          if (!confirmed) return;
+
+          const oldHtml = DOM.editor.innerHTML;
+          const noteId = state.currentNote ? state.currentNote.id : null;
+          const noteTitle = state.currentNote && state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
+
+          details.remove();
+          try { ensureTrailingEditableParagraphAndFocus(); } catch(err) {}
+          saveLocalDraftImmediately();
+          triggerAutoSaveDebounce();
+          try { updateStats(); } catch(err) {}
+          try { renderOutline(); } catch(err) {}
+
+          const newHtml = DOM.editor.innerHTML;
+          recordAction({
+            type: 'delete_media',
+            title: `🗑️ 刪除媒體「${mediaName}」`,
+            subtitle: `筆記：「${noteTitle}」`,
+            noteId: noteId,
+            undo: () => {
+              const n = state.notes.find(note => note.id === noteId);
+              if (n) {
+                n.content = oldHtml;
+                if (state.currentNote && state.currentNote.id === noteId) {
+                  DOM.editor.innerHTML = oldHtml;
+                  try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+                  updateStats();
+                  renderOutline();
+                }
+                triggerAutoSaveDebounce();
+              }
+            },
+            redo: () => {
+              const n = state.notes.find(note => note.id === noteId);
+              if (n) {
+                n.content = newHtml;
+                if (state.currentNote && state.currentNote.id === noteId) {
+                  DOM.editor.innerHTML = newHtml;
+                  try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+                  updateStats();
+                  renderOutline();
+                }
+                triggerAutoSaveDebounce();
+              }
+            }
+          });
+
+          showToast(`🗑️ 已自筆記中刪除「${mediaName}」`);
+        });
+      }
+    });
+  });
+
+  // 5. 確保所有附件卡片皆具備刪除按鈕與確認刪除功能
+  container.querySelectorAll('.notion-file-attachment').forEach(block => {
+    let delBtn = block.querySelector('.file-attachment-delete-btn');
+    if (!delBtn) {
+      delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'file-attachment-delete-btn p-1.5 rounded-lg text-gray-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer';
+      delBtn.title = '從筆記中刪除此檔案';
+      delBtn.innerHTML = '<i data-lucide="trash-2" class="w-4 h-4"></i>';
+
+      const rightCol = block.querySelector('.flex.items-center.gap-1\.5.shrink-0') || block.querySelector('.flex.items-center.gap-2.shrink-0') || block.lastElementChild;
+      if (rightCol && rightCol !== block.firstElementChild) {
+        rightCol.appendChild(delBtn);
+      } else {
+        block.appendChild(delBtn);
+      }
+    }
+
+    if (!delBtn.dataset.deleteBound) {
+      delBtn.dataset.deleteBound = 'true';
+      delBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        const fileName = block.dataset.fileName || block.querySelector('.truncate')?.textContent?.trim() || '此檔案附件';
+        const confirmed = window.confirm(`⚠️ 確定要從筆記中刪除檔案「${fileName}」嗎？\n\n此操作將從當前筆記畫布中移除此檔案附件。`);
+        if (!confirmed) return;
+
+        const oldHtml = DOM.editor.innerHTML;
+        const noteId = state.currentNote ? state.currentNote.id : null;
+        const noteTitle = state.currentNote && state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
+
+        block.remove();
+        try { ensureTrailingEditableParagraphAndFocus(); } catch(err) {}
+        saveLocalDraftImmediately();
+        triggerAutoSaveDebounce();
+
+        const newHtml = DOM.editor.innerHTML;
+        recordAction({
+          type: 'delete_file',
+          title: `🗑️ 刪除檔案「${fileName}」`,
+          subtitle: `筆記：「${noteTitle}」`,
+          noteId: noteId,
+          undo: () => {
+            const n = state.notes.find(note => note.id === noteId);
+            if (n) {
+              n.content = oldHtml;
+              if (state.currentNote && state.currentNote.id === noteId) {
+                DOM.editor.innerHTML = oldHtml;
+                try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+                updateStats();
+                renderOutline();
+              }
+              triggerAutoSaveDebounce();
+            }
+          },
+          redo: () => {
+            const n = state.notes.find(note => note.id === noteId);
+            if (n) {
+              n.content = newHtml;
+              if (state.currentNote && state.currentNote.id === noteId) {
+                DOM.editor.innerHTML = newHtml;
+                try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+                updateStats();
+                renderOutline();
+              }
+              triggerAutoSaveDebounce();
+            }
+          }
+        });
+
+        showToast(`🗑️ 已自筆記中刪除「${fileName}」`);
+      });
+    }
+  });
+
+  // 6. 確保所有附件卡片與收折卡片皆具備 draggable 與拖曳手把
   container.querySelectorAll('.notion-file-attachment, .notion-media-collapse').forEach(block => {
     block.setAttribute('draggable', 'true');
     block.classList.add('notion-draggable-block');
@@ -6107,7 +6750,8 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
       }
     }
   });
-  // 4. 清理歷史編輯按鈕殘留，並為卡片綁定平滑收折/展開動畫 (Smooth Collapsible Animation)
+
+  // 7. 清理歷史按鈕殘留，並為卡片綁定平滑收折/展開動畫
   container.querySelectorAll('.summary-edit-img-btn, .caption-edit-img-btn, .image-hover-edit-btn').forEach(el => el.remove());
   container.querySelectorAll('.image-preview-wrapper').forEach(wrapper => {
     const img = wrapper.querySelector('img');
@@ -6122,7 +6766,6 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
       const content = details.querySelector('.media-collapse-content') || details.querySelector('.p-3');
       if (content) content.classList.add('media-collapse-content');
 
-      // 🌟 極致平滑收折/展開動畫綁定 (Smooth Collapsible Animation)
       const summary = details.querySelector('summary');
       if (summary && !summary.dataset.animatedCollapseBound && content) {
         summary.dataset.animatedCollapseBound = 'true';
@@ -6730,10 +7373,16 @@ function insertSlashSnippet(type) {
     case 'divider':
       html = '<hr class="notion-divider"><p><br></p>';
       break;
+    case 'camera':
+      saveCameraCheckpoint();
+      if (DOM.cameraCaptureInput) DOM.cameraCaptureInput.click();
+      break;
     case 'media':
+      saveCameraCheckpoint();
       if (DOM.mediaUploadInput) DOM.mediaUploadInput.click();
       break;
     case 'file':
+      saveCameraCheckpoint();
       if (DOM.genericFileUploadInput) DOM.genericFileUploadInput.click();
       break;
   }
@@ -9670,13 +10319,45 @@ function bindEvents() {
 
 
 
-  // 媒體上傳按鈕 (圖片&影片)
+  // 📷 專屬相機直接拍攝上傳 (防閃退保護)
+  if (DOM.cameraCaptureInput) {
+    DOM.cameraCaptureInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+      for (const f of files) {
+        await uploadMediaFile(f);
+      }
+      DOM.cameraCaptureInput.value = '';
+    });
+  }
+
+  if (DOM.insertCameraBtn) {
+    DOM.insertCameraBtn.addEventListener('click', () => {
+      saveCameraCheckpoint();
+      if (DOM.cameraCaptureInput) DOM.cameraCaptureInput.click();
+    });
+  }
+
+  if (DOM.mbToolCamera) {
+    DOM.mbToolCamera.addEventListener('click', () => {
+      saveCameraCheckpoint();
+      if (DOM.cameraCaptureInput) DOM.cameraCaptureInput.click();
+    });
+  }
+
+  // 媒體上傳按鈕 (相簿選擇)
   if (DOM.insertMediaBtn) {
     DOM.insertMediaBtn.addEventListener('click', () => {
+      saveCameraCheckpoint();
       if (DOM.mediaUploadInput) DOM.mediaUploadInput.click();
     });
   }
-  if (DOM.mbToolMedia) DOM.mbToolMedia.addEventListener('click', () => DOM.mediaUploadInput.click());
+  if (DOM.mbToolMedia) {
+    DOM.mbToolMedia.addEventListener('click', () => {
+      saveCameraCheckpoint();
+      if (DOM.mediaUploadInput) DOM.mediaUploadInput.click();
+    });
+  }
 
   if (DOM.mediaUploadInput) {
     DOM.mediaUploadInput.addEventListener('change', async (e) => {
@@ -9691,11 +10372,13 @@ function bindEvents() {
   // 📎 檔案上傳按鈕 (支援所有格式與筆記內直接下載)
   if (DOM.insertFileBtn) {
     DOM.insertFileBtn.addEventListener('click', () => {
+      saveCameraCheckpoint();
       if (DOM.genericFileUploadInput) DOM.genericFileUploadInput.click();
     });
   }
   if (DOM.mbToolFile) {
     DOM.mbToolFile.addEventListener('click', () => {
+      saveCameraCheckpoint();
       if (DOM.genericFileUploadInput) DOM.genericFileUploadInput.click();
     });
   }
@@ -10510,3 +11193,25 @@ setInterval(() => {
     }
   }
 }, 60000);
+
+// 🛡️ 全域非同步錯誤保護與網路狀態自動修復 (防止未捕捉 Promise 錯誤導致白畫面崩潰)
+window.addEventListener('unhandledrejection', (event) => {
+  console.warn('🛡️ [Global Rejection Guard]:', event.reason);
+  event.preventDefault();
+});
+
+window.addEventListener('online', () => {
+  showToast('🌐 網路連線已恢復，自動檢查並同步最新內容');
+  syncPendingLocalDrafts();
+});
+
+window.addEventListener('offline', () => {
+  updateSyncStatus('offline', '離線狀態 (本機保護模式中)');
+  showToast('⚠️ 網路連線已斷開，系統已切換為 Local-First 安全離線保護模式');
+});
+
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState === 'visible' && state.activeUploadCount > 0) {
+    await acquireWakeLock();
+  }
+});

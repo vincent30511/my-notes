@@ -50,13 +50,14 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LVI_Note">
   <meta name="application-name" content="LVI_Note">
-  <meta name="version" content="v2.6.0">
+  <meta name="version" content="v2.6.1">
   <meta name="theme-color" content="#191919">
-  <link rel="stylesheet" href="styles.css?v=20261008_v2.6.0">
+  <link rel="stylesheet" href="styles.css?v=20261008_v2.6.1">
 </head>
 <body class="bg-white text-gray-800 dark:bg-notion-dark dark:text-gray-100 flex flex-col h-screen overflow-hidden font-sans">
 
-  <!-- 隱藏的檔案上傳輸入項 (支援照片、圖片、影片、音訊多選) -->
+  <!-- 隱藏的檔案上傳輸入項 (支援照片、圖片、影片、音訊多選，以及專屬相機直接拍攝) -->
+  <input type="file" id="camera-capture-input" accept="image/*" capture="environment" class="hidden">
   <input type="file" id="media-upload-input" accept="image/*,video/*,audio/*" multiple class="hidden">
   <input type="file" id="generic-file-upload-input" multiple class="hidden">
 
@@ -85,7 +86,7 @@
       <!-- 麵包屑導航 (手機緊湊化) -->
       <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1 truncate max-w-[110px] sm:max-w-xs">
         <span class="hidden sm:inline font-medium text-gray-700 dark:text-gray-300 shrink-0">
-          <span id="header-folder-name">LVI_Note</span><span class="ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 shrink-0" title="當前版本號">v2.6.0</span>
+          <span id="header-folder-name">LVI_Note</span><span class="ml-1 px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 shrink-0" title="當前版本號">v2.6.1</span>
           <span class="mx-0.5">/</span>
         </span>
         <span id="header-note-title" class="truncate text-gray-900 dark:text-white font-medium">未命名筆記</span>
@@ -219,7 +220,7 @@
           <img src="logo.png" alt="LVI_Note Logo" class="w-7 h-7 rounded-full border border-blue-500/40 shadow-sm object-cover shrink-0">
           <div class="flex items-center gap-1.5">
             <span class="text-sm font-bold tracking-tight text-gray-800 dark:text-gray-100">LVI_Note</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號">v2.6.0</span>
+            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號">v2.6.1</span>
           </div>
         </div>
         <div class="flex items-center space-x-1">
@@ -520,6 +521,10 @@
                 <button id="toggle-all-media-btn" class="px-2.5 py-1 rounded-md text-xs font-semibold text-purple-600 dark:text-purple-400 bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/60 border border-purple-200 dark:border-purple-800 flex items-center gap-1.5 transition shadow-xs active:scale-95 cursor-pointer" title="一鍵全部展開或收折所有照片與影片">
                   <i data-lucide="chevrons-up-down" class="w-3.5 h-3.5"></i>
                   <span id="toggle-all-media-label">全部收折</span>
+                </button>
+                <button id="insert-camera-btn" class="px-2.5 py-1 rounded-md text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 border border-blue-200 dark:border-blue-800 flex items-center gap-1.5 transition shadow-xs active:scale-95 cursor-pointer" title="直接啟動手機或電腦相機拍照上傳">
+                  <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                  <span class="hidden sm:inline">相機拍照</span>
                 </button>
                 <button id="insert-file-btn" class="px-2.5 py-1 rounded-md text-xs font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 border border-emerald-200 dark:border-emerald-800 flex items-center gap-1.5 transition shadow-xs active:scale-95 cursor-pointer" title="上傳檔案、圖片或影片（支援預覽與下載）">
                   <i data-lucide="paperclip" class="w-3.5 h-3.5"></i>
@@ -997,8 +1002,11 @@
       <div id="slash-menu" class="fixed hidden bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark rounded-lg shadow-2xl w-60 p-1 z-50 text-xs max-h-72 overflow-y-auto">
         <div class="px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">常用積木與樣式</div>
 
+        <button data-slash="camera" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-medium">
+          <i data-lucide="camera" class="w-3.5 h-3.5"></i> 📷 相機拍照上傳 (防閃退保護)
+        </button>
         <button data-slash="media" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2 text-blue-600 dark:text-blue-400 font-medium">
-          <i data-lucide="image" class="w-3.5 h-3.5"></i> 上傳圖片 / 影片 / 音訊
+          <i data-lucide="image" class="w-3.5 h-3.5"></i> 圖片 / 影片 / 音訊 (相簿選擇)
         </button>
         <button data-slash="file" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-medium">
           <i data-lucide="paperclip" class="w-3.5 h-3.5"></i> 檔案上傳 (PDF/Word/Excel/ZIP等)
@@ -1053,8 +1061,8 @@
       <!-- 手機專屬：底部快捷編輯工具列 (底部精緻快捷列) -->
       <div id="mobile-toolbar" class="md:hidden h-12 border-t border-gray-200 dark:border-notion-borderDark bg-white/95 dark:bg-notion-dark/95 backdrop-blur-md flex items-center justify-around px-2 z-20 shrink-0 text-gray-600 dark:text-gray-300">
 
-        <button id="mb-tool-media" class="hidden p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg active:scale-95 transition" style="display: none !important;" title="上傳圖影音">
-          <i data-lucide="image" class="w-4 h-4"></i>
+        <button id="mb-tool-camera" class="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-lg active:scale-95 transition" title="📷 直接相機拍照上傳 (防閃退)">
+          <i data-lucide="camera" class="w-4 h-4"></i>
         </button>
         <button id="mb-tool-file" class="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg active:scale-95 transition" title="檔案上傳 (支援圖影預覽與下載)">
           <i data-lucide="paperclip" class="w-4 h-4"></i>
@@ -1462,7 +1470,7 @@
       <div class="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-notion-borderDark">
         <div class="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
           <span>系統版本</span>
-          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.6.0</span>
+          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.6.1</span>
         </div>
         <button id="save-settings-btn" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition shadow-sm">
           儲存所有設定
@@ -1476,7 +1484,7 @@
     <span id="toast-message">訊息提示</span>
   </div>
 
-  <script src="app.js?v=20261008_v2.6.0"></script>
+  <script src="app.js?v=20261008_v2.6.1"></script>
 
   <!-- 🏢 工作標籤新增彈窗 (Work Tag Modal) -->
   <div id="work-tag-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden backdrop-blur-xs">
