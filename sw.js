@@ -1,13 +1,13 @@
-// LVI_Note Service Worker (v2.6.1)
-// 支援離線快取、PWA 桌面安裝與背景排程監聽 (支援 Android / POCO X8 Pro & PC)
+// LVI_Note Service Worker (v2.6.2)
+// 支援離線快取、PWA 桌面安裝與自動清除舊版快取 (支援 Android / POCO X8 Pro & PC)
 
-const CACHE_NAME = 'lvi-note-cache-v2.6.1';
+const CACHE_NAME = 'lvi-note-cache-v2.6.2';
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './app.js?v=20261012_v2.6.1',
-  './styles.css?v=20261012_v2.6.1',
-  './manifest.json',
+  './app.js?v=20261015_v2.6.2',
+  './styles.css?v=20261015_v2.6.2',
+  './manifest.json?v=20261015_v2.6.2',
   './logo.png',
   './icon-192.png',
   './icon-512.png',
@@ -16,45 +16,55 @@ const STATIC_ASSETS = [
   './logo_loading_256.gif'
 ];
 
-// 1. 安裝事件：預先快取關鍵離線資源
+// 1. 安裝事件：立即跳過等待並預快取最新資源
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('⚡ [SW] 預先快取核心應用資源中...');
+      console.log('⚡ [SW v2.6.2] 預先快取核心應用資源中...');
       return cache.addAll(STATIC_ASSETS).catch(err => {
         console.warn('⚠️ [SW] 部份靜態資源快取略過:', err);
       });
     })
   );
-  self.skipWaiting();
 });
 
-// 2. 啟動事件：清除過期快取
+// 2. 啟動事件：強制清除所有舊版快取 (v2.5.0 / v2.5.1 / v2.6.0 / v2.6.1)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
-            console.log('🧹 [SW] 清理歷史快取:', key);
+            console.log('🧹 [SW v2.6.2] 強制清理舊版快取:', key);
             return caches.delete(key);
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
-// 3. 請求代理：網路優先 (Network First, Cache Fallback)，確保永遠取得最新雲端資料
+// 3. 請求代理：對 HTML / JS / CSS 強制使用 cache: 'no-store' 網路直連，徹底根除舊版快取殘留！
 self.addEventListener('fetch', (event) => {
-  // 排除 Google API 與外部 CDN 走直接連線
   if (!event.request.url.startsWith(self.location.origin)) {
     return;
   }
 
+  const urlObj = new URL(event.request.url);
+  const isCodeOrHtml = (
+    event.request.mode === 'navigate' ||
+    urlObj.pathname.endsWith('/') ||
+    urlObj.pathname.endsWith('.html') ||
+    urlObj.pathname.endsWith('.js') ||
+    urlObj.pathname.endsWith('.css') ||
+    urlObj.pathname.endsWith('.json')
+  );
+
+  const fetchOptions = isCodeOrHtml ? { cache: 'no-store' } : {};
+
   event.respondWith(
-    fetch(event.request)
+    fetch(event.request, fetchOptions)
       .then((response) => {
         if (response && response.status === 200 && response.type === 'basic') {
           const responseToCache = response.clone();
@@ -65,20 +75,14 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => {
-        // 離線狀態下讀取本地快取
         return caches.match(event.request);
       })
   );
 });
 
-// 4. Background Fetch 事件監聽 (Android Chrome 背景傳輸支援)
+// 4. Background Fetch 事件監聽
 self.addEventListener('backgroundfetchsuccess', (event) => {
-  const bgFetch = event.registration;
-  event.waitUntil(
-    (async () => {
-      console.log('✅ [SW Background Fetch] 背景傳輸圓滿完成:', bgFetch.id);
-    })()
-  );
+  console.log('✅ [SW Background Fetch] 背景傳輸完成:', event.registration.id);
 });
 
 self.addEventListener('backgroundfetchfail', (event) => {
