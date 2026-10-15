@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.6.2'; // 2026.10.15 (720P 壓縮 + 媒體刪除二次確認)
+const APP_VERSION = 'v2.6.3'; // 2026.10.15 (720P 壓縮 + 媒體刪除二次確認)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -3917,7 +3917,7 @@ function renderBreadcrumbs() {
 
 
 // ==========================================================================
-// 🛡️ 相機拍攝防閃退保護與漸進式零 OOM 壓縮引擎 (v2.6.2)
+// 🛡️ 相機拍攝防閃退保護與漸進式零 OOM 壓縮引擎 (v2.6.3)
 // 專為 POCO X8 Pro (Android / Chrome 50MP/64MP 相機) 與行動裝置打造：
 // 1. 喚起原生相機前自動儲存草稿檢查點 (防止 Android LMK 殺掉背景分頁)
 // 2. 漸進式解碼與圖片輕量化壓縮 (將 25MB 50MP 原圖轉為 ~1MB 高清圖，徹底根除 OOM 閃退)
@@ -3957,7 +3957,7 @@ function restoreCameraCheckpointIfAny() {
   return null;
 }
 
-// 🚀 720P 規格硬體級零 OOM 智能壓縮引擎 (Zero-OOM Safe 720P Image & Video Compressor - v2.6.2)
+// 🚀 720P 規格硬體級零 OOM 智能壓縮引擎 (Zero-OOM Safe 720P Image & Video Compressor - v2.6.3)
 const TRASH_ICON_SVG = '<svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 pointer-events-none shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>';
 
 function formatFileSizeDisplay(bytes) {
@@ -4441,33 +4441,19 @@ function initMediaDeleteConfirmModal() {
   }
 }
 
-// 產生統一規格的媒體收折卡片 HTML (含 720P 標章與三處醒目刪除按鈕)
-function buildMediaCollapseCardHtml({ fileId, fileName, specBadge, isImage, isVideo, isAudio, directSrc, previewUrl, previewEmbedUrl, downloadUrl }) {
+// 產生統一規格的媒體收折卡片 HTML (僅保留頂部標題列刪除按鈕，不顯示多餘圖片註解)
+function buildMediaCollapseCardHtml({ fileId, fileName, isImage, isVideo, isAudio, directSrc, previewUrl, previewEmbedUrl, downloadUrl }) {
   const safeName = escapeHtml(fileName || '媒體檔案');
-  const safeBadge = escapeHtml(specBadge || '720P');
-  const mediaTypeLabel = isImage ? '圖片' : (isVideo ? '影片' : '音訊');
+  const mediaTypeLabel = isImage ? '原圖' : (isVideo ? '影片' : '音訊');
   const iconName = isImage ? 'image' : (isVideo ? 'video' : 'music');
 
   let bodyMediaHtml = '';
   if (isImage) {
-    bodyMediaHtml = `
-      <div class="relative inline-block max-w-full group media-preview-box">
-        <img src="${directSrc}" alt="${safeName}" loading="lazy" decoding="async" class="rounded-xl shadow-xs border border-gray-200 dark:border-notion-borderDark max-h-[520px] mx-auto object-contain cursor-pointer hover:opacity-95 transition" onclick="window.open('${previewUrl}', '_blank')" />
-        <button type="button" class="media-overlay-delete-btn absolute top-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-rose-600/90 hover:bg-rose-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-lg backdrop-blur-xs transition cursor-pointer" title="刪除此${mediaTypeLabel}">
-          ${TRASH_ICON_SVG}
-          <span>刪除${mediaTypeLabel}</span>
-        </button>
-      </div>`;
+    bodyMediaHtml = `<img src="${directSrc}" alt="${safeName}" loading="lazy" decoding="async" class="rounded-xl shadow-xs border border-gray-200 dark:border-notion-borderDark max-h-[520px] mx-auto object-contain cursor-pointer hover:opacity-95 transition" onclick="window.open('${previewUrl}', '_blank')" />`;
   } else if (isVideo) {
-    bodyMediaHtml = `
-      <div class="relative w-full group media-preview-box">
-        <iframe src="${previewEmbedUrl}" class="w-full aspect-video rounded-xl border border-gray-200 dark:border-notion-borderDark shadow-xs" allow="autoplay" allowfullscreen></iframe>
-      </div>`;
+    bodyMediaHtml = `<iframe src="${previewEmbedUrl}" class="w-full aspect-video rounded-xl border border-gray-200 dark:border-notion-borderDark shadow-xs" allow="autoplay" allowfullscreen></iframe>`;
   } else if (isAudio) {
-    bodyMediaHtml = `
-      <div class="relative w-full group media-preview-box">
-        <iframe src="${previewEmbedUrl}" height="80" class="w-full rounded-xl border border-gray-200 dark:border-notion-borderDark"></iframe>
-      </div>`;
+    bodyMediaHtml = `<iframe src="${previewEmbedUrl}" height="80" class="w-full rounded-xl border border-gray-200 dark:border-notion-borderDark"></iframe>`;
   }
 
   return `
@@ -4477,10 +4463,9 @@ function buildMediaCollapseCardHtml({ fileId, fileName, specBadge, isImage, isVi
           <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0" title="拖動改變位置"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span>
           <i data-lucide="${iconName}" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
           <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${safeName}</span>
-          <span class="px-1.5 py-0.2 rounded bg-emerald-100/80 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/60 text-[10px] font-mono font-bold shrink-0">${safeBadge}</span>
         </div>
         <div class="flex items-center gap-2 shrink-0">
-          <button type="button" class="media-card-delete-btn px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 hover:bg-rose-600 hover:text-white text-[11px] font-bold inline-flex items-center gap-1 transition shadow-2xs cursor-pointer shrink-0" title="從筆記中刪除此${mediaTypeLabel} (需二次確認)">
+          <button type="button" class="media-card-delete-btn px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 hover:bg-rose-600 hover:text-white text-[11px] font-bold inline-flex items-center gap-1 transition shadow-2xs cursor-pointer shrink-0" title="刪除此項目 (需二次確認)">
             ${TRASH_ICON_SVG}
             <span class="pointer-events-none">刪除</span>
           </button>
@@ -4493,8 +4478,6 @@ function buildMediaCollapseCardHtml({ fileId, fileName, specBadge, isImage, isVi
         <div class="text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar">
           <span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${safeName}</span>
           <span>•</span>
-          <span class="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">${safeBadge}</span>
-          <span>•</span>
           <a href="${downloadUrl}" target="_blank" download="${safeName}" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold" title="直接下載${mediaTypeLabel}">
             <i data-lucide="download" class="w-3 h-3"></i>
             <span>下載${mediaTypeLabel}</span>
@@ -4504,11 +4487,6 @@ function buildMediaCollapseCardHtml({ fileId, fileName, specBadge, isImage, isVi
             <i data-lucide="external-link" class="w-3 h-3"></i>
             <span>雲端檢視</span>
           </a>
-          <span class="media-delete-sep">•</span>
-          <button type="button" class="media-caption-delete-btn px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-800/80 hover:bg-rose-600 hover:text-white text-[11px] font-bold inline-flex items-center gap-1 transition cursor-pointer" title="從筆記中刪除此${mediaTypeLabel} (需二次確認)">
-            ${TRASH_ICON_SVG}
-            <span class="pointer-events-none">刪除${mediaTypeLabel}</span>
-          </button>
         </div>
       </div>
     </details>
@@ -5701,7 +5679,7 @@ function flushImmediateCloudSave() {
 
 
 // ==========================================================================
-// 💡 螢幕防休眠保持鎖 (Screen Wake Lock API) & 背景傳輸佇列引擎 (v2.6.2)
+// 💡 螢幕防休眠保持鎖 (Screen Wake Lock API) & 背景傳輸佇列引擎 (v2.6.3)
 // 專為 POCO X8 Pro (Android / Chrome) 與 MSI 電腦打造：
 // 上傳大檔影音期間自動保持螢幕常亮，傳畢即時釋放自動休眠；支援斷線/鎖屏喚醒後自動續傳
 // ==========================================================================
@@ -5736,7 +5714,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261015_v2.6.2', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261015_v2.6.3', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -6504,7 +6482,7 @@ function toggleCollapsibleWithAnimation(details, content) {
 function enhanceMediaCollapsiblesAndDraggables(container) {
   if (!container) return;
 
-  // 🛡️ 0. 自動修復歷史筆記中曾發生「details 卡片被誤包進上一張卡片內部」的巢狀異常 (如：風洞筆記)
+  // 🛡️ 0. 自動修復歷史筆記中曾發生「details 卡片被誤包進上一張卡片內部」的巢狀異常
   container.querySelectorAll('details.notion-media-collapse details.notion-media-collapse').forEach(nestedDetails => {
     const outerDetails = nestedDetails.parentElement ? nestedDetails.parentElement.closest('details.notion-media-collapse') : null;
     if (outerDetails && outerDetails.parentNode) {
@@ -6512,16 +6490,46 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
     }
   });
 
-  // 1. 檢查現有的 details.notion-media-collapse 並自動識別既有說明列 (相容所有歷史版本格式)
+  // 🧹 0.5 清理圖片右上角刪除鈕、底部說明列刪除鈕，以及圖三/圖四中的 720P 綠色註解標籤
+  container.querySelectorAll('.media-overlay-delete-btn, .media-caption-delete-btn, .media-delete-sep').forEach(el => el.remove());
+  container.querySelectorAll('.media-preview-box').forEach(box => {
+    const childMedia = box.querySelector('img, iframe, video');
+    if (childMedia && box.parentNode) {
+      box.parentNode.insertBefore(childMedia, box);
+    }
+    box.remove();
+  });
+
+  // 清理已存在於筆記中的「720P 960x720...」或檔案大小註解標籤
+  container.querySelectorAll('details.notion-media-collapse summary span').forEach(sp => {
+    const txt = (sp.textContent || '').trim();
+    if (txt.startsWith('720P') || /^\(\d+(\.\d+)?\s*(KB|MB)\)$/i.test(txt) || /^\(720P/i.test(txt)) {
+      sp.remove();
+    }
+  });
+  container.querySelectorAll('details.notion-media-collapse .media-caption-bar span, details.notion-media-collapse .p-3 div span').forEach(sp => {
+    const txt = (sp.textContent || '').trim();
+    if (txt.startsWith('720P') || /^\d+(\.\d+)?\s*(KB|MB)$/i.test(txt)) {
+      const next = sp.nextElementSibling;
+      const prev = sp.previousElementSibling;
+      if (next && next.textContent.trim() === '•') {
+        next.remove();
+      } else if (prev && prev.textContent.trim() === '•') {
+        prev.remove();
+      }
+      sp.remove();
+    }
+  });
+
+  // 1. 檢查現有的 details.notion-media-collapse 並自動識別既有說明列
   container.querySelectorAll('details.notion-media-collapse').forEach(details => {
     const contentDiv = details.querySelector('.media-collapse-content') || details.querySelector('.p-3');
     if (!contentDiv) return;
     contentDiv.classList.add('media-collapse-content');
 
-    // 自動識別舊版未帶 .media-caption-bar 的說明列 (例如 mt-1.5 flex items-center ...)
     let existingBar = contentDiv.querySelector('.media-caption-bar');
     if (!existingBar) {
-      const candidateDivs = Array.from(contentDiv.querySelectorAll(':scope > div:not(.media-preview-box)'));
+      const candidateDivs = Array.from(contentDiv.querySelectorAll(':scope > div'));
       existingBar = candidateDivs.find(d => {
         if (d.querySelector('details, img, iframe, video')) return false;
         const t = d.textContent || '';
@@ -6532,14 +6540,16 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
       }
     }
 
-    // 清理空白無內容的多餘 caption-bar
     contentDiv.querySelectorAll('.media-caption-bar').forEach(bar => {
+      // 移除尾部多餘的「•」分隔符
+      while (bar.lastElementChild && bar.lastElementChild.tagName === 'SPAN' && bar.lastElementChild.textContent.trim() === '•') {
+        bar.lastElementChild.remove();
+      }
       if (bar !== existingBar && !bar.textContent.trim() && !bar.querySelector('a')) {
         bar.remove();
       }
     });
 
-    // 若說明文字散落在 details 下方相鄰段落 (絕不吞噬含 details/img/iframe 的區塊)
     if (!contentDiv.querySelector('.media-caption-bar')) {
       const nextEl = details.nextElementSibling;
       if (nextEl && (nextEl.tagName === 'P' || nextEl.tagName === 'DIV') && !nextEl.querySelector('details, img, iframe, video')) {
@@ -6571,7 +6581,6 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
     tempWrap.innerHTML = buildMediaCollapseCardHtml({
       fileId: '',
       fileName: alt,
-      specBadge: '720P',
       isImage: true,
       isVideo: false,
       isAudio: false,
@@ -6600,7 +6609,6 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
     tempWrap.innerHTML = buildMediaCollapseCardHtml({
       fileId: '',
       fileName: '錄影與影片',
-      specBadge: '720P 串流',
       isImage: false,
       isVideo: true,
       isAudio: false,
@@ -6618,16 +6626,14 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
     }
   });
 
-  // 4. 為所有新舊 details.notion-media-collapse 補齊三處醒目「🗑️ 刪除」按鈕
+  // 4. 為所有新舊 details.notion-media-collapse 僅在「最上方標題列右側」保留唯一一個 [🗑️ 刪除] 按鈕
   container.querySelectorAll('details.notion-media-collapse').forEach(details => {
     const summary = details.querySelector('summary');
-    const content = details.querySelector('.media-collapse-content') || details.querySelector('.p-3');
     if (!summary) return;
 
     const isVid = !!details.querySelector('iframe, video');
     const mediaLabel = isVid ? '影片' : '圖片';
 
-    // (a) 頂部標題列右側：醒目紅底膠囊按鈕 [🗑️ 刪除]
     let summaryDelBtn = summary.querySelector('.media-card-delete-btn');
     if (!summaryDelBtn) {
       summaryDelBtn = document.createElement('button');
@@ -6643,58 +6649,14 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
     summaryDelBtn.title = `從筆記中刪除此${mediaLabel} (需二次確認)`;
     summaryDelBtn.innerHTML = `${TRASH_ICON_SVG}<span class="pointer-events-none">刪除</span>`;
 
-    // (b) 圖片右上角懸浮按鈕 [🗑️ 刪除圖片]
-    if (content) {
-      const imgEl = content.querySelector('img');
-      if (imgEl && !imgEl.closest('.media-preview-box')) {
-        const previewBox = document.createElement('div');
-        previewBox.className = 'relative inline-block max-w-full group media-preview-box';
-        imgEl.parentNode.insertBefore(previewBox, imgEl);
-        previewBox.appendChild(imgEl);
-      }
-      const previewBox = content.querySelector('.media-preview-box');
-      if (previewBox && !previewBox.querySelector('.media-overlay-delete-btn')) {
-        const overlayBtn = document.createElement('button');
-        overlayBtn.type = 'button';
-        overlayBtn.className = 'media-overlay-delete-btn absolute top-2.5 right-2.5 px-2.5 py-1 rounded-lg bg-rose-600/90 hover:bg-rose-700 text-white text-[11px] font-bold flex items-center gap-1 shadow-lg backdrop-blur-xs transition cursor-pointer';
-        overlayBtn.title = `刪除此${mediaLabel} (需二次確認)`;
-        overlayBtn.innerHTML = `${TRASH_ICON_SVG}<span class="pointer-events-none">刪除${mediaLabel}</span>`;
-        previewBox.appendChild(overlayBtn);
-      }
-
-      // (c) 底部資訊列：補上醒目 [🗑️ 刪除圖片/影片] 按鈕
-      let captionBar = content.querySelector('.media-caption-bar');
-      if (!captionBar) {
-        captionBar = document.createElement('div');
-        captionBar.className = 'text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar';
-        content.appendChild(captionBar);
-      }
-      let captionDelBtn = captionBar.querySelector('.media-caption-delete-btn');
-      if (!captionDelBtn) {
-        const bullet = document.createElement('span');
-        bullet.className = 'media-delete-sep';
-        bullet.textContent = '•';
-        captionDelBtn = document.createElement('button');
-        captionDelBtn.type = 'button';
-        captionBar.appendChild(bullet);
-        captionBar.appendChild(captionDelBtn);
-      }
-      captionDelBtn.className = 'media-caption-delete-btn px-2 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-800/80 hover:bg-rose-600 hover:text-white text-[11px] font-bold inline-flex items-center gap-1 transition cursor-pointer';
-      captionDelBtn.title = `從筆記中刪除此${mediaLabel} (需二次確認)`;
-      captionDelBtn.innerHTML = `${TRASH_ICON_SVG}<span class="pointer-events-none">刪除${mediaLabel}</span>`;
+    if (!summaryDelBtn._deleteBound) {
+      summaryDelBtn._deleteBound = true;
+      summaryDelBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        requestDeleteMediaBlock(details);
+      });
     }
-
-    // (d) 綁定直接事件監聽 (使用 JS 記憶體屬性 _deleteBound，絕不受 innerHTML 序列化影響)
-    details.querySelectorAll('.media-card-delete-btn, .media-caption-delete-btn, .media-overlay-delete-btn').forEach(btn => {
-      if (!btn._deleteBound) {
-        btn._deleteBound = true;
-        btn.addEventListener('click', (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          requestDeleteMediaBlock(details);
-        });
-      }
-    });
   });
 
   // 5. 確保所有通用附件卡片 (.notion-file-attachment) 具備醒目刪除按鈕
@@ -6740,7 +6702,7 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
     }
   });
 
-  // 7. 清理歷史按鈕殘留，並為卡片綁定平滑收折/展開動畫 (使用 _animatedCollapseBound 記憶體屬性)
+  // 7. 清理歷史按鈕殘留，並為卡片綁定平滑收折/展開動畫
   container.querySelectorAll('.summary-edit-img-btn, .caption-edit-img-btn, .image-hover-edit-btn').forEach(el => el.remove());
 
   container.querySelectorAll('details.notion-media-collapse').forEach(details => {
