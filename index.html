@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>LVI_Note v2.6.4 - 雲端工作筆記</title>
+  <title>LVI_Note v2.6.5 - 雲端工作筆記</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -44,20 +44,20 @@
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <link rel="manifest" href="manifest.json?v=20261020_v2.6.4">
+  <link rel="manifest" href="manifest.json?v=20261021_v2.6.5">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LVI_Note">
   <meta name="application-name" content="LVI_Note">
-  <meta name="version" content="v2.6.4">
+  <meta name="version" content="v2.6.5">
   <meta name="theme-color" content="#191919">
-  <link rel="stylesheet" href="styles.css?v=20261020_v2.6.4">
+  <link rel="stylesheet" href="styles.css?v=20261021_v2.6.5">
   <script>
-    // 🛡️ LVI_Note v2.6.4 強制破除舊版 Service Worker 快取守門員
+    // 🛡️ LVI_Note v2.6.5 強制破除舊版 Service Worker 快取守門員
     (function() {
       try {
-        var CURRENT_VER = 'v2.6.4';
+        var CURRENT_VER = 'v2.6.5';
         var savedVer = localStorage.getItem('lvi_installed_version');
         if (savedVer !== CURRENT_VER) {
           localStorage.setItem('lvi_installed_version', CURRENT_VER);
@@ -111,7 +111,7 @@
       <img src="logo.png" alt="LVI_Note Logo" class="w-6 h-6 rounded-full border border-blue-500/40 shadow-xs object-cover shrink-0 cursor-pointer hover:scale-105 transition-transform" onclick="switchView('table')" title="LVI_Note">
       
       <!-- 版本徽章 (手機與電腦皆常駐清晰顯示) + 麵包屑導航 -->
-      <span id="header-version-badge" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shrink-0 shadow-2xs" title="當前版本號：v2.6.4 (720P自動壓縮 + 媒體刪除二次確認)">v2.6.4</span>
+      <span id="header-version-badge" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shrink-0 shadow-2xs" title="當前版本號：v2.6.5 (表格智慧模糊檢索 + 解決方案預覽 + 720P極速壓縮)">v2.6.5</span>
       <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1 truncate max-w-[110px] sm:max-w-xs">
         <span class="hidden sm:inline font-medium text-gray-700 dark:text-gray-300 shrink-0">
           <span id="header-folder-name">LVI_Note</span>
@@ -248,7 +248,7 @@
           <img src="logo.png" alt="LVI_Note Logo" class="w-7 h-7 rounded-full border border-blue-500/40 shadow-sm object-cover shrink-0">
           <div class="flex items-center gap-1.5">
             <span class="text-sm font-bold tracking-tight text-gray-800 dark:text-gray-100">LVI_Note</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">v2.6.4</span>
+            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">v2.6.5</span>
           </div>
         </div>
         <div class="flex items-center space-x-1">
@@ -427,7 +427,7 @@
         <span class="flex items-center gap-1.5 truncate">
           <i data-lucide="cloud" class="w-3 h-3 text-blue-500"></i>
           <span id="sidebar-folder-label">LVI_Note</span>
-          <span class="app-version-badge text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">v2.6.4</span>
+          <span class="app-version-badge text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">v2.6.5</span>
         </span>
         <button id="refresh-btn" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-600" title="重新整理">
           <i data-lucide="rotate-cw" class="w-3 h-3"></i>
@@ -705,9 +705,12 @@
       <div id="view-table-container" class="hidden flex-1 overflow-auto p-4 sm:p-6 bg-white dark:bg-notion-dark flex flex-col">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-gray-100 dark:border-notion-borderDark">
           <div class="flex flex-wrap items-center gap-2 text-xs">
-            <div class="relative w-40">
-              <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-gray-400"></i>
-              <input id="table-search-input" type="text" placeholder="快速過濾表格..." class="w-full pl-8 pr-2.5 py-1.5 rounded-md border border-gray-200 dark:border-notion-borderDark bg-gray-50 dark:bg-notion-darker text-xs">
+            <div class="relative w-full sm:w-64 md:w-80 transition-all">
+              <i data-lucide="sparkles" class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-blue-500 dark:text-blue-400 pointer-events-none"></i>
+              <input id="table-search-input" type="text" autocomplete="off" placeholder="快速過濾 / 模糊檢索解決方案 (例: 抽不到水、漏氣、阻值)..." class="w-full pl-8 pr-7 py-1.5 rounded-md border border-blue-200 dark:border-blue-900/70 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 bg-gray-50 dark:bg-notion-darker text-xs transition-all">
+              <button id="table-search-clear-btn" type="button" title="清除搜尋關鍵字" class="hidden absolute right-2 top-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200">
+                <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
+              </button>
             </div>
             <select id="table-filter-machine" class="px-2 py-1.5 rounded-md border border-gray-200 dark:border-notion-borderDark bg-gray-50 dark:bg-notion-darker text-xs font-medium text-blue-600 dark:text-blue-400">
               <option value="">全部機型</option>
@@ -730,9 +733,19 @@
             </select>
 
           </div>
-          <button id="table-add-row-btn" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium flex items-center gap-1 shadow-sm">
-            <i data-lucide="plus" class="w-3.5 h-3.5"></i> 新增資料列
-          </button>
+          <div class="flex items-center gap-2">
+            <span id="table-fuzzy-index-badge" class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-medium bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/70 dark:border-emerald-800/60" title="支援口語描述、同義詞擴展、跳字容錯與全文解決方案檢索">
+              <span>🧠 智慧模糊檢索已啟用</span>
+            </span>
+            <button id="table-add-row-btn" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium flex items-center gap-1 shadow-sm">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> 新增資料列
+            </button>
+          </div>
+        </div>
+        <!-- 🧠 模糊檢索意圖拆解與同義詞擴展提示列 -->
+        <div id="table-fuzzy-query-banner" class="hidden mb-3 px-3 py-2 rounded-lg bg-blue-50/80 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-800/60 text-xs flex flex-wrap items-center justify-between gap-2">
+          <div id="table-fuzzy-query-details" class="flex flex-wrap items-center gap-1.5 text-gray-700 dark:text-gray-200"></div>
+          <div id="table-fuzzy-stats-text" class="text-[11px] text-blue-600 dark:text-blue-300 font-medium shrink-0"></div>
         </div>
 
         <div class="flex-1 overflow-auto rounded-lg border border-gray-200 dark:border-notion-borderDark">
@@ -1494,7 +1507,7 @@
       <div class="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-notion-borderDark">
         <div class="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
           <span>系統版本</span>
-          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.6.4</span>
+          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.6.5</span>
         </div>
         <button id="save-settings-btn" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition shadow-sm">
           儲存所有設定
@@ -1508,7 +1521,7 @@
     <span id="toast-message">訊息提示</span>
   </div>
 
-  <script src="app.js?v=20261020_v2.6.4"></script>
+  <script src="app.js?v=20261021_v2.6.5"></script>
 
   <!-- 🏢 工作標籤新增彈窗 (Work Tag Modal) -->
   <div id="work-tag-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden backdrop-blur-xs">

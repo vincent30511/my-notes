@@ -2126,3 +2126,45 @@ details.notion-media-collapse[open] summary .collapse-arrow {
 .file-attachment-delete-btn:hover {
   transform: scale(1.1);
 }
+
+/* ==========================================================================
+   🧠 v2.6.5 表格資料庫「智慧模糊檢索與解決方案預覽」專用樣式
+   ========================================================================== */
+mark.fuzzy-hl {
+  background-color: rgba(251, 191, 36, 0.35);
+  color: inherit;
+  padding: 0 2px;
+  border-radius: 3px;
+  font-weight: 700;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.25);
+}
+.dark mark.fuzzy-hl {
+  background-color: rgba(245, 158, 11, 0.32);
+  color: #fde68a;
+  box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.4);
+}
+.fuzzy-snippet-box {
+  margin-top: 4px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background-color: rgba(248, 250, 252, 0.9);
+  border-left: 2.5px solid #3b82f6;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #475569;
+  max-width: 520px;
+  word-break: break-word;
+}
+.dark .fuzzy-snippet-box {
+  background-color: rgba(30, 41, 59, 0.55);
+  border-left-color: #60a5fa;
+  color: #cbd5e1;
+}
+.fuzzy-snippet-box.is-solution {
+  border-left-color: #10b981;
+  background-color: rgba(236, 253, 245, 0.55);
+}
+.dark .fuzzy-snippet-box.is-solution {
+  border-left-color: #34d399;
+  background-color: rgba(6, 78, 59, 0.25);
+}

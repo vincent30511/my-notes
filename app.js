@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.6.4'; // 2026.10.15 (720P 壓縮 + 媒體刪除二次確認)
+const APP_VERSION = 'v2.6.5'; // 2026.10.21 (表格智慧模糊檢索 + 解決方案預覽 + 720P極速壓縮)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -575,6 +575,11 @@ const DOM = {
 
   // 表格視圖
   tableSearchInput: document.getElementById('table-search-input'),
+  tableSearchClearBtn: document.getElementById('table-search-clear-btn'),
+  tableFuzzyIndexBadge: document.getElementById('table-fuzzy-index-badge'),
+  tableFuzzyQueryBanner: document.getElementById('table-fuzzy-query-banner'),
+  tableFuzzyQueryDetails: document.getElementById('table-fuzzy-query-details'),
+  tableFuzzyStatsText: document.getElementById('table-fuzzy-stats-text'),
   tableFilterMachine: document.getElementById('table-filter-machine'),
   tableFilterContent: document.getElementById('table-filter-content'),
   tableFilterUrgency: document.getElementById('table-filter-urgency'),
@@ -1512,6 +1517,7 @@ async function reloadCurrentNoteContentSilently(noteId, fileMeta) {
       state.currentNote._cachedBody = body;
       state.currentNote._cachedHtml = renderedHtml;
       state.currentNote._cachedMeta = bodyMeta;
+      try { updateNoteSearchIndex(noteId, fileMeta.modifiedTime, body); } catch (e) {}
       try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) {}
       try { updateStats(); } catch (e) {}
       try { renderOutline(); } catch (e) {}
@@ -1686,6 +1692,7 @@ async function fetchNotesList(silent = false) {
       createNewNote();
     }
     saveSwrCacheSnapshot();
+    setTimeout(() => { try { scheduleBackgroundFullTextIndexing(); } catch (e) {} }, 150);
   } catch (e) {
     console.error('載入雲端筆記清單失敗:', e);
     if (!silent) updateSyncStatus('error', '雲端同步出錯');
@@ -5542,18 +5549,26 @@ function renderNotesList() {
     filtered = filtered.filter(n => isNoteUncategorized(n));
   }
 
-  // 4. 關鍵字搜尋
-  const query = DOM.searchInput && DOM.searchInput.value ? DOM.searchInput.value.trim().toLowerCase() : '';
+  // 4. 關鍵字搜尋 (升級支援智慧模糊檢索與全文同義詞匹配)
+  const query = DOM.searchInput && DOM.searchInput.value ? DOM.searchInput.value.trim() : '';
+  const sidebarFuzzyMap = new Map();
   if (query) {
+    scheduleBackgroundFullTextIndexing();
+    const parsedSidebarQ = parseFuzzyQuery(query);
     filtered = filtered.filter(n => {
-      const titleMatch = (n.name || '').toLowerCase().includes(query);
-      const tagsMatch = (n.meta.tags || []).some(t => t.toLowerCase().includes(query));
-      return titleMatch || tagsMatch;
+      const res = evaluateFuzzyNoteMatch(n, parsedSidebarQ);
+      sidebarFuzzyMap.set(n.id, res);
+      return res.matched;
     });
   }
 
-  // 置頂筆記排在最前
+  // 搜尋時依關聯度排序，平時置頂筆記排在最前
   filtered.sort((a, b) => {
+    if (query) {
+      const sA = (sidebarFuzzyMap.get(a.id) || {}).score || 0;
+      const sB = (sidebarFuzzyMap.get(b.id) || {}).score || 0;
+      if (Math.abs(sB - sA) >= 3) return sB - sA;
+    }
     const aPin = a.meta && a.meta.pinned ? 1 : 0;
     const bPin = b.meta && b.meta.pinned ? 1 : 0;
     if (bPin !== aPin) return bPin - aPin;
@@ -5770,11 +5785,12 @@ async function selectNote(noteId) {
       ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'data-color', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd']
     });
 
-    // 存入快取供後續瞬間切換，並寫入本機 SWR 瞬開快取
+    // 存入快取供後續瞬間切換，並寫入本機 SWR 瞬開快取與全文模糊檢索索引
     noteMeta._cachedRawText = rawText;
     noteMeta._cachedBody = body;
     noteMeta._cachedMeta = bodyMeta;
     noteMeta._cachedHtml = renderedHtml;
+    try { updateNoteSearchIndex(noteMeta.id, noteMeta.modifiedTime, body); } catch (e) {}
     saveSwrCacheSnapshot();
 
     // 🛡️ 核心救援：檢查本機是否有上次關閉軟體前尚未完成上傳的最新草稿
@@ -5902,7 +5918,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261020_v2.6.4', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261021_v2.6.5', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -6292,6 +6308,7 @@ async function saveCurrentNote() {
     }
 
     markLocalDraftSynced(state.currentNote.id); // 標記本機草稿已完成雲端同步
+    try { updateNoteSearchIndex(state.currentNote.id, state.currentNote.modifiedTime, markdownBody); } catch (e) {}
     saveSwrCacheSnapshot();
     updateSyncStatus('synced', '已儲存');
     DOM.statAutosave.innerHTML = '<span class="text-emerald-500 font-medium">✓ 已自動同步至 Google Drive</span>';
@@ -8289,12 +8306,11 @@ function renderUncategorizedView() {
   }
   if (DOM.uncatSummaryText) DOM.uncatSummaryText.textContent = `共有 ${count} 篇未分類隨手筆記`;
   
-  const kw = (DOM.uncatSearchInput ? DOM.uncatSearchInput.value.trim().toLowerCase() : '');
+  const kw = (DOM.uncatSearchInput ? DOM.uncatSearchInput.value.trim() : '');
+  const parsedUncatQ = kw ? parseFuzzyQuery(kw) : null;
   const filteredNotes = uncatNotes.filter(n => {
-    if (!kw) return true;
-    const title = (n.name || '').toLowerCase();
-    const desc = (n.description || '').toLowerCase();
-    return title.includes(kw) || desc.includes(kw);
+    if (!parsedUncatQ) return true;
+    return evaluateFuzzyNoteMatch(n, parsedUncatQ).matched;
   });
   
   const grid = DOM.uncatNotesGrid;
@@ -8562,22 +8578,940 @@ function renderCurrentView() {
   }
 }
 
-// ----------------- 1. 表格資料庫檢視 (Table Database View) -----------------
+
+// ============================================================================
+// 🧠 LVI_Note v2.6.5 智慧模糊檢索與解決方案探索引擎 (Smart Fuzzy & Solution Search)
+// ============================================================================
+const SEARCH_INDEX_STORAGE_KEY = 'lvi_search_index_v1';
+let _searchIndexMap = {};
+let _isBackgroundIndexing = false;
+
+try {
+  const rawIdx = localStorage.getItem(SEARCH_INDEX_STORAGE_KEY);
+  if (rawIdx) {
+    const parsedIdx = JSON.parse(rawIdx);
+    if (parsedIdx && typeof parsedIdx === 'object') {
+      _searchIndexMap = parsedIdx;
+    }
+  }
+} catch (e) {
+  console.warn('讀取本機全文索引快取略過:', e);
+}
+
+let _saveSearchIndexTimer = null;
+function persistSearchIndexCache() {
+  if (_saveSearchIndexTimer) clearTimeout(_saveSearchIndexTimer);
+  _saveSearchIndexTimer = setTimeout(() => {
+    try {
+      const validIds = new Set((state.notes || []).map(n => n.id));
+      const keys = Object.keys(_searchIndexMap);
+      if (keys.length > 200 && validIds.size > 0) {
+        keys.forEach(k => {
+          if (!validIds.has(k)) delete _searchIndexMap[k];
+        });
+      }
+      localStorage.setItem(SEARCH_INDEX_STORAGE_KEY, JSON.stringify(_searchIndexMap));
+    } catch (err) {
+      console.warn('儲存全文索引快取略過:', err);
+    }
+  }, 400);
+}
+
+/**
+ * 將筆記原始 Markdown 或 HTML 轉換為高密度、無雜訊之可檢索純文字
+ * (自動過濾巨型 Base64 圖檔字串、Frontmatter 屬性行、提取附件檔名 data-file-name、移除 HTML 標籤)
+ */
+function extractCleanSearchableText(rawText) {
+  if (!rawText || typeof rawText !== 'string') return '';
+  let text = rawText;
+
+  // 1. 移除開頭 YAML Frontmatter (含一般與跳脫斜線格式)
+  text = text.replace(/^\\?---\r?\n[\s\S]*?\r?\n\\?---\r?\n?/, '');
+  text = text.replace(/^-----+\s*\n+##\s*icon:[\s\S]*?\n+/i, '');
+
+  // 2. 移除巨型 Base64 編碼內容、媒體卡片按鈕文字與圖檔佔位符 (避免污染索引與摘要預覽)
+  text = text.replace(/data:[a-zA-Z0-9/+.-]+;base64,[A-Za-z0-9+/=\r\n]+/g, ' ');
+  text = text.replace(/\[image\d+\]:\s*<[^>]*>/gi, ' ');
+  text = text.replace(/!?\\?\[IMG_[^\]]*\\?\]\\?\[[^\]]*\\?\]/gi, ' ');
+  text = text.replace(/<summary[\s\S]*?<\/summary>/gi, ' ');
+  text = text.replace(/點擊收折\/展開|下載原圖|雲端檢視|已同步至雲端|🗑️\s*刪除|刪除/g, ' ');
+  text = text.replace(/(?:IMG_|\d{15,})[a-zA-Z0-9_.-]*\.(?:jpe?g|png|gif|webp|mp4|mov)/gi, ' ');
+
+  // 3. 保留 HTML 內的檔案名稱屬性 (如 data-file-name="標準器校驗報告.pdf")
+  const fileNames = [];
+  text.replace(/data-file-name=["']([^"']+)["']/gi, (_, fname) => {
+    if (fname) fileNames.push(fname);
+    return '';
+  });
+
+  // 4. 將換行與區塊結束標籤轉為換行，再剝除所有 HTML 標籤
+  text = text
+    .replace(/<\/(p|div|h[1-6]|li|tr|details|summary|blockquote)>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\\?&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&quot;/gi, '"');
+
+  // 5. 先移除 Markdown 裝飾符號，再清除殘留之 Frontmatter 屬性鍵值行
+  text = text
+    .replace(/https?:\/\/[^\s)]+/g, ' ')
+    .replace(/^[\\#*>-]+\s*/gm, '')
+    .replace(/[\\`*_~\[\]]+/g, ' ')
+    .replace(/^\s*(?:icon|cover|status|machineModel|workContent|urgency|clientVendor|dueDate|tags|pinned)\s*:.*$/gim, '')
+    .replace(/^.*machineModel\s*:.*workContent\s*:.*$/gim, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{2,}/g, '\n')
+    .trim();
+
+  if (fileNames.length > 0) {
+    text = `[附件: ${fileNames.join(', ')}] ` + text;
+  }
+
+  return text.slice(0, 4500);
+}
+
+/**
+ * 更新單篇筆記的全文索引並掛載至 note._searchText
+ */
+function updateNoteSearchIndex(noteId, modifiedTime, rawOrBodyText, persist = true) {
+  if (!noteId || typeof rawOrBodyText !== 'string') return '';
+  const clean = extractCleanSearchableText(rawOrBodyText);
+  _searchIndexMap[noteId] = {
+    m: modifiedTime || '',
+    t: clean
+  };
+  if (Array.isArray(state.notes)) {
+    const target = state.notes.find(n => n.id === noteId);
+    if (target) {
+      target._searchText = clean;
+    }
+  }
+  if (persist) persistSearchIndexCache();
+  updateFuzzyIndexBadgeUI();
+  return clean;
+}
+
+/**
+ * 取得筆記的最佳可檢索內文 (優先順序：_searchText -> _cachedBody -> _cachedHtml -> _searchIndexMap -> meta.excerpt)
+ */
+function getNoteSearchableBody(note) {
+  if (!note) return '';
+  if (typeof note._searchText === 'string' && note._searchText.length > 0) {
+    return note._searchText;
+  }
+  if (typeof note._cachedBody === 'string' && note._cachedBody.length > 0) {
+    const clean = extractCleanSearchableText(note._cachedBody);
+    note._searchText = clean;
+    if (note.id) {
+      _searchIndexMap[note.id] = { m: note.modifiedTime || '', t: clean };
+    }
+    return clean;
+  }
+  if (typeof note._cachedHtml === 'string' && note._cachedHtml.length > 0) {
+    const clean = extractCleanSearchableText(note._cachedHtml);
+    note._searchText = clean;
+    return clean;
+  }
+  if (note.id && _searchIndexMap[note.id] && typeof _searchIndexMap[note.id].t === 'string') {
+    note._searchText = _searchIndexMap[note.id].t;
+    return note._searchText;
+  }
+  if (note.meta && typeof note.meta.excerpt === 'string') {
+    return note.meta.excerpt;
+  }
+  return '';
+}
+
+function updateFuzzyIndexBadgeUI() {
+  if (!DOM.tableFuzzyIndexBadge) return;
+  const total = Array.isArray(state.notes) ? state.notes.length : 0;
+  if (total === 0) {
+    DOM.tableFuzzyIndexBadge.innerHTML = '<span>🧠 智慧模糊檢索已就緒</span>';
+    return;
+  }
+  let indexedCount = 0;
+  state.notes.forEach(n => {
+    if (n._searchText !== undefined || n._cachedBody !== undefined || (_searchIndexMap[n.id] && _searchIndexMap[n.id].t !== undefined)) {
+      indexedCount++;
+    }
+  });
+  if (_isBackgroundIndexing && indexedCount < total) {
+    DOM.tableFuzzyIndexBadge.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin text-blue-500"></i><span>全文索引同步中 (${indexedCount}/${total})</span>`;
+    initLucide();
+  } else {
+    DOM.tableFuzzyIndexBadge.innerHTML = `<span>🧠 智慧模糊檢索 (全文索引 ${indexedCount}/${total} 篇)</span>`;
+  }
+}
+
+/**
+ * 背景靜默預載所有尚未建立本地全文索引的筆記內容，確保搜尋「非精準問題」時能 100% 掃描每篇筆記內文中的解決方案
+ */
+async function scheduleBackgroundFullTextIndexing() {
+  if (_isBackgroundIndexing || !state.accessToken || !Array.isArray(state.notes) || state.notes.length === 0) {
+    updateFuzzyIndexBadgeUI();
+    return;
+  }
+
+  state.notes.forEach(n => {
+    if (n._cachedBody !== undefined && n._searchText === undefined) {
+      n._searchText = extractCleanSearchableText(n._cachedBody);
+      _searchIndexMap[n.id] = { m: n.modifiedTime || '', t: n._searchText };
+    } else if (_searchIndexMap[n.id] && _searchIndexMap[n.id].m === n.modifiedTime && typeof _searchIndexMap[n.id].t === 'string') {
+      n._searchText = _searchIndexMap[n.id].t;
+    }
+  });
+
+  const unindexedNotes = state.notes.filter(n => n.id && n._searchText === undefined);
+  updateFuzzyIndexBadgeUI();
+  if (unindexedNotes.length === 0) {
+    persistSearchIndexCache();
+    return;
+  }
+
+  _isBackgroundIndexing = true;
+  updateFuzzyIndexBadgeUI();
+
+  const BATCH_SIZE = 3;
+  let updatedAny = false;
+
+  try {
+    for (let i = 0; i < unindexedNotes.length; i += BATCH_SIZE) {
+      if (!state.accessToken) break;
+      const batch = unindexedNotes.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(async (note) => {
+        try {
+          const res = await fetch(`https://www.googleapis.com/drive/v3/files/${note.id}?alt=media`, {
+            headers: { Authorization: `Bearer ${state.accessToken}` }
+          });
+          if (!res.ok) return;
+          const rawText = await res.text();
+          const { meta: bodyMeta, body } = parseFrontmatter(rawText);
+          note._cachedBody = body;
+          note._cachedMeta = bodyMeta;
+          const clean = extractCleanSearchableText(body);
+          note._searchText = clean;
+          _searchIndexMap[note.id] = {
+            m: note.modifiedTime || '',
+            t: clean
+          };
+          updatedAny = true;
+        } catch (err) {
+          // 忽略單篇網路波動
+        }
+      }));
+
+      updateFuzzyIndexBadgeUI();
+      if (state.currentView === 'table' && DOM.tableSearchInput && DOM.tableSearchInput.value.trim()) {
+        renderTableView();
+      } else if (DOM.searchInput && DOM.searchInput.value.trim()) {
+        renderNotesList();
+      }
+    }
+  } finally {
+    _isBackgroundIndexing = false;
+    if (updatedAny) {
+      persistSearchIndexCache();
+      saveSwrCacheSnapshot();
+    }
+    updateFuzzyIndexBadgeUI();
+  }
+}
+
+// 🛠️ 現場工程與設備維護領域專屬高精準同義詞群組 (18 組聚焦語意叢集)
+const ENGINEERING_SYNONYM_GROUPS = [
+  // 1. 泵浦與抽水動作
+  ['泵', '幫浦', '水泵', '馬達', 'pump', '抽水', '抽不到水', '抽到水', '打水', '吸水', '沒水', '無水', '缺水'],
+  // 2. 水箱與液位
+  ['水箱', '大水箱', '小水箱', '水槽', 'tank', '水位', '液位', '紅線', '見底', '補水', '預充填'],
+  // 3. 流量與管路循環
+  ['流量', '流量計', 'flow', 'lpm', '無流量', '沒流量', '流量異常', '讀值', '讀數', '管路', '管道', '循環'],
+  // 4. 閥件與濾材接頭
+  ['隔膜閥', '排氣隔膜閥', '排氣閥', '電磁閥', '洩壓閥', '調壓閥', '閥門', 'valve', '濾心', '快接頭', 'fd83'],
+  // 5. 氣壓、漏氣與三點組合
+  ['洩氣', '漏氣', '洩壓', '掉壓', '失壓', '氣壓', '空壓', '氣源', '三點組合', '壓力不足'],
+  // 6. 保壓與殘壓測試
+  ['保壓', '保殘壓', '殘壓', '200kpa', '150kpa', 'kpa', 'pa/s', '燒機'],
+  // 7. 電阻與歐姆量測
+  ['電阻', '阻值', '歐姆', 'ohm', 'ω', '120歐姆', '80歐姆', '排查點位阻值'],
+  // 8. 點位、通道與模組
+  ['點位', '通道', '第三組', '模組', 'adam'],
+  // 9. 燒毀、損壞與失效故障
+  ['燒毀', '燒掉', '燒壞', '壞掉', '損壞', '失效', '短路', '斷路', '過載', '故障'],
+  // 10. 電源供應器與按鍵設定
+  ['電源供應器', '電供', '恒惠', 'hcp', 'hcp1021', '1021', '進入設定', '設定方式', 'shift', '長按', 'modbus', '定電壓'],
+  // 11. 風洞、風機與標準器校驗
+  ['風洞', '風機', '質昌', '風速', '噴嘴', '標準器', '校驗', '校正', '校驗報告'],
+  // 12. 溫控、過熱與 TIM 固化
+  ['溫度', '高溫', '過熱', '超溫', '降溫', '升溫', '加熱', '固化', 'tim', 'pcm', '熔融', 'curing', '40°c', '80°c'],
+  // 13. 機構、鈑金、蓋子與孔位公差
+  ['鈑金', '板金', '鈑金件', '機構', '孔位', '開孔', '公差', '配合', '蓋子', '上蓋', '外殼', '干涉', '對不準', '不合', '裝不上'],
+  // 14. 軟體計時、Datalog 與客戶回饋
+  ['回饋', '客戶回饋', '客人回饋', '客訴', '直觀', '計時', 'exe time', 'test time', 'cycle time', 'datalog'],
+  // 15. 客戶與廠商同義別名
+  ['華碩', 'asus', '迎廣', 'inwin', '蘆竹'],
+  ['台積電', 'tsmc'],
+  ['日月光', 'ase'],
+  ['英業達', 'inventec'],
+  ['熱領', '上海熱領', '上海'],
+  ['艾司摩爾', 'asml'],
+  ['聯電', 'umc'],
+  ['鴻佰', 'fii', '越南', 'fiiv']
+];
+
+const ENGINEERING_DOMAIN_TERMS = Array.from(new Set(
+  ENGINEERING_SYNONYM_GROUPS.flat().concat([
+    'sa730-8mp', 'sa730', '730', 'sa710l', 'sa710', '710l', '710', 'sa750', '750',
+    'sa760', '760', 'sa162b', 'sa-162b', '162b', '162', 'sa100-9mp', 'sa100', 'sa-100', '100',
+    '三點組合', '電源供應器', '恒惠', '隔膜閥', '排氣隔膜閥', '排氣閥', '流量計', '大水箱', '小水箱', '水箱', '水位', '紅線',
+    '預充填', '保殘壓', '保壓', '點位', '通道', '燒毀', '壞掉', '阻值', '電阻', '歐姆', '鈑金件', '鈑金', '孔位', '配合', '蓋子',
+    '風洞', '風機', '校驗', '標準器', '電路圖', '大流量', '套件', '交機', '驗收', '回饋', '啟動', '沒水',
+    '洩氣', '漏氣', '漏水', '過熱', '設定', '故障', '異常', '排查', '更換'
+  ])
+)).sort((a, b) => b.length - a.length);
+
+const CONVERSATIONAL_STOPWORDS = [
+  '請問一下', '請問', '為什麼會', '為什麼', '怎麼辦', '怎麼處理', '怎麼解決', '怎麼', '如何處理', '如何解決', '如何',
+  '有沒有', '有什麼', '哪裡有', '哪裡', '是什麼', '什麼', '的時候', '的話', '如果', '若是', '出現', '發生',
+  '問題', '狀況', '情形', '方法', '方式', '辦法', '筆記', '紀錄', '記錄', '一下', '可以', '應該', '需要', '想要', '找出', '自己', '不對'
+];
+
+const SINGLE_CHAR_STOPWORDS = new Set([
+  '的', '了', '嗎', '呢', '吧', '啊', '喔', '哦', '與', '及', '或', '和', '在', '是', '有', '於', '把', '被', '讓', '給', '到', '去', '來', '也', '都', '就', '還', '又', '很', '太', '更', '最', '這', '那', '之', '其', '中', '上', '下', '會', '能', '要', '不', '沒', '無'
+]);
+
+const SOLUTION_INDICATOR_TERMS = [
+  '解決', '排除', '排查', '原因', '起因', '確保', '至少要', '設定方式', '進入設定', '步驟', '處理',
+  '更換', '調整', '調校', '測試結果', '歐姆', '阻值', 'kpa', 'lpm', '°c', '紅線', '預充填', '配合', '改善', '修復', 'sop', '手冊', '極有可能'
+];
+
+function normalizeSearchText(str) {
+  if (!str) return '';
+  let out = '';
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code === 12288) {
+      out += ' ';
+    } else if (code >= 65281 && code <= 65374) {
+      out += String.fromCharCode(code - 65248);
+    } else {
+      out += str[i];
+    }
+  }
+  return out.toLowerCase().trim();
+}
+
+function normalizeAlphaNumCompact(str) {
+  return normalizeSearchText(str).replace(/[-_\s./()（）]+/g, '');
+}
+
+function computeEditDistance(a, b) {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  if (Math.abs(a.length - b.length) > 2) return 99;
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+function hasWindowedSubsequenceMatch(text, term, maxWindow = 10) {
+  if (!text || !term || term.length < 2 || term.length > 6) return false;
+  const firstChar = term[0];
+  let startIdx = text.indexOf(firstChar);
+  while (startIdx !== -1) {
+    let curPos = startIdx;
+    let matchedAll = true;
+    for (let i = 1; i < term.length; i++) {
+      const nextPos = text.indexOf(term[i], curPos + 1);
+      if (nextPos === -1 || (nextPos - startIdx) > maxWindow) {
+        matchedAll = false;
+        break;
+      }
+      curPos = nextPos;
+    }
+    if (matchedAll) return true;
+    startIdx = text.indexOf(firstChar, startIdx + 1);
+  }
+  return false;
+}
+
+function parseFuzzyQuery(rawQuery) {
+  const norm = normalizeSearchText(rawQuery);
+  if (!norm) {
+    return { rawNormalized: '', compactQuery: '', coreTokens: [], bigrams: [], singleChars: [], expandedSynonyms: [], conceptGroups: [] };
+  }
+
+  // 1. 口語否定與常見問題片語智慧映射
+  const phraseExpansions = [];
+  const conversationalMappings = [
+    { pattern: /抽不到水|吸不到水|打不出水|不出水|水抽不上來|沒出水/, terms: ['抽到水', '沒水', '無流量', '水位', '泵', '預充填', '大水箱', '小水箱'] },
+    { pattern: /沒流量|沒有流量|流不動|水不流/, terms: ['無流量', '流量計', '預充填', '沒水', '泵'] },
+    { pattern: /不會轉|不轉|不動作|不動|無法啟動|開不了|啟動失敗/, terms: ['啟動', '故障', '失效', '異常', '燒毀', '泵', '電源'] },
+    { pattern: /漏氣|掉壓|失壓|保不住壓|壓力掉|壓力下降/, terms: ['洩氣', '洩壓', '保殘壓', '保壓', '排氣隔膜閥', '三點組合', '壓力不足', 'kpa'] },
+    { pattern: /對不準|合不上|蓋不上|裝不下|孔不合|公差/, terms: ['孔位', '配合', '蓋子', '鈑金', '機構'] },
+    { pattern: /怎麼進|如何進入|進不去設定|按哪個|設定模式/, terms: ['進入設定', '設定方式', 'shift', '長按', '設定'] },
+    { pattern: /燒掉|壞掉|故障|過熱|沒反應/, terms: ['燒毀', '失效', '異常', '故障排除', '阻值', '歐姆'] }
+  ];
+
+  conversationalMappings.forEach(rule => {
+    const m = norm.match(rule.pattern);
+    if (m) {
+      rule.terms.forEach(t => phraseExpansions.push({ term: t, from: m[0] }));
+    }
+  });
+
+  // 2. 移除口語贅字以提煉核心詞句
+  let cleaned = norm;
+  CONVERSATIONAL_STOPWORDS.forEach(sw => {
+    cleaned = cleaned.split(sw).join(' ');
+  });
+  cleaned = cleaned.replace(/[?？!！,，.。、;；:："'「」『』()（）\[\]【】~～]+/g, ' ').trim();
+  if (!cleaned) cleaned = norm;
+
+  const coreSet = new Set();
+  const bigramSet = new Set();
+  const singleCharSet = new Set();
+
+  const rawSegments = cleaned.split(/\s+/).filter(Boolean);
+  rawSegments.forEach(seg => {
+    // 掃描已知的現場工程專有詞彙
+    let matchedDomainTermsInSeg = [];
+    ENGINEERING_DOMAIN_TERMS.forEach(dTerm => {
+      if (dTerm.length >= 2 && seg.includes(dTerm)) {
+        coreSet.add(dTerm);
+        matchedDomainTermsInSeg.push(dTerm);
+      }
+    });
+
+    // 若該區段本身為短詞 (<=4字) 或未被拆出超過 1 個專有詞，則將區段本身也納入核心詞
+    if (seg.length <= 4 || matchedDomainTermsInSeg.length <= 1) {
+      if (seg.length <= 8) coreSet.add(seg);
+    }
+
+    const alphaNumMatches = seg.match(/[a-z0-9]+(?:-?[a-z0-9]+)*/g);
+    if (alphaNumMatches) {
+      alphaNumMatches.forEach(an => {
+        if (an.length >= 2) {
+          coreSet.add(an);
+          const compact = an.replace(/-/g, '');
+          if (compact.length >= 2) coreSet.add(compact);
+          const numCore = compact.match(/\d{3,4}/);
+          if (numCore) coreSet.add(numCore[0]);
+        }
+      });
+    }
+
+    const cjkRuns = seg.match(/[\u4e00-\u9fa5]+/g);
+    if (cjkRuns) {
+      cjkRuns.forEach(cjk => {
+        if (cjk.length === 1) {
+          if (!SINGLE_CHAR_STOPWORDS.has(cjk)) singleCharSet.add(cjk);
+        } else if (cjk.length === 2) {
+          coreSet.add(cjk);
+          bigramSet.add(cjk);
+          for (const ch of cjk) {
+            if (!SINGLE_CHAR_STOPWORDS.has(ch)) singleCharSet.add(ch);
+          }
+        } else {
+          for (let i = 0; i < cjk.length - 1; i++) {
+            const bg = cjk.slice(i, i + 2);
+            if (!SINGLE_CHAR_STOPWORDS.has(bg[0]) && !SINGLE_CHAR_STOPWORDS.has(bg[1])) {
+              bigramSet.add(bg);
+            }
+          }
+          for (const ch of cjk) {
+            if (!SINGLE_CHAR_STOPWORDS.has(ch)) singleCharSet.add(ch);
+          }
+        }
+      });
+    }
+  });
+
+  // 移除冗餘父字串 (例如若已拆出「電阻」、「通道」、「壞掉」，則「通道壞掉」保留作加分但建立獨立概念叢集)
+  const coreTokens = Array.from(coreSet);
+  const bigrams = Array.from(bigramSet);
+  const singleChars = Array.from(singleCharSet);
+
+  // 3. 建立「獨立語意概念叢集 (Concept Clusters)」以衡量多概念覆蓋率
+  const expandedMap = new Map();
+  phraseExpansions.forEach(pe => {
+    if (!coreSet.has(pe.term)) {
+      expandedMap.set(pe.term, pe.from);
+    }
+  });
+
+  const conceptGroups = [];
+  const usedGroupIndices = new Set();
+
+  const allSeeds = [...coreTokens, ...bigrams];
+  allSeeds.forEach(seed => {
+    if (seed.length < 2 && !['泵', '閥'].includes(seed)) return;
+    let matchedAnyGroup = false;
+    ENGINEERING_SYNONYM_GROUPS.forEach((group, gIdx) => {
+      const hitInGroup = group.some(gTerm => gTerm === seed || (seed.length >= 2 && (gTerm === seed || (gTerm.length >= 2 && gTerm.includes(seed)))));
+      if (hitInGroup) {
+        matchedAnyGroup = true;
+        if (!usedGroupIndices.has(gIdx)) {
+          usedGroupIndices.add(gIdx);
+          conceptGroups.push({
+            seed,
+            directTerms: [seed],
+            synonymTerms: group.filter(syn => syn !== seed)
+          });
+        } else {
+          const existing = conceptGroups.find(cg => cg.synonymTerms.includes(seed) || cg.directTerms.includes(seed));
+          if (existing && !existing.directTerms.includes(seed)) {
+            existing.directTerms.push(seed);
+          }
+        }
+        group.forEach(syn => {
+          if (syn !== seed && !coreSet.has(syn) && !expandedMap.has(syn)) {
+            expandedMap.set(syn, seed);
+          }
+        });
+      }
+    });
+    if (!matchedAnyGroup && seed.length >= 2 && seed.length <= 5) {
+      // 未在同義詞庫中的獨立關鍵詞 (如 710, 200, 更換 等) 自成一個概念叢集
+      if (!conceptGroups.some(cg => cg.directTerms.some(dt => dt.includes(seed) || seed.includes(dt)))) {
+        conceptGroups.push({
+          seed,
+          directTerms: [seed],
+          synonymTerms: []
+        });
+      }
+    }
+  });
+
+  const expandedSynonyms = [];
+  expandedMap.forEach((from, term) => {
+    expandedSynonyms.push({ term, from });
+  });
+
+  return {
+    rawNormalized: norm,
+    compactQuery: normalizeAlphaNumCompact(norm),
+    coreTokens,
+    bigrams,
+    singleChars,
+    expandedSynonyms,
+    conceptGroups
+  };
+}
+
+function highlightMatchedTermsHtml(rawText, highlightTerms) {
+  if (!rawText) return '';
+  if (!Array.isArray(highlightTerms) || highlightTerms.length === 0) {
+    return escapeHtml(rawText);
+  }
+  const validTerms = Array.from(new Set(
+    highlightTerms
+      .map(t => (t || '').trim())
+      .filter(t => t.length >= 1 && !SINGLE_CHAR_STOPWORDS.has(t))
+  )).sort((a, b) => b.length - a.length).slice(0, 18);
+
+  if (validTerms.length === 0) return escapeHtml(rawText);
+
+  const escapedRegexParts = validTerms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const regex = new RegExp(`(${escapedRegexParts.join('|')})`, 'gi');
+
+  const parts = String(rawText).split(regex);
+  return parts.map((part, idx) => {
+    if (idx % 2 === 1) {
+      return `<mark class="fuzzy-hl">${escapeHtml(part)}</mark>`;
+    }
+    return escapeHtml(part);
+  }).join('');
+}
+
+function extractBestSolutionSnippet(bodyText, matchedDirectTerms, matchedSynonymTerms, singleChars) {
+  if (!bodyText || typeof bodyText !== 'string') return null;
+
+  const lines = bodyText
+    .split(/[\n。；;！!]+/)
+    .map(s => s.trim())
+    .filter(s => s.length >= 3 && !/^(icon|status|machineModel|workContent|urgency|dueDate|tags|clientVendor):/i.test(s));
+
+  if (lines.length === 0) return null;
+
+  const scoredLines = lines.map((line, idx) => {
+    const lower = normalizeSearchText(line);
+    let lineScore = 0;
+    let hasDirect = false;
+    let hasSyn = false;
+    let hasSolutionCue = false;
+
+    matchedDirectTerms.forEach(t => {
+      if (t && lower.includes(t)) {
+        lineScore += (t.length >= 2 ? 18 : 6);
+        hasDirect = true;
+      }
+    });
+    matchedSynonymTerms.forEach(t => {
+      if (t && lower.includes(t)) {
+        lineScore += 12;
+        hasSyn = true;
+      }
+    });
+    singleChars.forEach(ch => {
+      if (ch && lower.includes(ch)) {
+        lineScore += 3;
+      }
+    });
+    SOLUTION_INDICATOR_TERMS.forEach(cue => {
+      if (lower.includes(cue)) {
+        lineScore += 10;
+        hasSolutionCue = true;
+      }
+    });
+
+    return { line, idx, lineScore, hasDirect, hasSyn, hasSolutionCue };
+  });
+
+  scoredLines.sort((a, b) => b.lineScore - a.lineScore);
+  const best = scoredLines[0];
+  if (!best || best.lineScore <= 0) {
+    const fallbackText = lines.slice(0, 2).join(' · ').slice(0, 120);
+    return {
+      text: fallbackText,
+      isSolution: false
+    };
+  }
+
+  let combined = best.line;
+  const nextLineObj = lines[best.idx + 1];
+  if (nextLineObj && combined.length < 75) {
+    combined += ' · ' + nextLineObj;
+  } else if (scoredLines[1] && scoredLines[1].lineScore >= 12 && scoredLines[1].idx !== best.idx + 1 && combined.length < 70) {
+    combined += ' · ' + scoredLines[1].line;
+  }
+
+  if (combined.length > 135) {
+    combined = combined.slice(0, 132) + '...';
+  }
+
+  const isSolution = best.hasSolutionCue || SOLUTION_INDICATOR_TERMS.some(cue => normalizeSearchText(combined).includes(cue));
+  return {
+    text: combined,
+    isSolution
+  };
+}
+
+function evaluateFuzzyNoteMatch(note, parsedQuery) {
+  if (!parsedQuery || !parsedQuery.rawNormalized) {
+    return { matched: true, score: 100, confidencePct: 100, matchReasons: [], highlightTerms: [], snippet: null, isSolutionNote: false };
+  }
+
+  const meta = note.meta || {};
+  const rawTitle = (note.name || '').replace(/\.md$/i, '');
+  const normTitle = normalizeSearchText(rawTitle);
+  const compactTitle = normalizeAlphaNumCompact(rawTitle);
+
+  const metaParts = [
+    meta.machineModel || '',
+    meta.workContent || '',
+    meta.clientVendor || '',
+    meta.status || '',
+    ...(Array.isArray(meta.tags) ? meta.tags : [])
+  ];
+  const normMeta = normalizeSearchText(metaParts.join(' '));
+  const compactMeta = normalizeAlphaNumCompact(metaParts.join(' '));
+
+  const rawBody = getNoteSearchableBody(note);
+  const normBody = normalizeSearchText(rawBody);
+  const compactBody = normalizeAlphaNumCompact(rawBody.slice(0, 1500));
+
+  let score = 0;
+  const matchReasons = new Set();
+  const matchedDirectTerms = new Set();
+  const matchedSynonymPairs = [];
+  const matchedSynonymTerms = new Set();
+
+  const q = parsedQuery.rawNormalized;
+  const cq = parsedQuery.compactQuery;
+
+  // 1. 完整字串或去連字號精準命中
+  if (normTitle.includes(q) || (cq.length >= 2 && compactTitle.includes(cq))) {
+    score += 130;
+    matchReasons.add('標題精準命中');
+    matchedDirectTerms.add(q);
+  }
+  if (normMeta.includes(q) || (cq.length >= 2 && compactMeta.includes(cq))) {
+    score += 90;
+    matchReasons.add('分類/標籤命中');
+    matchedDirectTerms.add(q);
+  }
+  if (normBody.includes(q) || (cq.length >= 3 && compactBody.includes(cq))) {
+    score += 75;
+    matchReasons.add('內文完整命中');
+    matchedDirectTerms.add(q);
+  }
+
+  // 2. 核心詞彙命中 (Core Tokens & Domain Terms)
+  let coreHitCount = 0;
+  parsedQuery.coreTokens.forEach(token => {
+    if (!token) return;
+    let tokenHit = false;
+    const compactTok = token.replace(/-/g, '');
+
+    if (normTitle.includes(token) || (compactTok.length >= 2 && compactTitle.includes(compactTok))) {
+      score += 46;
+      tokenHit = true;
+      matchReasons.add('標題關鍵字');
+      matchedDirectTerms.add(token);
+    }
+    if (normMeta.includes(token) || (compactTok.length >= 2 && compactMeta.includes(compactTok))) {
+      score += 34;
+      tokenHit = true;
+      matchReasons.add('分類/廠商匹配');
+      matchedDirectTerms.add(token);
+    }
+    if (normBody.includes(token) || (compactTok.length >= 3 && compactBody.includes(compactTok))) {
+      score += 28;
+      tokenHit = true;
+      matchReasons.add('內文關鍵字');
+      matchedDirectTerms.add(token);
+    }
+
+    if (!tokenHit && token.length >= 2 && token.length <= 5) {
+      if (hasWindowedSubsequenceMatch(normTitle, token, 8)) {
+        score += 26;
+        tokenHit = true;
+        matchReasons.add('標題跳字模糊匹配');
+        for (const ch of token) if (!SINGLE_CHAR_STOPWORDS.has(ch)) matchedDirectTerms.add(ch);
+      } else if (hasWindowedSubsequenceMatch(normBody, token, 8)) {
+        score += 16;
+        tokenHit = true;
+        matchReasons.add('內文跳字模糊匹配');
+        for (const ch of token) if (!SINGLE_CHAR_STOPWORDS.has(ch)) matchedDirectTerms.add(ch);
+      }
+    }
+
+    if (!tokenHit && /^[a-z0-9]{4,12}$/.test(compactTok)) {
+      const candidates = (normTitle + ' ' + normMeta + ' ' + normBody.slice(0, 600)).match(/[a-z0-9]{3,12}/g) || [];
+      for (const cand of candidates) {
+        if (computeEditDistance(compactTok, cand) <= 1) {
+          score += 22;
+          tokenHit = true;
+          matchReasons.add(`型號近似 (${cand.toUpperCase()})`);
+          matchedDirectTerms.add(cand);
+          break;
+        }
+      }
+    }
+
+    if (tokenHit) coreHitCount++;
+  });
+
+  // 3. CJK 2-gram 雙字元重疊度評分
+  let bigramHitCount = 0;
+  parsedQuery.bigrams.forEach(bg => {
+    if (matchedDirectTerms.has(bg)) {
+      bigramHitCount++;
+      return;
+    }
+    let hit = false;
+    if (normTitle.includes(bg)) {
+      score += 22;
+      hit = true;
+      matchedDirectTerms.add(bg);
+      matchReasons.add('標題詞根匹配');
+    }
+    if (normMeta.includes(bg)) {
+      score += 16;
+      hit = true;
+      matchedDirectTerms.add(bg);
+    }
+    if (normBody.includes(bg)) {
+      score += 14;
+      hit = true;
+      matchedDirectTerms.add(bg);
+      matchReasons.add('內文詞根匹配');
+    }
+    if (hit) bigramHitCount++;
+  });
+
+  // 4. 現場工程同義詞與關聯概念擴展匹配
+  let synonymHitCount = 0;
+  let synonymScoreAcc = 0;
+  parsedQuery.expandedSynonyms.forEach(({ term, from }) => {
+    if (!term) return;
+    let synDelta = 0;
+    if (normTitle.includes(term)) {
+      synDelta += 24;
+    }
+    if (normMeta.includes(term)) {
+      synDelta += 14;
+    }
+    if (normBody.includes(term)) {
+      synDelta += 14;
+    }
+    if (synDelta > 0) {
+      synonymHitCount++;
+      synonymScoreAcc += synDelta;
+      matchedSynonymTerms.add(term);
+      if (matchedSynonymPairs.length < 3 && !matchedSynonymPairs.some(p => p.term === term)) {
+        matchedSynonymPairs.push({ from, term });
+      }
+      matchReasons.add(`同義/關聯詞 (${term})`);
+    }
+  });
+  score += Math.min(48, synonymScoreAcc);
+
+  // 4.5 獨立語意概念叢集覆蓋率評分 (Multi-Concept Coverage Synergy)
+  // 當使用者輸入多個概念（如「水箱 + 蓋子 + 對不準」或「電阻 + 通道 + 壞掉」），同時滿足越多獨立概念的筆記獲得指數級加分！
+  let matchedConceptCount = 0;
+  if (Array.isArray(parsedQuery.conceptGroups) && parsedQuery.conceptGroups.length > 0) {
+    parsedQuery.conceptGroups.forEach(cg => {
+      const hasDirect = cg.directTerms.some(dt => normTitle.includes(dt) || normMeta.includes(dt) || normBody.includes(dt));
+      const hasSyn = !hasDirect && cg.synonymTerms.some(st => normTitle.includes(st) || normMeta.includes(st) || normBody.includes(st));
+      if (hasDirect || hasSyn) {
+        matchedConceptCount++;
+      }
+    });
+    if (matchedConceptCount >= 2) {
+      score += matchedConceptCount * 52;
+    }
+  }
+
+  // 5. 單字元核心概念保底匹配
+  let charHitCount = 0;
+  if (parsedQuery.singleChars.length > 0) {
+    parsedQuery.singleChars.forEach(ch => {
+      if (normTitle.includes(ch)) {
+        score += 5;
+        charHitCount++;
+        matchedDirectTerms.add(ch);
+      } else if (normMeta.includes(ch)) {
+        score += 3;
+        charHitCount++;
+        matchedDirectTerms.add(ch);
+      } else if (normBody.includes(ch)) {
+        score += 2.5;
+        charHitCount++;
+        matchedDirectTerms.add(ch);
+      }
+    });
+  }
+
+  const hasStrongSignal = (coreHitCount > 0) || (bigramHitCount > 0) || (synonymHitCount > 0) || (score >= 18);
+  const charCoverageRatio = parsedQuery.singleChars.length > 0 ? (charHitCount / parsedQuery.singleChars.length) : 0;
+  const hasMultiCharFallback = (parsedQuery.singleChars.length >= 2 && charHitCount >= 2 && charCoverageRatio >= 0.5);
+
+  if (!hasStrongSignal && !hasMultiCharFallback) {
+    return { matched: false, score: 0, confidencePct: 0, matchReasons: [], highlightTerms: [], snippet: null, isSolutionNote: false };
+  }
+
+  // 6. 🛠️ 解決方案潛力加權 (Solution-Orientation Boost)
+  let isSolutionNote = false;
+  const workContent = meta.workContent || '';
+  const status = meta.status || '';
+
+  if (/故障排除|異常通報|保養維護|操作手冊|參數調校|驗收測試/.test(workContent)) {
+    score += 14;
+    isSolutionNote = true;
+  }
+  if (/已解決|結案/.test(status)) {
+    score += 8;
+    isSolutionNote = true;
+  }
+  const bodySolutionHits = SOLUTION_INDICATOR_TERMS.filter(cue => normBody.includes(cue) || normTitle.includes(cue));
+  if (bodySolutionHits.length > 0) {
+    score += Math.min(20, bodySolutionHits.length * 5);
+    isSolutionNote = true;
+  }
+
+  if (coreHitCount >= 2) {
+    score += coreHitCount * 24;
+  } else if (coreHitCount >= 1 && synonymHitCount >= 1) {
+    score += 18;
+  }
+
+  let confidencePct = Math.min(99, Math.max(45, Math.round(45 + (1 - Math.exp(-score / 75)) * 54)));
+
+  const highlightTerms = [
+    ...Array.from(matchedDirectTerms),
+    ...Array.from(matchedSynonymTerms)
+  ];
+
+  const snippetObj = extractBestSolutionSnippet(
+    rawBody,
+    Array.from(matchedDirectTerms),
+    Array.from(matchedSynonymTerms),
+    parsedQuery.singleChars
+  );
+
+  if (snippetObj && snippetObj.isSolution) {
+    isSolutionNote = true;
+  }
+
+  return {
+    matched: true,
+    score,
+    confidencePct,
+    matchReasons: Array.from(matchReasons),
+    matchedSynonymPairs,
+    highlightTerms,
+    snippet: snippetObj,
+    isSolutionNote
+  };
+}
+
+// ----------------- 1. 表格資料庫檢視 (Table Database View - 支援智慧模糊檢索與解決方案探索) -----------------
 function renderTableView() {
   if (!DOM.tableViewTbody) return;
 
-  const searchKeyword = (DOM.tableSearchInput && DOM.tableSearchInput.value ? DOM.tableSearchInput.value.trim().toLowerCase() : '');
+  scheduleBackgroundFullTextIndexing();
+
+  const rawSearchInput = (DOM.tableSearchInput && DOM.tableSearchInput.value ? DOM.tableSearchInput.value.trim() : '');
+  const searchKeyword = rawSearchInput.toLowerCase();
   const filterMachine = DOM.tableFilterMachine ? DOM.tableFilterMachine.value : '';
   const filterContent = DOM.tableFilterContent ? DOM.tableFilterContent.value : '';
   const filterUrgency = DOM.tableFilterUrgency ? DOM.tableFilterUrgency.value : '';
   const filterClient = DOM.tableFilterClient ? DOM.tableFilterClient.value : '';
   const filterTag = DOM.tableFilterTag ? DOM.tableFilterTag.value : '';
 
+  if (DOM.tableSearchClearBtn) {
+    if (rawSearchInput) DOM.tableSearchClearBtn.classList.remove('hidden');
+    else DOM.tableSearchClearBtn.classList.add('hidden');
+  }
+
+  const parsedQuery = searchKeyword ? parseFuzzyQuery(rawSearchInput) : null;
+  const fuzzyEvalMap = new Map();
+
+  let globalFuzzyMatchCount = 0;
+  if (parsedQuery) {
+    state.notes.forEach(note => {
+      const res = evaluateFuzzyNoteMatch(note, parsedQuery);
+      fuzzyEvalMap.set(note.id, res);
+      if (res.matched) globalFuzzyMatchCount++;
+    });
+  }
+
   let filteredNotes = state.notes.filter(note => {
     const meta = note.meta || {};
-    const title = (note.name || '').replace(/\.md$/i, '').toLowerCase();
 
-    if (searchKeyword && !title.includes(searchKeyword)) return false;
+    if (parsedQuery) {
+      const fuzzyRes = fuzzyEvalMap.get(note.id);
+      if (!fuzzyRes || !fuzzyRes.matched) return false;
+    }
     if (filterMachine && meta.machineModel !== filterMachine) return false;
     if (filterContent && meta.workContent !== filterContent) return false;
     if (filterUrgency && meta.urgency !== filterUrgency) return false;
@@ -8589,24 +9523,62 @@ function renderTableView() {
     return true;
   });
 
-  // 🎯 表格資料庫排序：完全以最後編輯的時間 (modifiedTime) 為主，越近的編輯時間擺在越上面！
+  if (DOM.tableFuzzyQueryBanner && DOM.tableFuzzyQueryDetails && DOM.tableFuzzyStatsText) {
+    if (parsedQuery && rawSearchInput) {
+      DOM.tableFuzzyQueryBanner.classList.remove('hidden');
+      const tokenBadges = parsedQuery.coreTokens.slice(0, 6).map(t =>
+        `<span class="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-200 font-semibold">${escapeHtml(t)}</span>`
+      ).join('');
+      const synPreview = parsedQuery.expandedSynonyms.slice(0, 6).map(s => escapeHtml(s.term)).join('、');
+      DOM.tableFuzzyQueryDetails.innerHTML = `
+        <span class="font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1">🔍 模糊檢索拆解：</span>
+        ${tokenBadges || `<span class="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-200 font-semibold">${escapeHtml(rawSearchInput)}</span>`}
+        ${synPreview ? `<span class="text-gray-500 dark:text-gray-400 ml-1">➔ 智慧擴展同義/關聯詞：<strong class="text-indigo-600 dark:text-indigo-300 font-medium">${synPreview}</strong></span>` : ''}
+      `;
+      DOM.tableFuzzyStatsText.textContent = `找到 ${filteredNotes.length} 篇潛在解決方案筆記 (依關聯度排序)`;
+    } else {
+      DOM.tableFuzzyQueryBanner.classList.add('hidden');
+    }
+  }
+
   filteredNotes.sort((a, b) => {
+    if (parsedQuery) {
+      const scoreA = (fuzzyEvalMap.get(a.id) || {}).score || 0;
+      const scoreB = (fuzzyEvalMap.get(b.id) || {}).score || 0;
+      if (Math.abs(scoreB - scoreA) >= 3) return scoreB - scoreA;
+    }
     const aPin = (a.meta && a.meta.pinned) ? 1 : 0;
     const bPin = (b.meta && b.meta.pinned) ? 1 : 0;
-    if (aPin !== bPin) return bPin - aPin; // 置頂筆記置頂
+    if (aPin !== bPin) return bPin - aPin;
     const timeA = new Date(a.modifiedTime || 0).getTime();
     const timeB = new Date(b.modifiedTime || 0).getTime();
-    return timeB - timeA; // 越近的編輯時間排在越上面
+    return timeB - timeA;
   });
 
   if (filteredNotes.length === 0) {
+    const hasDropdownFilter = Boolean(filterMachine || filterContent || filterUrgency || filterClient || filterTag);
+    const hiddenByDropdownMsg = (parsedQuery && hasDropdownFilter && globalFuzzyMatchCount > 0)
+      ? `<div class="mt-2"><button id="table-reset-dropdowns-btn" type="button" class="px-3 py-1.5 rounded-md bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-semibold hover:bg-blue-100 transition">💡 全庫中有 ${globalFuzzyMatchCount} 篇模糊匹配筆記被下拉選單隱藏，點此解除下拉篩選並顯示</button></div>`
+      : '';
     DOM.tableViewTbody.innerHTML = `
       <tr>
-        <td colspan="8" class="p-8 text-center text-gray-400">
-          無符合條件的工作筆記。點擊上方「新增資料列」開始建立！
+        <td colspan="9" class="p-8 text-center text-gray-400">
+          <div>${parsedQuery ? `找不到與「${escapeHtml(rawSearchInput)}」相關的筆記，建議換個描述詞（例如機型、故障現象或零件名稱）。` : '無符合條件的工作筆記。點擊上方「新增資料列」開始建立！'}</div>
+          ${hiddenByDropdownMsg}
         </td>
       </tr>
     `;
+    const resetBtn = document.getElementById('table-reset-dropdowns-btn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        if (DOM.tableFilterMachine) DOM.tableFilterMachine.value = '';
+        if (DOM.tableFilterContent) DOM.tableFilterContent.value = '';
+        if (DOM.tableFilterUrgency) DOM.tableFilterUrgency.value = '';
+        if (DOM.tableFilterClient) DOM.tableFilterClient.value = '';
+        if (DOM.tableFilterTag) DOM.tableFilterTag.value = '';
+        renderTableView();
+      });
+    }
     if (DOM.tableTotalCount) DOM.tableTotalCount.textContent = '總筆數: 0';
     return;
   }
@@ -8615,7 +9587,6 @@ function renderTableView() {
     const meta = note.meta || {};
     const title = (note.name || '').replace(/\.md$/i, '');
     const icon = meta.icon || '🛠️';
-    const status = meta.status || '🚀 處理中';
     const machine = meta.machineModel || '未指定';
     const content = meta.workContent || '未指定';
     const urgency = meta.urgency || '🟢 常規';
@@ -8627,29 +9598,75 @@ function renderTableView() {
                          urgency.includes('常規') ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300' :
                          'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300';
 
+    const fuzzyRes = parsedQuery ? fuzzyEvalMap.get(note.id) : null;
+    const displayTitleHtml = fuzzyRes
+      ? highlightMatchedTermsHtml(title, fuzzyRes.highlightTerms)
+      : escapeHtml(title);
+
+    let fuzzyMetaBadgesHtml = '';
+    let fuzzySnippetHtml = '';
+
+    if (fuzzyRes) {
+      const pct = fuzzyRes.confidencePct || 75;
+      const badgeColor = pct >= 85
+        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300 border-emerald-300/70'
+        : pct >= 68
+        ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300 border-blue-300/70'
+        : 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border-amber-300/70';
+
+      const reasonPills = (fuzzyRes.matchReasons || []).slice(0, 2).map(r =>
+        `<span class="px-1.5 py-0.2 rounded text-[10px] bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">${escapeHtml(r)}</span>`
+      ).join('');
+
+      const solutionPill = fuzzyRes.isSolutionNote
+        ? `<span class="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-200/60 dark:border-emerald-800/60">🛠️ 潛在解決方案</span>`
+        : '';
+
+      fuzzyMetaBadgesHtml = `
+        <div class="flex flex-wrap items-center gap-1 mt-1">
+          <span class="px-1.5 py-0.2 rounded text-[10px] font-bold border ${badgeColor}">🎯 關聯度 ${pct}%</span>
+          ${solutionPill}
+          ${reasonPills}
+        </div>
+      `;
+
+      if (fuzzyRes.snippet && fuzzyRes.snippet.text) {
+        const highlightedSnippet = highlightMatchedTermsHtml(fuzzyRes.snippet.text, fuzzyRes.highlightTerms);
+        fuzzySnippetHtml = `
+          <div class="fuzzy-snippet-box ${fuzzyRes.isSolutionNote ? 'is-solution' : ''}">
+            <span class="font-semibold text-gray-700 dark:text-gray-200">${fuzzyRes.isSolutionNote ? '💡 內文對策/紀錄：' : '📄 內文摘要：'}</span>${highlightedSnippet}
+          </div>
+        `;
+      }
+    }
+
     return `
       <tr class="hover:bg-gray-50/80 dark:hover:bg-notion-darker transition-colors cursor-pointer group" data-note-id="${note.id}">
-        <td class="p-2.5 text-center text-amber-500">${meta.pinned ? '📌' : ''}</td>
-        <td class="p-2.5 font-bold text-gray-900 dark:text-gray-100 flex items-center gap-1.5 open-note-trigger">
-          <span class="text-base">${icon}</span>
-          <span class="hover:underline truncate max-w-xs">${escapeHtml(title)}</span>
-          ${note.modifiedTime ? `<span class="text-[10px] text-gray-400 font-normal shrink-0" title="最後編輯時間">🕒 ${new Date(note.modifiedTime).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>` : ''}
+        <td class="p-2.5 text-center text-amber-500 align-top">${meta.pinned ? '📌' : ''}</td>
+        <td class="p-2.5 text-gray-900 dark:text-gray-100 open-note-trigger align-top">
+          <div class="flex items-center gap-1.5 font-bold">
+            <span class="text-base shrink-0">${icon}</span>
+            <span class="hover:underline truncate max-w-xs sm:max-w-md">${displayTitleHtml}</span>
+            ${note.modifiedTime ? `<span class="text-[10px] text-gray-400 font-normal shrink-0" title="最後編輯時間">🕒 ${new Date(note.modifiedTime).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>` : ''}
+          </div>
+          ${fuzzyMetaBadgesHtml}
+          ${fuzzySnippetHtml}
         </td>
-        <td class="p-2.5 font-medium text-blue-600 dark:text-blue-400">🚜 ${escapeHtml(machine)}</td>
-        <td class="p-2.5 font-medium text-amber-600 dark:text-amber-400">📋 ${escapeHtml(content)}</td>
-        <td class="p-2.5">
+        <td class="p-2.5 font-medium text-blue-600 dark:text-blue-400 align-top">🚜 ${escapeHtml(machine)}</td>
+        <td class="p-2.5 font-medium text-amber-600 dark:text-amber-400 align-top">📋 ${escapeHtml(content)}</td>
+        <td class="p-2.5 align-top">
           <span class="px-2 py-0.5 rounded text-[11px] font-bold ${urgencyClass}">${escapeHtml(urgency)}</span>
         </td>
-        <td class="p-2.5 font-medium text-indigo-600 dark:text-indigo-400">
+        <td class="p-2.5 font-medium text-indigo-600 dark:text-indigo-400 align-top">
           ${meta.clientVendor ? `<span class="px-2 py-0.5 rounded text-[11px] bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50">🏢 ${escapeHtml(meta.clientVendor)}</span>` : '<span class="text-gray-300 dark:text-gray-600 text-[11px]">未指定</span>'}
         </td>
-        <td class="p-2.5 text-gray-500 font-mono text-[11px]">${dueDate || '<span class="text-gray-300 dark:text-gray-600">未排定</span>'}</td>
-        <td class="p-2.5">
+        <td class="p-2.5 text-gray-500 font-mono text-[11px] align-top">${dueDate || '<span class="text-gray-300 dark:text-gray-600">未排定</span>'}</td>
+        <td class="p-2.5 align-top">
           <div class="flex flex-wrap gap-1">
             ${tags.map(t => `<span class="px-1.5 py-0.5 rounded text-[10px] bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300">${escapeHtml(t)}</span>`).join('')}
           </div>
         </td>
-        <td class="p-2.5 text-center">
+        <td class="p-2.5 text-center align-top">
           <button class="table-open-btn p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-blue-600 dark:text-blue-400 text-xs font-medium" title="開啟編輯">
             開啟
           </button>
@@ -8658,10 +9675,14 @@ function renderTableView() {
     `;
   }).join('');
 
-  if (DOM.tableTotalCount) DOM.tableTotalCount.textContent = `總筆數: ${filteredNotes.length}`;
+  if (DOM.tableTotalCount) {
+    DOM.tableTotalCount.textContent = parsedQuery
+      ? `智慧檢索命中: ${filteredNotes.length} 筆 (共 ${state.notes.length} 筆)`
+      : `總筆數: ${filteredNotes.length}`;
+  }
 
   DOM.tableViewTbody.querySelectorAll('tr').forEach(tr => {
-    tr.addEventListener('click', (e) => {
+    tr.addEventListener('click', () => {
       const noteId = tr.dataset.noteId;
       if (noteId) {
         selectNote(noteId);
@@ -10237,7 +11258,28 @@ function bindEvents() {
   if (DOM.tableFilterUrgency) DOM.tableFilterUrgency.addEventListener('change', renderTableView);
 
   // 表格資料庫事件
-  if (DOM.tableSearchInput) DOM.tableSearchInput.addEventListener('input', renderTableView);
+  if (DOM.tableSearchInput) {
+    DOM.tableSearchInput.addEventListener('input', renderTableView);
+    DOM.tableSearchInput.addEventListener('focus', () => {
+      scheduleBackgroundFullTextIndexing();
+    });
+    DOM.tableSearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && DOM.tableSearchInput.value) {
+        e.preventDefault();
+        DOM.tableSearchInput.value = '';
+        renderTableView();
+      }
+    });
+  }
+  if (DOM.tableSearchClearBtn) {
+    DOM.tableSearchClearBtn.addEventListener('click', () => {
+      if (DOM.tableSearchInput) {
+        DOM.tableSearchInput.value = '';
+        DOM.tableSearchInput.focus();
+      }
+      renderTableView();
+    });
+  }
   // status filter removed
   if (DOM.tableFilterEnergy) DOM.tableFilterEnergy.addEventListener('change', renderTableView);
   if (DOM.tableFilterGtd) DOM.tableFilterGtd.addEventListener('change', renderTableView);
