@@ -2203,3 +2203,118 @@ mark.fuzzy-hl {
   border-color: #3b82f6;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
 }
+
+/* ==========================================================================
+   🚀 v2.6.7 四大進階功能樣式：
+   1. 搜尋命中段落自動定位與琥珀脈衝閃爍 (.search-hit-flash-block)
+   2. 表格資料庫就地修改下拉選單 (.table-inline-select) 與側邊預覽抽屜
+   3. 照片就地標註工作室 (#photo-annotate-modal)
+   4. 故障排查三段式結構區塊 (.lvi-troubleshoot-card)
+   ========================================================================== */
+
+@keyframes searchHitPulse {
+  0% {
+    background-color: rgba(251, 191, 36, 0.42);
+    box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.35), 0 8px 24px rgba(245, 158, 11, 0.25);
+    transform: scale(1.008);
+  }
+  45% {
+    background-color: rgba(251, 191, 36, 0.28);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.28);
+    transform: scale(1);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+    transform: scale(1);
+  }
+}
+
+.search-hit-flash-block {
+  position: relative !important;
+  border-radius: 8px !important;
+  animation: searchHitPulse 3.2s cubic-bezier(0.16, 1, 0.3, 1) forwards !important;
+  transition: background-color 0.4s ease !important;
+}
+
+.search-hit-flash-block::after {
+  content: '🎯 搜尋命中位置';
+  position: absolute;
+  top: -22px;
+  right: 6px;
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  box-shadow: 0 4px 10px rgba(217, 119, 6, 0.35);
+  pointer-events: none;
+  z-index: 30;
+  white-space: nowrap;
+}
+
+/* 表格就地直接改分類下拉選單 */
+.table-inline-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 5px center;
+  padding: 3px 18px 3px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  max-width: 145px;
+  text-overflow: ellipsis;
+}
+.table-inline-select:hover {
+  border-color: rgba(59, 130, 246, 0.45);
+  background-color: rgba(59, 130, 246, 0.08);
+}
+.table-inline-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* 側邊快速預覽抽屜滑入動畫 */
+#table-quick-peek-drawer {
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
+}
+#table-quick-peek-drawer.hidden {
+  display: none !important;
+}
+
+/* 照片標註畫布與工具按鈕 */
+#photo-annotate-canvas {
+  touch-action: none;
+  cursor: crosshair;
+  max-width: 100%;
+  max-height: 68vh;
+  object-fit: contain;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+}
+.annotate-tool-btn.active {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+}
+.annotate-color-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.annotate-color-dot.active {
+  transform: scale(1.25);
+  border-color: #ffffff;
+  box-shadow: 0 0 0 2px #3b82f6;
+}

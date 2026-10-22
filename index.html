@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>LVI_Note v2.6.6 - 雲端工作筆記</title>
+  <title>LVI_Note v2.6.7 - 雲端工作筆記</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -44,20 +44,20 @@
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <link rel="manifest" href="manifest.json?v=20261022_v2.6.6">
+  <link rel="manifest" href="manifest.json?v=20261023_v2.6.7">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LVI_Note">
   <meta name="application-name" content="LVI_Note">
-  <meta name="version" content="v2.6.6">
+  <meta name="version" content="v2.6.7">
   <meta name="theme-color" content="#191919">
-  <link rel="stylesheet" href="styles.css?v=20261022_v2.6.6">
+  <link rel="stylesheet" href="styles.css?v=20261023_v2.6.7">
   <script>
-    // 🛡️ LVI_Note v2.6.6 強制破除舊版 Service Worker 快取守門員
+    // 🛡️ LVI_Note v2.6.7 強制破除舊版 Service Worker 快取守門員
     (function() {
       try {
-        var CURRENT_VER = 'v2.6.6';
+        var CURRENT_VER = 'v2.6.7';
         var savedVer = localStorage.getItem('lvi_installed_version');
         if (savedVer !== CURRENT_VER) {
           localStorage.setItem('lvi_installed_version', CURRENT_VER);
@@ -111,7 +111,7 @@
       <img src="logo.png" alt="LVI_Note Logo" class="w-6 h-6 rounded-full border border-blue-500/40 shadow-xs object-cover shrink-0 cursor-pointer hover:scale-105 transition-transform" onclick="switchView('table')" title="LVI_Note">
       
       <!-- 版本徽章 (手機與電腦皆常駐清晰顯示) + 麵包屑導航 -->
-      <span id="header-version-badge" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shrink-0 shadow-2xs" title="當前版本號：v2.6.6 (全域全動作時光機回朔 + 螢光筆無死角修復 + 表格智慧模糊檢索)">v2.6.6</span>
+      <span id="header-version-badge" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shrink-0 shadow-2xs" title="當前版本號：v2.6.7 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)">v2.6.7</span>
       <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1 truncate max-w-[110px] sm:max-w-xs">
         <span class="hidden sm:inline font-medium text-gray-700 dark:text-gray-300 shrink-0">
           <span id="header-folder-name">LVI_Note</span>
@@ -151,7 +151,15 @@
           <i data-lucide="layout-template" class="w-4 h-4"></i>
           <span class="hidden sm:inline">模板</span>
         </button>
-        <div id="template-menu" class="absolute right-0 mt-1 w-48 bg-white dark:bg-notion-card rounded-lg shadow-xl border border-gray-200 dark:border-notion-borderDark py-1 hidden z-50 text-xs">
+        <div id="template-menu" class="absolute right-0 mt-1 w-56 bg-white dark:bg-notion-card rounded-lg shadow-xl border border-gray-200 dark:border-notion-borderDark py-1 hidden z-50 text-xs">
+          <div class="px-2 py-1 text-[10px] font-bold text-rose-500 uppercase tracking-wider">🛠️ 現場工程與設備維護</div>
+          <button data-tpl="engineering_troubleshoot" class="w-full text-left px-3 py-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 font-bold text-rose-600 dark:text-rose-300">
+            <span>🚨</span> 故障排查三段式 (現象➔對策)
+          </button>
+          <button data-tpl="engineering_handover" class="w-full text-left px-3 py-1.5 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 flex items-center gap-2 font-semibold text-emerald-700 dark:text-emerald-300">
+            <span>✅</span> 機台交機與驗收測試紀錄
+          </button>
+          <div class="border-t border-gray-100 dark:border-notion-borderDark my-1"></div>
           <div class="px-2 py-1 text-[10px] font-bold text-amber-500 uppercase tracking-wider">薑餅資 核心系統</div>
           <button data-tpl="gingerbread_home" class="w-full text-left px-3 py-1.5 hover:bg-amber-50 dark:hover:bg-amber-950/30 flex items-center gap-2 font-medium text-amber-700 dark:text-amber-300">
             <span>🏆</span> 薑餅資工作首頁
@@ -248,7 +256,7 @@
           <img src="logo.png" alt="LVI_Note Logo" class="w-7 h-7 rounded-full border border-blue-500/40 shadow-sm object-cover shrink-0">
           <div class="flex items-center gap-1.5">
             <span class="text-sm font-bold tracking-tight text-gray-800 dark:text-gray-100">LVI_Note</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">v2.6.6</span>
+            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">v2.6.7</span>
           </div>
         </div>
         <div class="flex items-center space-x-1">
@@ -427,7 +435,7 @@
         <span class="flex items-center gap-1.5 truncate">
           <i data-lucide="cloud" class="w-3 h-3 text-blue-500"></i>
           <span id="sidebar-folder-label">LVI_Note</span>
-          <span class="app-version-badge text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">v2.6.6</span>
+          <span class="app-version-badge text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">v2.6.7</span>
         </span>
         <button id="refresh-btn" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-600" title="重新整理">
           <i data-lucide="rotate-cw" class="w-3 h-3"></i>
@@ -586,6 +594,12 @@
                     </div>
                   </div>
                 </div>
+
+                <!-- 🚨 一鍵插入「故障排查三段式」結構區塊 -->
+                <button id="top-insert-troubleshoot-btn" type="button" class="px-2.5 py-1 rounded-md text-xs font-semibold text-rose-600 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800/80 flex items-center gap-1.5 transition shadow-xs active:scale-95 cursor-pointer" title="一鍵插入【1.異常現象與讀值 ➔ 2.排查測試點 ➔ 3.根本原因與最終對策】三段式工程模板">
+                  <i data-lucide="Stethoscope" class="w-3.5 h-3.5"></i>
+                  <span>排查模板</span>
+                </button>
               </div>
 
               <!-- 右側功能按鈕：釘選 & 刪除 -->
@@ -1068,7 +1082,11 @@
       </div>
 
       <!-- 浮動 Slash 指令選單 (指令選單) -->
-      <div id="slash-menu" class="fixed hidden bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark rounded-lg shadow-2xl w-60 p-1 z-50 text-xs max-h-72 overflow-y-auto">
+      <div id="slash-menu" class="fixed hidden bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark rounded-lg shadow-2xl w-64 p-1 z-50 text-xs max-h-80 overflow-y-auto">
+        <div class="px-2 py-1 text-[10px] font-bold text-rose-500 uppercase tracking-wider">🛠️ 現場工程專用</div>
+        <button data-slash="troubleshoot" class="w-full text-left px-2.5 py-1.5 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded flex items-center gap-2 font-bold text-rose-600 dark:text-rose-300">
+          <span>🚨</span> 故障排查三段式 (現象➔對策)
+        </button>
         <div class="px-2 py-1 text-[10px] font-semibold text-gray-400 uppercase tracking-wider">常用積木與樣式</div>
 
         <button data-slash="camera" class="w-full text-left px-2.5 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-medium">
@@ -1553,7 +1571,7 @@
       <div class="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-notion-borderDark">
         <div class="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
           <span>系統版本</span>
-          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.6.6</span>
+          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.6.7</span>
         </div>
         <button id="save-settings-btn" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition shadow-sm">
           儲存所有設定
@@ -1719,6 +1737,112 @@
       </div>
     </div>
   </div>
-  <script src="app.js?v=20261022_v2.6.6"></script>
+
+  <!-- 👁️ 表格資料庫「側邊快速預覽抽屜」 (Table Quick Peek Drawer - v2.6.7) -->
+  <div id="table-quick-peek-backdrop" class="fixed inset-0 bg-black/35 backdrop-blur-2xs z-[80] hidden"></div>
+  <aside id="table-quick-peek-drawer" class="fixed top-0 right-0 bottom-0 w-full sm:w-[480px] md:w-[560px] bg-white dark:bg-notion-card border-l border-gray-200 dark:border-notion-borderDark shadow-2xl z-[85] flex flex-col hidden">
+    <!-- 預覽抽屜頂部列 -->
+    <div class="px-4 py-3 border-b border-gray-100 dark:border-notion-borderDark flex items-center justify-between gap-2 bg-gray-50/80 dark:bg-notion-darker/80 shrink-0">
+      <div class="flex items-center gap-2 min-w-0">
+        <span id="peek-note-icon" class="text-xl shrink-0">🛠️</span>
+        <div class="min-w-0">
+          <h3 id="peek-note-title" class="text-sm sm:text-base font-bold text-gray-900 dark:text-white truncate">筆記預覽</h3>
+          <div id="peek-note-time" class="text-[11px] text-gray-400"></div>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="peek-copy-btn" type="button" class="px-2.5 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 text-xs font-semibold flex items-center gap-1 transition cursor-pointer" title="複製整篇筆記純文字與解決方案">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+          <span>複製內容</span>
+        </button>
+        <button id="peek-open-editor-btn" type="button" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-1 shadow-xs transition cursor-pointer" title="進入完整編輯器並自動捲動至命中段落">
+          <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+          <span>進入編輯</span>
+        </button>
+        <button id="peek-close-btn" type="button" class="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition cursor-pointer" title="關閉預覽 (Esc)">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- 預覽抽屜分類屬性快速編輯列 -->
+    <div id="peek-note-meta-bar" class="px-4 py-2 border-b border-gray-100 dark:border-notion-borderDark bg-white dark:bg-notion-dark flex flex-wrap items-center gap-1.5 text-xs shrink-0"></div>
+
+    <!-- 預覽抽屜內文區 -->
+    <div id="peek-note-body" class="flex-1 overflow-y-auto p-4 sm:p-6 prose dark:prose-invert max-w-none text-sm leading-relaxed text-gray-800 dark:text-gray-100"></div>
+  </aside>
+
+  <!-- ✏️ 筆記照片「就地標註工作室」 (In-Note Photo Markup & Annotation Studio - v2.6.7) -->
+  <div id="photo-annotate-modal" class="fixed inset-0 bg-black/80 backdrop-blur-xs z-[99990] flex flex-col items-center justify-between p-2 sm:p-4 hidden select-none">
+    <!-- 頂部工具列 -->
+    <div class="w-full max-w-5xl bg-slate-900/95 border border-slate-700/80 rounded-2xl px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 text-white shadow-2xl shrink-0">
+      <div class="flex items-center gap-2">
+        <span class="text-base">✏️</span>
+        <div>
+          <h3 class="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
+            <span>現場照片標註工作室</span>
+            <span id="photo-annotate-filename" class="text-[11px] font-normal text-slate-400 truncate max-w-[160px] sm:max-w-xs"></span>
+          </h3>
+        </div>
+      </div>
+
+      <!-- 繪圖工具選擇 -->
+      <div class="flex flex-wrap items-center gap-1 bg-slate-800/90 p-1 rounded-xl border border-slate-700">
+        <button type="button" class="annotate-tool-btn active px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-200 hover:bg-slate-700 flex items-center gap-1 transition cursor-pointer" data-tool="circle" title="畫紅圈 / 橢圓框標示重點">
+          <span>⭕ 圈選</span>
+        </button>
+        <button type="button" class="annotate-tool-btn px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-200 hover:bg-slate-700 flex items-center gap-1 transition cursor-pointer" data-tool="arrow" title="畫指向箭頭">
+          <span>↗️ 箭頭</span>
+        </button>
+        <button type="button" class="annotate-tool-btn px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-200 hover:bg-slate-700 flex items-center gap-1 transition cursor-pointer" data-tool="rect" title="畫方框">
+          <span>⬜ 方框</span>
+        </button>
+        <button type="button" class="annotate-tool-btn px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-200 hover:bg-slate-700 flex items-center gap-1 transition cursor-pointer" data-tool="pen" title="自由手繪畫筆">
+          <span>🖍️ 畫筆</span>
+        </button>
+        <button type="button" class="annotate-tool-btn px-2.5 py-1 rounded-lg text-xs font-semibold text-slate-200 hover:bg-slate-700 flex items-center gap-1 transition cursor-pointer" data-tool="text" title="點擊照片任意位置加上文字標籤 (如: 80Ω 燒毀、V5閥)">
+          <span>🔤 文字標籤</span>
+        </button>
+      </div>
+
+      <!-- 顏色與復原控制 -->
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5 px-2 py-1 bg-slate-800/80 rounded-xl border border-slate-700">
+          <button type="button" class="annotate-color-dot active" data-color="#ef4444" style="background-color: #ef4444;" title="警示紅"></button>
+          <button type="button" class="annotate-color-dot" data-color="#facc15" style="background-color: #facc15;" title="醒目黃"></button>
+          <button type="button" class="annotate-color-dot" data-color="#22c55e" style="background-color: #22c55e;" title="正常綠"></button>
+          <button type="button" class="annotate-color-dot" data-color="#3b82f6" style="background-color: #3b82f6;" title="標示藍"></button>
+          <button type="button" class="annotate-color-dot" data-color="#ffffff" style="background-color: #ffffff;" title="純白"></button>
+        </div>
+        <button type="button" id="photo-annotate-undo-btn" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-600 transition cursor-pointer" title="復原上一筆標註">
+          ↩️ 復原
+        </button>
+        <button type="button" id="photo-annotate-clear-btn" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-rose-950 text-xs font-semibold text-rose-300 border border-slate-600 transition cursor-pointer" title="清除全部標註筆跡">
+          🧹 重置
+        </button>
+      </div>
+    </div>
+
+    <!-- 中央畫布容器 -->
+    <div class="flex-1 w-full flex items-center justify-center overflow-hidden my-2 relative">
+      <canvas id="photo-annotate-canvas"></canvas>
+    </div>
+
+    <!-- 底部儲存與取消列 -->
+    <div class="w-full max-w-5xl bg-slate-900/95 border border-slate-700/80 rounded-2xl px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-slate-300 shadow-2xl shrink-0">
+      <span class="hidden sm:inline text-[11px] text-slate-400">💡 提示：直接拖曳即可畫紅圈或箭頭；點選「🔤 文字標籤」後點擊照片可輸入數值或說明。儲存後可按 Ctrl+Z 復原。</span>
+      <div class="flex items-center gap-2 ml-auto">
+        <button type="button" id="photo-annotate-cancel-btn" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold border border-slate-600 transition cursor-pointer">
+          取消
+        </button>
+        <button type="button" id="photo-annotate-save-btn" class="px-4 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold shadow-lg flex items-center gap-1.5 transition cursor-pointer">
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+          <span>儲存標註並同步雲端</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js?v=20261023_v2.6.7"></script>
 </body>
 </html>

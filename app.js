@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.6.6'; // 2026.10.22 (全域全動作時光機回朔 + 螢光筆無死角修復 + 表格智慧模糊檢索)
+const APP_VERSION = 'v2.6.7'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -599,6 +599,24 @@ const DOM = {
   mbToolUndo: document.getElementById('mb-tool-undo'),
   mbToolHighlight: document.getElementById('mb-tool-highlight'),
   mbHighlightPalette: document.getElementById('mb-highlight-palette'),
+  topInsertTroubleshootBtn: document.getElementById('top-insert-troubleshoot-btn'),
+  tableQuickPeekBackdrop: document.getElementById('table-quick-peek-backdrop'),
+  tableQuickPeekDrawer: document.getElementById('table-quick-peek-drawer'),
+  peekNoteIcon: document.getElementById('peek-note-icon'),
+  peekNoteTitle: document.getElementById('peek-note-title'),
+  peekNoteTime: document.getElementById('peek-note-time'),
+  peekNoteMetaBar: document.getElementById('peek-note-meta-bar'),
+  peekNoteBody: document.getElementById('peek-note-body'),
+  peekCopyBtn: document.getElementById('peek-copy-btn'),
+  peekOpenEditorBtn: document.getElementById('peek-open-editor-btn'),
+  peekCloseBtn: document.getElementById('peek-close-btn'),
+  photoAnnotateModal: document.getElementById('photo-annotate-modal'),
+  photoAnnotateFilename: document.getElementById('photo-annotate-filename'),
+  photoAnnotateCanvas: document.getElementById('photo-annotate-canvas'),
+  photoAnnotateUndoBtn: document.getElementById('photo-annotate-undo-btn'),
+  photoAnnotateClearBtn: document.getElementById('photo-annotate-clear-btn'),
+  photoAnnotateCancelBtn: document.getElementById('photo-annotate-cancel-btn'),
+  photoAnnotateSaveBtn: document.getElementById('photo-annotate-save-btn'),
   tableFilterStatus: document.getElementById('table-filter-status'),
 
   // 工作標籤彈窗 (Work Tag Modal)
@@ -707,7 +725,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('lvi_just_upgraded') === APP_VERSION) {
       localStorage.removeItem('lvi_just_upgraded');
       setTimeout(() => {
-        showToast('🎉 已成功更新至 LVI_Note ' + APP_VERSION + '（全域全動作時光機回朔 + 螢光筆無死角修復 + 表格模糊檢索）', 5000);
+        showToast('🎉 已成功更新至 LVI_Note ' + APP_VERSION + '（搜尋命中自動定位 + 表格就地改分類/預覽窗 + 照片標註 + 排查三段式模板）', 5000);
       }, 600);
     }
   } catch (e) { console.warn('Version sync error:', e); }
@@ -4885,6 +4903,18 @@ function initMediaDeleteConfirmModal() {
   if (DOM.editor && !DOM.editor._mediaDeleteDelegationBound) {
     DOM.editor._mediaDeleteDelegationBound = true;
     DOM.editor.addEventListener('click', (e) => {
+      const annotateBtn = e.target.closest('.media-card-annotate-btn');
+      if (annotateBtn && DOM.editor.contains(annotateBtn)) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        const targetBlock = annotateBtn.closest('details.notion-media-collapse');
+        if (targetBlock) {
+          openPhotoAnnotatorForBlock(targetBlock);
+        }
+        return;
+      }
+
       const delBtn = e.target.closest('.media-card-delete-btn, .media-caption-delete-btn, .media-overlay-delete-btn, .file-attachment-delete-btn');
       if (delBtn && DOM.editor.contains(delBtn)) {
         e.preventDefault();
@@ -4922,7 +4952,11 @@ function buildMediaCollapseCardHtml({ fileId, fileName, isImage, isVideo, isAudi
           <i data-lucide="${iconName}" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
           <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${safeName}</span>
         </div>
-        <div class="flex items-center gap-2 shrink-0">
+        <div class="flex items-center gap-1.5 shrink-0">
+          ${isImage ? `
+          <button type="button" class="media-card-annotate-btn px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-500 hover:text-white text-[11px] font-bold inline-flex items-center gap-1 transition shadow-2xs cursor-pointer shrink-0" title="在照片上畫紅圈、箭頭或加文字標註">
+            <span class="pointer-events-none">✏️ 標註</span>
+          </button>` : ''}
           <button type="button" class="media-card-delete-btn px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 hover:bg-rose-600 hover:text-white text-[11px] font-bold inline-flex items-center gap-1 transition shadow-2xs cursor-pointer shrink-0" title="刪除此項目 (需二次確認)">
             ${TRASH_ICON_SVG}
             <span class="pointer-events-none">刪除</span>
@@ -5479,8 +5513,79 @@ function appendAiBubble(role, contentHtml) {
 }
 
 // ----------------- 筆記模板庫 -----------------
+function getEngineeringTroubleshootSnippetHtml() {
+  return `
+    <div class="lvi-troubleshoot-card my-3 space-y-2.5">
+      <div class="notion-callout" style="border-left: 4px solid #ef4444; background: rgba(254, 242, 242, 0.65);">
+        <span class="notion-callout-icon">🚨</span>
+        <div class="notion-callout-body">
+          <strong>1. 異常現象與量測讀值 (Symptom &amp; Readings)</strong>
+          <p>• 故障現象描述：請輸入機台異常狀況（如：啟動無流量、壓力異常下降、點位燒毀）</p>
+          <p>• 關鍵量測數據：<code>阻值 Ω / 水壓 kPa / 流量 LPM / 溫度 °C</code></p>
+        </div>
+      </div>
+      <div class="notion-callout" style="border-left: 4px solid #f59e0b; background: rgba(255, 251, 235, 0.65);">
+        <span class="notion-callout-icon">🔍</span>
+        <div class="notion-callout-body">
+          <strong>2. 排查過程與測試點位 (Diagnostic Steps)</strong>
+          <div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">排查步驟 1：確認外部供應源（水箱水位紅線 / 一次側氣源壓力 / 電源電壓）</span></div>
+          <div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">排查步驟 2：分段量測各點位阻值或管路壓降數據</span></div>
+        </div>
+      </div>
+      <div class="notion-callout" style="border-left: 4px solid #10b981; background: rgba(236, 253, 245, 0.7);">
+        <span class="notion-callout-icon">💡</span>
+        <div class="notion-callout-body">
+          <strong>3. 根本原因與最終解決對策 (Root Cause &amp; Solution)</strong>
+          <p>• <strong>根本原因</strong>：請記錄查明之失效真因</p>
+          <p>• <strong>最終解決對策</strong>：請填寫排除方式、更換料件或參數修正值（供日後模糊檢索秒查）</p>
+        </div>
+      </div>
+    </div>
+    <p><br></p>
+  `;
+}
+
 function applyTemplate(type) {
   const templates = {
+    engineering_troubleshoot: {
+      title: '機台異常排查與解決對策紀錄',
+      icon: '🚨',
+      status: '🚀 處理中',
+      tags: ['故障排除'],
+      html: `
+        <h1>🚨 機台異常排查與解決對策紀錄</h1>
+        ${getEngineeringTroubleshootSnippetHtml()}
+      `
+    },
+    engineering_handover: {
+      title: '機台交機與驗收測試標準紀錄',
+      icon: '✅',
+      status: '🚀 處理中',
+      tags: ['交機驗收'],
+      html: `
+        <h1>✅ 機台交機與驗收測試紀錄</h1>
+        <div class="notion-callout">
+          <span class="notion-callout-icon">🏢</span>
+          <div class="notion-callout-body"><strong>交機基本資訊：</strong>確認機型、客戶廠區、水電氣源條件與操作人員教育訓練。</div>
+        </div>
+        <h2>1. 交機前關鍵點檢清單 (Pre-Check)</h2>
+        <div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">大水箱水位高於紅線標示處，確認首次管道預充填正常循環無氣泡</span></div>
+        <div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">三點組合一次側氣源壓力確認（≥ 200 kPa），無自動洩壓現象</span></div>
+        <div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">鈑金件外觀、外蓋孔位配合與快接頭 (FD83) 氣密/水密檢驗</span></div>
+        <h2>2. 性能驗收測試數據表</h2>
+        <table>
+          <thead>
+            <tr><th>測試項目</th><th>標準規格</th><th>實測數據</th><th>判定結果</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>保壓 / 壓降測試</td><td>200 kPa 保壓穩定</td><td>待填入</td><td>⬜ 待確認</td></tr>
+            <tr><td>流量與溫控精度</td><td>依 Recipe 標準</td><td>待填入</td><td>⬜ 待確認</td></tr>
+          </tbody>
+        </table>
+        <h2>3. 客戶現場回饋與待辦事項</h2>
+        <p>記錄客戶針對操作介面、Exe time、Datalog 或機構之改善建議：</p>
+      `
+    },
     gingerbread_home: {
       title: '小薑餅個人工作首頁',
       icon: '💻',
@@ -5993,6 +6098,13 @@ async function selectNote(noteId) {
     DOM.editor.classList.remove('note-open-animate');
     void DOM.editor.offsetWidth;
     DOM.editor.classList.add('note-open-animate');
+
+    // 🎯 若由搜尋結果點開此筆記，自動捲動並閃爍高亮命中段落
+    if (state.pendingScrollMatch && state.pendingScrollMatch.noteId === noteId) {
+      const matchData = state.pendingScrollMatch;
+      state.pendingScrollMatch = null;
+      executeScrollToMatchedParagraph(matchData);
+    }
   } else {
     // 首次載入或切換呈現自然大氣的 Notion 風骨架屏流光動畫 (長動畫)
     DOM.editor.innerHTML = `
@@ -6132,6 +6244,12 @@ async function selectNote(noteId) {
     state.snapshotNoteId = noteId;
     try { renderNotesList(); } catch (e) { console.warn('renderNotesList error:', e); }
     state.isDirty = false;
+
+    if (state.pendingScrollMatch && state.pendingScrollMatch.noteId === noteId) {
+      const matchData = state.pendingScrollMatch;
+      state.pendingScrollMatch = null;
+      executeScrollToMatchedParagraph(matchData);
+    }
   } catch (e) {
     console.error('讀取筆記失敗:', e);
     if (!hasCache) {
@@ -6217,7 +6335,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261022_v2.6.6', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261023_v2.6.7', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -7346,6 +7464,7 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
     if (!summary) return;
 
     const isVid = !!details.querySelector('iframe, video');
+    const isImgCard = !isVid && !!details.querySelector('img');
     const mediaLabel = isVid ? '影片' : '圖片';
 
     let summaryDelBtn = summary.querySelector('.media-card-delete-btn');
@@ -7370,6 +7489,26 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
         e.stopPropagation();
         requestDeleteMediaBlock(details);
       });
+    }
+
+    if (isImgCard) {
+      let annotateBtn = summary.querySelector('.media-card-annotate-btn');
+      if (!annotateBtn) {
+        annotateBtn = document.createElement('button');
+        annotateBtn.type = 'button';
+        summaryDelBtn.parentElement.insertBefore(annotateBtn, summaryDelBtn);
+      }
+      annotateBtn.className = 'media-card-annotate-btn px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-500 hover:text-white text-[11px] font-bold inline-flex items-center gap-1 transition shadow-2xs cursor-pointer shrink-0';
+      annotateBtn.title = '在照片上畫紅圈、箭頭或加文字標註';
+      annotateBtn.innerHTML = '<span class="pointer-events-none">✏️ 標註</span>';
+      if (!annotateBtn._annotateBound) {
+        annotateBtn._annotateBound = true;
+        annotateBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openPhotoAnnotatorForBlock(details);
+        });
+      }
     }
   });
 
@@ -8052,6 +8191,9 @@ function insertSlashSnippet(type) {
 
   let html = '';
   switch(type) {
+    case 'troubleshoot':
+      html = getEngineeringTroubleshootSnippetHtml();
+      break;
     case 'h1':
       html = '<h1>大標題 1</h1><p><br></p>';
       break;
@@ -8112,6 +8254,7 @@ function insertSlashSnippet(type) {
 
   if (html) {
     const slashNames = {
+      troubleshoot: '🚨 故障排查三段式模板',
       h1: 'H1 大標題', h2: 'H2 中標題', h3: 'H3 小標題',
       toggle: '折疊清單', todo: '待辦事項', callout: '醒目提示框',
       table: '資料表格', code: '程式碼區塊', columns: '雙欄並排佈局',
@@ -9545,7 +9688,7 @@ const SINGLE_CHAR_STOPWORDS = new Set([
 ]);
 
 const SOLUTION_INDICATOR_TERMS = [
-  '解決', '排除', '排查', '原因', '起因', '確保', '至少要', '設定方式', '進入設定', '步驟', '處理',
+  '最終解決對策', '根本原因', '解決對策', '解決', '排除', '排查', '原因', '起因', '確保', '至少要', '設定方式', '進入設定', '步驟', '處理',
   '更換', '調整', '調校', '測試結果', '歐姆', '阻值', 'kpa', 'lpm', '°c', '紅線', '預充填', '配合', '改善', '修復', 'sop', '手冊', '極有可能'
 ];
 
@@ -10136,7 +10279,342 @@ function evaluateFuzzyNoteMatch(note, parsedQuery) {
   };
 }
 
-// ----------------- 1. 表格資料庫檢視 (Table Database View - 支援智慧模糊檢索與解決方案探索) -----------------
+// ============================================================================
+// 🎯 功能 1：搜尋命中段落「自動捲動定位＋閃爍高亮 (Scroll-to-Match & Flash Highlight)」
+// ============================================================================
+state.pendingScrollMatch = null;
+
+function executeScrollToMatchedParagraph(matchInfo) {
+  if (!matchInfo || !DOM.editor) return;
+  const terms = Array.isArray(matchInfo.highlightTerms) ? matchInfo.highlightTerms.filter(Boolean) : [];
+  const rawQuery = normalizeSearchText(matchInfo.query || '');
+  const snippetNorm = normalizeSearchText(matchInfo.snippetText || '');
+
+  if (terms.length === 0 && !rawQuery && !snippetNorm) return;
+
+  const blocks = Array.from(DOM.editor.querySelectorAll('p, li, h1, h2, h3, h4, td, th, blockquote, pre, .notion-callout, .notion-todo-item'));
+  if (blocks.length === 0) return;
+
+  let bestBlock = null;
+  let bestScore = 0;
+
+  blocks.forEach(block => {
+    const text = normalizeSearchText(block.textContent || '');
+    if (!text || text.length < 2) return;
+
+    let score = 0;
+    if (snippetNorm && snippetNorm.length >= 4) {
+      const snippetHead = snippetNorm.slice(0, 18);
+      if (text.includes(snippetHead)) score += 80;
+    }
+    if (rawQuery && text.includes(rawQuery)) {
+      score += 50;
+    }
+    terms.forEach(t => {
+      const nt = normalizeSearchText(t);
+      if (nt && text.includes(nt)) {
+        score += (nt.length >= 2 ? 18 : 5);
+      }
+    });
+    SOLUTION_INDICATOR_TERMS.forEach(cue => {
+      if (text.includes(cue)) score += 6;
+    });
+
+    // 優先選擇更具體的子區塊（如 .notion-todo-item 或 p），避免選到包裹整篇的大容器
+    if (block.tagName === 'P' || block.classList.contains('notion-todo-item') || block.tagName === 'LI') {
+      score += 4;
+    }
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestBlock = block;
+    }
+  });
+
+  if (!bestBlock || bestScore <= 0) return;
+
+  // 若命中段落位於收折的 <details> 內，自動展開所有外層 <details>
+  let parentDetails = bestBlock.closest('details');
+  while (parentDetails && DOM.editor.contains(parentDetails)) {
+    parentDetails.open = true;
+    parentDetails.setAttribute('open', '');
+    parentDetails = parentDetails.parentElement ? parentDetails.parentElement.closest('details') : null;
+  }
+
+  setTimeout(() => {
+    try {
+      bestBlock.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      document.querySelectorAll('.search-hit-flash-block').forEach(el => el.classList.remove('search-hit-flash-block'));
+      void bestBlock.offsetWidth;
+      bestBlock.classList.add('search-hit-flash-block');
+      showToast('🎯 已自動捲動並高亮定位至「搜尋命中段落」！', 3200);
+      setTimeout(() => {
+        bestBlock.classList.remove('search-hit-flash-block');
+      }, 3400);
+    } catch (e) {}
+  }, 120);
+}
+
+// ============================================================================
+// 📋 功能 2：表格資料庫「就地直接改分類 (Inline Select)」＋「側邊快速預覽抽屜 (Quick Peek)」
+// ============================================================================
+
+/**
+ * 在表格資料庫或預覽抽屜中直接修改單篇筆記的分類屬性，支援：
+ * 1. 全域時光機回朔 (recordAction)
+ * 2. 嚴格三項歸位守門機制 (三項皆選定自動搬移至對應機型資料夾；任一未分類則留存於 未分類/)
+ * 3. 背景自動同步至 Google Drive (含若該筆記尚未載入內文時僅更新 Drive Metadata 與快取)
+ */
+async function syncNotePropertyChangeToDrive(note) {
+  if (!note || !note.id) return;
+  saveSwrCacheSnapshot();
+
+  // 若該筆記正是當前編輯器開啟的筆記，直接觸發標準防抖存檔即可
+  if (state.currentNote && state.currentNote.id === note.id) {
+    triggerAutoSaveDebounce();
+    return;
+  }
+
+  if (!state.accessToken) return;
+  try {
+    const meta = note.meta || {};
+    const isFullyClassified = !isNoteUncategorized({ meta });
+    const targetCategory = isFullyClassified ? (meta.machineModel || '').trim() : '未分類';
+    const targetFolderId = await ensureCategoryFolder(targetCategory);
+
+    let parentParam = '';
+    const currentParent = note.parentId;
+    if (targetFolderId && currentParent && currentParent !== targetFolderId) {
+      parentParam = `?addParents=${targetFolderId}&removeParents=${currentParent}`;
+    } else if (targetFolderId && !currentParent) {
+      parentParam = `?addParents=${targetFolderId}`;
+    }
+
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${note.id}${parentParam}`, {
+      method: 'PATCH',
+      headers: {
+        Authorization: `Bearer ${state.accessToken}`,
+        'Content-Type': 'application/json; charset=UTF-8'
+      },
+      body: JSON.stringify({
+        description: JSON.stringify(meta)
+      })
+    });
+    if (res.ok) {
+      if (targetFolderId) note.parentId = targetFolderId;
+      note.modifiedTime = new Date().toISOString();
+      saveSwrCacheSnapshot();
+    }
+  } catch (err) {
+    console.warn('表格就地同步屬性至 Drive 略過:', err);
+  }
+}
+
+function updateNotePropertyInline(noteId, field, rawVal) {
+  const note = state.notes.find(n => n.id === noteId);
+  if (!note) return;
+  if (!note.meta) note.meta = {};
+
+  // 處理「➕ 新建...」快捷選項
+  if (rawVal === '__add_machine__') {
+    const name = prompt('請輸入新機型名稱：');
+    if (name && name.trim()) {
+      addMachineModel(name.trim());
+      rawVal = name.trim();
+    } else {
+      renderTableView();
+      return;
+    }
+  } else if (rawVal === '__add_content__') {
+    const name = prompt('請輸入新工作內容類別：');
+    if (name && name.trim()) {
+      addWorkContent(name.trim());
+      rawVal = name.trim();
+    } else {
+      renderTableView();
+      return;
+    }
+  } else if (rawVal === '__add_client__') {
+    const name = prompt('請輸入新客戶或廠商名稱：');
+    if (name && name.trim()) {
+      addClientVendor(name.trim());
+      rawVal = name.trim();
+    } else {
+      renderTableView();
+      return;
+    }
+  }
+
+  const oldVal = note.meta[field] || '';
+  const newVal = rawVal;
+  if (oldVal === newVal) return;
+
+  const fieldLabels = {
+    machineModel: '🚜 機型',
+    workContent: '📋 工作內容',
+    urgency: '🚨 急迫性',
+    clientVendor: '🏢 客戶/廠商'
+  };
+  const noteTitle = (note.name || '未命名筆記').replace(/\.md$/i, '');
+
+  const applyVal = (val) => {
+    note.meta[field] = val;
+    if (state.currentNote && state.currentNote.id === noteId) {
+      if (!state.currentNote.meta) state.currentNote.meta = {};
+      state.currentNote.meta[field] = val;
+      try { renderCurrentNote(); } catch (e) {}
+    }
+    renderWorkTagLists();
+    renderNotesList();
+    renderBreadcrumbs();
+    if (state.currentView === 'table') renderTableView();
+    if (state.currentView === 'uncategorized') renderUncategorizedView();
+    if (state.currentPeekNoteId === noteId) renderQuickPeekMetaBar(note);
+    syncNotePropertyChangeToDrive(note);
+  };
+
+  applyVal(newVal);
+
+  recordAction({
+    type: `change_${field}`,
+    title: `${fieldLabels[field] || '屬性'}改為「${newVal || '未指定'}」`,
+    subtitle: `筆記：「${noteTitle}」 (原：${oldVal || '未指定'})`,
+    noteId: noteId,
+    undo: () => applyVal(oldVal),
+    redo: () => applyVal(newVal)
+  });
+
+  showToast(`✅ 已更新「${noteTitle}」之${fieldLabels[field] || '屬性'}為「${newVal || '未指定'}」`);
+}
+
+state.currentPeekNoteId = null;
+
+function renderQuickPeekMetaBar(note) {
+  if (!DOM.peekNoteMetaBar || !note) return;
+  const meta = note.meta || {};
+  const machine = meta.machineModel || '未分類';
+  const content = meta.workContent || '未分類';
+  const urgency = meta.urgency || '未分類';
+  const client = meta.clientVendor || '';
+
+  const machines = ['未分類', ...state.machineModels.filter(m => m !== '未分類')];
+  const contents = ['未分類', ...state.workContents.filter(c => c !== '未分類')];
+  const urgencies = ['未分類', ...(state.urgencies || DEFAULT_URGENCIES).map(u => u.id).filter(u => u !== '未分類')];
+  const clients = (state.clientsVendors && state.clientsVendors.length > 0) ? state.clientsVendors : DEFAULT_CLIENTS_VENDORS;
+
+  DOM.peekNoteMetaBar.innerHTML = `
+    <select class="table-inline-select bg-blue-50/80 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300" data-peek-field="machineModel" title="直接修改機型">
+      ${machines.map(m => `<option value="${escapeHtml(m)}" ${machine === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`).join('')}
+    </select>
+    <select class="table-inline-select bg-amber-50/80 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300" data-peek-field="workContent" title="直接修改工作內容">
+      ${contents.map(c => `<option value="${escapeHtml(c)}" ${content === c ? 'selected' : ''}>📋 ${escapeHtml(c)}</option>`).join('')}
+    </select>
+    <select class="table-inline-select bg-rose-50/80 dark:bg-rose-950/50 text-rose-700 dark:text-rose-300" data-peek-field="urgency" title="直接修改急迫性">
+      ${urgencies.map(u => `<option value="${escapeHtml(u)}" ${urgency === u ? 'selected' : ''}>🚨 ${escapeHtml(u)}</option>`).join('')}
+    </select>
+    <select class="table-inline-select bg-indigo-50/80 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300" data-peek-field="clientVendor" title="直接修改客戶或廠商">
+      <option value="" ${!client ? 'selected' : ''}>🏢 客戶: 未指定</option>
+      ${clients.map(c => `<option value="${escapeHtml(c)}" ${client === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`).join('')}
+    </select>
+  `;
+
+  DOM.peekNoteMetaBar.querySelectorAll('select[data-peek-field]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      updateNotePropertyInline(note.id, sel.dataset.peekField, sel.value);
+    });
+  });
+}
+
+async function openTableQuickPeekDrawer(noteId, fuzzyRes = null) {
+  const note = state.notes.find(n => n.id === noteId);
+  if (!note || !DOM.tableQuickPeekDrawer) return;
+
+  state.currentPeekNoteId = noteId;
+  const title = (note.name || '未命名筆記').replace(/\.md$/i, '');
+  const meta = note.meta || {};
+
+  if (DOM.peekNoteIcon) DOM.peekNoteIcon.textContent = meta.icon || '🛠️';
+  if (DOM.peekNoteTitle) DOM.peekNoteTitle.textContent = title;
+  if (DOM.peekNoteTime) {
+    DOM.peekNoteTime.textContent = note.modifiedTime
+      ? `最後更新：${new Date(note.modifiedTime).toLocaleString('zh-TW')}`
+      : '';
+  }
+
+  renderQuickPeekMetaBar(note);
+
+  if (DOM.tableQuickPeekBackdrop) DOM.tableQuickPeekBackdrop.classList.remove('hidden');
+  DOM.tableQuickPeekDrawer.classList.remove('hidden');
+  initLucide();
+
+  const renderDrawerBody = (rawHtmlOrMd) => {
+    if (!DOM.peekNoteBody) return;
+    let html = rawHtmlOrMd || '<p class="text-gray-400">（此筆記目前尚無內文）</p>';
+    if (window.marked && !/<(p|div|h[1-6]|details|table)\b/i.test(html)) {
+      html = window.marked.parse(html);
+    }
+    DOM.peekNoteBody.innerHTML = html;
+
+    // 若目前表格有搜尋關鍵字，於預覽抽屜中高亮並自動捲動至第一個命中段落！
+    if (fuzzyRes && Array.isArray(fuzzyRes.highlightTerms) && fuzzyRes.highlightTerms.length > 0) {
+      const blocks = Array.from(DOM.peekNoteBody.querySelectorAll('p, li, h1, h2, h3, td, .notion-callout, .notion-todo-item'));
+      let firstHitEl = null;
+      blocks.forEach(b => {
+        const lower = normalizeSearchText(b.textContent || '');
+        if (fuzzyRes.highlightTerms.some(t => t && lower.includes(normalizeSearchText(t)))) {
+          if (!firstHitEl) firstHitEl = b;
+          b.classList.add('search-hit-flash-block');
+        }
+      });
+      if (firstHitEl) {
+        setTimeout(() => {
+          try { firstHitEl.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+        }, 80);
+      }
+    }
+  };
+
+  if (note._cachedHtml || note._cachedBody) {
+    renderDrawerBody(note._cachedHtml || note._cachedBody);
+  } else if (state.accessToken) {
+    if (DOM.peekNoteBody) {
+      DOM.peekNoteBody.innerHTML = '<div class="py-12 text-center text-gray-400 text-xs">⏳ 正在自 Google Drive 載入筆記完整內容...</div>';
+    }
+    try {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${note.id}?alt=media`, {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (res.ok) {
+        const rawText = await res.text();
+        const { meta: bodyMeta, body } = parseFrontmatter(rawText);
+        const renderedHtml = window.DOMPurify
+          ? DOMPurify.sanitize(window.marked ? window.marked.parse(body) : body)
+          : (window.marked ? window.marked.parse(body) : body);
+        note._cachedBody = body;
+        note._cachedHtml = renderedHtml;
+        note._cachedMeta = bodyMeta;
+        updateNoteSearchIndex(note.id, note.modifiedTime, body);
+        if (state.currentPeekNoteId === note.id) {
+          renderDrawerBody(renderedHtml);
+        }
+      }
+    } catch (e) {
+      if (DOM.peekNoteBody) {
+        DOM.peekNoteBody.innerHTML = '<div class="py-8 text-center text-rose-500 text-xs">⚠️ 無法載入雲端內容，請點擊上方「進入編輯」重試。</div>';
+      }
+    }
+  } else {
+    renderDrawerBody(getNoteSearchableBody(note));
+  }
+}
+
+function closeTableQuickPeekDrawer() {
+  state.currentPeekNoteId = null;
+  if (DOM.tableQuickPeekDrawer) DOM.tableQuickPeekDrawer.classList.add('hidden');
+  if (DOM.tableQuickPeekBackdrop) DOM.tableQuickPeekBackdrop.classList.add('hidden');
+}
+
+// ----------------- 1. 表格資料庫檢視 (Table Database View - v2.6.7 支援智慧模糊檢索、就地改分類與側邊預覽) -----------------
 function renderTableView() {
   if (!DOM.tableViewTbody) return;
 
@@ -10197,7 +10675,7 @@ function renderTableView() {
         ${tokenBadges || `<span class="px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-200 font-semibold">${escapeHtml(rawSearchInput)}</span>`}
         ${synPreview ? `<span class="text-gray-500 dark:text-gray-400 ml-1">➔ 智慧擴展同義/關聯詞：<strong class="text-indigo-600 dark:text-indigo-300 font-medium">${synPreview}</strong></span>` : ''}
       `;
-      DOM.tableFuzzyStatsText.textContent = `找到 ${filteredNotes.length} 篇潛在解決方案筆記 (依關聯度排序)`;
+      DOM.tableFuzzyStatsText.textContent = `找到 ${filteredNotes.length} 篇潛在解決方案筆記 (點擊直達命中段落)`;
     } else {
       DOM.tableFuzzyQueryBanner.classList.add('hidden');
     }
@@ -10245,13 +10723,19 @@ function renderTableView() {
     return;
   }
 
+  const allMachineOpts = ['未分類', ...(state.machineModels || []).filter(m => m !== '未分類')];
+  const allContentOpts = ['未分類', ...(state.workContents || []).filter(c => c !== '未分類')];
+  const allUrgencyOpts = ['未分類', ...((state.urgencies && state.urgencies.length > 0 ? state.urgencies : DEFAULT_URGENCIES).map(u => u.id || u).filter(u => u !== '未分類'))];
+  const allClientOpts = (state.clientsVendors && state.clientsVendors.length > 0) ? state.clientsVendors : DEFAULT_CLIENTS_VENDORS;
+
   DOM.tableViewTbody.innerHTML = filteredNotes.map(note => {
     const meta = note.meta || {};
     const title = (note.name || '').replace(/\.md$/i, '');
     const icon = meta.icon || '🛠️';
-    const machine = meta.machineModel || '未指定';
-    const content = meta.workContent || '未指定';
+    const machine = meta.machineModel || '未分類';
+    const content = meta.workContent || '未分類';
     const urgency = meta.urgency || '🟢 常規';
+    const client = meta.clientVendor || '';
     const dueDate = meta.dueDate || '';
     const tags = Array.isArray(meta.tags) ? meta.tags : [];
 
@@ -10302,6 +10786,22 @@ function renderTableView() {
       }
     }
 
+    const machineOptionsHtml = (allMachineOpts.includes(machine) ? allMachineOpts : [machine, ...allMachineOpts])
+      .map(m => `<option value="${escapeHtml(m)}" ${m === machine ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`).join('') +
+      `<option value="__add_machine__">➕ 新建機型...</option>`;
+
+    const contentOptionsHtml = (allContentOpts.includes(content) ? allContentOpts : [content, ...allContentOpts])
+      .map(c => `<option value="${escapeHtml(c)}" ${c === content ? 'selected' : ''}>📋 ${escapeHtml(c)}</option>`).join('') +
+      `<option value="__add_content__">➕ 新建內容...</option>`;
+
+    const urgencyOptionsHtml = (allUrgencyOpts.includes(urgency) ? allUrgencyOpts : [urgency, ...allUrgencyOpts])
+      .map(u => `<option value="${escapeHtml(u)}" ${u === urgency ? 'selected' : ''}>${escapeHtml(u)}</option>`).join('');
+
+    const clientOptionsHtml = `<option value="" ${!client ? 'selected' : ''}>🏢 未指定</option>` +
+      (allClientOpts.includes(client) || !client ? allClientOpts : [client, ...allClientOpts])
+      .map(c => `<option value="${escapeHtml(c)}" ${c === client ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`).join('') +
+      `<option value="__add_client__">➕ 新建客戶/廠商...</option>`;
+
     return `
       <tr class="hover:bg-gray-50/80 dark:hover:bg-notion-darker transition-colors cursor-pointer group" data-note-id="${note.id}">
         <td class="p-2.5 text-center text-amber-500 align-top">${meta.pinned ? '📌' : ''}</td>
@@ -10314,13 +10814,25 @@ function renderTableView() {
           ${fuzzyMetaBadgesHtml}
           ${fuzzySnippetHtml}
         </td>
-        <td class="p-2.5 font-medium text-blue-600 dark:text-blue-400 align-top">🚜 ${escapeHtml(machine)}</td>
-        <td class="p-2.5 font-medium text-amber-600 dark:text-amber-400 align-top">📋 ${escapeHtml(content)}</td>
-        <td class="p-2.5 align-top">
-          <span class="px-2 py-0.5 rounded text-[11px] font-bold ${urgencyClass}">${escapeHtml(urgency)}</span>
+        <td class="p-2 align-top" onclick="event.stopPropagation();">
+          <select class="table-inline-select text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/30" data-note-id="${note.id}" data-field="machineModel" title="直接點擊修改機型（自動歸位）">
+            ${machineOptionsHtml}
+          </select>
         </td>
-        <td class="p-2.5 font-medium text-indigo-600 dark:text-indigo-400 align-top">
-          ${meta.clientVendor ? `<span class="px-2 py-0.5 rounded text-[11px] bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 border border-indigo-200/50 dark:border-indigo-800/50">🏢 ${escapeHtml(meta.clientVendor)}</span>` : '<span class="text-gray-300 dark:text-gray-600 text-[11px]">未指定</span>'}
+        <td class="p-2 align-top" onclick="event.stopPropagation();">
+          <select class="table-inline-select text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/30" data-note-id="${note.id}" data-field="workContent" title="直接點擊修改工作內容">
+            ${contentOptionsHtml}
+          </select>
+        </td>
+        <td class="p-2 align-top" onclick="event.stopPropagation();">
+          <select class="table-inline-select ${urgencyClass}" data-note-id="${note.id}" data-field="urgency" title="直接點擊修改急迫性">
+            ${urgencyOptionsHtml}
+          </select>
+        </td>
+        <td class="p-2 align-top" onclick="event.stopPropagation();">
+          <select class="table-inline-select ${client ? 'text-indigo-600 dark:text-indigo-300 bg-indigo-50/60 dark:bg-indigo-950/40' : 'text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/40'}" data-note-id="${note.id}" data-field="clientVendor" title="直接點擊修改客戶或廠商">
+            ${clientOptionsHtml}
+          </select>
         </td>
         <td class="p-2.5 text-gray-500 font-mono text-[11px] align-top">${dueDate || '<span class="text-gray-300 dark:text-gray-600">未排定</span>'}</td>
         <td class="p-2.5 align-top">
@@ -10328,10 +10840,15 @@ function renderTableView() {
             ${tags.map(t => `<span class="px-1.5 py-0.5 rounded text-[10px] bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-300">${escapeHtml(t)}</span>`).join('')}
           </div>
         </td>
-        <td class="p-2.5 text-center align-top">
-          <button class="table-open-btn p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 text-blue-600 dark:text-blue-400 text-xs font-medium" title="開啟編輯">
-            開啟
-          </button>
+        <td class="p-2 text-center align-top whitespace-nowrap" onclick="event.stopPropagation();">
+          <div class="inline-flex items-center gap-1">
+            <button type="button" class="table-peek-btn px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-300 text-[11px] font-semibold transition cursor-pointer" data-note-id="${note.id}" title="在右側展開抽屜快速預覽內容，不離開表格">
+              👁️ 預覽
+            </button>
+            <button type="button" class="table-open-btn px-2 py-1 rounded bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-600 text-blue-600 dark:text-blue-300 hover:text-white text-[11px] font-semibold transition cursor-pointer" data-note-id="${note.id}" title="開啟編輯器並自動捲動定位至命中段落">
+              開啟
+            </button>
+          </div>
         </td>
       </tr>
     `;
@@ -10343,13 +10860,60 @@ function renderTableView() {
       : `總筆數: ${filteredNotes.length}`;
   }
 
-  DOM.tableViewTbody.querySelectorAll('tr').forEach(tr => {
-    tr.addEventListener('click', () => {
-      const noteId = tr.dataset.noteId;
-      if (noteId) {
-        selectNote(noteId);
-        switchView('editor');
+  // 綁定就地修改下拉選單事件
+  DOM.tableViewTbody.querySelectorAll('select.table-inline-select').forEach(sel => {
+    sel.addEventListener('click', (e) => e.stopPropagation());
+    sel.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const noteId = sel.dataset.noteId;
+      const field = sel.dataset.field;
+      if (noteId && field) {
+        updateNotePropertyInline(noteId, field, sel.value);
       }
+    });
+  });
+
+  // 綁定「👁️ 預覽」抽屜按鈕事件
+  DOM.tableViewTbody.querySelectorAll('.table-peek-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const noteId = btn.dataset.noteId;
+      if (noteId) {
+        openTableQuickPeekDrawer(noteId, parsedQuery ? fuzzyEvalMap.get(noteId) : null);
+      }
+    });
+  });
+
+  // 綁定「開啟」按鈕與整列點擊事件（搜尋狀態下自動附帶 Scroll-to-Match 定位資訊！）
+  const openNoteFromTable = (noteId) => {
+    if (!noteId) return;
+    if (parsedQuery) {
+      const fRes = fuzzyEvalMap.get(noteId);
+      state.pendingScrollMatch = {
+        noteId,
+        query: rawSearchInput,
+        highlightTerms: fRes ? fRes.highlightTerms : parsedQuery.coreTokens,
+        snippetText: (fRes && fRes.snippet && fRes.snippet.text) ? fRes.snippet.text : ''
+      };
+    } else {
+      state.pendingScrollMatch = null;
+    }
+    closeTableQuickPeekDrawer();
+    selectNote(noteId);
+    switchView('editor');
+  };
+
+  DOM.tableViewTbody.querySelectorAll('.table-open-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openNoteFromTable(btn.dataset.noteId);
+    });
+  });
+
+  DOM.tableViewTbody.querySelectorAll('tr').forEach(tr => {
+    tr.addEventListener('click', (e) => {
+      if (e.target.closest('select, button, a')) return;
+      openNoteFromTable(tr.dataset.noteId);
     });
   });
 }
@@ -13158,6 +13722,8 @@ function bindEvents() {
 
     // Escape 鍵快速關閉所有彈跳視窗與連續螢光筆刷子模式
     if (e.key === 'Escape') {
+      closeTableQuickPeekDrawer();
+      if (DOM.photoAnnotateModal) DOM.photoAnnotateModal.classList.add('hidden');
       if (state.highlightBrushMode) {
         toggleHighlightBrushMode(false);
       }
@@ -13275,3 +13841,510 @@ document.addEventListener('visibilitychange', async () => {
     await acquireWakeLock();
   }
 });
+
+
+// ============================================================================
+// ✏️ 功能 3：現場照片「就地標註工作室 (In-Note Photo Annotation Studio v2.6.7)」
+// 支援：⭕ 紅圈/橢圓、↗️ 指向箭頭、⬜ 矩形框、🖍️ 自由畫筆、🔤 高對比文字標籤、↩️ 單步復原、720P 壓縮更新雲端與時光機回朔
+// ============================================================================
+const photoAnnotatorState = {
+  activeBlock: null,
+  baseImage: null,
+  fileName: 'Annotated_Photo.jpg',
+  tool: 'circle',
+  color: '#ef4444',
+  isDrawing: false,
+  startX: 0,
+  startY: 0,
+  currentPath: [],
+  operations: [] // 儲存每一筆繪圖操作，支援無限復原重繪
+};
+
+function redrawPhotoAnnotatorCanvas(previewOp = null) {
+  const canvas = DOM.photoAnnotateCanvas;
+  const img = photoAnnotatorState.baseImage;
+  if (!canvas || !img) return;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  const allOps = previewOp ? [...photoAnnotatorState.operations, previewOp] : photoAnnotatorState.operations;
+  const scaleFactor = Math.max(1, Math.min(canvas.width, canvas.height) / 720);
+
+  allOps.forEach(op => {
+    ctx.save();
+    ctx.strokeStyle = op.color || '#ef4444';
+    ctx.fillStyle = op.color || '#ef4444';
+    ctx.lineWidth = Math.round(4.5 * scaleFactor);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.55)';
+    ctx.shadowBlur = Math.round(4 * scaleFactor);
+
+    if (op.type === 'circle') {
+      const cx = (op.x1 + op.x2) / 2;
+      const cy = (op.y1 + op.y2) / 2;
+      const rx = Math.max(4, Math.abs(op.x2 - op.x1) / 2);
+      const ry = Math.max(4, Math.abs(op.y2 - op.y1) / 2);
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (op.type === 'rect') {
+      const x = Math.min(op.x1, op.x2);
+      const y = Math.min(op.y1, op.y2);
+      const w = Math.abs(op.x2 - op.x1);
+      const h = Math.abs(op.y2 - op.y1);
+      ctx.strokeRect(x, y, w, h);
+    } else if (op.type === 'arrow') {
+      const dx = op.x2 - op.x1;
+      const dy = op.y2 - op.y1;
+      const len = Math.hypot(dx, dy);
+      if (len >= 6) {
+        const headLen = Math.max(18, Math.round(24 * scaleFactor));
+        const angle = Math.atan2(dy, dx);
+        ctx.beginPath();
+        ctx.moveTo(op.x1, op.y1);
+        ctx.lineTo(op.x2, op.y2);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(op.x2, op.y2);
+        ctx.lineTo(op.x2 - headLen * Math.cos(angle - Math.PI / 6), op.y2 - headLen * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(op.x2 - headLen * Math.cos(angle + Math.PI / 6), op.y2 - headLen * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+      }
+    } else if (op.type === 'pen' && Array.isArray(op.points) && op.points.length > 0) {
+      ctx.beginPath();
+      ctx.moveTo(op.points[0].x, op.points[0].y);
+      for (let i = 1; i < op.points.length; i++) {
+        ctx.lineTo(op.points[i].x, op.points[i].y);
+      }
+      ctx.stroke();
+    } else if (op.type === 'text' && op.text) {
+      const fontSize = Math.round(22 * scaleFactor);
+      ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Microsoft JhengHei", sans-serif`;
+      const metrics = ctx.measureText(op.text);
+      const padX = Math.round(10 * scaleFactor);
+      const padY = Math.round(6 * scaleFactor);
+      const boxW = metrics.width + padX * 2;
+      const boxH = fontSize + padY * 2;
+      const bx = Math.max(4, Math.min(op.x, canvas.width - boxW - 4));
+      const by = Math.max(boxH + 4, Math.min(op.y, canvas.height - 4));
+
+      // 深色半透明膠囊底框 + 彩色外框，保證在任何照片背景上皆 100% 清晰可讀
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.86)';
+      ctx.beginPath();
+      if (ctx.roundRect) {
+        ctx.roundRect(bx, by - boxH, boxW, boxH, Math.round(6 * scaleFactor));
+      } else {
+        ctx.rect(bx, by - boxH, boxW, boxH);
+      }
+      ctx.fill();
+      ctx.lineWidth = Math.round(2.5 * scaleFactor);
+      ctx.strokeStyle = op.color || '#ef4444';
+      ctx.stroke();
+
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = op.color === '#ffffff' ? '#ffffff' : (op.color || '#facc15');
+      ctx.fillText(op.text, bx + padX, by - padY - Math.round(2 * scaleFactor));
+    }
+    ctx.restore();
+  });
+}
+
+async function openPhotoAnnotatorForBlock(detailsBlock) {
+  if (!detailsBlock || !DOM.photoAnnotateModal || !DOM.photoAnnotateCanvas) return;
+  const imgEl = detailsBlock.querySelector('img');
+  if (!imgEl) {
+    showToast('此卡片不包含可標註的照片');
+    return;
+  }
+
+  const fileId = detailsBlock.getAttribute('data-file-id') || '';
+  const fileName = detailsBlock.getAttribute('data-file-name') || imgEl.getAttribute('alt') || 'Photo.jpg';
+  const rawSrc = imgEl.getAttribute('src') || '';
+
+  photoAnnotatorState.activeBlock = detailsBlock;
+  photoAnnotatorState.fileName = fileName;
+  photoAnnotatorState.operations = [];
+  photoAnnotatorState.isDrawing = false;
+
+  if (DOM.photoAnnotateFilename) DOM.photoAnnotateFilename.textContent = `(${fileName})`;
+  DOM.photoAnnotateModal.classList.remove('hidden');
+  initLucide();
+
+  showToast('⏳ 正在載入照片至標註畫布...', 1500);
+
+  let loadUrl = rawSrc;
+  let tempObjectUrl = null;
+
+  // 若為 Google Drive 雲端圖片且已登入，優先透過 Drive API 下載原始 Blob 以避免跨域 Canvas 污染 (Tainted Canvas)
+  if (fileId && state.accessToken && rawSrc.includes('drive.google.com')) {
+    try {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        tempObjectUrl = URL.createObjectURL(blob);
+        loadUrl = tempObjectUrl;
+      }
+    } catch (e) {
+      console.warn('Drive API 原圖載入降級為直接載入:', e);
+    }
+  }
+
+  const loadImgElement = (url, useCors = true) => new Promise((resolve, reject) => {
+    const im = new Image();
+    if (useCors && !url.startsWith('data:') && !url.startsWith('blob:')) {
+      im.crossOrigin = 'anonymous';
+    }
+    im.onload = () => resolve(im);
+    im.onerror = (err) => reject(err);
+    im.src = url;
+  });
+
+  try {
+    let loadedImg;
+    try {
+      loadedImg = await loadImgElement(loadUrl, true);
+    } catch (e1) {
+      loadedImg = await loadImgElement(rawSrc, false);
+    }
+    if (tempObjectUrl) {
+      setTimeout(() => URL.revokeObjectURL(tempObjectUrl), 5000);
+    }
+    const natW = loadedImg.naturalWidth || loadedImg.width || 1280;
+    const natH = loadedImg.naturalHeight || loadedImg.height || 720;
+    const maxDim = 1280;
+    const scale = Math.min(maxDim / natW, maxDim / natH, 1.0);
+    DOM.photoAnnotateCanvas.width = Math.max(1, Math.round(natW * scale));
+    DOM.photoAnnotateCanvas.height = Math.max(1, Math.round(natH * scale));
+    photoAnnotatorState.baseImage = loadedImg;
+    redrawPhotoAnnotatorCanvas();
+  } catch (err) {
+    console.error('載入標註圖片失敗:', err);
+    showToast('⚠️ 無法載入該張圖片進行標註');
+    DOM.photoAnnotateModal.classList.add('hidden');
+  }
+}
+
+async function savePhotoAnnotationToNote() {
+  const canvas = DOM.photoAnnotateCanvas;
+  const block = photoAnnotatorState.activeBlock;
+  if (!canvas || !block) return;
+
+  if (photoAnnotatorState.operations.length === 0) {
+    DOM.photoAnnotateModal.classList.add('hidden');
+    showToast('未新增任何標註筆跡');
+    return;
+  }
+
+  let blob = null;
+  try {
+    blob = await new Promise((resolve, reject) => {
+      try {
+        canvas.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob empty'))), 'image/jpeg', 0.84);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  } catch (secErr) {
+    showToast('⚠️ 此圖片受瀏覽器跨域安全限制，請先登入 Google Drive 以啟用雲端圖片標註');
+    return;
+  }
+
+  const cleanBaseName = (photoAnnotatorState.fileName || 'Photo').replace(/\.[^/.]+$/, '');
+  const annotatedFileName = cleanBaseName.endsWith('_標註') ? `${cleanBaseName}.jpg` : `${cleanBaseName}_標註.jpg`;
+  const annotatedFile = new File([blob], annotatedFileName, { type: 'image/jpeg', lastModified: Date.now() });
+
+  DOM.photoAnnotateModal.classList.add('hidden');
+
+  const localBlobUrl = URL.createObjectURL(annotatedFile);
+  const imgEl = block.querySelector('img');
+  const oldHtml = DOM.editor ? DOM.editor.innerHTML : '';
+  const noteId = state.currentNote ? state.currentNote.id : null;
+  const noteTitle = (state.currentNote && state.currentNote.name) ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
+
+  // 1. 立即 (0.01s) 在筆記畫布上樂觀渲染標註後的新圖片並寫入時光機！
+  if (imgEl) {
+    imgEl.src = localBlobUrl;
+  }
+  block.setAttribute('data-file-name', annotatedFileName);
+  const summaryTitleSpan = block.querySelector('summary span.truncate');
+  if (summaryTitleSpan) summaryTitleSpan.textContent = annotatedFileName;
+
+  if (DOM.editor) {
+    const newImmediateHtml = DOM.editor.innerHTML;
+    state.editorSnapshotBeforeEdit = newImmediateHtml;
+    recordAction({
+      type: 'media_op',
+      title: `✏️ 標註照片重點：「${annotatedFileName}」`,
+      subtitle: `共繪製 ${photoAnnotatorState.operations.length} 處標記 · 筆記：「${noteTitle}」`,
+      noteId,
+      undo: () => applyNoteCanvasSnapshot(noteId, oldHtml),
+      redo: () => applyNoteCanvasSnapshot(noteId, DOM.editor ? DOM.editor.innerHTML : newImmediateHtml)
+    });
+  }
+
+  saveLocalDraftImmediately();
+  triggerAutoSaveDebounce();
+  showToast('✅ 已套用照片標註！(背景同步至 Google Drive 中...)', 2800);
+
+  // 2. 若已登入 Google Drive，背景上傳壓縮後之標註圖片至 _assets 並替換為永久雲端連結
+  if (state.accessToken) {
+    try {
+      const targetMediaFolderId = await ensureMediaFolder();
+      const boundary = '-------CloudNotesMediaBoundary' + Math.random().toString(36).substring(2);
+      const metaObj = {
+        name: annotatedFileName,
+        mimeType: 'image/jpeg',
+        parents: targetMediaFolderId ? [targetMediaFolderId] : undefined
+      };
+      const multipartBody = new Blob([
+        `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
+        new Blob([JSON.stringify(metaObj)], { type: 'application/json; charset=UTF-8' }),
+        `\r\n--${boundary}\r\nContent-Type: image/jpeg\r\n\r\n`,
+        annotatedFile,
+        `\r\n--${boundary}--`
+      ], { type: `multipart/related; boundary=${boundary}` });
+
+      const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body: multipartBody
+      });
+
+      if (res.ok) {
+        const uploaded = await res.json();
+        fetch(`https://www.googleapis.com/drive/v3/files/${uploaded.id}/permissions`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${state.accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ role: 'reader', type: 'anyone' })
+        }).catch(() => {});
+
+        const directSrc = `https://drive.google.com/thumbnail?id=${uploaded.id}&sz=w1280`;
+        const previewUrl = `https://drive.google.com/file/d/${uploaded.id}/view?usp=sharing`;
+        const downloadUrl = `https://drive.google.com/uc?export=download&id=${uploaded.id}`;
+
+        block.setAttribute('data-file-id', uploaded.id);
+        if (imgEl) {
+          const preload = new Image();
+          preload.onload = () => {
+            imgEl.src = directSrc;
+            URL.revokeObjectURL(localBlobUrl);
+          };
+          preload.src = directSrc;
+          imgEl.setAttribute('onclick', `window.open('${previewUrl}', '_blank')`);
+        }
+        const dlLink = block.querySelector('a[download]');
+        if (dlLink) dlLink.href = downloadUrl;
+        const viewLink = block.querySelector('a[rel*="noopener"]');
+        if (viewLink) viewLink.href = previewUrl;
+
+        if (DOM.editor) state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+        saveLocalDraftImmediately();
+        triggerAutoSaveDebounce();
+        showToast(`☁️ 標註照片「${annotatedFileName}」已同步至雲端！`, 2500);
+      }
+    } catch (uploadErr) {
+      console.warn('標註照片上傳雲端略過:', uploadErr);
+    }
+  }
+}
+
+function initImageEditor() {
+  // 1. 綁定預覽抽屜按鈕事件
+  if (DOM.peekCloseBtn) {
+    DOM.peekCloseBtn.addEventListener('click', closeTableQuickPeekDrawer);
+  }
+  if (DOM.tableQuickPeekBackdrop) {
+    DOM.tableQuickPeekBackdrop.addEventListener('click', closeTableQuickPeekDrawer);
+  }
+  if (DOM.peekCopyBtn) {
+    DOM.peekCopyBtn.addEventListener('click', () => {
+      const text = DOM.peekNoteBody ? DOM.peekNoteBody.innerText.trim() : '';
+      if (text && navigator.clipboard) {
+        navigator.clipboard.writeText(text);
+        showToast('📋 已複製筆記完整內容與對策至剪貼簿！');
+      }
+    });
+  }
+  if (DOM.peekOpenEditorBtn) {
+    DOM.peekOpenEditorBtn.addEventListener('click', () => {
+      const noteId = state.currentPeekNoteId;
+      if (!noteId) return;
+      const rawQ = (DOM.tableSearchInput && DOM.tableSearchInput.value ? DOM.tableSearchInput.value.trim() : '');
+      if (rawQ) {
+        const parsed = parseFuzzyQuery(rawQ);
+        const note = state.notes.find(n => n.id === noteId);
+        const fRes = note ? evaluateFuzzyNoteMatch(note, parsed) : null;
+        state.pendingScrollMatch = {
+          noteId,
+          query: rawQ,
+          highlightTerms: fRes ? fRes.highlightTerms : parsed.coreTokens,
+          snippetText: (fRes && fRes.snippet && fRes.snippet.text) ? fRes.snippet.text : ''
+        };
+      }
+      closeTableQuickPeekDrawer();
+      selectNote(noteId);
+      switchView('editor');
+    });
+  }
+
+  // 2. 綁定頂部「🚨 排查模板」一鍵插入按鈕
+  if (DOM.topInsertTroubleshootBtn) {
+    DOM.topInsertTroubleshootBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      insertSlashSnippet('troubleshoot');
+      showToast('🚨 已插入「故障排查三段式」結構區塊！(可按 Ctrl+Z 復原)');
+    });
+  }
+
+  // 3. 綁定照片標註工作室 (Photo Annotation Studio) 事件
+  const canvas = DOM.photoAnnotateCanvas;
+  if (!canvas || !DOM.photoAnnotateModal) return;
+
+  DOM.photoAnnotateModal.querySelectorAll('.annotate-tool-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      photoAnnotatorState.tool = btn.dataset.tool || 'circle';
+      DOM.photoAnnotateModal.querySelectorAll('.annotate-tool-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+
+  DOM.photoAnnotateModal.querySelectorAll('.annotate-color-dot').forEach(dot => {
+    dot.addEventListener('click', () => {
+      photoAnnotatorState.color = dot.dataset.color || '#ef4444';
+      DOM.photoAnnotateModal.querySelectorAll('.annotate-color-dot').forEach(d => d.classList.remove('active'));
+      dot.classList.add('active');
+    });
+  });
+
+  if (DOM.photoAnnotateUndoBtn) {
+    DOM.photoAnnotateUndoBtn.addEventListener('click', () => {
+      if (photoAnnotatorState.operations.length > 0) {
+        photoAnnotatorState.operations.pop();
+        redrawPhotoAnnotatorCanvas();
+      }
+    });
+  }
+
+  if (DOM.photoAnnotateClearBtn) {
+    DOM.photoAnnotateClearBtn.addEventListener('click', () => {
+      photoAnnotatorState.operations = [];
+      redrawPhotoAnnotatorCanvas();
+    });
+  }
+
+  if (DOM.photoAnnotateCancelBtn) {
+    DOM.photoAnnotateCancelBtn.addEventListener('click', () => {
+      DOM.photoAnnotateModal.classList.add('hidden');
+    });
+  }
+
+  if (DOM.photoAnnotateSaveBtn) {
+    DOM.photoAnnotateSaveBtn.addEventListener('click', savePhotoAnnotationToNote);
+  }
+
+  const getCanvasCoords = (evt) => {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = evt.touches && evt.touches[0] ? evt.touches[0].clientX : (evt.changedTouches && evt.changedTouches[0] ? evt.changedTouches[0].clientX : evt.clientX);
+    const clientY = evt.touches && evt.touches[0] ? evt.touches[0].clientY : (evt.changedTouches && evt.changedTouches[0] ? evt.changedTouches[0].clientY : evt.clientY);
+    const scaleX = canvas.width / (rect.width || 1);
+    const scaleY = canvas.height / (rect.height || 1);
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  };
+
+  const onStart = (evt) => {
+    if (evt.cancelable) evt.preventDefault();
+    const { x, y } = getCanvasCoords(evt);
+
+    if (photoAnnotatorState.tool === 'text') {
+      const label = prompt('請輸入照片標註文字（例如：80Ω 燒毀、V5 隔膜閥、水位紅線）：');
+      if (label && label.trim()) {
+        photoAnnotatorState.operations.push({
+          type: 'text',
+          x,
+          y,
+          text: label.trim(),
+          color: photoAnnotatorState.color
+        });
+        redrawPhotoAnnotatorCanvas();
+      }
+      return;
+    }
+
+    photoAnnotatorState.isDrawing = true;
+    photoAnnotatorState.startX = x;
+    photoAnnotatorState.startY = y;
+    photoAnnotatorState.currentPath = [{ x, y }];
+  };
+
+  const onMove = (evt) => {
+    if (!photoAnnotatorState.isDrawing) return;
+    if (evt.cancelable) evt.preventDefault();
+    const { x, y } = getCanvasCoords(evt);
+
+    if (photoAnnotatorState.tool === 'pen') {
+      photoAnnotatorState.currentPath.push({ x, y });
+      redrawPhotoAnnotatorCanvas({
+        type: 'pen',
+        color: photoAnnotatorState.color,
+        points: photoAnnotatorState.currentPath
+      });
+    } else {
+      redrawPhotoAnnotatorCanvas({
+        type: photoAnnotatorState.tool,
+        color: photoAnnotatorState.color,
+        x1: photoAnnotatorState.startX,
+        y1: photoAnnotatorState.startY,
+        x2: x,
+        y2: y
+      });
+    }
+  };
+
+  const onEnd = (evt) => {
+    if (!photoAnnotatorState.isDrawing) return;
+    if (evt.cancelable) evt.preventDefault();
+    photoAnnotatorState.isDrawing = false;
+    const { x, y } = getCanvasCoords(evt);
+
+    if (photoAnnotatorState.tool === 'pen') {
+      if (photoAnnotatorState.currentPath.length > 1) {
+        photoAnnotatorState.operations.push({
+          type: 'pen',
+          color: photoAnnotatorState.color,
+          points: photoAnnotatorState.currentPath.slice()
+        });
+      }
+    } else {
+      if (Math.hypot(x - photoAnnotatorState.startX, y - photoAnnotatorState.startY) >= 6) {
+        photoAnnotatorState.operations.push({
+          type: photoAnnotatorState.tool,
+          color: photoAnnotatorState.color,
+          x1: photoAnnotatorState.startX,
+          y1: photoAnnotatorState.startY,
+          x2: x,
+          y2: y
+        });
+      }
+    }
+    redrawPhotoAnnotatorCanvas();
+  };
+
+  canvas.addEventListener('mousedown', onStart);
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', onEnd);
+  canvas.addEventListener('touchstart', onStart, { passive: false });
+  canvas.addEventListener('touchmove', onMove, { passive: false });
+  canvas.addEventListener('touchend', onEnd, { passive: false });
+}
