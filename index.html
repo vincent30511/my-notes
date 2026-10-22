@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>LVI_Note v2.6.5 - 雲端工作筆記</title>
+  <title>LVI_Note v2.6.6 - 雲端工作筆記</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = {
+    if (typeof tailwind !== 'undefined') tailwind.config = {
       darkMode: 'class',
       theme: {
         extend: {
@@ -44,20 +44,20 @@
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <link rel="manifest" href="manifest.json?v=20261021_v2.6.5">
+  <link rel="manifest" href="manifest.json?v=20261022_v2.6.6">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LVI_Note">
   <meta name="application-name" content="LVI_Note">
-  <meta name="version" content="v2.6.5">
+  <meta name="version" content="v2.6.6">
   <meta name="theme-color" content="#191919">
-  <link rel="stylesheet" href="styles.css?v=20261021_v2.6.5">
+  <link rel="stylesheet" href="styles.css?v=20261022_v2.6.6">
   <script>
-    // 🛡️ LVI_Note v2.6.5 強制破除舊版 Service Worker 快取守門員
+    // 🛡️ LVI_Note v2.6.6 強制破除舊版 Service Worker 快取守門員
     (function() {
       try {
-        var CURRENT_VER = 'v2.6.5';
+        var CURRENT_VER = 'v2.6.6';
         var savedVer = localStorage.getItem('lvi_installed_version');
         if (savedVer !== CURRENT_VER) {
           localStorage.setItem('lvi_installed_version', CURRENT_VER);
@@ -111,7 +111,7 @@
       <img src="logo.png" alt="LVI_Note Logo" class="w-6 h-6 rounded-full border border-blue-500/40 shadow-xs object-cover shrink-0 cursor-pointer hover:scale-105 transition-transform" onclick="switchView('table')" title="LVI_Note">
       
       <!-- 版本徽章 (手機與電腦皆常駐清晰顯示) + 麵包屑導航 -->
-      <span id="header-version-badge" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shrink-0 shadow-2xs" title="當前版本號：v2.6.5 (表格智慧模糊檢索 + 解決方案預覽 + 720P極速壓縮)">v2.6.5</span>
+      <span id="header-version-badge" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shrink-0 shadow-2xs" title="當前版本號：v2.6.6 (全域全動作時光機回朔 + 螢光筆無死角修復 + 表格智慧模糊檢索)">v2.6.6</span>
       <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1 truncate max-w-[110px] sm:max-w-xs">
         <span class="hidden sm:inline font-medium text-gray-700 dark:text-gray-300 shrink-0">
           <span id="header-folder-name">LVI_Note</span>
@@ -248,7 +248,7 @@
           <img src="logo.png" alt="LVI_Note Logo" class="w-7 h-7 rounded-full border border-blue-500/40 shadow-sm object-cover shrink-0">
           <div class="flex items-center gap-1.5">
             <span class="text-sm font-bold tracking-tight text-gray-800 dark:text-gray-100">LVI_Note</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">v2.6.5</span>
+            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">v2.6.6</span>
           </div>
         </div>
         <div class="flex items-center space-x-1">
@@ -427,7 +427,7 @@
         <span class="flex items-center gap-1.5 truncate">
           <i data-lucide="cloud" class="w-3 h-3 text-blue-500"></i>
           <span id="sidebar-folder-label">LVI_Note</span>
-          <span class="app-version-badge text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">v2.6.5</span>
+          <span class="app-version-badge text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">v2.6.6</span>
         </span>
         <button id="refresh-btn" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-600" title="重新整理">
           <i data-lucide="rotate-cw" class="w-3 h-3"></i>
@@ -556,6 +556,36 @@
                   <i data-lucide="paperclip" class="w-3.5 h-3.5"></i>
                   <span>檔案上傳</span>
                 </button>
+
+                <!-- 🖍️ 常駐螢光筆與連續刷子模式按鈕組 (解決浮動選單被遮擋或失焦問題) -->
+                <div class="relative inline-flex items-center" id="top-highlight-wrapper">
+                  <div class="inline-flex items-center rounded-md border border-amber-300 dark:border-amber-700/80 bg-amber-50/90 dark:bg-amber-950/40 shadow-xs overflow-hidden">
+                    <button id="top-highlight-apply-btn" type="button" class="px-2 py-1 text-xs font-semibold text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/60 flex items-center gap-1.5 transition active:scale-95 cursor-pointer" title="將選取文字塗上螢光筆 (Ctrl+M)；若未選取文字則開啟/關閉「連續螢光筆刷子模式」">
+                      <i data-lucide="highlighter" class="w-3.5 h-3.5"></i>
+                      <span>螢光筆</span>
+                      <span id="top-highlight-color-dot" class="w-2.5 h-2.5 rounded-full border border-black/20 inline-block" style="background-color: #fef08a;"></span>
+                    </button>
+                    <button id="top-highlight-Menu-btn" type="button" class="px-1.5 py-1 text-xs text-amber-700 dark:text-amber-300 hover:bg-amber-200/60 dark:hover:bg-amber-900/80 border-l border-amber-200 dark:border-amber-800/70 transition cursor-pointer" title="切換螢光筆顏色、清除劃記或啟動連續塗抹模式">
+                      <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                    </button>
+                  </div>
+                  <div id="top-highlight-palette" class="hidden absolute left-0 top-9 bg-slate-900/95 text-white border border-slate-700 rounded-xl shadow-2xl p-2.5 z-50 backdrop-blur-md w-64 space-y-2">
+                    <div class="flex items-center justify-between text-[11px] text-slate-300 pb-1 border-b border-slate-700/80">
+                      <span class="font-semibold flex items-center gap-1">🖍️ 選擇螢光筆色彩 <kbd class="px-1 py-0.2 bg-slate-800 rounded text-[10px] text-amber-300">Ctrl+M</kbd></span>
+                      <button type="button" id="top-highlight-brush-toggle" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-300 border border-amber-500/40 transition cursor-pointer" title="開啟後，滑鼠或手指反白文字放開即自動上色">
+                        🖌️ 連續刷子: 關
+                      </button>
+                    </div>
+                    <div class="flex items-center justify-between gap-1.5 pt-0.5">
+                      <button type="button" class="highlight-color-btn color-swatch-circle" data-color="#fef08a" style="background-color: #fef08a !important;" title="暖黃色螢光筆"></button>
+                      <button type="button" class="highlight-color-btn color-swatch-circle" data-color="#bbf7d0" style="background-color: #86efac !important;" title="翠綠色螢光筆"></button>
+                      <button type="button" class="highlight-color-btn color-swatch-circle" data-color="#fbcfe8" style="background-color: #f472b6 !important;" title="粉紅色螢光筆"></button>
+                      <button type="button" class="highlight-color-btn color-swatch-circle" data-color="#bfdbfe" style="background-color: #93c5fd !important;" title="天藍色螢光筆"></button>
+                      <button type="button" class="highlight-color-btn color-swatch-circle" data-color="#fed7aa" style="background-color: #fb923c !important;" title="亮橙色螢光筆"></button>
+                      <button type="button" class="highlight-color-btn px-2 py-1 rounded bg-slate-800 hover:bg-rose-600 text-xs font-semibold text-slate-200 hover:text-white border border-slate-600 transition cursor-pointer shrink-0" data-color="transparent" title="清除選取範圍的螢光筆底色">🧹 清除</button>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <!-- 右側功能按鈕：釘選 & 刪除 -->
@@ -1098,25 +1128,40 @@
 
       <!-- ✨ 內嵌 AI 助手側欄 (CloudNotes AI) -->
       <!-- 手機專屬：底部快捷編輯工具列 (底部精緻快捷列) -->
-      <div id="mobile-toolbar" class="md:hidden h-12 border-t border-gray-200 dark:border-notion-borderDark bg-white/95 dark:bg-notion-dark/95 backdrop-blur-md flex items-center justify-around px-2 z-20 shrink-0 text-gray-600 dark:text-gray-300">
+      <div id="mobile-toolbar" class="md:hidden relative h-12 border-t border-gray-200 dark:border-notion-borderDark bg-white/95 dark:bg-notion-dark/95 backdrop-blur-md flex items-center justify-around px-1.5 z-20 shrink-0 text-gray-600 dark:text-gray-300">
+        <!-- 手機底部彈出螢光筆調色盤 -->
+        <div id="mb-highlight-palette" class="hidden absolute bottom-13 left-1/2 -translate-x-1/2 bg-slate-900/95 text-white border border-slate-700 rounded-xl shadow-2xl px-3 py-2 flex items-center gap-2.5 z-50 backdrop-blur-md whitespace-nowrap">
+          <button type="button" class="highlight-color-btn color-swatch-circle" data-color="#fef08a" style="background-color: #fef08a !important;" title="黃色"></button>
+          <button type="button" class="highlight-color-btn color-swatch-circle" data-color="#bbf7d0" style="background-color: #86efac !important;" title="綠色"></button>
+          <button type="button" class="highlight-color-btn color-swatch-circle" data-color="#fbcfe8" style="background-color: #f472b6 !important;" title="粉紅"></button>
+          <button type="button" class="highlight-color-btn color-swatch-circle" data-color="#bfdbfe" style="background-color: #93c5fd !important;" title="藍色"></button>
+          <button type="button" class="highlight-color-btn color-swatch-circle" data-color="#fed7aa" style="background-color: #fb923c !important;" title="橙色"></button>
+          <button type="button" class="highlight-color-btn px-2 py-0.5 rounded bg-slate-800 text-xs font-semibold text-rose-300 border border-slate-600" data-color="transparent">🧹 清除</button>
+        </div>
 
         <button id="mb-tool-camera" class="hidden" style="display: none !important;"></button>
-        <button id="mb-tool-file" class="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg active:scale-95 transition" title="檔案上傳 (支援圖影預覽與下載)">
+        <button id="mb-tool-undo" type="button" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg active:scale-95 transition text-blue-600 dark:text-blue-400" title="復原上一步動作">
+          <i data-lucide="undo-2" class="w-4 h-4"></i>
+        </button>
+        <button id="mb-tool-file" type="button" class="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg active:scale-95 transition" title="檔案上傳 (支援圖影預覽與下載)">
           <i data-lucide="paperclip" class="w-4 h-4"></i>
         </button>
-        <button id="mb-tool-bold" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg font-bold text-sm active:scale-95 transition" title="粗體 (Bold)">
+        <button id="mb-tool-highlight" type="button" class="w-8 h-8 flex items-center justify-center bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-300 border border-amber-200/80 dark:border-amber-800/60 rounded-lg active:scale-95 transition" title="螢光筆劃記重點">
+          <i data-lucide="highlighter" class="w-4 h-4"></i>
+        </button>
+        <button id="mb-tool-bold" type="button" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg font-bold text-sm active:scale-95 transition" title="粗體 (Bold)">
           B
         </button>
-        <button id="mb-tool-todo" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg active:scale-95 transition" title="待辦方框 (To-do)">
+        <button id="mb-tool-todo" type="button" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg active:scale-95 transition" title="待辦方框 (To-do)">
           <i data-lucide="check-square" class="w-4 h-4"></i>
         </button>
-        <button id="mb-tool-list" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg active:scale-95 transition" title="項目符號清單">
+        <button id="mb-tool-list" type="button" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg active:scale-95 transition" title="項目符號清單">
           <i data-lucide="list" class="w-4 h-4"></i>
         </button>
-        <button id="mb-tool-callout" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-amber-500 active:scale-95 transition" title="醒目提示框">
+        <button id="mb-tool-callout" type="button" class="w-8 h-8 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-amber-500 active:scale-95 transition" title="醒目提示框">
           <i data-lucide="message-square" class="w-4 h-4"></i>
         </button>
-        <button id="mb-tool-save" class="w-8 h-8 flex items-center justify-center text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg active:scale-95 transition" title="立即存檔">
+        <button id="mb-tool-save" type="button" class="w-8 h-8 flex items-center justify-center text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 rounded-lg active:scale-95 transition" title="立即存檔">
           <i data-lucide="save" class="w-4 h-4"></i>
         </button>
       </div>
@@ -1430,6 +1475,7 @@
     <button id="sel-turn-h2" title="轉為中標題">H2</button>
     <button id="sel-turn-todo" title="轉為待辦清單"><i data-lucide="check-square" class="w-3 h-3 text-blue-400"></i></button>
     <button id="sel-turn-callout" title="轉為醒目提示"><i data-lucide="message-square" class="w-3 h-3 text-amber-400"></i></button>
+    <button id="sel-clear-format-btn" title="清除文字格式與螢光筆"><i data-lucide="eraser" class="w-3 h-3 text-rose-300"></i></button>
     <div class="divider"></div>
     <button id="sel-ai-btn" class="text-purple-400 font-semibold flex items-center gap-1" title="請 AI 潤飾"><i data-lucide="sparkles" class="w-3 h-3"></i> AI</button>
   </div>
@@ -1507,7 +1553,7 @@
       <div class="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-notion-borderDark">
         <div class="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
           <span>系統版本</span>
-          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.6.5</span>
+          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.6.6</span>
         </div>
         <button id="save-settings-btn" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition shadow-sm">
           儲存所有設定
@@ -1521,7 +1567,6 @@
     <span id="toast-message">訊息提示</span>
   </div>
 
-  <script src="app.js?v=20261021_v2.6.5"></script>
 
   <!-- 🏢 工作標籤新增彈窗 (Work Tag Modal) -->
   <div id="work-tag-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden backdrop-blur-xs">
@@ -1674,5 +1719,6 @@
       </div>
     </div>
   </div>
+  <script src="app.js?v=20261022_v2.6.6"></script>
 </body>
 </html>

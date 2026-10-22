@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.6.5'; // 2026.10.21 (表格智慧模糊檢索 + 解決方案預覽 + 720P極速壓縮)
+const APP_VERSION = 'v2.6.6'; // 2026.10.22 (全域全動作時光機回朔 + 螢光筆無死角修復 + 表格智慧模糊檢索)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -589,6 +589,16 @@ const DOM = {
   toggleAllMediaLabel: document.getElementById('toggle-all-media-label'),
   selHighlightBtn: document.getElementById('sel-highlight-btn'),
   selHighlightPalette: document.getElementById('sel-highlight-palette'),
+  selClearFormatBtn: document.getElementById('sel-clear-format-btn'),
+  topHighlightWrapper: document.getElementById('top-highlight-wrapper'),
+  topHighlightApplyBtn: document.getElementById('top-highlight-apply-btn'),
+  topHighlightMenuBtn: document.getElementById('top-highlight-Menu-btn'),
+  topHighlightColorDot: document.getElementById('top-highlight-color-dot'),
+  topHighlightPalette: document.getElementById('top-highlight-palette'),
+  topHighlightBrushToggle: document.getElementById('top-highlight-brush-toggle'),
+  mbToolUndo: document.getElementById('mb-tool-undo'),
+  mbToolHighlight: document.getElementById('mb-tool-highlight'),
+  mbHighlightPalette: document.getElementById('mb-highlight-palette'),
   tableFilterStatus: document.getElementById('table-filter-status'),
 
   // 工作標籤彈窗 (Work Tag Modal)
@@ -697,7 +707,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (localStorage.getItem('lvi_just_upgraded') === APP_VERSION) {
       localStorage.removeItem('lvi_just_upgraded');
       setTimeout(() => {
-        showToast('🎉 已成功更新至 LVI_Note ' + APP_VERSION + '（720P自動壓縮 + 圖片/影片刪除二次確認）', 5000);
+        showToast('🎉 已成功更新至 LVI_Note ' + APP_VERSION + '（全域全動作時光機回朔 + 螢光筆無死角修復 + 表格模糊檢索）', 5000);
       }, 600);
     }
   } catch (e) { console.warn('Version sync error:', e); }
@@ -1718,17 +1728,196 @@ async function fullSyncWithDrive(showFeedback = true) {
   }
 }
 
-// ----------------- 🕒 動作歷史與 20+ 步時光回朔核心引擎 (Action History & Rollback Engine) -----------------
-const MAX_HISTORY_STEPS = 100; // 支援高達 100 步歷史操作回朔 (遠超 20 步要求)
+// ----------------- 🕒 全域全動作時光回朔核心引擎 (Universal Omniscient Time-Machine v2.6.6) -----------------
+const MAX_HISTORY_STEPS = 150; // 支援高達 150 步全動作歷史回朔
 
 state.actionHistory = [];      // 儲存 ActionRecord 陣列
 state.historyIndex = -1;       // 當前歷史節點指標
 state.isUndoingOrRedoing = false;
 state.editorSnapshotBeforeEdit = null;
+state.snapshotNoteId = null;
 state.titleBeforeEdit = null;
+state.activeHighlightColor = localStorage.getItem('lvi_active_highlight_color') || '#fef08a';
+state.highlightBrushMode = false;
+state.isInteractingWithToolbar = false;
 let editorInputTimer = null;
 let savedSelectionRange = null;
 
+const ACTION_CATEGORY_BADGES = {
+  edit_content: { label: '✍️ 內文編輯', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300' },
+  highlight: { label: '🖍️ 螢光筆', cls: 'bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300' },
+  format_text: { label: '🔤 文字格式', cls: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300' },
+  turn_block: { label: '🔄 段落轉換', cls: 'bg-purple-100 text-purple-700 dark:bg-purple-950/70 dark:text-purple-300' },
+  slash_insert: { label: '⚡ 插入區塊', cls: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/70 dark:text-cyan-300' },
+  todo_toggle: { label: '☑️ 待辦核取', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300' },
+  table_op: { label: '📊 表格操作', cls: 'bg-teal-100 text-teal-700 dark:bg-teal-950/70 dark:text-teal-300' },
+  drag_block: { label: '🖐️ 拖曳排序', cls: 'bg-orange-100 text-orange-700 dark:bg-orange-950/70 dark:text-orange-300' },
+  media_op: { label: '📷 媒體附件', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300' },
+  template_op: { label: '📋 套用模板', cls: 'bg-violet-100 text-violet-700 dark:bg-violet-950/70 dark:text-violet-300' },
+  meta_op: { label: '🏷️ 筆記屬性', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-950/70 dark:text-sky-300' },
+  category_op: { label: '🗂️ 分類管理', cls: 'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-950/70 dark:text-fuchsia-300' }
+};
+
+function getActionCategoryBadge(type) {
+  if (!type) return ACTION_CATEGORY_BADGES.edit_content;
+  if (ACTION_CATEGORY_BADGES[type]) return ACTION_CATEGORY_BADGES[type];
+  if (type.includes('highlight')) return ACTION_CATEGORY_BADGES.highlight;
+  if (type.includes('format')) return ACTION_CATEGORY_BADGES.format_text;
+  if (type.includes('todo')) return ACTION_CATEGORY_BADGES.todo_toggle;
+  if (type.includes('table')) return ACTION_CATEGORY_BADGES.table_op;
+  if (type.includes('media') || type.includes('file')) return ACTION_CATEGORY_BADGES.media_op;
+  if (type.includes('change_') || type.includes('tag') || type.includes('pin') || type.includes('cover') || type.includes('emoji')) {
+    return ACTION_CATEGORY_BADGES.meta_op;
+  }
+  return ACTION_CATEGORY_BADGES.category_op;
+}
+
+/**
+ * 將畫布快照精準還原至指定筆記（若當前不在該筆記或不在編輯視圖，自動切換過去！）
+ */
+function applyNoteCanvasSnapshot(noteId, htmlSnapshot, metaSnapshot = null, titleSnapshot = null) {
+  if (!noteId && state.currentNote) noteId = state.currentNote.id;
+  const targetNote = noteId ? state.notes.find(n => n.id === noteId) : state.currentNote;
+
+  // 若目標筆記並非當前開啟的筆記，先切換至該筆記
+  if (targetNote && (!state.currentNote || state.currentNote.id !== targetNote.id)) {
+    state.currentNote = {
+      id: targetNote.id,
+      name: targetNote.name,
+      parentId: targetNote.parentId,
+      meta: JSON.parse(JSON.stringify(targetNote.meta || {}))
+    };
+    localStorage.setItem('lvi_last_active_note_id', targetNote.id);
+  }
+
+  if (state.currentView !== 'editor') {
+    switchView('editor');
+  }
+
+  if (titleSnapshot !== null && titleSnapshot !== undefined) {
+    const cleanT = String(titleSnapshot).replace(/\.md$/i, '');
+    if (DOM.noteTitle) DOM.noteTitle.value = cleanT;
+    if (DOM.headerTitle) DOM.headerTitle.textContent = cleanT || '未命名筆記';
+    if (targetNote) targetNote.name = (cleanT || '未命名筆記') + '.md';
+    if (state.currentNote) state.currentNote.name = (cleanT || '未命名筆記') + '.md';
+    state.titleBeforeEdit = cleanT;
+  }
+
+  if (metaSnapshot && typeof metaSnapshot === 'object') {
+    const clonedMeta = JSON.parse(JSON.stringify(metaSnapshot));
+    if (targetNote) targetNote.meta = clonedMeta;
+    if (state.currentNote) state.currentNote.meta = JSON.parse(JSON.stringify(clonedMeta));
+    try { renderCurrentNote(); } catch (e) {}
+    try { renderWorkTagLists(); } catch (e) {}
+    try { renderSidebarTags(); } catch (e) {}
+  }
+
+  if (typeof htmlSnapshot === 'string' && DOM.editor) {
+    DOM.editor.innerHTML = htmlSnapshot;
+    state.editorSnapshotBeforeEdit = htmlSnapshot;
+    state.snapshotNoteId = noteId;
+    if (targetNote) {
+      targetNote._cachedHtml = htmlSnapshot;
+      try {
+        targetNote._cachedBody = convertHtmlToMarkdown(htmlSnapshot);
+        updateNoteSearchIndex(targetNote.id, targetNote.modifiedTime, targetNote._cachedBody);
+      } catch (e) {}
+    }
+    try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+    try { attachCodeCopyButtons(); } catch (e) {}
+    try { updateStats(); } catch (e) {}
+    try { renderOutline(); } catch (e) {}
+  }
+
+  try { renderNotesList(); } catch (e) {}
+  try { renderBreadcrumbs(); } catch (e) {}
+  saveLocalDraftImmediately();
+  triggerAutoSaveDebounce();
+}
+
+/**
+ * 立即結算尚未寫入歷史佇列的打字輸入快照（在執行任何按鈕動作或 Ctrl+Z 前呼叫，杜絕漏記）
+ */
+function flushPendingEditorInputHistory(customTitle = '✍️ 編輯筆記內文') {
+  if (editorInputTimer) {
+    clearTimeout(editorInputTimer);
+    editorInputTimer = null;
+  }
+  if (state.isUndoingOrRedoing || !DOM.editor || !state.currentNote) return;
+
+  const currentNoteId = state.currentNote.id;
+  if (state.snapshotNoteId && state.snapshotNoteId !== currentNoteId) {
+    state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+    state.snapshotNoteId = currentNoteId;
+    return;
+  }
+
+  const currentHtml = DOM.editor.innerHTML;
+  if (state.editorSnapshotBeforeEdit !== null && currentHtml !== state.editorSnapshotBeforeEdit) {
+    const oldHtml = state.editorSnapshotBeforeEdit;
+    const newHtml = currentHtml;
+    const noteId = currentNoteId;
+    const noteTitle = state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
+
+    state.editorSnapshotBeforeEdit = newHtml;
+    state.snapshotNoteId = noteId;
+
+    recordAction({
+      type: 'edit_content',
+      title: customTitle,
+      subtitle: `筆記：「${noteTitle}」`,
+      noteId: noteId,
+      undo: () => applyNoteCanvasSnapshot(noteId, oldHtml),
+      redo: () => applyNoteCanvasSnapshot(noteId, newHtml)
+    });
+  }
+}
+
+/**
+ * 包裹執行畫布或複合動作，自動記錄執行前後之完整 DOM 與 Meta 差異至時光機
+ */
+function commitEditorCanvasAction(type, actionTitle, subtitleOrFn, maybeFn = '') {
+  const mutatorFn = typeof subtitleOrFn === 'function' ? subtitleOrFn : maybeFn;
+  const customSubtitle = typeof subtitleOrFn === 'string' ? subtitleOrFn : (typeof maybeFn === 'string' ? maybeFn : '');
+  if (!DOM.editor || typeof mutatorFn !== 'function') return;
+  flushPendingEditorInputHistory();
+
+  const noteId = state.currentNote ? state.currentNote.id : null;
+  const noteTitle = (state.currentNote && state.currentNote.name) ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
+  const beforeHtml = DOM.editor.innerHTML;
+  const beforeMeta = (state.currentNote && state.currentNote.meta) ? JSON.parse(JSON.stringify(state.currentNote.meta)) : null;
+  const beforeTitle = DOM.noteTitle ? DOM.noteTitle.value : noteTitle;
+
+  mutatorFn();
+
+  const afterHtml = DOM.editor.innerHTML;
+  const afterMeta = (state.currentNote && state.currentNote.meta) ? JSON.parse(JSON.stringify(state.currentNote.meta)) : null;
+  const afterTitle = DOM.noteTitle ? DOM.noteTitle.value : noteTitle;
+
+  state.editorSnapshotBeforeEdit = afterHtml;
+  state.snapshotNoteId = noteId;
+
+  const htmlChanged = beforeHtml !== afterHtml;
+  const metaChanged = JSON.stringify(beforeMeta) !== JSON.stringify(afterMeta);
+  const titleChanged = beforeTitle !== afterTitle;
+
+  if (htmlChanged || metaChanged || titleChanged) {
+    if (state.currentNote && noteId) {
+      const targetN = state.notes.find(n => n.id === noteId);
+      if (targetN) {
+        targetN._cachedHtml = afterHtml;
+      }
+    }
+    recordAction({
+      type: type || 'edit_content',
+      title: actionTitle,
+      subtitle: customSubtitle ? `${customSubtitle} · 筆記：「${noteTitle}」` : `筆記：「${noteTitle}」`,
+      noteId: noteId,
+      undo: () => applyNoteCanvasSnapshot(noteId, beforeHtml, metaChanged ? beforeMeta : null, titleChanged ? beforeTitle : null),
+      redo: () => applyNoteCanvasSnapshot(noteId, afterHtml, metaChanged ? afterMeta : null, titleChanged ? afterTitle : null)
+    });
+  }
+}
 
 function recordAction(action) {
   if (state.isUndoingOrRedoing) return; // 復原/重做中不重複記錄
@@ -1742,7 +1931,7 @@ function recordAction(action) {
     id: 'act_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
     time: new Date(),
     timeStr: new Date().toLocaleTimeString('zh-TW', { hour12: false }),
-    type: action.type,
+    type: action.type || 'edit_content',
     title: action.title,
     subtitle: action.subtitle || '',
     noteId: action.noteId || (state.currentNote ? state.currentNote.id : null),
@@ -1765,6 +1954,7 @@ function recordAction(action) {
 function updateHistoryUI() {
   const undoBtn = DOM.undoActionBtn;
   const redoBtn = DOM.redoActionBtn;
+  const mbUndoBtn = DOM.mbToolUndo;
   const badge = DOM.historyCounterBadge;
 
   const undoCount = state.historyIndex + 1;
@@ -1773,6 +1963,10 @@ function updateHistoryUI() {
   if (undoBtn) {
     undoBtn.disabled = undoCount <= 0;
     undoBtn.title = undoCount > 0 ? `復原動作 (Ctrl+Z) - 還可復原 ${undoCount} 步` : '沒有可復原的動作';
+  }
+  if (mbUndoBtn) {
+    mbUndoBtn.disabled = undoCount <= 0;
+    mbUndoBtn.style.opacity = undoCount > 0 ? '1' : '0.35';
   }
   if (redoBtn) {
     redoBtn.disabled = redoCount <= 0;
@@ -1796,6 +1990,9 @@ function updateHistoryUI() {
 }
 
 function undoAction() {
+  // 先將尚未滿 800ms 的打字變更立即推入歷史，確保按 Ctrl+Z 能精準復原剛打下的字！
+  flushPendingEditorInputHistory();
+
   if (state.historyIndex < 0) {
     showToast('已無更早的歷史動作可復原！');
     return false;
@@ -1805,6 +2002,10 @@ function undoAction() {
   const act = state.actionHistory[state.historyIndex];
   try {
     act.undo();
+    if (DOM.editor && state.currentNote) {
+      state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+      state.snapshotNoteId = state.currentNote.id;
+    }
   } catch(e) {
     console.error('Undo execution error:', e);
   }
@@ -1819,6 +2020,8 @@ function undoAction() {
 }
 
 function redoAction() {
+  flushPendingEditorInputHistory();
+
   if (state.historyIndex >= state.actionHistory.length - 1) {
     showToast('已到最新狀態，沒有可重做的動作！');
     return false;
@@ -1829,6 +2032,10 @@ function redoAction() {
   const act = state.actionHistory[state.historyIndex];
   try {
     act.redo();
+    if (DOM.editor && state.currentNote) {
+      state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+      state.snapshotNoteId = state.currentNote.id;
+    }
   } catch(e) {
     console.error('Redo execution error:', e);
   }
@@ -1842,6 +2049,8 @@ function redoAction() {
 
 // 核心回朔功能：支援一次復原或前進任意步數 (包含 20 步以上)
 function rollbackToStep(targetIndex) {
+  flushPendingEditorInputHistory();
+
   if (targetIndex === state.historyIndex) {
     showToast('目前已處於該歷史狀態！');
     return;
@@ -1858,6 +2067,10 @@ function rollbackToStep(targetIndex) {
         state.historyIndex--;
       }
     }
+    if (DOM.editor && state.currentNote) {
+      state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+      state.snapshotNoteId = state.currentNote.id;
+    }
     state.isUndoingOrRedoing = false;
     showToast(`⏮️ 已時光回朔 ${steps} 個動作！已復原至指定狀態。`);
   } else {
@@ -1870,6 +2083,10 @@ function rollbackToStep(targetIndex) {
         try { act.redo(); } catch(e) { console.error('Redo error:', e); }
       }
     }
+    if (DOM.editor && state.currentNote) {
+      state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+      state.snapshotNoteId = state.currentNote.id;
+    }
     state.isUndoingOrRedoing = false;
     showToast(`⏩ 已前進重做 ${steps} 個動作！已切換至指定狀態。`);
   }
@@ -1879,8 +2096,8 @@ function rollbackToStep(targetIndex) {
   triggerAutoSaveDebounce();
 }
 
-// 專為使用者指令打造：「一次回朔 20 步動作」
 function quickRollback20Steps() {
+  flushPendingEditorInputHistory();
   if (state.historyIndex < 0) {
     showToast('目前沒有可復原的動作！');
     return;
@@ -1896,6 +2113,7 @@ function isHistoryModalOpen() {
 }
 
 function openHistoryModal() {
+  flushPendingEditorInputHistory();
   if (DOM.actionHistoryModal) {
     DOM.actionHistoryModal.classList.remove('hidden');
     updateHistoryUI();
@@ -1920,29 +2138,33 @@ function renderHistoryTimeline() {
       <div class="text-center py-10 text-gray-400 text-xs">
         <i data-lucide="clock" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
         <p>目前尚無歷史動作紀錄</p>
-        <p class="text-[11px] mt-1 text-gray-400">當您編輯筆記、更換機型、調整急迫性或變更屬性時，系統將在此完整記錄並支援一鍵回朔！</p>
+        <p class="text-[11px] mt-1 text-gray-400">無論是文字輸入、🖍️ 螢光筆劃記、文字格式、☑️ 待辦打勾、📊 表格增刪、🖐️ 區塊拖曳或 🏷️ 屬性/分類變更，所有動作皆會自動記錄於此並支援隨時回朔！</p>
       </div>
     `;
     initLucide();
     return;
   }
 
-  // 倒序顯示：最新的動作在最上方
   for (let i = state.actionHistory.length - 1; i >= 0; i--) {
     const act = state.actionHistory[i];
     const isCurrent = i === state.historyIndex;
     const isPast = i <= state.historyIndex;
     const stepDiff = state.historyIndex - i;
+    const catBadge = getActionCategoryBadge(act.type);
 
     const item = document.createElement('div');
-    item.className = `p-2.5 rounded-lg flex items-center justify-between gap-3 text-xs transition history-item ${isCurrent ? 'is-current ring-1 ring-blue-500/40' : ''}`;
+    item.className = `p-2.5 rounded-lg flex items-center justify-between gap-3 text-xs transition history-item ${isCurrent ? 'is-current ring-1 ring-blue-500/40 bg-blue-50/40 dark:bg-blue-950/20' : ''}`;
 
     let statusBadge = '';
     let rollbackBtn = '';
 
     if (isCurrent) {
-      statusBadge = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white shrink-0">📍 目前所在</span>`;
-      rollbackBtn = `<span class="text-[11px] text-blue-500 font-semibold shrink-0">當前位置</span>`;
+      statusBadge = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white shrink-0">📍 目前狀態</span>`;
+      rollbackBtn = `
+        <button class="undo-this-btn px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-gray-600 dark:text-gray-300 text-[11px] font-medium flex items-center gap-1 transition shrink-0" title="復原此步動作">
+          <i data-lucide="undo-2" class="w-3 h-3"></i> 復原此步
+        </button>
+      `;
     } else if (isPast) {
       statusBadge = `<span class="text-[10px] text-gray-400 shrink-0 font-medium">${stepDiff} 步前</span>`;
       rollbackBtn = `
@@ -1965,6 +2187,7 @@ function renderHistoryTimeline() {
         <span class="text-[10px] font-mono font-bold text-gray-400 w-7 shrink-0">#${i + 1}</span>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-semibold ${catBadge.cls}">${catBadge.label}</span>
             <span class="font-bold text-gray-900 dark:text-gray-100">${escapeHtml(act.title)}</span>
             ${statusBadge}
           </div>
@@ -1983,13 +2206,18 @@ function renderHistoryTimeline() {
         rollbackToStep(i);
       });
     }
+    const undoThisBtn = item.querySelector('.undo-this-btn');
+    if (undoThisBtn) {
+      undoThisBtn.addEventListener('click', () => {
+        undoAction();
+      });
+    }
 
     DOM.historyTimelineList.appendChild(item);
   }
 
   initLucide();
 }
-
 
 // ----------------- 工作專用 3 級多類型標籤核心系統 (機型、內容、急迫性) -----------------
 
@@ -3995,18 +4223,75 @@ function renderPageCover() {
 function setNoteCover(coverStyle) {
   if (!state.currentNote) return;
   if (!state.currentNote.meta) state.currentNote.meta = {};
-  state.currentNote.meta.cover = coverStyle;
+  const oldCover = state.currentNote.meta.cover || null;
+  const newCover = coverStyle;
+  if (oldCover === newCover) return;
+  const noteId = state.currentNote.id;
+  const noteTitle = state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
+  state.currentNote.meta.cover = newCover;
   renderPageCover();
   triggerAutoSaveDebounce();
-  showToast('已更新頁面封面');
+  recordAction({
+    type: 'change_cover',
+    title: '🎨 更換頁面封面橫幅',
+    subtitle: `筆記：「${noteTitle}」`,
+    noteId,
+    undo: () => {
+      const n = state.notes.find(x => x.id === noteId);
+      if (n && n.meta) n.meta.cover = oldCover;
+      if (state.currentNote && state.currentNote.id === noteId) {
+        state.currentNote.meta.cover = oldCover;
+        renderPageCover();
+      }
+      triggerAutoSaveDebounce();
+    },
+    redo: () => {
+      const n = state.notes.find(x => x.id === noteId);
+      if (n && n.meta) n.meta.cover = newCover;
+      if (state.currentNote && state.currentNote.id === noteId) {
+        state.currentNote.meta.cover = newCover;
+        renderPageCover();
+      }
+      triggerAutoSaveDebounce();
+    }
+  });
+  showToast('已更新頁面封面 🎨');
 }
 
 function removeNoteCover() {
   if (!state.currentNote) return;
   if (!state.currentNote.meta) state.currentNote.meta = {};
+  const oldCover = state.currentNote.meta.cover || null;
+  if (!oldCover) return;
+  const noteId = state.currentNote.id;
+  const noteTitle = state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
   state.currentNote.meta.cover = null;
   renderPageCover();
   triggerAutoSaveDebounce();
+  recordAction({
+    type: 'change_cover',
+    title: '🎨 移除頁面封面橫幅',
+    subtitle: `筆記：「${noteTitle}」`,
+    noteId,
+    undo: () => {
+      const n = state.notes.find(x => x.id === noteId);
+      if (n && n.meta) n.meta.cover = oldCover;
+      if (state.currentNote && state.currentNote.id === noteId) {
+        state.currentNote.meta.cover = oldCover;
+        renderPageCover();
+      }
+      triggerAutoSaveDebounce();
+    },
+    redo: () => {
+      const n = state.notes.find(x => x.id === noteId);
+      if (n && n.meta) n.meta.cover = null;
+      if (state.currentNote && state.currentNote.id === noteId) {
+        state.currentNote.meta.cover = null;
+        renderPageCover();
+      }
+      triggerAutoSaveDebounce();
+    }
+  });
   showToast('已移除封面');
 }
 
@@ -5649,6 +5934,11 @@ async function selectNote(noteId) {
   const noteMeta = state.notes.find(n => n.id === noteId);
   if (!noteMeta) return;
 
+  // 切換筆記前，先將上一篇筆記尚未滿 800ms 的打字變更結算進時光機
+  if (!state.isUndoingOrRedoing && state.currentNote && state.currentNote.id && state.currentNote.id !== noteId) {
+    try { flushPendingEditorInputHistory(); } catch (e) {}
+  }
+
   // 手機介面優化：點擊筆記後自動收合側欄抽屜，呈現全螢幕編輯區
   if (window.innerWidth < 768) {
     closeSidebar();
@@ -5692,6 +5982,12 @@ async function selectNote(noteId) {
     try { updateStats(); } catch (e) { console.warn(e); }
     try { renderOutline(); } catch (e) { console.warn(e); }
     try { renderNotesList(); } catch (e) { console.warn(e); }
+
+    // 🛡️ 關鍵修復：自快取秒開筆記時，必須同步更新快照基準至當前筆記，防止復原時誤拿上一篇筆記內容覆蓋！
+    state.titleBeforeEdit = DOM.noteTitle.value;
+    state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+    state.snapshotNoteId = noteId;
+    state.snapshotNoteId = noteId;
 
     // 觸發流暢滑入開启动效
     DOM.editor.classList.remove('note-open-animate');
@@ -5831,6 +6127,9 @@ async function selectNote(noteId) {
       DOM.editor.classList.add('note-open-animate');
     }
 
+    state.titleBeforeEdit = DOM.noteTitle.value;
+    state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+    state.snapshotNoteId = noteId;
     try { renderNotesList(); } catch (e) { console.warn('renderNotesList error:', e); }
     state.isDirty = false;
   } catch (e) {
@@ -5918,7 +6217,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261021_v2.6.5', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261022_v2.6.6', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -6432,192 +6731,398 @@ function attachCodeCopyButtons() {
 // 🖍️ 螢光筆劃記重點、照片影片收折與自由拖曳核心函式
 // ==========================================================================
 
-function applyHighlight(color) {
-  let sel = window.getSelection();
-  if ((!sel || sel.isCollapsed || !DOM.editor.contains(sel.anchorNode)) && savedSelectionRange) {
-    try {
-      sel.removeAllRanges();
-      sel.addRange(savedSelectionRange);
-    } catch(e) {}
+const HIGHLIGHT_COLOR_NAMES = {
+  '#fef08a': '暖黃色',
+  '#bbf7d0': '翠綠色',
+  '#fbcfe8': '粉紅色',
+  '#bfdbfe': '天藍色',
+  '#fed7aa': '亮橙色',
+  'transparent': '清除劃記'
+};
+
+function setActiveHighlightColor(color) {
+  if (!color || color === 'transparent') return;
+  state.activeHighlightColor = color;
+  try { localStorage.setItem('lvi_active_highlight_color', color); } catch (e) {}
+  if (DOM.topHighlightColorDot) {
+    DOM.topHighlightColorDot.style.backgroundColor = color;
   }
-  sel = window.getSelection();
-  if (!sel || sel.isCollapsed || !DOM.editor.contains(sel.anchorNode)) {
-    showToast('請先反白選取要劃記的文字');
-    return;
-  }
-
-  const range = sel.getRangeAt(0);
-
-  if (color === 'transparent') {
-    // 🛡️ 取消螢光筆：徹底還原文字原生顏色與字體
-    clearHighlightFromSelection(range);
-    saveLocalDraftImmediately();
-    triggerAutoSaveDebounce();
-    showToast('已清除螢光筆 🧹');
-    return;
-  }
-
-  // 🎨 塗上螢光筆
-  let node = range.commonAncestorContainer;
-  if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
-  let existingMark = node ? node.closest('mark.notion-highlight, mark') : null;
-
-  if (existingMark && range.toString().trim() === existingMark.textContent.trim()) {
-    existingMark.dataset.color = color;
-    existingMark.style.backgroundColor = color;
-    existingMark.style.color = '#111827';
-    saveLocalDraftImmediately();
-    triggerAutoSaveDebounce();
-    showToast('已更新螢光筆色彩 🖍️');
-    return;
-  }
-
-  try {
-    const mark = document.createElement('mark');
-    mark.className = 'notion-highlight';
-    mark.dataset.color = color;
-    mark.style.backgroundColor = color;
-    mark.style.color = '#111827';
-    mark.style.borderRadius = '3px';
-    mark.style.padding = '0.12em 0.28em';
-    mark.style.fontWeight = '600';
-
-    if (range.startContainer === range.endContainer && range.startContainer.nodeType === Node.TEXT_NODE) {
-      // 🎯 最穩定之文字節點切割注入法（單節點內選取不破壞任何外層結構）
-      const textNode = range.startContainer;
-      const fullText = textNode.nodeValue;
-      const start = range.startOffset;
-      const end = range.endOffset;
-
-      const beforeText = fullText.substring(0, start);
-      const selText = fullText.substring(start, end);
-      const afterText = fullText.substring(end);
-
-      mark.textContent = selText;
-
-      const frag = document.createDocumentFragment();
-      if (beforeText) frag.appendChild(document.createTextNode(beforeText));
-      frag.appendChild(mark);
-      if (afterText) frag.appendChild(document.createTextNode(afterText));
-
-      textNode.parentNode.replaceChild(frag, textNode);
-
-      const newRange = document.createRange();
-      newRange.selectNodeContents(mark);
-      sel.removeAllRanges();
-      sel.addRange(newRange);
-      savedSelectionRange = newRange.cloneRange();
+  document.querySelectorAll('.highlight-color-btn[data-color]').forEach(btn => {
+    if (btn.dataset.color === color) {
+      btn.classList.add('active-swatch');
     } else {
-      // 跨節點選取
-      const selectedFragment = range.extractContents();
-      mark.appendChild(selectedFragment);
-      range.insertNode(mark);
-
-      const newRange = document.createRange();
-      newRange.selectNodeContents(mark);
-      sel.removeAllRanges();
-      sel.addRange(newRange);
-      savedSelectionRange = newRange.cloneRange();
+      btn.classList.remove('active-swatch');
     }
-    saveLocalDraftImmediately();
-    triggerAutoSaveDebounce();
-    showToast('已劃記重點 🖍️');
-  } catch (err) {
-    console.warn('DOM 範圍劃記失敗，降級使用 execCommand:', err);
-    try {
-      if (!document.execCommand('hiliteColor', false, color)) {
-        document.execCommand('backColor', false, color);
-      }
-      document.execCommand('foreColor', false, '#111827');
-      saveLocalDraftImmediately();
-      triggerAutoSaveDebounce();
-      showToast('已劃記重點 🖍️');
-    } catch(e) {
-      console.error('execCommand 螢光筆亦失敗:', e);
-    }
-  }
+  });
 }
 
-function clearHighlightFromSelection(range) {
-  if (!range) return;
+function toggleHighlightBrushMode(forceState) {
+  state.highlightBrushMode = typeof forceState === 'boolean' ? forceState : !state.highlightBrushMode;
+  if (DOM.editor) {
+    DOM.editor.classList.toggle('highlight-brush-active', state.highlightBrushMode);
+  }
+  if (DOM.topHighlightBrushToggle) {
+    DOM.topHighlightBrushToggle.textContent = state.highlightBrushMode ? '🖌️ 連續刷子: 開' : '🖌️ 連續刷子: 關';
+    DOM.topHighlightBrushToggle.className = state.highlightBrushMode
+      ? 'px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-950 border border-amber-300 transition cursor-pointer shadow-xs'
+      : 'px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-300 border border-amber-500/40 transition cursor-pointer';
+  }
+  if (DOM.topHighlightApplyBtn) {
+    DOM.topHighlightApplyBtn.classList.toggle('ring-2', state.highlightBrushMode);
+    DOM.topHighlightApplyBtn.classList.toggle('ring-amber-400', state.highlightBrushMode);
+  }
+  showToast(state.highlightBrushMode
+    ? `🖌️ 已開啟「連續螢光筆刷子模式」(${HIGHLIGHT_COLOR_NAMES[state.activeHighlightColor] || '黃色'})，反白文字即自動上色！按 Esc 可關閉`
+    : '🖌️ 已關閉連續螢光筆刷子模式');
+}
 
-  let root = range.commonAncestorContainer;
+/**
+ * 檢查並還原最後一次有效的編輯器文字選取範圍
+ */
+function getOrRestoreEditorSelectionRange() {
+  let sel = window.getSelection();
+  if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+    const r = sel.getRangeAt(0);
+    if (DOM.editor && DOM.editor.contains(r.commonAncestorContainer)) {
+      savedSelectionRange = r.cloneRange();
+      return r;
+    }
+  }
+  if (savedSelectionRange && DOM.editor) {
+    try {
+      if (DOM.editor.contains(savedSelectionRange.commonAncestorContainer)) {
+        sel.removeAllRanges();
+        sel.addRange(savedSelectionRange);
+        if (!sel.isCollapsed && sel.rangeCount > 0) {
+          return sel.getRangeAt(0);
+        }
+      }
+    } catch (e) {}
+  }
+  return null;
+}
+
+/**
+ * 取得 Range 涵蓋的所有非空白文字節點（自動在選取起點與終點精準切割 TextNode，絕不破壞跨段落/跨標籤結構）
+ */
+function sliceAndCollectRangeTextNodes(range) {
+  if (!range || range.collapsed || !DOM.editor) return [];
+
+  // 先正規化起點與終點：若起點/終點位於 Element 節點上，轉換至對應的 TextNode 或子節點
+  let startContainer = range.startContainer;
+  let startOffset = range.startOffset;
+  let endContainer = range.endContainer;
+  let endOffset = range.endOffset;
+
+  if (startContainer === endContainer && startContainer.nodeType === Node.TEXT_NODE) {
+    const textVal = startContainer.nodeValue || '';
+    if (startOffset >= endOffset || !textVal.slice(startOffset, endOffset).trim()) return [];
+    let targetNode = startContainer;
+    if (endOffset < targetNode.nodeValue.length) {
+      targetNode.splitText(endOffset);
+    }
+    if (startOffset > 0) {
+      targetNode = targetNode.splitText(startOffset);
+    }
+    return [targetNode];
+  }
+
+  // 若終點是文字節點且不在末尾，先切割終點（先切終點不會影響起點位移）
+  if (endContainer.nodeType === Node.TEXT_NODE && endOffset > 0 && endOffset < endContainer.nodeValue.length) {
+    endContainer.splitText(endOffset);
+  }
+  // 若起點是文字節點且不在開頭，切割起點並將新節點作為新起點
+  if (startContainer.nodeType === Node.TEXT_NODE && startOffset > 0 && startOffset < startContainer.nodeValue.length) {
+    startContainer = startContainer.splitText(startOffset);
+    startOffset = 0;
+    range.setStart(startContainer, 0);
+  }
+
+  const root = DOM.editor.contains(range.commonAncestorContainer) ? range.commonAncestorContainer : DOM.editor;
   if (root.nodeType === Node.TEXT_NODE) {
-    root = root.parentElement;
+    return [root];
   }
 
-  // 1. 如果選取點是在某個 mark、span 或 font 內部
-  let current = root;
-  while (current && current !== DOM.editor) {
-    if (current.tagName === 'MARK' || current.classList.contains('notion-highlight')) {
-      unwrapNode(current);
-      break;
-    }
-    if (current.tagName === 'FONT') {
-      unwrapNode(current);
-      break;
-    }
-    if (current.tagName === 'SPAN' && (current.style.backgroundColor || current.style.color)) {
-      current.style.backgroundColor = '';
-      if (current.style.color === 'rgb(17, 24, 39)' || current.style.color === '#111827' || current.style.color === 'inherit' || current.style.color === 'rgb(0, 0, 0)' || current.style.color === '#000000') {
-        current.style.color = '';
-      }
-      if (!current.getAttribute('style') || current.getAttribute('style').trim() === '') {
-        unwrapNode(current);
-      }
-      break;
-    }
-    current = current.parentElement;
-  }
-
-  // 2. 搜尋 Range 內部所有被包含的元素節點
+  const textNodes = [];
   const walker = document.createTreeWalker(
     root,
-    NodeFilter.SHOW_ELEMENT,
+    NodeFilter.SHOW_TEXT,
     {
-      acceptNode: function(node) {
-        if (range.intersectsNode(node)) {
-          return NodeFilter.FILTER_ACCEPT;
+      acceptNode(node) {
+        if (!node.nodeValue || !node.nodeValue.replace(/\u200B/g, '').trim()) {
+          return NodeFilter.FILTER_REJECT;
         }
-        return NodeFilter.FILTER_SKIP;
+        const parent = node.parentElement;
+        if (parent && parent.closest('.notion-table-toolbar, .media-card-delete-btn, summary .text-gray-400')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        try {
+          if (range.intersectsNode(node)) {
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        } catch (e) {}
+        return NodeFilter.FILTER_REJECT;
       }
     }
   );
 
-  const toUnwrap = [];
-  const toCleanSpan = [];
-
   while (walker.nextNode()) {
-    const el = walker.currentNode;
-    if (el.tagName === 'MARK' || el.classList.contains('notion-highlight')) {
-      toUnwrap.push(el);
-    } else if (el.tagName === 'FONT') {
-      toUnwrap.push(el);
-    } else if (el.tagName === 'SPAN') {
-      if (el.style.backgroundColor || el.style.color) {
-        toCleanSpan.push(el);
-      }
+    const tn = walker.currentNode;
+    // 確保頭尾邊界精確落在選取範圍內
+    if (tn === range.startContainer && range.startOffset > 0 && range.startOffset < tn.nodeValue.length) {
+      const split = tn.splitText(range.startOffset);
+      textNodes.push(split);
+    } else if (tn === range.endContainer && range.endOffset === 0) {
+      // 略過終點偏移為 0 的節點
+    } else if (tn === range.startContainer && range.startOffset >= tn.nodeValue.length) {
+      // 略過起點偏移在節點末尾的節點
+    } else {
+      textNodes.push(tn);
     }
   }
 
-  toUnwrap.forEach(unwrapNode);
+  return textNodes;
+}
 
-  toCleanSpan.forEach(span => {
-    if (!span.parentNode) return;
-    span.style.backgroundColor = '';
-    const c = span.style.color;
-    if (c === 'rgb(17, 24, 39)' || c === '#111827' || c === 'inherit' || c === 'rgb(0, 0, 0)' || c === '#000000') {
-      span.style.color = '';
+/**
+ * 合併相鄰且同色的 <mark class="notion-highlight"> 節點，並移除空的 <mark>
+ */
+function normalizeEditorHighlights(container = DOM.editor) {
+  if (!container) return;
+  container.querySelectorAll('mark.notion-highlight, mark').forEach(mark => {
+    // 1. 若內部誤含巢狀 <mark>，直接展平內層 <mark>
+    mark.querySelectorAll('mark').forEach(innerMark => unwrapNode(innerMark));
+
+    // 2. 若內容為空或僅含零寬字元，移除空標籤
+    if (!mark.textContent || !mark.textContent.replace(/\u200B/g, '')) {
+      unwrapNode(mark);
+      return;
     }
-    if (!span.getAttribute('style') || span.getAttribute('style').trim() === '') {
-      unwrapNode(span);
+
+    // 3. 若下一個緊鄰節點也是同色 <mark>，自動合併為單一連續 <mark>
+    const next = mark.nextSibling;
+    if (next && next.nodeType === Node.ELEMENT_NODE && next.tagName === 'MARK') {
+      const c1 = mark.dataset.color || mark.style.backgroundColor;
+      const c2 = next.dataset.color || next.style.backgroundColor;
+      if (c1 && c1 === c2) {
+        while (next.firstChild) {
+          mark.appendChild(next.firstChild);
+        }
+        next.remove();
+      }
+    }
+
+    // 4. 🛡️ 防卡死游標保護：若 <mark> 是段落最後一個節點，於後方確保存在可脫離之文字節點
+    const nextSib = mark.nextSibling;
+    if (!nextSib || (nextSib.nodeType === Node.ELEMENT_NODE && nextSib.tagName === 'BR')) {
+      const escapeText = document.createTextNode('\u200B');
+      mark.after(escapeText);
     }
   });
+}
 
-  try {
-    document.execCommand('backColor', false, 'transparent');
-    document.execCommand('hiliteColor', false, 'transparent');
-  } catch (e) {}
+/**
+ * 精準清除選取範圍內的螢光筆（支援「局部擦除」：若只選取一整段螢光筆中間的幾個字，會自動切開 <mark>，僅清除被選取的那幾個字！）
+ */
+function clearHighlightFromSelection(range) {
+  if (!range) return;
+
+  // 若選取已折疊，但游標正處於某個 <mark> 內部，則直接清除該 <mark>
+  if (range.collapsed) {
+    let node = range.startContainer;
+    if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+    const markEl = node ? node.closest('mark.notion-highlight, mark') : null;
+    if (markEl) unwrapNode(markEl);
+    return;
+  }
+
+  const selectedTextNodes = sliceAndCollectRangeTextNodes(range);
+  if (selectedTextNodes.length > 0) {
+    selectedTextNodes.forEach(tn => {
+      // 檢查該文字節點是否包在 <mark> 中
+      const markAncestor = tn.parentElement ? tn.parentElement.closest('mark.notion-highlight, mark') : null;
+      if (markAncestor && DOM.editor.contains(markAncestor)) {
+        // 若整個 <mark> 只有這一個文字節點，直接解開
+        if (markAncestor.textContent === tn.nodeValue) {
+          unwrapNode(markAncestor);
+        } else {
+          // 局部擦除：將 <mark> 在該文字節點處切分為 [前半 <mark>, 純文字 tn, 後半 <mark>]
+          const beforeRange = document.createRange();
+          beforeRange.setStartBefore(markAncestor.firstChild);
+          beforeRange.setEndBefore(tn);
+          const beforeFrag = beforeRange.extractContents();
+
+          const afterRange = document.createRange();
+          afterRange.setStartAfter(tn);
+          afterRange.setEndAfter(markAncestor.lastChild);
+          const afterFrag = afterRange.extractContents();
+
+          const parent = markAncestor.parentNode;
+          if (beforeFrag.textContent) {
+            const leftMark = markAncestor.cloneNode(false);
+            leftMark.appendChild(beforeFrag);
+            parent.insertBefore(leftMark, markAncestor);
+          }
+          parent.insertBefore(tn, markAncestor);
+          if (afterFrag.textContent) {
+            const rightMark = markAncestor.cloneNode(false);
+            rightMark.appendChild(afterFrag);
+            parent.insertBefore(rightMark, markAncestor);
+          }
+          markAncestor.remove();
+        }
+      }
+
+      // 同時清除包裹在外部的 <span style="background-color:..."> 或 <font>
+      let spanEl = tn.parentElement ? tn.parentElement.closest('span, font') : null;
+      while (spanEl && spanEl !== DOM.editor) {
+        const nextUp = spanEl.parentElement ? spanEl.parentElement.closest('span, font') : null;
+        if (spanEl.tagName === 'FONT') {
+          unwrapNode(spanEl);
+        } else if (spanEl.tagName === 'SPAN' && (spanEl.style.backgroundColor || spanEl.style.color)) {
+          spanEl.style.backgroundColor = '';
+          const c = spanEl.style.color;
+          if (c === 'rgb(17, 24, 39)' || c === '#111827' || c === 'inherit' || c === 'rgb(0, 0, 0)' || c === '#000000') {
+            spanEl.style.color = '';
+          }
+          if (!spanEl.getAttribute('style') || spanEl.getAttribute('style').trim() === '') {
+            unwrapNode(spanEl);
+          }
+        }
+        spanEl = nextUp;
+      }
+    });
+  }
+
+  normalizeEditorHighlights(DOM.editor);
+}
+
+function applyHighlight(color) {
+  const targetColor = color || state.activeHighlightColor || '#fef08a';
+  if (targetColor !== 'transparent') {
+    setActiveHighlightColor(targetColor);
+  }
+
+  const range = getOrRestoreEditorSelectionRange();
+  if (!range || range.collapsed) {
+    showToast('請先反白選取要劃記的文字，或開啟「🖌️ 連續刷子」模式');
+    return;
+  }
+
+  const selectedPreview = range.toString().replace(/\s+/g, ' ').trim().slice(0, 24);
+  const colorLabel = HIGHLIGHT_COLOR_NAMES[targetColor] || '螢光筆';
+
+  if (targetColor === 'transparent') {
+    commitEditorCanvasAction(
+      'highlight',
+      `🧹 清除螢光筆標記`,
+      selectedPreview ? `文字：「${selectedPreview}」` : '',
+      () => {
+        clearHighlightFromSelection(range);
+      }
+    );
+    showToast('已清除螢光筆 🧹');
+    return;
+  }
+
+  // 檢查選取範圍內的所有文字節點是否「已經全部都是同一個顏色」——若是，再點一次即自動取消螢光筆 (Smart Toggle)！
+  const probeNodes = [];
+  const walker = document.createTreeWalker(
+    DOM.editor.contains(range.commonAncestorContainer) ? range.commonAncestorContainer : DOM.editor,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        if (!node.nodeValue || !node.nodeValue.replace(/\u200B/g, '').trim()) return NodeFilter.FILTER_REJECT;
+        try { return range.intersectsNode(node) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; } catch (e) { return NodeFilter.FILTER_REJECT; }
+      }
+    }
+  );
+  if (range.commonAncestorContainer.nodeType === Node.TEXT_NODE) {
+    probeNodes.push(range.commonAncestorContainer);
+  } else {
+    while (walker.nextNode()) probeNodes.push(walker.currentNode);
+  }
+
+  const allAlreadySameColor = probeNodes.length > 0 && probeNodes.every(tn => {
+    const m = tn.parentElement ? tn.parentElement.closest('mark.notion-highlight, mark') : null;
+    return m && (m.dataset.color === targetColor);
+  });
+
+  if (allAlreadySameColor) {
+    commitEditorCanvasAction(
+      'highlight',
+      `🧹 取消${colorLabel}螢光筆`,
+      selectedPreview ? `文字：「${selectedPreview}」` : '',
+      () => {
+        clearHighlightFromSelection(range);
+      }
+    );
+    showToast(`已取消${colorLabel}螢光筆 🧹`);
+    return;
+  }
+
+  commitEditorCanvasAction(
+    'highlight',
+    `🖍️ 劃記${colorLabel}螢光筆`,
+    selectedPreview ? `重點：「${selectedPreview}」` : '',
+    () => {
+      const textNodes = sliceAndCollectRangeTextNodes(range);
+      let firstCreatedMark = null;
+      let lastCreatedMark = null;
+
+      textNodes.forEach(tn => {
+        const existingMark = tn.parentElement ? tn.parentElement.closest('mark.notion-highlight, mark') : null;
+        if (existingMark && DOM.editor.contains(existingMark) && existingMark.textContent === tn.nodeValue) {
+          existingMark.className = 'notion-highlight';
+          existingMark.dataset.color = targetColor;
+          existingMark.style.backgroundColor = targetColor;
+          existingMark.style.color = '#111827';
+          if (!firstCreatedMark) firstCreatedMark = existingMark;
+          lastCreatedMark = existingMark;
+        } else {
+          // 若原本在異色 <mark> 的局部區間內，先將局部區間拆出再包上新色，杜絕 <mark><mark> 套娃
+          if (existingMark && DOM.editor.contains(existingMark)) {
+            const subRange = document.createRange();
+            subRange.selectNode(tn);
+            clearHighlightFromSelection(subRange);
+          }
+          const mark = document.createElement('mark');
+          mark.className = 'notion-highlight';
+          mark.dataset.color = targetColor;
+          mark.style.backgroundColor = targetColor;
+          mark.style.color = '#111827';
+          mark.style.borderRadius = '3px';
+          mark.style.padding = '0.12em 0.28em';
+          mark.style.fontWeight = '600';
+
+          tn.parentNode.insertBefore(mark, tn);
+          mark.appendChild(tn);
+          if (!firstCreatedMark) firstCreatedMark = mark;
+          lastCreatedMark = mark;
+        }
+      });
+
+      normalizeEditorHighlights(DOM.editor);
+
+      if (lastCreatedMark) {
+        try {
+          const sel = window.getSelection();
+          const newRange = document.createRange();
+          if (firstCreatedMark && firstCreatedMark === lastCreatedMark) {
+            newRange.selectNodeContents(lastCreatedMark);
+          } else if (firstCreatedMark && lastCreatedMark) {
+            newRange.setStartBefore(firstCreatedMark);
+            newRange.setEndAfter(lastCreatedMark);
+          }
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+          savedSelectionRange = newRange.cloneRange();
+        } catch (e) {}
+      }
+    }
+  );
+
+  showToast(`已劃記${colorLabel}重點 🖍️`);
 }
 
 function unwrapNode(el) {
@@ -6628,7 +7133,6 @@ function unwrapNode(el) {
   }
   el.remove();
 }
-
 
 // ----------------- 🖼️ 圖片與影片極致流暢收折/展開動畫引擎 (Smooth Media Collapse) -----------------
 function toggleCollapsibleWithAnimation(details, content) {
@@ -6957,11 +7461,18 @@ function toggleAllMedia() {
     return;
   }
   const hasOpen = Array.from(collapsibles).some(el => el.hasAttribute('open'));
-  collapsibles.forEach(el => {
-    if (hasOpen) el.removeAttribute('open');
-    else el.setAttribute('open', '');
-  });
-  updateToggleAllMediaBtnUI(!hasOpen);
+  commitEditorCanvasAction(
+    'media_op',
+    hasOpen ? '📁 全部收折照片與影片' : '📂 全部展開照片與影片',
+    `共 ${collapsibles.length} 個媒體卡片`,
+    () => {
+      collapsibles.forEach(el => {
+        if (hasOpen) el.removeAttribute('open');
+        else el.setAttribute('open', '');
+      });
+      updateToggleAllMediaBtnUI(!hasOpen);
+    }
+  );
   showToast(hasOpen ? '📁 已全部收折照片與影片' : '📂 已全部展開照片與影片');
 }
 
@@ -7023,13 +7534,22 @@ function setupEditorDragAndDrop() {
     if (target && target !== draggedEditorBlock && DOM.editor.contains(target)) {
       const rect = target.getBoundingClientRect();
       const isAfter = (e.clientY - rect.top) > (rect.height / 2);
-      if (isAfter) {
-        target.insertAdjacentElement('afterend', draggedEditorBlock);
-      } else {
-        target.insertAdjacentElement('beforebegin', draggedEditorBlock);
-      }
+      const blockRef = draggedEditorBlock;
+      commitEditorCanvasAction(
+        'drag_block',
+        '🖐️ 拖曳移動區塊位置',
+        '',
+        () => {
+          if (isAfter) {
+            target.insertAdjacentElement('afterend', blockRef);
+          } else {
+            target.insertAdjacentElement('beforebegin', blockRef);
+          }
+        }
+      );
+      saveLocalDraftImmediately();
       triggerAutoSaveDebounce();
-      showToast('✅ 已移動元件位置');
+      showToast('✅ 已移動元件位置 (可按 Ctrl+Z 復原)');
     }
     draggedEditorBlock = null;
   });
@@ -7232,10 +7752,12 @@ function enhanceTables(container) {
         e.preventDefault();
         e.stopPropagation();
         if (confirm('確定要刪除此資料表格嗎？')) {
-          const p = document.createElement('p');
-          p.innerHTML = '<br>';
-          tableContainer.replaceWith(p);
-          placeCaretAtStart(p);
+          commitEditorCanvasAction('table_op', '📊 刪除資料表格', '', () => {
+            const p = document.createElement('p');
+            p.innerHTML = '<br>';
+            tableContainer.replaceWith(p);
+            placeCaretAtStart(p);
+          });
           saveLocalDraftImmediately();
           triggerAutoSaveDebounce();
         }
@@ -7245,6 +7767,10 @@ function enhanceTables(container) {
 }
 
 function addTableRow(table) {
+  flushPendingEditorInputHistory();
+  const beforeHtml = DOM.editor ? DOM.editor.innerHTML : null;
+  const noteId = state.currentNote ? state.currentNote.id : null;
+  const noteTitle = (state.currentNote && state.currentNote.name) ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
   let tbody = table.querySelector('tbody');
   if (!tbody) {
     tbody = document.createElement('tbody');
@@ -7265,11 +7791,27 @@ function addTableRow(table) {
   const firstCell = newTr.querySelector('td');
   if (firstCell) placeCaretAtStart(firstCell);
 
+  if (DOM.editor && beforeHtml !== null) {
+    const afterHtml = DOM.editor.innerHTML;
+    state.editorSnapshotBeforeEdit = afterHtml;
+    recordAction({
+      type: 'table_op',
+      title: '📊 表格新增一列',
+      subtitle: `筆記：「${noteTitle}」`,
+      noteId,
+      undo: () => applyNoteCanvasSnapshot(noteId, beforeHtml),
+      redo: () => applyNoteCanvasSnapshot(noteId, afterHtml)
+    });
+  }
   saveLocalDraftImmediately();
   triggerAutoSaveDebounce();
 }
 
 function getTableAddCol(table) {
+  flushPendingEditorInputHistory();
+  const beforeHtml = DOM.editor ? DOM.editor.innerHTML : null;
+  const noteId = state.currentNote ? state.currentNote.id : null;
+  const noteTitle = (state.currentNote && state.currentNote.name) ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
   const theadRows = table.querySelectorAll('thead tr');
   if (theadRows.length > 0) {
     theadRows.forEach(tr => {
@@ -7307,26 +7849,42 @@ function getTableAddCol(table) {
     });
   }
 
+  if (DOM.editor && beforeHtml !== null) {
+    const afterHtml = DOM.editor.innerHTML;
+    state.editorSnapshotBeforeEdit = afterHtml;
+    recordAction({
+      type: 'table_op',
+      title: '📊 表格新增一欄',
+      subtitle: `筆記：「${noteTitle}」`,
+      noteId,
+      undo: () => applyNoteCanvasSnapshot(noteId, beforeHtml),
+      redo: () => applyNoteCanvasSnapshot(noteId, afterHtml)
+    });
+  }
   saveLocalDraftImmediately();
   triggerAutoSaveDebounce();
 }
 
 function deleteTableRow(table) {
   const tbodyRows = table.querySelectorAll('tbody tr');
-  if (tbodyRows.length > 1) {
-    tbodyRows[tbodyRows.length - 1].remove();
-    saveLocalDraftImmediately();
-    triggerAutoSaveDebounce();
-  } else if (tbodyRows.length === 1) {
+  if (tbodyRows.length === 1) {
     showToast('表格至少需保留一列資料列');
-  } else {
-    const allRows = table.querySelectorAll('tr');
-    if (allRows.length > 1) {
-      allRows[allRows.length - 1].remove();
-      saveLocalDraftImmediately();
-      triggerAutoSaveDebounce();
-    }
+    return;
   }
+  const allRows = table.querySelectorAll('tr');
+  if (tbodyRows.length <= 1 && allRows.length <= 1) {
+    showToast('表格至少需保留一列資料列');
+    return;
+  }
+  commitEditorCanvasAction('table_op', '📊 表格刪除一列', '', () => {
+    if (tbodyRows.length > 1) {
+      tbodyRows[tbodyRows.length - 1].remove();
+    } else if (allRows.length > 1) {
+      allRows[allRows.length - 1].remove();
+    }
+  });
+  saveLocalDraftImmediately();
+  triggerAutoSaveDebounce();
 }
 
 function deleteTableCol(table) {
@@ -7337,8 +7895,10 @@ function deleteTableCol(table) {
     showToast('表格至少需保留一欄');
     return;
   }
-  rows.forEach(tr => {
-    if (tr.lastElementChild) tr.lastElementChild.remove();
+  commitEditorCanvasAction('table_op', '📊 表格刪除一欄', '', () => {
+    rows.forEach(tr => {
+      if (tr.lastElementChild) tr.lastElementChild.remove();
+    });
   });
   saveLocalDraftImmediately();
   triggerAutoSaveDebounce();
@@ -7476,14 +8036,17 @@ function handleSlashMenu(e) {
 
 function insertSlashSnippet(type) {
   DOM.slashMenu.classList.add('hidden');
+  flushPendingEditorInputHistory();
 
-  // 移除觸發的 '/'
+  // 僅當游標前一個字元確實為觸發斜線選單的 '/' 時才移除該字元
   const sel = window.getSelection();
-  if (sel.rangeCount) {
+  if (sel && sel.rangeCount) {
     const range = sel.getRangeAt(0);
-    if (range.startOffset > 0) {
+    const textBefore = range.startContainer.textContent || '';
+    if (range.startOffset > 0 && textBefore[range.startOffset - 1] === '/') {
       range.setStart(range.startContainer, range.startOffset - 1);
       range.deleteContents();
+      state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
     }
   }
 
@@ -7548,8 +8111,22 @@ function insertSlashSnippet(type) {
   }
 
   if (html) {
-    insertHtmlAtCursor(html);
-    enhanceAllEditorBlocks(DOM.editor);
+    const slashNames = {
+      h1: 'H1 大標題', h2: 'H2 中標題', h3: 'H3 小標題',
+      toggle: '折疊清單', todo: '待辦事項', callout: '醒目提示框',
+      table: '資料表格', code: '程式碼區塊', columns: '雙欄並排佈局',
+      quote: '引言區塊', divider: '分隔線'
+    };
+    commitEditorCanvasAction(
+      'slash_insert',
+      `⚡ 插入「${slashNames[type] || type}」`,
+      '',
+      () => {
+        insertHtmlAtCursor(html);
+        enhanceAllEditorBlocks(DOM.editor);
+      }
+    );
+    saveLocalDraftImmediately();
     triggerAutoSaveDebounce();
   }
 }
@@ -7611,11 +8188,24 @@ function renderFavoritesList() {
   });
 }
 
-// 3. 反白文字浮動選單 (Floating Selection Toolbar)
+// 3. 反白文字浮動選單 (Floating Selection Toolbar - v2.6.6 防失焦與智慧定位版)
+function updateSelectionToolbarActiveStates() {
+  if (!DOM.selectionToolbar) return;
+  ['bold', 'italic', 'underline', 'strikeThrough'].forEach(cmd => {
+    const btn = DOM.selectionToolbar.querySelector(`button[data-cmd="${cmd}"]`);
+    if (btn) {
+      let active = false;
+      try { active = document.queryCommandState(cmd); } catch (e) {}
+      btn.classList.toggle('is-active', Boolean(active));
+    }
+  });
+}
+
 function handleTextSelection() {
   if (!DOM.selectionToolbar) return;
-  const sel = window.getSelection();
+  if (state.isInteractingWithToolbar) return;
 
+  const sel = window.getSelection();
   if (!sel || sel.isCollapsed || !sel.rangeCount) {
     if (document.activeElement && DOM.selectionToolbar.contains(document.activeElement)) {
       return;
@@ -7628,112 +8218,146 @@ function handleTextSelection() {
   const range = sel.getRangeAt(0);
   const commonAncestor = range.commonAncestorContainer;
 
-  // 確保是在編輯器內部選取
-  if (!DOM.editor.contains(commonAncestor)) {
+  if (!DOM.editor || !DOM.editor.contains(commonAncestor)) {
     DOM.selectionToolbar.classList.add('hidden');
     if (DOM.selHighlightPalette) DOM.selHighlightPalette.classList.add('hidden');
     return;
   }
 
-  const text = sel.toString().trim();
+  const text = sel.toString().replace(/\u200B/g, '').trim();
   if (!text) {
     DOM.selectionToolbar.classList.add('hidden');
     if (DOM.selHighlightPalette) DOM.selHighlightPalette.classList.add('hidden');
     return;
   }
+
+  // 儲存當前有效選取範圍供工具列按鈕使用
   savedSelectionRange = range.cloneRange();
 
+  // 🖌️ 若使用者開啟了「連續螢光筆刷子模式」，反白放開瞬間直接自動上色！
+  if (state.highlightBrushMode) {
+    applyHighlight(state.activeHighlightColor || '#fef08a');
+    try { window.getSelection().collapseToEnd(); } catch (e) {}
+    DOM.selectionToolbar.classList.add('hidden');
+    return;
+  }
+
+  updateSelectionToolbarActiveStates();
+
   const rect = range.getBoundingClientRect();
-  const isMobile = window.innerWidth < 768;
-  const toolbarWidth = isMobile ? Math.min(window.innerWidth - 16, 360) : 340;
+  if (rect.width === 0 && rect.height === 0) return;
+
+  DOM.selectionToolbar.classList.remove('hidden');
+  const tbRect = DOM.selectionToolbar.getBoundingClientRect();
+  const toolbarWidth = tbRect.width || (window.innerWidth < 768 ? Math.min(window.innerWidth - 16, 360) : 360);
+  const toolbarHeight = tbRect.height || 40;
 
   let left = Math.max(8, Math.min(rect.left + rect.width / 2 - toolbarWidth / 2, window.innerWidth - toolbarWidth - 8));
-  let top = rect.top + window.scrollY - 52;
-  // 若太靠近視窗頂部，則翻轉置於選取文字下方，避開頂部導覽列遮擋
-  if (rect.top < 65) {
+  let top = rect.top + window.scrollY - toolbarHeight - 10;
+
+  // 若太靠近視窗頂部 (小於 72px)，自動翻轉至選取文字下方，避開頂部導覽列與瀏覽器原生選單
+  if (rect.top < 72) {
     top = rect.bottom + window.scrollY + 10;
   }
 
-  DOM.selectionToolbar.style.left = `${left}px`;
-  DOM.selectionToolbar.style.top = `${top}px`;
-  DOM.selectionToolbar.classList.remove('hidden');
+  DOM.selectionToolbar.style.left = `${Math.round(left)}px`;
+  DOM.selectionToolbar.style.top = `${Math.round(top)}px`;
 }
 
 function turnSelectionInto(type) {
-  let sel = window.getSelection();
-  // 🛡️ 關鍵修復：手機端點擊按鈕時若焦點模糊，優先自動還原先前儲存的選取範圍
-  if ((!sel || sel.isCollapsed || !DOM.editor.contains(sel.anchorNode)) && savedSelectionRange) {
-    sel.removeAllRanges();
-    sel.addRange(savedSelectionRange);
-  }
-  sel = window.getSelection();
-  if (!sel || sel.isCollapsed) return;
-  const text = sel.toString().trim() || '內容';
+  const range = getOrRestoreEditorSelectionRange();
+  if (!range) return;
+  const text = range.toString().replace(/\u200B/g, '').trim() || '內容';
 
-  let html = '';
-  switch(type) {
-    case 'h1':
-      html = `<h1>${escapeHtml(text)}</h1>`;
-      break;
-    case 'h2':
-      html = `<h2>${escapeHtml(text)}</h2>`;
-      break;
-    case 'todo':
-      html = `<div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">${escapeHtml(text)}</span></div>`;
-      break;
-    case 'toggle':
-      html = `
-        <details class="notion-toggle-item my-2 border border-gray-200/80 dark:border-notion-borderDark rounded-lg overflow-hidden bg-gray-50/40 dark:bg-notion-darker/40 transition">
-          <summary class="cursor-pointer select-none px-3 py-1.5 font-medium text-sm flex items-center gap-2 hover:bg-gray-100/70 dark:hover:bg-gray-800/60 transition list-none">
-            <span class="toggle-arrow-icon text-gray-400 shrink-0 inline-flex items-center justify-center w-4 h-4 cursor-pointer"><i data-lucide="chevron-right" class="w-3.5 h-3.5 transition-transform duration-200 toggle-arrow"></i></span>
-            <span class="toggle-title flex-1 focus:outline-none" contenteditable="true">${escapeHtml(text)}</span>
-          </summary>
-          <div class="px-4 py-2 pl-9 text-sm text-gray-700 dark:text-gray-200 border-t border-gray-200/50 dark:border-notion-borderDark/50 toggle-content focus:outline-none" contenteditable="true">
-            <p>在此輸入折疊內容...</p>
-          </div>
-        </details>
-      `;
-      break;
-    case 'callout':
-      html = `<div class="notion-callout"><span class="notion-callout-icon">💡</span><div class="notion-callout-body">${escapeHtml(text)}</div></div>`;
-      break;
-  }
+  const typeLabels = {
+    h1: 'H1 大標題',
+    h2: 'H2 中標題',
+    h3: 'H3 小標題',
+    todo: '待辦清單',
+    toggle: '折疊清單',
+    callout: '醒目提示框'
+  };
 
-  if (html) {
-    try {
-      const range = sel.getRangeAt(0);
+  commitEditorCanvasAction(
+    'turn_block',
+    `🔄 轉換段落為「${typeLabels[type] || type}」`,
+    `文字：「${text.slice(0, 20)}」`,
+    () => {
       let container = range.commonAncestorContainer;
       if (container.nodeType === Node.TEXT_NODE) container = container.parentElement;
-      const block = container ? container.closest('p, h1, h2, h3, blockquote') : null;
+      const block = container ? container.closest('p, h1, h2, h3, blockquote, .notion-todo-item, .notion-callout') : null;
 
-      // 如果選取的文字接近整個段落，直接替換該區塊，防止在 <p> 裡面嵌套 <h1> 或 <div>
-      if (block && block !== DOM.editor && (block.textContent.trim() === text || text.length >= block.textContent.trim().length * 0.8)) {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
-        if (tempDiv.firstElementChild) {
-          block.replaceWith(tempDiv.firstElementChild);
-        }
-      } else {
-        range.deleteContents();
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = html;
-        const frag = document.createDocumentFragment();
-        let node;
-        while ((node = tempDiv.firstChild)) {
-          frag.appendChild(node);
-        }
-        range.insertNode(frag);
+      // 若已是同級標題 (例如已是 H1 再點一次 H1)，自動切換回一般段落 <p>
+      if (block && ((type === 'h1' && block.tagName === 'H1') || (type === 'h2' && block.tagName === 'H2'))) {
+        const p = document.createElement('p');
+        p.innerHTML = block.innerHTML || escapeHtml(text);
+        block.replaceWith(p);
+        placeCaretAtStart(p);
+        return;
       }
-    } catch (err) {
-      document.execCommand('insertHTML', false, html);
+
+      let html = '';
+      switch (type) {
+        case 'h1':
+          html = `<h1>${escapeHtml(text)}</h1>`;
+          break;
+        case 'h2':
+          html = `<h2>${escapeHtml(text)}</h2>`;
+          break;
+        case 'todo':
+          html = `<div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">${escapeHtml(text)}</span></div>`;
+          break;
+        case 'toggle':
+          html = `
+            <details class="notion-toggle-item my-2 border border-gray-200/80 dark:border-notion-borderDark rounded-lg overflow-hidden bg-gray-50/40 dark:bg-notion-darker/40 transition" open>
+              <summary class="cursor-pointer select-none px-3 py-1.5 font-medium text-sm flex items-center gap-2 hover:bg-gray-100/70 dark:hover:bg-gray-800/60 transition list-none">
+                <span class="toggle-arrow-icon text-gray-400 shrink-0 inline-flex items-center justify-center w-4 h-4 cursor-pointer"><i data-lucide="chevron-right" class="w-3.5 h-3.5 transition-transform duration-200 toggle-arrow"></i></span>
+                <span class="toggle-title flex-1 focus:outline-none" contenteditable="true">${escapeHtml(text)}</span>
+              </summary>
+              <div class="px-4 py-2 pl-9 text-sm text-gray-700 dark:text-gray-200 border-t border-gray-200/50 dark:border-notion-borderDark/50 toggle-content focus:outline-none" contenteditable="true">
+                <p>在此輸入折疊內容...</p>
+              </div>
+            </details>
+          `;
+          break;
+        case 'callout':
+          html = `<div class="notion-callout"><span class="notion-callout-icon">💡</span><div class="notion-callout-body">${escapeHtml(text)}</div></div>`;
+          break;
+      }
+
+      if (!html) return;
+
+      try {
+        if (block && block !== DOM.editor && (block.textContent.trim() === text || text.length >= block.textContent.trim().length * 0.8)) {
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = html.trim();
+          if (tempDiv.firstElementChild) {
+            block.replaceWith(tempDiv.firstElementChild);
+          }
+        } else {
+          range.deleteContents();
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = html.trim();
+          const frag = document.createDocumentFragment();
+          let node;
+          while ((node = tempDiv.firstChild)) {
+            frag.appendChild(node);
+          }
+          range.insertNode(frag);
+        }
+      } catch (err) {
+        document.execCommand('insertHTML', false, html);
+      }
+
+      enhanceAllEditorBlocks(DOM.editor);
     }
-    enhanceAllEditorBlocks(DOM.editor);
-    if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('hidden');
-    if (DOM.selHighlightPalette) DOM.selHighlightPalette.classList.add('hidden');
-    saveLocalDraftImmediately();
-    triggerAutoSaveDebounce();
-    showToast(type === 'callout' ? '已轉為醒目提示 💡' : (type === 'todo' ? '已轉為待辦清單 ☑️' : '已轉換格式'));
-  }
+  );
+
+  if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('hidden');
+  if (DOM.selHighlightPalette) DOM.selHighlightPalette.classList.add('hidden');
+  saveLocalDraftImmediately();
+  triggerAutoSaveDebounce();
+  showToast(type === 'callout' ? '已轉為醒目提示 💡' : (type === 'todo' ? '已轉為待辦清單 ☑️' : `已轉為 ${typeLabels[type] || '新格式'}`));
 }
 
 // 4. 空白行按 Space 呼叫 AI 提示框 (Space to Ask AI)
@@ -7860,7 +8484,10 @@ function executePasteAction(type) {
   }
 
   if (html) {
-    insertHtmlAtCursor(html);
+    commitEditorCanvasAction('slash_insert', `🔗 插入智慧連結 (${type})`, url.slice(0, 32), () => {
+      insertHtmlAtCursor(html);
+    });
+    saveLocalDraftImmediately();
     triggerAutoSaveDebounce();
   }
 }
@@ -8038,11 +8665,46 @@ function downloadBlob(blob, filename) {
 // ----------------- 置頂切換 -----------------
 function togglePin() {
   if (!state.currentNote) return;
-  state.currentNote.meta.pinned = !state.currentNote.meta.pinned;
-  updatePinButtonUI(state.currentNote.meta.pinned);
+  const oldPin = Boolean(state.currentNote.meta && state.currentNote.meta.pinned);
+  const newPin = !oldPin;
+  const noteId = state.currentNote.id;
+  const noteTitle = state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
+  state.currentNote.meta.pinned = newPin;
+  const nInList = state.notes.find(x => x.id === noteId);
+  if (nInList && nInList.meta) nInList.meta.pinned = newPin;
+  updatePinButtonUI(newPin);
   renderNotesList();
+  renderCurrentView();
   triggerAutoSaveDebounce();
-  showToast(state.currentNote.meta.pinned ? '已置頂此筆記' : '已取消置頂');
+  recordAction({
+    type: 'toggle_pin',
+    title: newPin ? `📌 置頂筆記「${noteTitle}」` : `📌 取消置頂「${noteTitle}」`,
+    subtitle: `筆記：「${noteTitle}」`,
+    noteId,
+    undo: () => {
+      const n = state.notes.find(x => x.id === noteId);
+      if (n && n.meta) n.meta.pinned = oldPin;
+      if (state.currentNote && state.currentNote.id === noteId) {
+        state.currentNote.meta.pinned = oldPin;
+        updatePinButtonUI(oldPin);
+      }
+      renderNotesList();
+      renderCurrentView();
+      triggerAutoSaveDebounce();
+    },
+    redo: () => {
+      const n = state.notes.find(x => x.id === noteId);
+      if (n && n.meta) n.meta.pinned = newPin;
+      if (state.currentNote && state.currentNote.id === noteId) {
+        state.currentNote.meta.pinned = newPin;
+        updatePinButtonUI(newPin);
+      }
+      renderNotesList();
+      renderCurrentView();
+      triggerAutoSaveDebounce();
+    }
+  });
+  showToast(newPin ? '📌 已置頂此筆記' : '已取消置頂');
 }
 
 function updatePinButtonUI(isPinned) {
@@ -11466,12 +12128,47 @@ function bindEvents() {
     });
   }
 
-  // 隨機 Emoji
+  // 隨機 Emoji (支援時光機回朔)
   if (DOM.randomEmojiBtn) {
     DOM.randomEmojiBtn.addEventListener('click', () => {
       const rand = CURATED_EMOJIS[Math.floor(Math.random() * CURATED_EMOJIS.length)];
+      const oldIcon = (state.currentNote && state.currentNote.meta && state.currentNote.meta.icon) || DOM.noteEmojiBtn.textContent || '🛠️';
       DOM.noteEmojiBtn.textContent = rand;
-      if (state.currentNote) state.currentNote.meta.icon = rand;
+      if (state.currentNote && state.currentNote.meta) {
+        const noteId = state.currentNote.id;
+        const noteTitle = state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
+        state.currentNote.meta.icon = rand;
+        const nInList = state.notes.find(x => x.id === noteId);
+        if (nInList && nInList.meta) nInList.meta.icon = rand;
+        recordAction({
+          type: 'change_emoji',
+          title: `🎲 隨機更換圖示為 ${rand}`,
+          subtitle: `筆記：「${noteTitle}」 (原圖示：${oldIcon})`,
+          noteId,
+          undo: () => {
+            const n = state.notes.find(x => x.id === noteId);
+            if (n && n.meta) n.meta.icon = oldIcon;
+            if (state.currentNote && state.currentNote.id === noteId) {
+              state.currentNote.meta.icon = oldIcon;
+              if (DOM.noteEmojiBtn) DOM.noteEmojiBtn.textContent = oldIcon;
+            }
+            renderNotesList();
+            renderBreadcrumbs();
+            triggerAutoSaveDebounce();
+          },
+          redo: () => {
+            const n = state.notes.find(x => x.id === noteId);
+            if (n && n.meta) n.meta.icon = rand;
+            if (state.currentNote && state.currentNote.id === noteId) {
+              state.currentNote.meta.icon = rand;
+              if (DOM.noteEmojiBtn) DOM.noteEmojiBtn.textContent = rand;
+            }
+            renderNotesList();
+            renderBreadcrumbs();
+            triggerAutoSaveDebounce();
+          }
+        });
+      }
       renderNotesList();
       renderBreadcrumbs();
       triggerAutoSaveDebounce();
@@ -11606,25 +12303,70 @@ function bindEvents() {
   if (DOM.closeSidebarMobileBtn) DOM.closeSidebarMobileBtn.addEventListener('click', closeSidebar);
   if (DOM.sidebarBackdrop) DOM.sidebarBackdrop.addEventListener('click', closeSidebar);
 
-  // 手機底部工具列按鈕
+  // 手機底部工具列按鈕 (v2.6.6 防失焦 + 全動作時光機記錄)
+  if (DOM.mbToolUndo) {
+    DOM.mbToolUndo.addEventListener('click', (e) => {
+      e.preventDefault();
+      undoAction();
+    });
+  }
+  if (DOM.mbToolHighlight) {
+    DOM.mbToolHighlight.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (DOM.mbHighlightPalette) {
+        DOM.mbHighlightPalette.classList.toggle('hidden');
+      } else {
+        applyHighlight(state.activeHighlightColor || '#fef08a');
+      }
+    });
+  }
   if (DOM.mbToolBold) {
-    DOM.mbToolBold.addEventListener('click', () => {
-      document.execCommand('bold');
+    DOM.mbToolBold.addEventListener('mousedown', (e) => e.preventDefault());
+    DOM.mbToolBold.addEventListener('click', (e) => {
+      e.preventDefault();
+      getOrRestoreEditorSelectionRange();
+      commitEditorCanvasAction('format_text', '🔤 設定粗體格式', '', () => {
+        document.execCommand('bold');
+      });
+      saveLocalDraftImmediately();
+      triggerAutoSaveDebounce();
     });
   }
   if (DOM.mbToolTodo) {
-    DOM.mbToolTodo.addEventListener('click', () => {
-      insertHtmlAtCursor('<div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text">待辦事項內容</span></div><p><br></p>');
+    DOM.mbToolTodo.addEventListener('mousedown', (e) => e.preventDefault());
+    DOM.mbToolTodo.addEventListener('click', (e) => {
+      e.preventDefault();
+      commitEditorCanvasAction('slash_insert', '☑️ 插入待辦事項', '', () => {
+        insertHtmlAtCursor('<div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">待辦事項內容</span></div><p><br></p>');
+        enhanceAllEditorBlocks(DOM.editor);
+      });
+      saveLocalDraftImmediately();
+      triggerAutoSaveDebounce();
     });
   }
   if (DOM.mbToolList) {
-    DOM.mbToolList.addEventListener('click', () => {
-      document.execCommand('insertUnorderedList');
+    DOM.mbToolList.addEventListener('mousedown', (e) => e.preventDefault());
+    DOM.mbToolList.addEventListener('click', (e) => {
+      e.preventDefault();
+      getOrRestoreEditorSelectionRange();
+      commitEditorCanvasAction('format_text', '📋 切換項目符號清單', '', () => {
+        document.execCommand('insertUnorderedList');
+      });
+      saveLocalDraftImmediately();
+      triggerAutoSaveDebounce();
     });
   }
   if (DOM.mbToolCallout) {
-    DOM.mbToolCallout.addEventListener('click', () => {
-      insertHtmlAtCursor('<div class="notion-callout"><span class="notion-callout-icon">💡</span><div class="notion-callout-body">提醒重點...</div></div><p><br></p>');
+    DOM.mbToolCallout.addEventListener('mousedown', (e) => e.preventDefault());
+    DOM.mbToolCallout.addEventListener('click', (e) => {
+      e.preventDefault();
+      commitEditorCanvasAction('slash_insert', '💡 插入醒目提示框', '', () => {
+        insertHtmlAtCursor('<div class="notion-callout"><span class="notion-callout-icon">💡</span><div class="notion-callout-body">提醒重點...</div></div><p><br></p>');
+        enhanceAllEditorBlocks(DOM.editor);
+      });
+      saveLocalDraftImmediately();
+      triggerAutoSaveDebounce();
     });
   }
   if (DOM.mbToolSave) {
@@ -11689,6 +12431,12 @@ function bindEvents() {
     if (DOM.emojiPicker && !DOM.emojiPicker.contains(e.target) && DOM.noteEmojiBtn && !DOM.noteEmojiBtn.contains(e.target)) {
       DOM.emojiPicker.classList.add('hidden');
     }
+    if (DOM.topHighlightPalette && DOM.topHighlightWrapper && !DOM.topHighlightWrapper.contains(e.target)) {
+      DOM.topHighlightPalette.classList.add('hidden');
+    }
+    if (DOM.mbHighlightPalette && DOM.mbToolHighlight && !DOM.mbHighlightPalette.contains(e.target) && !DOM.mbToolHighlight.contains(e.target)) {
+      DOM.mbHighlightPalette.classList.add('hidden');
+    }
   });
 
   DOM.exportDropdownBtn.addEventListener('click', (e) => {
@@ -11700,16 +12448,52 @@ function bindEvents() {
   DOM.exportHtmlBtn.addEventListener('click', exportHTML);
   DOM.exportPdfBtn.addEventListener('click', exportPDF);
 
-  // Emoji Picker
+  // Emoji Picker (支援時光機回朔)
   DOM.noteEmojiBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     DOM.emojiPicker.classList.toggle('hidden');
   });
   document.querySelectorAll('.emoji-opt').forEach(btn => {
     btn.addEventListener('click', () => {
-      DOM.noteEmojiBtn.textContent = btn.textContent;
+      const newIcon = btn.textContent;
+      const oldIcon = (state.currentNote && state.currentNote.meta && state.currentNote.meta.icon) || DOM.noteEmojiBtn.textContent || '🛠️';
+      DOM.noteEmojiBtn.textContent = newIcon;
       DOM.emojiPicker.classList.add('hidden');
-      if (state.currentNote) state.currentNote.meta.icon = btn.textContent;
+      if (state.currentNote && state.currentNote.meta && newIcon !== oldIcon) {
+        const noteId = state.currentNote.id;
+        const noteTitle = state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
+        state.currentNote.meta.icon = newIcon;
+        const nInList = state.notes.find(x => x.id === noteId);
+        if (nInList && nInList.meta) nInList.meta.icon = newIcon;
+        recordAction({
+          type: 'change_emoji',
+          title: `😀 更換筆記圖示為 ${newIcon}`,
+          subtitle: `筆記：「${noteTitle}」 (原圖示：${oldIcon})`,
+          noteId,
+          undo: () => {
+            const n = state.notes.find(x => x.id === noteId);
+            if (n && n.meta) n.meta.icon = oldIcon;
+            if (state.currentNote && state.currentNote.id === noteId) {
+              state.currentNote.meta.icon = oldIcon;
+              if (DOM.noteEmojiBtn) DOM.noteEmojiBtn.textContent = oldIcon;
+            }
+            renderNotesList();
+            renderBreadcrumbs();
+            triggerAutoSaveDebounce();
+          },
+          redo: () => {
+            const n = state.notes.find(x => x.id === noteId);
+            if (n && n.meta) n.meta.icon = newIcon;
+            if (state.currentNote && state.currentNote.id === noteId) {
+              state.currentNote.meta.icon = newIcon;
+              if (DOM.noteEmojiBtn) DOM.noteEmojiBtn.textContent = newIcon;
+            }
+            renderNotesList();
+            renderBreadcrumbs();
+            triggerAutoSaveDebounce();
+          }
+        });
+      }
       renderNotesList();
       renderBreadcrumbs();
       triggerAutoSaveDebounce();
@@ -11815,66 +12599,31 @@ function bindEvents() {
     });
   }
 
-  // 畫布輸入事件與內容編輯回朔快照記錄
-  if (DOM.editor) DOM.editor.addEventListener('focus', () => {
-      if (state.editorSnapshotBeforeEdit === null) {
+  // 畫布輸入事件與內容編輯回朔快照記錄 (v2.6.6 零遺漏強化版)
+  if (DOM.editor) {
+    DOM.editor.addEventListener('focus', () => {
+      if (state.editorSnapshotBeforeEdit === null || (state.currentNote && state.snapshotNoteId !== state.currentNote.id)) {
         state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+        state.snapshotNoteId = state.currentNote ? state.currentNote.id : null;
       }
     });
-  if (DOM.editor) DOM.editor.addEventListener('input', (e) => {
+
+    DOM.editor.addEventListener('input', (e) => {
       try { updateStats(); } catch(err) { console.warn(err); }
       try { renderOutline(); } catch(err) { console.warn(err); }
       try { handleSlashMenu(e); } catch(err) { console.warn(err); }
       triggerAutoSaveDebounce();
 
-    if (state.editorSnapshotBeforeEdit === null) {
-      state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
-    }
-    if (editorInputTimer) clearTimeout(editorInputTimer);
-    editorInputTimer = setTimeout(() => {
-      const currentHtml = DOM.editor.innerHTML;
-      if (state.editorSnapshotBeforeEdit !== null && currentHtml !== state.editorSnapshotBeforeEdit) {
-        const oldHtml = state.editorSnapshotBeforeEdit;
-        const newHtml = currentHtml;
-        const noteId = state.currentNote ? state.currentNote.id : null;
-        const noteTitle = state.currentNote && state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
-
-        recordAction({
-          type: 'edit_content',
-          title: '✍️ 編輯筆記內文',
-          subtitle: `筆記：「${noteTitle}」`,
-          noteId: noteId,
-          undo: () => {
-            const n = state.notes.find(note => note.id === noteId);
-            if (n) {
-              n.content = oldHtml;
-              if (state.currentNote && state.currentNote.id === noteId) {
-                DOM.editor.innerHTML = oldHtml;
-                try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn(e); }
-                updateStats();
-                renderOutline();
-              }
-              triggerAutoSaveDebounce();
-            }
-          },
-          redo: () => {
-            const n = state.notes.find(note => note.id === noteId);
-            if (n) {
-              n.content = newHtml;
-              if (state.currentNote && state.currentNote.id === noteId) {
-                DOM.editor.innerHTML = newHtml;
-                try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn(e); }
-                updateStats();
-                renderOutline();
-              }
-              triggerAutoSaveDebounce();
-            }
-          }
-        });
-        state.editorSnapshotBeforeEdit = newHtml;
+      if (state.editorSnapshotBeforeEdit === null) {
+        state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+        state.snapshotNoteId = state.currentNote ? state.currentNote.id : null;
       }
-    }, 800);
-  });
+      if (editorInputTimer) clearTimeout(editorInputTimer);
+      editorInputTimer = setTimeout(() => {
+        flushPendingEditorInputHistory('✍️ 編輯筆記內文');
+      }, 650);
+    });
+  }
 
 
   // 畫布與標題失焦時若有未存修改，立即觸發即時雲端上傳 (Instant Flush on Leave)
@@ -11906,19 +12655,50 @@ function bindEvents() {
     }
   });
 
-  // 畫布點擊事件（Todo 待辦打勾切換與即時屬性同步）
+  // 畫布點擊事件（Todo 待辦打勾切換與即時時光機記錄）
   DOM.editor.addEventListener('click', (e) => {
     if (e.target && e.target.classList.contains('notion-todo-checkbox')) {
-      const parent = e.target.closest('.notion-todo-item');
+      const cb = e.target;
+      const parent = cb.closest('.notion-todo-item');
       if (parent) {
+        flushPendingEditorInputHistory();
         const textSpan = parent.querySelector('.notion-todo-text');
-        if (e.target.checked) {
-          e.target.setAttribute('checked', '');
+        const todoText = (textSpan ? textSpan.textContent.trim() : '').slice(0, 24) || '待辦事項';
+        const nowChecked = Boolean(cb.checked);
+
+        // 先還原 DOM 狀態以擷取勾選前快照，再套用勾選後狀態並寫入時光機
+        if (nowChecked) {
+          cb.removeAttribute('checked');
+          if (textSpan) textSpan.classList.remove('checked');
+        } else {
+          cb.setAttribute('checked', '');
+          if (textSpan) textSpan.classList.add('checked');
+        }
+        const beforeHtml = DOM.editor.innerHTML;
+
+        if (nowChecked) {
+          cb.setAttribute('checked', '');
+          cb.checked = true;
           if (textSpan) textSpan.classList.add('checked');
         } else {
-          e.target.removeAttribute('checked');
+          cb.removeAttribute('checked');
+          cb.checked = false;
           if (textSpan) textSpan.classList.remove('checked');
         }
+        const afterHtml = DOM.editor.innerHTML;
+        const noteId = state.currentNote ? state.currentNote.id : null;
+        const noteTitle = (state.currentNote && state.currentNote.name) ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
+        state.editorSnapshotBeforeEdit = afterHtml;
+
+        recordAction({
+          type: 'todo_toggle',
+          title: nowChecked ? `☑️ 完成待辦：「${todoText}」` : `⬜ 取消完成待辦：「${todoText}」`,
+          subtitle: `筆記：「${noteTitle}」`,
+          noteId,
+          undo: () => applyNoteCanvasSnapshot(noteId, beforeHtml),
+          redo: () => applyNoteCanvasSnapshot(noteId, afterHtml)
+        });
+
         saveLocalDraftImmediately();
         triggerAutoSaveDebounce();
       }
@@ -11999,12 +12779,19 @@ function bindEvents() {
     });
   }
 
-  if (DOM.selectionToolbar) {
-    // 阻止浮動工具列本體點擊奪取焦點，避免編輯器選取範圍消失
-    DOM.selectionToolbar.addEventListener('mousedown', (e) => {
+  // 鎖定工具列互動狀態，防止觸控或滑鼠點擊瞬間觸發 selectionchange 隱藏工具列
+  [DOM.selectionToolbar, DOM.topHighlightWrapper, DOM.mobileToolbar].forEach(bar => {
+    if (!bar) return;
+    bar.addEventListener('pointerdown', () => {
+      state.isInteractingWithToolbar = true;
+      setTimeout(() => { state.isInteractingWithToolbar = false; }, 350);
+    });
+    bar.addEventListener('mousedown', (e) => {
       e.preventDefault();
     });
+  });
 
+  if (DOM.selectionToolbar) {
     if (DOM.selHighlightPalette) {
       DOM.selHighlightPalette.addEventListener('mousedown', (e) => {
         e.preventDefault();
@@ -12012,40 +12799,62 @@ function bindEvents() {
       });
     }
 
+    const CMD_NAMES = {
+      bold: '粗體 (Bold)',
+      italic: '斜體 (Italic)',
+      underline: '底線 (Underline)',
+      strikeThrough: '刪除線 (Strikethrough)',
+      code: '行內程式碼 (Code)'
+    };
+
     DOM.selectionToolbar.querySelectorAll('button[data-cmd]').forEach(btn => {
       bindToolbarButton(btn, () => {
-        let sel = window.getSelection();
-        if ((!sel || sel.isCollapsed || !DOM.editor.contains(sel.anchorNode)) && savedSelectionRange) {
-          sel.removeAllRanges();
-          sel.addRange(savedSelectionRange);
-        }
-        sel = window.getSelection();
-        if (!sel || sel.isCollapsed) return;
-
+        const range = getOrRestoreEditorSelectionRange();
+        if (!range) return;
+        const selectedPreview = range.toString().replace(/\s+/g, ' ').trim().slice(0, 20);
         const cmd = btn.dataset.cmd;
-        if (cmd === 'code') {
-          let range = sel.getRangeAt(0);
-          let codeEl = range.commonAncestorContainer;
-          if (codeEl.nodeType === Node.TEXT_NODE) codeEl = codeEl.parentElement;
-          if (codeEl && codeEl.closest('code')) {
-            unwrapNode(codeEl.closest('code'));
-          } else {
-            const code = document.createElement('code');
-            code.appendChild(range.extractContents());
-            range.insertNode(code);
-            const newRange = document.createRange();
-            newRange.selectNodeContents(code);
-            sel.removeAllRanges();
-            sel.addRange(newRange);
-            savedSelectionRange = newRange.cloneRange();
+
+        commitEditorCanvasAction(
+          'format_text',
+          `🔤 設定「${CMD_NAMES[cmd] || cmd}」格式`,
+          selectedPreview ? `文字：「${selectedPreview}」` : '',
+          () => {
+            const sel = window.getSelection();
+            if (cmd === 'code') {
+              let r = sel.getRangeAt(0);
+              let codeEl = r.commonAncestorContainer;
+              if (codeEl.nodeType === Node.TEXT_NODE) codeEl = codeEl.parentElement;
+              if (codeEl && codeEl.closest('code')) {
+                const targetCode = codeEl.closest('code');
+                const textContent = targetCode.textContent;
+                const textNode = document.createTextNode(textContent);
+                targetCode.replaceWith(textNode);
+                const newRange = document.createRange();
+                newRange.selectNodeContents(textNode);
+                sel.removeAllRanges();
+                sel.addRange(newRange);
+                savedSelectionRange = newRange.cloneRange();
+              } else {
+                const code = document.createElement('code');
+                code.appendChild(r.extractContents());
+                r.insertNode(code);
+                const newRange = document.createRange();
+                newRange.selectNodeContents(code);
+                sel.removeAllRanges();
+                sel.addRange(newRange);
+                savedSelectionRange = newRange.cloneRange();
+              }
+            } else {
+              document.execCommand(cmd, false, null);
+              const newSel = window.getSelection();
+              if (newSel && newSel.rangeCount) {
+                savedSelectionRange = newSel.getRangeAt(0).cloneRange();
+              }
+            }
           }
-        } else {
-          document.execCommand(cmd, false, null);
-          const newSel = window.getSelection();
-          if (newSel && newSel.rangeCount) {
-            savedSelectionRange = newSel.getRangeAt(0).cloneRange();
-          }
-        }
+        );
+
+        updateSelectionToolbarActiveStates();
         saveLocalDraftImmediately();
         triggerAutoSaveDebounce();
       });
@@ -12056,8 +12865,29 @@ function bindEvents() {
     bindToolbarButton(DOM.selTurnTodo, () => turnSelectionInto('todo'));
     bindToolbarButton(DOM.selTurnCallout, () => turnSelectionInto('callout'));
 
+    if (DOM.selClearFormatBtn) {
+      bindToolbarButton(DOM.selClearFormatBtn, () => {
+        const range = getOrRestoreEditorSelectionRange();
+        if (!range) return;
+        const selectedPreview = range.toString().replace(/\s+/g, ' ').trim().slice(0, 20);
+        commitEditorCanvasAction(
+          'format_text',
+          '🧹 清除文字格式與螢光筆',
+          selectedPreview ? `文字：「${selectedPreview}」` : '',
+          () => {
+            clearHighlightFromSelection(range);
+            try { document.execCommand('removeFormat', false, null); } catch (e) {}
+          }
+        );
+        if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('hidden');
+        saveLocalDraftImmediately();
+        triggerAutoSaveDebounce();
+        showToast('🧹 已清除選取文字的所有格式與螢光筆');
+      });
+    }
+
     if (DOM.selHighlightBtn) {
-      bindToolbarButton(DOM.selHighlightBtn, (e) => {
+      bindToolbarButton(DOM.selHighlightBtn, () => {
         if (DOM.selHighlightPalette) {
           DOM.selHighlightPalette.classList.toggle('hidden');
         }
@@ -12065,10 +12895,21 @@ function bindEvents() {
     }
 
     document.querySelectorAll('.highlight-color-btn').forEach(btn => {
-      bindToolbarButton(btn, (e) => {
+      bindToolbarButton(btn, () => {
         const color = btn.dataset.color;
-        applyHighlight(color);
+        if (color && color !== 'transparent') {
+          setActiveHighlightColor(color);
+        }
+        const range = getOrRestoreEditorSelectionRange();
+        if (range && !range.collapsed) {
+          applyHighlight(color);
+        } else if (color && color !== 'transparent') {
+          // 若當前未反白文字，點擊顏色直接啟動「連續螢光筆刷子模式」
+          toggleHighlightBrushMode(true);
+        }
         if (DOM.selHighlightPalette) DOM.selHighlightPalette.classList.add('hidden');
+        if (DOM.topHighlightPalette) DOM.topHighlightPalette.classList.add('hidden');
+        if (DOM.mbHighlightPalette) DOM.mbHighlightPalette.classList.add('hidden');
         if (DOM.selectionToolbar) DOM.selectionToolbar.classList.add('hidden');
       });
     });
@@ -12086,6 +12927,29 @@ function bindEvents() {
         }
       });
     }
+  }
+
+  // 🖍️ 頂部常駐螢光筆按鈕組與連續刷子模式事件綁定
+  setActiveHighlightColor(state.activeHighlightColor || '#fef08a');
+  if (DOM.topHighlightApplyBtn) {
+    bindToolbarButton(DOM.topHighlightApplyBtn, () => {
+      const range = getOrRestoreEditorSelectionRange();
+      if (range && !range.collapsed) {
+        applyHighlight(state.activeHighlightColor || '#fef08a');
+      } else {
+        toggleHighlightBrushMode();
+      }
+    });
+  }
+  if (DOM.topHighlightMenuBtn && DOM.topHighlightPalette) {
+    bindToolbarButton(DOM.topHighlightMenuBtn, () => {
+      DOM.topHighlightPalette.classList.toggle('hidden');
+    });
+  }
+  if (DOM.topHighlightBrushToggle) {
+    bindToolbarButton(DOM.topHighlightBrushToggle, () => {
+      toggleHighlightBrushMode();
+    });
   }
 
   // 畫布鍵盤快捷事件 (Tab, Enter, Backspace, Space AI, 標題快捷鍵)
@@ -12285,8 +13149,21 @@ function bindEvents() {
       e.preventDefault();
       createNewNote();
     }
-    // Escape 鍵快速關閉所有彈跳視窗
+    // Ctrl+M 或 Alt+H 快速劃記/切換螢光筆
+    if (((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'm') || (e.altKey && e.key.toLowerCase() === 'h')) {
+      e.preventDefault();
+      applyHighlight(state.activeHighlightColor || '#fef08a');
+      return;
+    }
+
+    // Escape 鍵快速關閉所有彈跳視窗與連續螢光筆刷子模式
     if (e.key === 'Escape') {
+      if (state.highlightBrushMode) {
+        toggleHighlightBrushMode(false);
+      }
+      if (DOM.topHighlightPalette) DOM.topHighlightPalette.classList.add('hidden');
+      if (DOM.mbHighlightPalette) DOM.mbHighlightPalette.classList.add('hidden');
+      if (DOM.selHighlightPalette) DOM.selHighlightPalette.classList.add('hidden');
       closeTagManagerModal();
       closeHistoryModal();
       if (DOM.settingsModal) DOM.settingsModal.classList.add('hidden');
