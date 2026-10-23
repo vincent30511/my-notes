@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.6.7'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.6.8'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -1322,8 +1322,10 @@ async function ensureMediaFolder() {
       state.mediaFolderId = newFolder.id;
     }
     console.log('📁 媒體素材專用雲端資料夾 _assets 已就緒:', state.mediaFolderId);
+    return state.mediaFolderId;
   } catch(e) {
     console.warn('建立或確認媒體素材資料夾失敗:', e);
+    return state.mediaFolderId || state.folderId;
   }
 }
 
@@ -6335,7 +6337,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261023_v2.6.7', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261023_v2.6.8', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -6522,6 +6524,23 @@ function convertHtmlToMarkdown(html) {
     tempContainer.querySelectorAll('img[data-cloud-src]').forEach(img => {
       img.setAttribute('src', img.getAttribute('data-cloud-src'));
       img.removeAttribute('data-cloud-src');
+    });
+    // 🛡️ 防止任何殘留的 blob: 暫存網址被寫入雲端 Markdown 導致跨裝置破圖
+    tempContainer.querySelectorAll('details.notion-media-collapse').forEach(details => {
+      const fid = details.getAttribute('data-file-id') || '';
+      const img = details.querySelector('img');
+      if (img) {
+        const curSrc = img.getAttribute('src') || '';
+        const backupDataUrl = img.getAttribute('data-annotated-backup') || '';
+        if (curSrc.startsWith('blob:')) {
+          if (backupDataUrl && backupDataUrl.startsWith('data:image/')) {
+            img.setAttribute('src', backupDataUrl);
+          } else if (fid) {
+            img.setAttribute('src', `https://drive.google.com/thumbnail?id=${fid}&sz=w1280`);
+          }
+        }
+        img.removeAttribute('data-annotated-backup');
+      }
     });
     tempContainer.querySelectorAll('[data-delete-bound], [data-animated-collapse-bound]').forEach(el => {
       el.removeAttribute('data-delete-bound');
@@ -6865,6 +6884,10 @@ function setActiveHighlightColor(color) {
   if (DOM.topHighlightColorDot) {
     DOM.topHighlightColorDot.style.backgroundColor = color;
   }
+  const mbDot = document.getElementById('mb-tool-highlight-dot');
+  if (mbDot) {
+    mbDot.style.backgroundColor = color;
+  }
   document.querySelectorAll('.highlight-color-btn[data-color]').forEach(btn => {
     if (btn.dataset.color === color) {
       btn.classList.add('active-swatch');
@@ -6876,22 +6899,41 @@ function setActiveHighlightColor(color) {
 
 function toggleHighlightBrushMode(forceState) {
   state.highlightBrushMode = typeof forceState === 'boolean' ? forceState : !state.highlightBrushMode;
+  state.mobileTapHighlightMode = state.highlightBrushMode;
   if (DOM.editor) {
     DOM.editor.classList.toggle('highlight-brush-active', state.highlightBrushMode);
+    DOM.editor.classList.toggle('mobile-tap-highlight-active', state.highlightBrushMode);
   }
   if (DOM.topHighlightBrushToggle) {
-    DOM.topHighlightBrushToggle.textContent = state.highlightBrushMode ? '🖌️ 連續刷子: 開' : '🖌️ 連續刷子: 關';
+    DOM.topHighlightBrushToggle.textContent = state.highlightBrushMode ? '⚡ 點塗/刷子: 開' : '⚡ 點塗/刷子: 關';
     DOM.topHighlightBrushToggle.className = state.highlightBrushMode
       ? 'px-2 py-0.5 rounded text-[10px] font-bold bg-amber-400 text-slate-950 border border-amber-300 transition cursor-pointer shadow-xs'
       : 'px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-300 border border-amber-500/40 transition cursor-pointer';
+  }
+  const mbTapBtn = document.getElementById('mb-hl-tap-mode-btn');
+  if (mbTapBtn) {
+    mbTapBtn.textContent = state.highlightBrushMode ? '⚡ 點塗模式: 開' : '⚡ 點塗模式: 關';
+    mbTapBtn.className = state.highlightBrushMode
+      ? 'px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-400 text-slate-950 border border-amber-200 transition cursor-pointer whitespace-nowrap shadow-xs'
+      : 'px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-800 text-amber-300 border border-amber-500/50 transition cursor-pointer whitespace-nowrap';
+  }
+  const mbStatus = document.getElementById('mb-hl-status-text');
+  if (mbStatus) {
+    mbStatus.textContent = state.highlightBrushMode
+      ? `⚡ 點塗已開啟 (${HIGHLIGHT_COLOR_NAMES[state.activeHighlightColor] || '黃色'})：直接輕點文字即可上色/消除！`
+      : '🖍️ 點選顏色上色，或開啟「點塗」免長按';
   }
   if (DOM.topHighlightApplyBtn) {
     DOM.topHighlightApplyBtn.classList.toggle('ring-2', state.highlightBrushMode);
     DOM.topHighlightApplyBtn.classList.toggle('ring-amber-400', state.highlightBrushMode);
   }
+  if (DOM.mbToolHighlight) {
+    DOM.mbToolHighlight.classList.toggle('ring-2', state.highlightBrushMode);
+    DOM.mbToolHighlight.classList.toggle('ring-amber-400', state.highlightBrushMode);
+  }
   showToast(state.highlightBrushMode
-    ? `🖌️ 已開啟「連續螢光筆刷子模式」(${HIGHLIGHT_COLOR_NAMES[state.activeHighlightColor] || '黃色'})，反白文字即自動上色！按 Esc 可關閉`
-    : '🖌️ 已關閉連續螢光筆刷子模式');
+    ? `⚡ 已開啟「點塗/連續螢光筆模式」(${HIGHLIGHT_COLOR_NAMES[state.activeHighlightColor] || '黃色'})：手指輕點段落或反白文字即自動上色！`
+    : '🖌️ 已關閉點塗/連續螢光筆模式');
 }
 
 /**
@@ -7588,6 +7630,7 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
   initLucide();
   try {
     ensureEditableSpacesAroundMediaBlocks(container);
+    healBrokenMediaCardsInEditor(container);
   } catch (err) {
     console.warn('ensureEditableSpacesAroundMediaBlocks error:', err);
   }
@@ -7617,7 +7660,10 @@ function toggleAllMedia() {
 
 function updateToggleAllMediaBtnUI(allOpen) {
   if (!DOM.toggleAllMediaLabel) return;
-  DOM.toggleAllMediaLabel.textContent = allOpen ? '全部收折' : '全部展開';
+  const isCompactMobile = window.innerWidth < 640;
+  DOM.toggleAllMediaLabel.textContent = isCompactMobile
+    ? (allOpen ? '收折' : '展開')
+    : (allOpen ? '全部收折' : '全部展開');
 }
 
 // 🖐️ 編輯器內部拖曳元件改變位置
@@ -8377,12 +8423,26 @@ function handleTextSelection() {
   // 儲存當前有效選取範圍供工具列按鈕使用
   savedSelectionRange = range.cloneRange();
 
+  // 📱 手機觸控保護：若手指仍在螢幕上拖拉選取水滴 (state.isTouchSelecting)，等待手指放開後再觸發刷子或定位
+  if (state.isTouchSelecting) {
+    return;
+  }
+
   // 🖌️ 若使用者開啟了「連續螢光筆刷子模式」，反白放開瞬間直接自動上色！
   if (state.highlightBrushMode) {
     applyHighlight(state.activeHighlightColor || '#fef08a');
     try { window.getSelection().collapseToEnd(); } catch (e) {}
     DOM.selectionToolbar.classList.add('hidden');
     return;
+  }
+
+  // 📱 在手機裝置上反白文字時，自動浮出底部大尺寸螢光筆色盤，避開上方 Android 原生「複製/分享」選單遮擋
+  if (window.innerWidth < 768 && DOM.mbHighlightPalette) {
+    DOM.mbHighlightPalette.classList.remove('hidden');
+    const mbStatus = document.getElementById('mb-hl-status-text');
+    if (mbStatus) {
+      mbStatus.textContent = `✨ 已選取「${text.slice(0, 10)}${text.length > 10 ? '…' : ''}」：點下方顏色立即塗色`;
+    }
   }
 
   updateSelectionToolbarActiveStates();
@@ -12875,14 +12935,43 @@ function bindEvents() {
     });
   }
   if (DOM.mbToolHighlight) {
+    const handleMobileHighlightBtnTap = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const range = getOrRestoreEditorSelectionRange();
+      if (range && !range.collapsed) {
+        // 若當前已有選取文字或已點選鎖定 <mark>：一鍵直接套用/切換當前螢光筆顏色，並保持底部色盤開啟供秒換色！
+        applyHighlight(state.activeHighlightColor || '#fef08a');
+        if (DOM.mbHighlightPalette) {
+          DOM.mbHighlightPalette.classList.remove('hidden');
+        }
+      } else if (DOM.mbHighlightPalette) {
+        DOM.mbHighlightPalette.classList.toggle('hidden');
+      } else {
+        toggleHighlightBrushMode();
+      }
+    };
+    let mbTouchDone = false;
+    DOM.mbToolHighlight.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      mbTouchDone = false;
+    }, { passive: false });
+    DOM.mbToolHighlight.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      mbTouchDone = true;
+      handleMobileHighlightBtnTap(e);
+    }, { passive: false });
+    DOM.mbToolHighlight.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
     DOM.mbToolHighlight.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      if (DOM.mbHighlightPalette) {
-        DOM.mbHighlightPalette.classList.toggle('hidden');
-      } else {
-        applyHighlight(state.activeHighlightColor || '#fef08a');
-      }
+      if (!mbTouchDone) handleMobileHighlightBtnTap(e);
+      mbTouchDone = false;
     });
   }
   if (DOM.mbToolBold) {
@@ -12998,7 +13087,7 @@ function bindEvents() {
     if (DOM.topHighlightPalette && DOM.topHighlightWrapper && !DOM.topHighlightWrapper.contains(e.target)) {
       DOM.topHighlightPalette.classList.add('hidden');
     }
-    if (DOM.mbHighlightPalette && DOM.mbToolHighlight && !DOM.mbHighlightPalette.contains(e.target) && !DOM.mbToolHighlight.contains(e.target)) {
+    if (DOM.mbHighlightPalette && DOM.mbToolHighlight && !DOM.mbHighlightPalette.contains(e.target) && !DOM.mbToolHighlight.contains(e.target) && !e.target.closest('mark.notion-highlight, mark') && !state.highlightBrushMode) {
       DOM.mbHighlightPalette.classList.add('hidden');
     }
   });
@@ -13953,6 +14042,184 @@ function redrawPhotoAnnotatorCanvas(previewOp = null) {
   });
 }
 
+// ============================================================================
+// 🛡️ v2.6.8 雲端圖片破圖自癒引擎 + 內建全螢幕高清燈箱 + 永久 Base64/雲端雙保險標註儲存
+// ============================================================================
+
+/**
+ * 從媒體收折卡片中智慧提取 Google Drive File ID（支援由 data-file-id、下載連結、檢視連結或圖片網址提取）
+ */
+function extractDriveFileIdFromMediaBlock(detailsBlock) {
+  if (!detailsBlock) return '';
+  let fid = (detailsBlock.getAttribute('data-file-id') || '').trim();
+  if (fid && fid !== 'undefined' && fid !== 'null') return fid;
+
+  const html = detailsBlock.innerHTML || '';
+  const m1 = html.match(/[?&]id=([a-zA-Z0-9_-]{15,})/);
+  if (m1 && m1[1]) return m1[1];
+  const m2 = html.match(/\/file\/d\/([a-zA-Z0-9_-]{15,})/);
+  if (m2 && m2[1]) return m2[1];
+  return '';
+}
+
+/**
+ * 透過 Google Drive API 直接下載圖片二進位內容並轉為永久可顯示之 Data URL（徹底繞過手機第三方 Cookie 阻擋與縮圖 403 問題）
+ */
+async function fetchDriveImageAsDataUrl(fileId) {
+  if (!fileId || !state.accessToken) return null;
+  try {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      headers: { Authorization: `Bearer ${state.accessToken}` }
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
+ * 自動掃描並修復筆記內任何因舊版 blob: 殘留或雲端縮圖延遲而破圖的媒體卡片
+ */
+async function healBrokenMediaCardsInEditor(container = DOM.editor) {
+  if (!container) return;
+  const cards = Array.from(container.querySelectorAll('details.notion-media-collapse'));
+  for (const card of cards) {
+    const imgEl = card.querySelector('img');
+    if (!imgEl) continue;
+
+    // 取消舊版直接 window.open('blob:...') 的行為，改由內建高清檢視燈箱開啟
+    if (imgEl.hasAttribute('onclick')) {
+      imgEl.removeAttribute('onclick');
+    }
+
+    let fileId = extractDriveFileIdFromMediaBlock(card);
+    if (fileId && !card.getAttribute('data-file-id')) {
+      card.setAttribute('data-file-id', fileId);
+    }
+
+    // 確保卡片底部的「下載原圖」與「雲端檢視」連結永遠指向正確的 Google Drive 網址而非失效的 blob:
+    if (fileId) {
+      const downloadUrl = `https://drive.google.com/uc?export=download&id=${fileId}`;
+      const previewUrl = `https://drive.google.com/file/d/${fileId}/view?usp=sharing`;
+      const dlLink = card.querySelector('a[download]');
+      if (dlLink && (!dlLink.getAttribute('href') || dlLink.getAttribute('href').startsWith('blob:'))) {
+        dlLink.setAttribute('href', downloadUrl);
+      }
+      const viewLink = card.querySelector('a[rel*="noopener"]');
+      if (viewLink && (!viewLink.getAttribute('href') || viewLink.getAttribute('href').startsWith('blob:'))) {
+        viewLink.setAttribute('href', previewUrl);
+      }
+    }
+
+    const rawSrc = (imgEl.getAttribute('src') || '').trim();
+    const isDeadBlob = rawSrc.startsWith('blob:') && !imgEl._isLiveLocalBlob;
+
+    // 綁定圖片載入失敗自動救援 (onerror Self-Healing)
+    if (!imgEl._selfHealBound) {
+      imgEl._selfHealBound = true;
+      imgEl.addEventListener('error', async () => {
+        if (imgEl._healingInProgress) return;
+        imgEl._healingInProgress = true;
+        try {
+          const backup = imgEl.getAttribute('data-annotated-backup');
+          if (backup && backup.startsWith('data:image/')) {
+            imgEl.src = backup;
+            return;
+          }
+          let fid = extractDriveFileIdFromMediaBlock(card);
+          const fname = card.getAttribute('data-file-name') || imgEl.getAttribute('alt') || '';
+          if (!fid && fname && state.accessToken) {
+            // 若未記錄 fileId，嘗試以檔名在 Google Drive 自動搜尋找回
+            const cleanSearchName = fname.replace(/'/g, "\\'");
+            const q = `(name = '${cleanSearchName}' or name contains '${cleanSearchName.replace(/\.[^/.]+$/, '')}') and mimeType contains 'image/' and trashed = false`;
+            const sRes = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&orderBy=modifiedTime desc&pageSize=1`, {
+              headers: { Authorization: `Bearer ${state.accessToken}` }
+            });
+            if (sRes.ok) {
+              const sData = await sRes.json();
+              if (sData.files && sData.files.length > 0) {
+                fid = sData.files[0].id;
+                card.setAttribute('data-file-id', fid);
+              }
+            }
+          }
+          if (fid && state.accessToken) {
+            const dataUrl = await fetchDriveImageAsDataUrl(fid);
+            if (dataUrl) {
+              imgEl.src = dataUrl;
+              saveLocalDraftImmediately();
+              triggerAutoSaveDebounce();
+            }
+          }
+        } catch (e) {
+          console.warn('圖片自動救援略過:', e);
+        } finally {
+          imgEl._healingInProgress = false;
+        }
+      });
+    }
+
+    // 若開啟筆記時發現圖片 src 是過去殘留的死連結 blob:...，立即主動修復！
+    if (isDeadBlob) {
+      if (fileId) {
+        if (state.accessToken) {
+          const dataUrl = await fetchDriveImageAsDataUrl(fileId);
+          if (dataUrl) {
+            imgEl.src = dataUrl;
+            saveLocalDraftImmediately();
+            triggerAutoSaveDebounce();
+            continue;
+          }
+        }
+        imgEl.src = `https://drive.google.com/thumbnail?id=${fileId}&sz=w1280`;
+      } else if (state.accessToken) {
+        imgEl.dispatchEvent(new Event('error'));
+      }
+    }
+  }
+}
+
+/**
+ * 內建全螢幕高清圖片檢視燈箱 (點擊筆記內圖片時直接開啟，支援放大縮小與一鍵轉標註)
+ */
+let activeLightboxMediaBlock = null;
+function openPhotoLightboxForBlock(detailsBlock) {
+  if (!detailsBlock) return;
+  const imgEl = detailsBlock.querySelector('img');
+  if (!imgEl) return;
+
+  const modal = document.getElementById('photo-lightbox-modal');
+  const lightImg = document.getElementById('photo-lightbox-img');
+  const titleEl = document.getElementById('photo-lightbox-title');
+  const dlLink = document.getElementById('photo-lightbox-download-link');
+  if (!modal || !lightImg) return;
+
+  activeLightboxMediaBlock = detailsBlock;
+  const fileName = detailsBlock.getAttribute('data-file-name') || imgEl.getAttribute('alt') || '現場照片.jpg';
+  const fileId = extractDriveFileIdFromMediaBlock(detailsBlock);
+  const src = imgEl.getAttribute('src') || '';
+
+  if (titleEl) titleEl.textContent = fileName;
+  lightImg.classList.remove('is-zoomed');
+  lightImg.src = src;
+
+  if (dlLink) {
+    dlLink.href = (src.startsWith('data:image/') || !fileId)
+      ? src
+      : `https://drive.google.com/uc?export=download&id=${fileId}`;
+    dlLink.setAttribute('download', fileName);
+  }
+
+  modal.classList.remove('hidden');
+}
+
 async function openPhotoAnnotatorForBlock(detailsBlock) {
   if (!detailsBlock || !DOM.photoAnnotateModal || !DOM.photoAnnotateCanvas) return;
   const imgEl = detailsBlock.querySelector('img');
@@ -13961,7 +14228,7 @@ async function openPhotoAnnotatorForBlock(detailsBlock) {
     return;
   }
 
-  const fileId = detailsBlock.getAttribute('data-file-id') || '';
+  const fileId = extractDriveFileIdFromMediaBlock(detailsBlock);
   const fileName = detailsBlock.getAttribute('data-file-name') || imgEl.getAttribute('alt') || 'Photo.jpg';
   const rawSrc = imgEl.getAttribute('src') || '';
 
@@ -13974,24 +14241,15 @@ async function openPhotoAnnotatorForBlock(detailsBlock) {
   DOM.photoAnnotateModal.classList.remove('hidden');
   initLucide();
 
-  showToast('⏳ 正在載入照片至標註畫布...', 1500);
+  showToast('⏳ 正在載入照片至標註畫布...', 1200);
 
   let loadUrl = rawSrc;
-  let tempObjectUrl = null;
 
-  // 若為 Google Drive 雲端圖片且已登入，優先透過 Drive API 下載原始 Blob 以避免跨域 Canvas 污染 (Tainted Canvas)
-  if (fileId && state.accessToken && rawSrc.includes('drive.google.com')) {
-    try {
-      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-        headers: { Authorization: `Bearer ${state.accessToken}` }
-      });
-      if (res.ok) {
-        const blob = await res.blob();
-        tempObjectUrl = URL.createObjectURL(blob);
-        loadUrl = tempObjectUrl;
-      }
-    } catch (e) {
-      console.warn('Drive API 原圖載入降級為直接載入:', e);
+  // 若為 Google Drive 雲端圖片（或失效的舊 blob: 但具有 fileId）且已登入，優先透過 Drive API 下載原始圖片資料流以避免跨域 Canvas 污染
+  if (fileId && state.accessToken && (rawSrc.includes('drive.google.com') || rawSrc.startsWith('blob:'))) {
+    const driveDataUrl = await fetchDriveImageAsDataUrl(fileId);
+    if (driveDataUrl) {
+      loadUrl = driveDataUrl;
     }
   }
 
@@ -14011,9 +14269,6 @@ async function openPhotoAnnotatorForBlock(detailsBlock) {
       loadedImg = await loadImgElement(loadUrl, true);
     } catch (e1) {
       loadedImg = await loadImgElement(rawSrc, false);
-    }
-    if (tempObjectUrl) {
-      setTimeout(() => URL.revokeObjectURL(tempObjectUrl), 5000);
     }
     const natW = loadedImg.naturalWidth || loadedImg.width || 1280;
     const natH = loadedImg.naturalHeight || loadedImg.height || 720;
@@ -14041,11 +14296,13 @@ async function savePhotoAnnotationToNote() {
     return;
   }
 
+  let annotatedDataUrl = '';
   let blob = null;
   try {
+    annotatedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
     blob = await new Promise((resolve, reject) => {
       try {
-        canvas.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob empty'))), 'image/jpeg', 0.84);
+        canvas.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob empty'))), 'image/jpeg', 0.82);
       } catch (err) {
         reject(err);
       }
@@ -14061,19 +14318,27 @@ async function savePhotoAnnotationToNote() {
 
   DOM.photoAnnotateModal.classList.add('hidden');
 
-  const localBlobUrl = URL.createObjectURL(annotatedFile);
   const imgEl = block.querySelector('img');
   const oldHtml = DOM.editor ? DOM.editor.innerHTML : '';
   const noteId = state.currentNote ? state.currentNote.id : null;
   const noteTitle = (state.currentNote && state.currentNote.name) ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記';
 
-  // 1. 立即 (0.01s) 在筆記畫布上樂觀渲染標註後的新圖片並寫入時光機！
+  // 1. 立即 (0.01s) 使用自包含永久 Base64 Data URL 渲染標註後圖片，徹底杜絕 blob: 失效破圖！
   if (imgEl) {
-    imgEl.src = localBlobUrl;
+    imgEl.src = annotatedDataUrl;
+    imgEl.setAttribute('data-annotated-backup', annotatedDataUrl);
+    imgEl.removeAttribute('onclick');
   }
   block.setAttribute('data-file-name', annotatedFileName);
   const summaryTitleSpan = block.querySelector('summary span.truncate');
   if (summaryTitleSpan) summaryTitleSpan.textContent = annotatedFileName;
+  const captionTitleSpan = block.querySelector('.media-caption-bar span.truncate');
+  if (captionTitleSpan) captionTitleSpan.textContent = annotatedFileName;
+  const dlLinkImmediate = block.querySelector('a[download]');
+  if (dlLinkImmediate) {
+    dlLinkImmediate.href = annotatedDataUrl;
+    dlLinkImmediate.setAttribute('download', annotatedFileName);
+  }
 
   if (DOM.editor) {
     const newImmediateHtml = DOM.editor.innerHTML;
@@ -14090,12 +14355,14 @@ async function savePhotoAnnotationToNote() {
 
   saveLocalDraftImmediately();
   triggerAutoSaveDebounce();
-  showToast('✅ 已套用照片標註！(背景同步至 Google Drive 中...)', 2800);
+  showToast('✅ 已套用照片標註！(點擊照片可全螢幕放大檢視)', 2800);
 
-  // 2. 若已登入 Google Drive，背景上傳壓縮後之標註圖片至 _assets 並替換為永久雲端連結
+  // 2. 若已登入 Google Drive，背景上傳壓縮後之標註圖片至 _assets 並綁定雲端 File ID
   if (state.accessToken) {
     try {
-      const targetMediaFolderId = await ensureMediaFolder();
+      if (!state.folderId) await ensureNotesFolder();
+      if (!state.mediaFolderId) await ensureMediaFolder();
+      const targetMediaFolderId = state.mediaFolderId || state.folderId;
       const boundary = '-------CloudNotesMediaBoundary' + Math.random().toString(36).substring(2);
       const metaObj = {
         name: annotatedFileName,
@@ -14121,30 +14388,39 @@ async function savePhotoAnnotationToNote() {
 
       if (res.ok) {
         const uploaded = await res.json();
-        fetch(`https://www.googleapis.com/drive/v3/files/${uploaded.id}/permissions`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${state.accessToken}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ role: 'reader', type: 'anyone' })
-        }).catch(() => {});
+        // 必須 await 權限設定完成，確保雲端檢視與下載連結立即可用
+        try {
+          await fetch(`https://www.googleapis.com/drive/v3/files/${uploaded.id}/permissions`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${state.accessToken}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: 'reader', type: 'anyone' })
+          });
+        } catch (permErr) {}
 
         const directSrc = `https://drive.google.com/thumbnail?id=${uploaded.id}&sz=w1280`;
         const previewUrl = `https://drive.google.com/file/d/${uploaded.id}/view?usp=sharing`;
         const downloadUrl = `https://drive.google.com/uc?export=download&id=${uploaded.id}`;
 
         block.setAttribute('data-file-id', uploaded.id);
-        if (imgEl) {
-          const preload = new Image();
-          preload.onload = () => {
-            imgEl.src = directSrc;
-            URL.revokeObjectURL(localBlobUrl);
-          };
-          preload.src = directSrc;
-          imgEl.setAttribute('onclick', `window.open('${previewUrl}', '_blank')`);
-        }
         const dlLink = block.querySelector('a[download]');
         if (dlLink) dlLink.href = downloadUrl;
         const viewLink = block.querySelector('a[rel*="noopener"]');
         if (viewLink) viewLink.href = previewUrl;
+
+        // 預載入測試：僅當雲端縮圖確認已生成且可正常載入時才替換，否則維持清晰 Base64 畫面絕不破圖！
+        if (imgEl) {
+          const preload = new Image();
+          preload.onload = () => {
+            if (preload.naturalWidth > 0) {
+              imgEl.src = directSrc;
+              imgEl.removeAttribute('data-annotated-backup');
+              if (DOM.editor) state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+              saveLocalDraftImmediately();
+              triggerAutoSaveDebounce();
+            }
+          };
+          preload.src = directSrc;
+        }
 
         if (DOM.editor) state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
         saveLocalDraftImmediately();
@@ -14347,4 +14623,205 @@ function initImageEditor() {
   canvas.addEventListener('touchstart', onStart, { passive: false });
   canvas.addEventListener('touchmove', onMove, { passive: false });
   canvas.addEventListener('touchend', onEnd, { passive: false });
+
+  // 6. 綁定內建「全螢幕高清圖片檢視燈箱 (#photo-lightbox-modal)」與點擊筆記圖片攔截
+  const lightboxModal = document.getElementById('photo-lightbox-modal');
+  const lightboxImg = document.getElementById('photo-lightbox-img');
+  const lightboxCloseBtn = document.getElementById('photo-lightbox-close-btn');
+  const lightboxZoomBtn = document.getElementById('photo-lightbox-zoom-btn');
+  const lightboxAnnotateBtn = document.getElementById('photo-lightbox-annotate-btn');
+
+  if (lightboxCloseBtn && lightboxModal) {
+    lightboxCloseBtn.addEventListener('click', () => lightboxModal.classList.add('hidden'));
+  }
+  if (lightboxModal) {
+    lightboxModal.addEventListener('click', (e) => {
+      if (e.target === lightboxModal || e.target.id === 'photo-lightbox-body') {
+        lightboxModal.classList.add('hidden');
+      }
+    });
+  }
+  if (lightboxZoomBtn && lightboxImg) {
+    lightboxZoomBtn.addEventListener('click', () => {
+      lightboxImg.classList.toggle('is-zoomed');
+    });
+    lightboxImg.addEventListener('click', () => {
+      lightboxImg.classList.toggle('is-zoomed');
+    });
+  }
+  if (lightboxAnnotateBtn && lightboxModal) {
+    lightboxAnnotateBtn.addEventListener('click', () => {
+      lightboxModal.classList.add('hidden');
+      if (activeLightboxMediaBlock) {
+        openPhotoAnnotatorForBlock(activeLightboxMediaBlock);
+      }
+    });
+  }
+
+  // 在 DOM.editor 捕獲階段攔截圖片點擊：開啟內建高清燈箱（徹底解決舊版 window.open 無法開啟標註圖片的問題）
+  if (DOM.editor && !DOM.editor._lightboxImgDelegationBound) {
+    DOM.editor._lightboxImgDelegationBound = true;
+    DOM.editor.addEventListener('click', (e) => {
+      const clickedImg = e.target.closest('details.notion-media-collapse img');
+      if (clickedImg && DOM.editor.contains(clickedImg)) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+        const block = clickedImg.closest('details.notion-media-collapse');
+        if (block) {
+          openPhotoLightboxForBlock(block);
+        }
+      }
+    }, true);
+  }
+
+  // 7. 📱 手機端螢光筆深度觸控優化：
+  // (A) 追蹤 touchstart / touchend 避免長按拖拉選取水滴時提早收合
+  // (B) 點擊既有 <mark> 螢光筆文字直接鎖定並彈出底部換色/清除面板（免長按反白）
+  // (C) 開啟「⚡ 點塗模式」時，手指輕點任何文字詞句直接智慧塗上螢光筆
+  const mbTapModeBtn = document.getElementById('mb-hl-tap-mode-btn');
+  const mbCloseBtn = document.getElementById('mb-hl-close-btn');
+  if (mbTapModeBtn) {
+    mbTapModeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleHighlightBrushMode();
+    });
+  }
+  if (mbCloseBtn && DOM.mbHighlightPalette) {
+    mbCloseBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      DOM.mbHighlightPalette.classList.add('hidden');
+      document.querySelectorAll('mark.selected-mark-target').forEach(m => m.classList.remove('selected-mark-target'));
+    });
+  }
+
+  if (DOM.editor && !DOM.editor._mobileHighlightTouchBound) {
+    DOM.editor._mobileHighlightTouchBound = true;
+
+    DOM.editor.addEventListener('touchstart', () => {
+      state.isTouchSelecting = true;
+    }, { passive: true });
+
+    const finishTouchSelection = () => {
+      setTimeout(() => {
+        state.isTouchSelecting = false;
+        const sel = window.getSelection();
+        if (sel && !sel.isCollapsed && sel.rangeCount > 0) {
+          handleTextSelection();
+        }
+      }, 90);
+    };
+    DOM.editor.addEventListener('touchend', finishTouchSelection, { passive: true });
+    DOM.editor.addEventListener('touchcancel', finishTouchSelection, { passive: true });
+
+    // 點擊編輯器內的文字或既有 <mark> 螢光筆區塊
+    DOM.editor.addEventListener('click', (e) => {
+      if (e.target.closest('details.notion-media-collapse, .notion-file-attachment, button, a, input, select')) return;
+
+      // 先清除舊的 <mark> 鎖定框
+      document.querySelectorAll('mark.selected-mark-target').forEach(m => m.classList.remove('selected-mark-target'));
+
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed && sel.toString().trim().length > 0) {
+        return; // 使用者正處於反白選取狀態，交由 handleTextSelection 處理
+      }
+
+      const clickedMark = e.target.closest('mark.notion-highlight, mark');
+      if (clickedMark && DOM.editor.contains(clickedMark)) {
+        // 選中該 <mark> 的完整範圍
+        const markRange = document.createRange();
+        markRange.selectNodeContents(clickedMark);
+        savedSelectionRange = markRange.cloneRange();
+
+        // 若處於「⚡ 點塗/連續刷子模式」：點擊既有 <mark> 直接一鍵切換（同色即清除，異色即換色）！
+        if (state.highlightBrushMode || state.mobileTapHighlightMode) {
+          applyHighlight(state.activeHighlightColor || '#fef08a');
+          return;
+        }
+
+        // 一般模式下：為該 <mark> 加上醒目虛線外框並浮出底部色盤，讓使用者免長按即可一鍵清除或換色！
+        clickedMark.classList.add('selected-mark-target');
+        if (window.innerWidth < 768 && DOM.mbHighlightPalette) {
+          DOM.mbHighlightPalette.classList.remove('hidden');
+          const mbStatus = document.getElementById('mb-hl-status-text');
+          const markText = (clickedMark.textContent || '').trim().slice(0, 12);
+          if (mbStatus) {
+            mbStatus.textContent = `🎯 已選中「${markText}」：點顏色直接換色，或點「清除劃記」`;
+          }
+        }
+        return;
+      }
+
+      // 若開啟了「⚡ 點塗模式 (Tap-to-Highlight)」且點擊了一般文字段落：自動抓取所點詞句/整行並塗上螢光筆！
+      if (state.highlightBrushMode || state.mobileTapHighlightMode) {
+        const blockEl = e.target.closest('p, li, h1, h2, h3, h4, .notion-todo-text, td, th, blockquote');
+        if (!blockEl || !DOM.editor.contains(blockEl)) return;
+
+        let targetRange = null;
+        if (document.caretRangeFromPoint) {
+          const caret = document.caretRangeFromPoint(e.clientX, e.clientY);
+          if (caret && caret.startContainer && caret.startContainer.nodeType === Node.TEXT_NODE && blockEl.contains(caret.startContainer)) {
+            const textNode = caret.startContainer;
+            const fullText = textNode.nodeValue || '';
+            const offset = caret.startOffset;
+            if (fullText.trim().length > 0) {
+              // 智慧尋找點選位置的詞句邊界（以標點符號或空白分隔；若整行很短則直接選取整段文字節點）
+              const sepRegex = /[，。、；：！？,.;:!?\s（）()【】\[\]]/;
+              let startIdx = offset;
+              while (startIdx > 0 && !sepRegex.test(fullText[startIdx - 1])) startIdx--;
+              let endIdx = offset;
+              while (endIdx < fullText.length && !sepRegex.test(fullText[endIdx])) endIdx++;
+              if (endIdx > startIdx) {
+                targetRange = document.createRange();
+                targetRange.setStart(textNode, startIdx);
+                targetRange.setEnd(textNode, endIdx);
+              }
+            }
+          }
+        }
+
+        if (!targetRange && blockEl.textContent.trim().length > 0) {
+          targetRange = document.createRange();
+          targetRange.selectNodeContents(blockEl);
+        }
+
+        if (targetRange && !targetRange.collapsed) {
+          savedSelectionRange = targetRange.cloneRange();
+          applyHighlight(state.activeHighlightColor || '#fef08a');
+          try { window.getSelection().removeAllRanges(); } catch (err) {}
+        }
+      }
+    });
+  }
+
+  // 8. 屬性面板收合時顯示精簡分類摘要膠囊 (#properties-collapsed-summary)
+  const updateCollapsedPropertiesSummary = () => {
+    const summaryEl = document.getElementById('properties-collapsed-summary');
+    const propsContent = document.getElementById('note-properties-content');
+    if (!summaryEl || !propsContent) return;
+    const isCollapsed = propsContent.classList.contains('hidden');
+    if (!isCollapsed) {
+      summaryEl.classList.add('hidden');
+      summaryEl.classList.remove('flex');
+      return;
+    }
+    const m = (DOM.noteMachineSelect && DOM.noteMachineSelect.value) || '未分類';
+    const c = (DOM.noteContentSelect && DOM.noteContentSelect.value) || '未分類';
+    const u = (DOM.noteUrgencySelect && DOM.noteUrgencySelect.value) || '未分類';
+    summaryEl.innerHTML = `
+      <span class="px-1.5 py-0.2 rounded bg-blue-500/15 text-blue-500 font-semibold truncate">${escapeHtml(m)}</span>
+      <span class="px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-500 font-semibold truncate">${escapeHtml(c)}</span>
+      <span class="px-1.5 py-0.2 rounded bg-rose-500/15 text-rose-500 font-semibold truncate">${escapeHtml(u)}</span>
+    `;
+    summaryEl.classList.remove('hidden');
+    summaryEl.classList.add('flex');
+  };
+  const togglePropsBtnEl = document.getElementById('toggle-properties-btn');
+  if (togglePropsBtnEl) {
+    togglePropsBtnEl.addEventListener('click', () => {
+      setTimeout(updateCollapsedPropertiesSummary, 10);
+    });
+  }
 }
