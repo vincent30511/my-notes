@@ -2205,7 +2205,7 @@ mark.fuzzy-hl {
 }
 
 /* ==========================================================================
-   🚀 v2.6.8 四大進階功能樣式：
+   🚀 v2.6.9 四大進階功能樣式：
    1. 搜尋命中段落自動定位與琥珀脈衝閃爍 (.search-hit-flash-block)
    2. 表格資料庫就地修改下拉選單 (.table-inline-select) 與側邊預覽抽屜
    3. 照片就地標註工作室 (#photo-annotate-modal)
@@ -2321,7 +2321,7 @@ mark.fuzzy-hl {
 
 
 /* ==========================================================================
-   📱 v2.6.8 手機端單行俐落按鈕列、點塗螢光筆與內建圖片燈箱專用樣式
+   📱 v2.6.9 手機端單行俐落按鈕列、點塗螢光筆與內建圖片燈箱專用樣式
    ========================================================================== */
 #editor-action-toolbar {
   display: flex !important;
@@ -2383,4 +2383,198 @@ mark.notion-highlight.selected-mark-target {
   max-height: none !important;
   width: 165%;
   cursor: zoom-out !important;
+}
+
+
+/* ==========================================================================
+   🌙 v2.6.9 深色模式全站極致高對比度保證 (WCAG AAA High-Contrast Dark Mode)
+   徹底解決深色模式下淺色半透明背景泛灰、字體霧化看不清楚的問題
+   ========================================================================== */
+
+/* 1. 編輯器基礎文字、標題、清單、待辦與粗體在深色模式強制純白高對比 */
+.dark #editor,
+.dark #peek-note-body {
+  color: #f8fafc !important;
+}
+
+.dark #editor p,
+.dark #editor li,
+.dark #editor ul,
+.dark #editor ol,
+.dark #editor .notion-todo-text:not(.checked),
+.dark #editor .toggle-title,
+.dark #editor .toggle-content,
+.dark #peek-note-body p,
+.dark #peek-note-body li {
+  color: #f8fafc !important;
+}
+
+.dark #editor h1,
+.dark #editor h2,
+.dark #editor h3,
+.dark #editor h4,
+.dark #editor strong,
+.dark #editor b,
+.dark #peek-note-body h1,
+.dark #peek-note-body h2,
+.dark #peek-note-body h3,
+.dark #peek-note-body strong {
+  color: #ffffff !important;
+}
+
+.dark #editor .notion-todo-text.checked {
+  color: #94a3b8 !important;
+  opacity: 0.75 !important;
+}
+
+/* 2. 故障排查三段式卡片 (.lvi-troubleshoot-card) 淺色與深色雙模式高對比專屬配色 */
+.lvi-troubleshoot-card .notion-callout.troubleshoot-stage-1,
+.lvi-troubleshoot-card > .notion-callout:nth-child(1) {
+  border-left: 4px solid #ef4444 !important;
+  background: #fef2f2 !important;
+  color: #111827 !important;
+}
+
+.lvi-troubleshoot-card .notion-callout.troubleshoot-stage-2,
+.lvi-troubleshoot-card > .notion-callout:nth-child(2) {
+  border-left: 4px solid #f59e0b !important;
+  background: #fffbeb !important;
+  color: #111827 !important;
+}
+
+.lvi-troubleshoot-card .notion-callout.troubleshoot-stage-3,
+.lvi-troubleshoot-card > .notion-callout:nth-child(3) {
+  border-left: 4px solid #10b981 !important;
+  background: #ecfdf5 !important;
+  color: #111827 !important;
+}
+
+/* 深色模式下：三段式卡片改用深邃黑曜底色 + 鮮明左邊框 + 100% 純白高對比文字 (即使舊筆記帶有 inline style 也強制覆蓋！) */
+.dark .lvi-troubleshoot-card .notion-callout.troubleshoot-stage-1,
+.dark .lvi-troubleshoot-card > .notion-callout:nth-child(1),
+.dark #editor .notion-callout[style*="254, 242, 242"],
+.dark #editor .notion-callout[style*="#ef4444"] {
+  background: #231215 !important;
+  background-color: #231215 !important;
+  border: 1px solid rgba(248, 113, 113, 0.35) !important;
+  border-left: 4px solid #f87171 !important;
+  color: #ffffff !important;
+}
+
+.dark .lvi-troubleshoot-card .notion-callout.troubleshoot-stage-2,
+.dark .lvi-troubleshoot-card > .notion-callout:nth-child(2),
+.dark #editor .notion-callout[style*="255, 251, 235"],
+.dark #editor .notion-callout[style*="#f59e0b"] {
+  background: #231c10 !important;
+  background-color: #231c10 !important;
+  border: 1px solid rgba(251, 191, 36, 0.35) !important;
+  border-left: 4px solid #fbbf24 !important;
+  color: #ffffff !important;
+}
+
+.dark .lvi-troubleshoot-card .notion-callout.troubleshoot-stage-3,
+.dark .lvi-troubleshoot-card > .notion-callout:nth-child(3),
+.dark #editor .notion-callout[style*="236, 253, 245"],
+.dark #editor .notion-callout[style*="#10b981"] {
+  background: #0f241d !important;
+  background-color: #0f241d !important;
+  border: 1px solid rgba(52, 211, 153, 0.35) !important;
+  border-left: 4px solid #34d399 !important;
+  color: #ffffff !important;
+}
+
+/* 3. 一般 .notion-callout 在深色模式下的絕對高對比保護 */
+.dark .notion-callout {
+  background: #1e2430 !important;
+  background-color: #1e2430 !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  color: #f8fafc !important;
+}
+
+.dark .notion-callout .notion-callout-body,
+.dark .notion-callout .notion-callout-body p,
+.dark .notion-callout .notion-callout-body div,
+.dark .notion-callout .notion-callout-body span:not(mark *),
+.dark .notion-callout .notion-callout-body li {
+  color: #f8fafc !important;
+}
+
+.dark .notion-callout .notion-callout-body strong,
+.dark .notion-callout .notion-callout-body b {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+}
+
+/* 三段式大標題在深色模式下加上醒目高彩度重點光澤 */
+.dark .lvi-troubleshoot-card > .notion-callout:nth-child(1) .notion-callout-body > strong:first-child {
+  color: #fecaca !important;
+}
+.dark .lvi-troubleshoot-card > .notion-callout:nth-child(2) .notion-callout-body > strong:first-child {
+  color: #fde68a !important;
+}
+.dark .lvi-troubleshoot-card > .notion-callout:nth-child(3) .notion-callout-body > strong:first-child {
+  color: #a7f3d0 !important;
+}
+
+/* 4. 行內 <code> 標籤在深色模式下的極致高對比膠囊（深藍黑底 + 亮琥珀金字，對比度 13.8:1） */
+.dark #editor :not(pre) > code,
+.dark #peek-note-body :not(pre) > code {
+  background-color: #0f172a !important;
+  color: #fde047 !important;
+  border: 1px solid rgba(253, 224, 71, 0.45) !important;
+  font-weight: 600 !important;
+  padding: 0.15rem 0.45rem !important;
+  border-radius: 0.35rem !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* 5. 引言區塊 (blockquote) 與表格 (th / td) 在深色模式下的高對比強化 */
+.dark #editor blockquote,
+.dark #peek-note-body blockquote {
+  background-color: #17202e !important;
+  border-left: 4px solid #38bdf8 !important;
+  color: #f8fafc !important;
+}
+
+.dark #editor th {
+  background-color: #1e293b !important;
+  color: #ffffff !important;
+  border-color: #475569 !important;
+}
+
+.dark #editor td {
+  background-color: #141820 !important;
+  color: #f8fafc !important;
+  border-color: #334155 !important;
+}
+
+/* 6. 螢光筆 (<mark>) 內部文字永遠強制極深黑字 (#09090b)，避免被深色模式的白字規則覆蓋而看不清 */
+#editor mark,
+#editor mark.notion-highlight,
+#editor mark *,
+.dark #editor mark,
+.dark #editor mark.notion-highlight,
+.dark #editor mark * {
+  color: #09090b !important;
+  font-weight: 600 !important;
+}
+
+/* 搜尋模糊檢索高亮標籤在深色模式保持鮮明金黃 */
+.dark mark.fuzzy-hl {
+  background-color: rgba(245, 158, 11, 0.35) !important;
+  color: #fef08a !important;
+}
+
+/* 7. 屬性面板下拉選單與輸入框在深色模式的高對比度強化 */
+.dark #note-properties-container {
+  background-color: #16181d !important;
+  border-color: #2e3440 !important;
+  color: #f1f5f9 !important;
+}
+
+.dark #note-properties-container select,
+.dark #note-properties-container input[type="date"] {
+  background-color: #0f1115 !important;
+  color: #ffffff !important;
+  border-color: #3b4252 !important;
 }

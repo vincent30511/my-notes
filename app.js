@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.6.8'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.6.9'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -5518,7 +5518,7 @@ function appendAiBubble(role, contentHtml) {
 function getEngineeringTroubleshootSnippetHtml() {
   return `
     <div class="lvi-troubleshoot-card my-3 space-y-2.5">
-      <div class="notion-callout" style="border-left: 4px solid #ef4444; background: rgba(254, 242, 242, 0.65);">
+      <div class="notion-callout troubleshoot-stage-1">
         <span class="notion-callout-icon">🚨</span>
         <div class="notion-callout-body">
           <strong>1. 異常現象與量測讀值 (Symptom &amp; Readings)</strong>
@@ -5526,7 +5526,7 @@ function getEngineeringTroubleshootSnippetHtml() {
           <p>• 關鍵量測數據：<code>阻值 Ω / 水壓 kPa / 流量 LPM / 溫度 °C</code></p>
         </div>
       </div>
-      <div class="notion-callout" style="border-left: 4px solid #f59e0b; background: rgba(255, 251, 235, 0.65);">
+      <div class="notion-callout troubleshoot-stage-2">
         <span class="notion-callout-icon">🔍</span>
         <div class="notion-callout-body">
           <strong>2. 排查過程與測試點位 (Diagnostic Steps)</strong>
@@ -5534,7 +5534,7 @@ function getEngineeringTroubleshootSnippetHtml() {
           <div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">排查步驟 2：分段量測各點位阻值或管路壓降數據</span></div>
         </div>
       </div>
-      <div class="notion-callout" style="border-left: 4px solid #10b981; background: rgba(236, 253, 245, 0.7);">
+      <div class="notion-callout troubleshoot-stage-3">
         <span class="notion-callout-icon">💡</span>
         <div class="notion-callout-body">
           <strong>3. 根本原因與最終解決對策 (Root Cause &amp; Solution)</strong>
@@ -6337,7 +6337,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261023_v2.6.8', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261023_v2.6.9', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -7631,6 +7631,7 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
   try {
     ensureEditableSpacesAroundMediaBlocks(container);
     healBrokenMediaCardsInEditor(container);
+    ensureHighContrastInDarkMode(container);
   } catch (err) {
     console.warn('ensureEditableSpacesAroundMediaBlocks error:', err);
   }
@@ -14823,5 +14824,71 @@ function initImageEditor() {
     togglePropsBtnEl.addEventListener('click', () => {
       setTimeout(updateCollapsedPropertiesSummary, 10);
     });
+  }
+}
+
+
+/**
+ * 🌙 v2.6.9 深色模式高對比度自動淨化引擎：
+ * 1. 自動將舊筆記中帶有淺色半透明行內 style="...background: rgba(254, 242, 242...)" 的排查卡片升級為語意化高對比 Class
+ * 2. 自動偵測外部貼上文字中帶有暗黑字體色 (如 color: #333 / rgb(34,34,34)) 或淺灰底色的行內樣式並予以淨化，確保深色模式下 100% 清晰銳利
+ */
+function ensureHighContrastInDarkMode(container = DOM.editor) {
+  if (!container) return;
+  try {
+    // 1. 升級舊版已存檔的三段式故障排查卡片行內樣式
+    container.querySelectorAll('.lvi-troubleshoot-card > .notion-callout, .notion-callout[style*="background"]').forEach((callout, idx) => {
+      const st = (callout.getAttribute('style') || '').toLowerCase();
+      if (st.includes('254, 242, 242') || st.includes('#ef4444')) {
+        callout.classList.add('troubleshoot-stage-1');
+        callout.removeAttribute('style');
+      } else if (st.includes('255, 251, 235') || st.includes('#f59e0b')) {
+        callout.classList.add('troubleshoot-stage-2');
+        callout.removeAttribute('style');
+      } else if (st.includes('236, 253, 245') || st.includes('#10b981')) {
+        callout.classList.add('troubleshoot-stage-3');
+        callout.removeAttribute('style');
+      } else if (callout.closest('.lvi-troubleshoot-card')) {
+        const stageNum = (idx % 3) + 1;
+        callout.classList.add(`troubleshoot-stage-${stageNum}`);
+        callout.removeAttribute('style');
+      }
+    });
+
+    // 2. 清理一般段落、清單或表格中因外部複製貼上殘留的低對比行內字體顏色或背景色 (保留 <mark> 螢光筆)
+    container.querySelectorAll('[style*="color"], [style*="background"]').forEach(el => {
+      if (el.tagName === 'MARK' || el.classList.contains('notion-highlight') || el.closest('mark')) return;
+      if (el.classList.contains('notion-callout')) return;
+
+      const bg = el.style.backgroundColor || el.style.background || '';
+      const fg = el.style.color || '';
+
+      // 若行內背景為高透明度白色/淺色或接近純白，移除其行內背景以免在深色模式泛灰
+      if (bg) {
+        const mRgba = bg.match(/rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+        if (mRgba) {
+          const r = parseInt(mRgba[1], 10), g = parseInt(mRgba[2], 10), b = parseInt(mRgba[3], 10);
+          if (r > 210 && g > 210 && b > 210) {
+            el.style.backgroundColor = '';
+            el.style.background = '';
+          }
+        }
+      }
+
+      // 若行內字體顏色為深黑/深灰 (例如從網頁或 Word 貼上的 rgb(55,53,47) 或 #333)，移除行內 color 使其自動跟隨深/淺色模式高對比文字
+      if (fg) {
+        const mRgb = fg.match(/rgba?\((\d+)\s*,\s*(\d+)\s*,\s*(\d+)/i);
+        if (mRgb) {
+          const r = parseInt(mRgb[1], 10), g = parseInt(mRgb[2], 10), b = parseInt(mRgb[3], 10);
+          if (r < 110 && g < 110 && b < 110) {
+            el.style.color = '';
+          }
+        } else if (/^#(000|111|222|333|444|555|1f2937|374151|37352f|111827)/i.test(fg.trim())) {
+          el.style.color = '';
+        }
+      }
+    });
+  } catch (e) {
+    console.warn('ensureHighContrastInDarkMode warning:', e);
   }
 }
