@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.6.9'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.7.0'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -5342,7 +5342,21 @@ function ensureTrailingEditableParagraphAndFocus() {
     console.warn('游標置尾失敗:', err);
   }
 }
+function placeCaretAtEnd(el) {
+  if (!el) return;
+  try {
+    el.focus();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    range.collapse(false);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } catch (e) {}
+}
+
 function insertHtmlAtCursor(html) {
+  if (!DOM.editor) return;
   DOM.editor.focus();
   const sel = window.getSelection();
   let range = null;
@@ -5353,33 +5367,82 @@ function insertHtmlAtCursor(html) {
     }
   }
 
+  const isMajorBlockHtml = /^\s*<(div|details|table|h1|h2|h3|blockquote|pre|hr)\b/i.test(html || '');
+  const isTroubleshootCard = (html || '').includes('lvi-troubleshoot-card');
+
   if (range) {
-    range.deleteContents();
+    let containerEl = range.commonAncestorContainer;
+    if (containerEl.nodeType === Node.TEXT_NODE) containerEl = containerEl.parentElement;
 
     const el = document.createElement('div');
-    el.innerHTML = html;
+    el.innerHTML = html.trim();
     const frag = document.createDocumentFragment();
-    let node, lastNode;
+    let node, firstInserted = null, lastNode = null;
     while ((node = el.firstChild)) {
+      if (!firstInserted && node.nodeType === Node.ELEMENT_NODE) firstInserted = node;
       lastNode = frag.appendChild(node);
     }
-    range.insertNode(frag);
+
+    // 若要插入的是大型區塊 (如排查三段式、媒體卡片、表格、標題)，避免誤塞進空的 <p> 內部造成非法巢狀
+    const parentP = containerEl ? containerEl.closest('p') : null;
+    const parentCallout = containerEl ? containerEl.closest('.lvi-troubleshoot-card, details.notion-media-collapse') : null;
+
+    if (isTroubleshootCard && parentCallout && parentCallout.parentNode === DOM.editor) {
+      parentCallout.after(frag);
+    } else if (isMajorBlockHtml && parentP && parentP.parentNode === DOM.editor) {
+      const pText = (parentP.textContent || '').replace(/\u200B/g, '').trim();
+      if (!pText && !parentP.querySelector('img, iframe, video')) {
+        parentP.replaceWith(frag);
+      } else {
+        parentP.after(frag);
+      }
+    } else {
+      range.deleteContents();
+      range.insertNode(frag);
+    }
+
+    ensureEditableSpacesAroundMediaBlocks(DOM.editor);
+
+    // 若插入的是三段式排查模板，自動將游標停在第一段「• 故障現象描述：」後方，方便立即打字！
+    if (isTroubleshootCard && firstInserted) {
+      const firstSymptomP = firstInserted.querySelector('.troubleshoot-stage-1 p');
+      if (firstSymptomP) {
+        placeCaretAtEnd(firstSymptomP);
+        return;
+      }
+    }
 
     if (lastNode) {
-      range = range.cloneRange();
-      range.setStartAfter(lastNode);
-      range.collapse(true);
-      sel.removeAllRanges();
-      sel.addRange(range);
+      try {
+        const nextRange = document.createRange();
+        if (lastNode.nodeType === Node.ELEMENT_NODE && lastNode.tagName === 'P') {
+          nextRange.selectNodeContents(lastNode);
+          nextRange.collapse(true);
+        } else {
+          nextRange.setStartAfter(lastNode);
+          nextRange.collapse(true);
+        }
+        sel.removeAllRanges();
+        sel.addRange(nextRange);
+      } catch (e) {}
     }
   } else {
     const el = document.createElement('div');
-    el.innerHTML = html;
+    el.innerHTML = html.trim();
+    let firstInserted = null;
     while (el.firstChild) {
-      DOM.editor.appendChild(el.firstChild);
+      const child = el.firstChild;
+      if (!firstInserted && child.nodeType === Node.ELEMENT_NODE) firstInserted = child;
+      DOM.editor.appendChild(child);
+    }
+    ensureTrailingEditableParagraphAndFocus();
+    if (isTroubleshootCard && firstInserted) {
+      const firstSymptomP = firstInserted.querySelector('.troubleshoot-stage-1 p');
+      if (firstSymptomP) {
+        placeCaretAtEnd(firstSymptomP);
+      }
     }
   }
-  ensureTrailingEditableParagraphAndFocus();
 }
 
 // ----------------- AI 智能助手 (CloudNotes AI) -----------------
@@ -5521,25 +5584,25 @@ function getEngineeringTroubleshootSnippetHtml() {
       <div class="notion-callout troubleshoot-stage-1">
         <span class="notion-callout-icon">🚨</span>
         <div class="notion-callout-body">
-          <strong>1. 異常現象與量測讀值 (Symptom &amp; Readings)</strong>
-          <p>• 故障現象描述：請輸入機台異常狀況（如：啟動無流量、壓力異常下降、點位燒毀）</p>
-          <p>• 關鍵量測數據：<code>阻值 Ω / 水壓 kPa / 流量 LPM / 溫度 °C</code></p>
+          <strong>1. 異常現象與量測讀值</strong>
+          <p>• 故障現象描述：</p>
+          <p>• 關鍵量測數據：</p>
         </div>
       </div>
       <div class="notion-callout troubleshoot-stage-2">
         <span class="notion-callout-icon">🔍</span>
         <div class="notion-callout-body">
-          <strong>2. 排查過程與測試點位 (Diagnostic Steps)</strong>
-          <div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">排查步驟 1：確認外部供應源（水箱水位紅線 / 一次側氣源壓力 / 電源電壓）</span></div>
-          <div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">排查步驟 2：分段量測各點位阻值或管路壓降數據</span></div>
+          <strong>2. 排查過程與測試點位</strong>
+          <div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">排查步驟 1：</span></div>
+          <div class="notion-todo-item"><input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">排查步驟 2：</span></div>
         </div>
       </div>
       <div class="notion-callout troubleshoot-stage-3">
         <span class="notion-callout-icon">💡</span>
         <div class="notion-callout-body">
-          <strong>3. 根本原因與最終解決對策 (Root Cause &amp; Solution)</strong>
-          <p>• <strong>根本原因</strong>：請記錄查明之失效真因</p>
-          <p>• <strong>最終解決對策</strong>：請填寫排除方式、更換料件或參數修正值（供日後模糊檢索秒查）</p>
+          <strong>3. 根本原因與最終解決對策</strong>
+          <p>• <strong>根本原因：</strong></p>
+          <p>• <strong>最終解決對策：</strong></p>
         </div>
       </div>
     </div>
@@ -6337,7 +6400,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261023_v2.6.9', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261023_v2.7.0', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -7660,11 +7723,9 @@ function toggleAllMedia() {
 }
 
 function updateToggleAllMediaBtnUI(allOpen) {
-  if (!DOM.toggleAllMediaLabel) return;
-  const isCompactMobile = window.innerWidth < 640;
-  DOM.toggleAllMediaLabel.textContent = isCompactMobile
-    ? (allOpen ? '收折' : '展開')
-    : (allOpen ? '全部收折' : '全部展開');
+  if (DOM.toggleAllMediaBtn) {
+    DOM.toggleAllMediaBtn.title = allOpen ? '一鍵全部收折所有照片與影片' : '一鍵全部展開所有照片與影片';
+  }
 }
 
 // 🖐️ 編輯器內部拖曳元件改變位置
@@ -13643,27 +13704,41 @@ function bindEvents() {
       if (sel && sel.rangeCount) {
         const anchor = sel.anchorNode?.nodeType === 1 ? sel.anchorNode : sel.anchorNode?.parentElement;
 
-        // (a) 待辦清單 (Todo Item)
+        // (a) 待辦清單 (Todo Item) — 支援「排查步驟 N：」自動遞增編號
         const todoItem = anchor?.closest('.notion-todo-item');
         if (todoItem) {
           e.preventDefault();
           const textSpan = todoItem.querySelector('.notion-todo-text');
           const text = textSpan ? textSpan.textContent.trim() : '';
-          if (!text || text === '') {
-            // 空白待辦：按下 Enter 轉為一般段落，優雅退出待辦模式
-            const p = document.createElement('p');
-            p.innerHTML = '<br>';
-            todoItem.replaceWith(p);
-            placeCaretAtStart(p);
-          } else {
-            // 有內容待辦：按下 Enter 自動新增下一列待辦事項
-            const newTodo = document.createElement('div');
-            newTodo.className = 'notion-todo-item';
-            newTodo.innerHTML = '<input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true"><br></span>';
-            todoItem.after(newTodo);
-            const newText = newTodo.querySelector('.notion-todo-text');
-            placeCaretAtStart(newText);
-          }
+          const stepMatch = text.match(/^排查步驟\s*(\d+)\s*[：:](.*)$/);
+          commitEditorCanvasAction(
+            'todo_step',
+            stepMatch ? `☑️ 新增排查步驟` : `☑️ 新增待辦項目`,
+            text.slice(0, 24),
+            () => {
+              if (!text || text === '' || (stepMatch && !stepMatch[2].trim() && parseInt(stepMatch[1], 10) > 2)) {
+                const p = document.createElement('p');
+                p.innerHTML = '<br>';
+                todoItem.replaceWith(p);
+                placeCaretAtStart(p);
+              } else {
+                const newTodo = document.createElement('div');
+                newTodo.className = 'notion-todo-item';
+                if (stepMatch) {
+                  const nextStepNum = parseInt(stepMatch[1], 10) + 1;
+                  newTodo.innerHTML = `<input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true">排查步驟 ${nextStepNum}：</span>`;
+                  todoItem.after(newTodo);
+                  const newText = newTodo.querySelector('.notion-todo-text');
+                  placeCaretAtEnd(newText);
+                } else {
+                  newTodo.innerHTML = '<input type="checkbox" class="notion-todo-checkbox"><span class="notion-todo-text" contenteditable="true"><br></span>';
+                  todoItem.after(newTodo);
+                  const newText = newTodo.querySelector('.notion-todo-text');
+                  placeCaretAtStart(newText);
+                }
+              }
+            }
+          );
           saveLocalDraftImmediately();
           triggerAutoSaveDebounce();
           return;

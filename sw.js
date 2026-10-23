@@ -1,13 +1,13 @@
-// LVI_Note Service Worker (v2.6.9)
+// LVI_Note Service Worker (v2.7.0)
 // 支援離線快取、PWA 桌面安裝與自動清除舊版快取 (支援 Android / POCO X8 Pro & PC)
 
-const CACHE_NAME = 'lvi-note-cache-v2.6.9';
+const CACHE_NAME = 'lvi-note-cache-v2.7.0';
 const STATIC_ASSETS = [
   './',
   './index.html',
-  './app.js?v=20261023_v2.6.9',
-  './styles.css?v=20261023_v2.6.9',
-  './manifest.json?v=20261023_v2.6.9',
+  './app.js?v=20261023_v2.7.0',
+  './styles.css?v=20261023_v2.7.0',
+  './manifest.json?v=20261023_v2.7.0',
   './logo.png',
   './icon-192.png',
   './icon-512.png',
@@ -21,7 +21,7 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('⚡ [SW v2.6.9] 預先快取核心應用資源中...');
+      console.log('⚡ [SW v2.7.0] 預先快取核心應用資源中...');
       return cache.addAll(STATIC_ASSETS).catch(err => {
         console.warn('⚠️ [SW] 部份靜態資源快取略過:', err);
       });
@@ -36,7 +36,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
-            console.log('🧹 [SW v2.6.9] 強制清理舊版快取:', key);
+            console.log('🧹 [SW v2.7.0] 強制清理舊版快取:', key);
             return caches.delete(key);
           }
         })

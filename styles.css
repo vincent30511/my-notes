@@ -2205,7 +2205,7 @@ mark.fuzzy-hl {
 }
 
 /* ==========================================================================
-   🚀 v2.6.9 四大進階功能樣式：
+   🚀 v2.7.0 四大進階功能樣式：
    1. 搜尋命中段落自動定位與琥珀脈衝閃爍 (.search-hit-flash-block)
    2. 表格資料庫就地修改下拉選單 (.table-inline-select) 與側邊預覽抽屜
    3. 照片就地標註工作室 (#photo-annotate-modal)
@@ -2321,7 +2321,7 @@ mark.fuzzy-hl {
 
 
 /* ==========================================================================
-   📱 v2.6.9 手機端單行俐落按鈕列、點塗螢光筆與內建圖片燈箱專用樣式
+   📱 v2.7.0 手機端單行俐落按鈕列、點塗螢光筆與內建圖片燈箱專用樣式
    ========================================================================== */
 #editor-action-toolbar {
   display: flex !important;
@@ -2387,7 +2387,7 @@ mark.notion-highlight.selected-mark-target {
 
 
 /* ==========================================================================
-   🌙 v2.6.9 深色模式全站極致高對比度保證 (WCAG AAA High-Contrast Dark Mode)
+   🌙 v2.7.0 深色模式全站極致高對比度保證 (WCAG AAA High-Contrast Dark Mode)
    徹底解決深色模式下淺色半透明背景泛灰、字體霧化看不清楚的問題
    ========================================================================== */
 
@@ -2505,15 +2505,9 @@ mark.notion-highlight.selected-mark-target {
   font-weight: 700 !important;
 }
 
-/* 三段式大標題在深色模式下加上醒目高彩度重點光澤 */
-.dark .lvi-troubleshoot-card > .notion-callout:nth-child(1) .notion-callout-body > strong:first-child {
-  color: #fecaca !important;
-}
-.dark .lvi-troubleshoot-card > .notion-callout:nth-child(2) .notion-callout-body > strong:first-child {
-  color: #fde68a !important;
-}
-.dark .lvi-troubleshoot-card > .notion-callout:nth-child(3) .notion-callout-body > strong:first-child {
-  color: #a7f3d0 !important;
+/* 三段式大標題在深色模式下統一純白高對比 (#ffffff) */
+.dark .lvi-troubleshoot-card > .notion-callout .notion-callout-body > strong:first-child {
+  color: #ffffff !important;
 }
 
 /* 4. 行內 <code> 標籤在深色模式下的極致高對比膠囊（深藍黑底 + 亮琥珀金字，對比度 13.8:1） */
