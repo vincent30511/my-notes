@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.7.0'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.7.2'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -744,6 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
   try { checkAiKeyStatus(); } catch (e) { console.error('checkAiKeyStatus error:', e); }
   try { renderNotesList(); } catch (e) { console.error('renderNotesList error:', e); }
   try { initImageEditor(); } catch (e) { console.error('initImageEditor error:', e); }
+  try { initInAppCameraListeners(); } catch (e) { console.error('initInAppCameraListeners error:', e); }
   try {
     const cp = restoreCameraCheckpointIfAny();
     if (cp && cp.noteId) {
@@ -1609,11 +1610,20 @@ async function fetchNotesList(silent = false) {
       }
     }
 
-    // 建立舊快取對照表，若雲端檔案 modifiedTime 未改變，直接保留本機已快取的內文 (_cachedBody / _cachedHtml)
+    // 🛡️ v2.7.1 零掉字快取保護：建立舊快取對照表，保護正在編輯/排隊上傳中的筆記與本地剛建立的新筆記不被背景列表刷新洗掉！
     const prevNotesMap = new Map();
+    const unsyncedLocalNewNotes = [];
     if (Array.isArray(state.notes)) {
       state.notes.forEach(oldN => {
-        if (oldN && oldN.id) prevNotesMap.set(oldN.id, oldN);
+        if (!oldN) return;
+        if (oldN.id) {
+          prevNotesMap.set(oldN.id, oldN);
+        }
+        const isPendingNew = (!oldN.id || String(oldN.id).startsWith('temp_')) ||
+          (oldN._localUpdatedAt && (Date.now() - oldN._localUpdatedAt < 25000) && !uniqueFiles.some(f => f.id === oldN.id));
+        if (isPendingNew) {
+          unsyncedLocalNewNotes.push(oldN);
+        }
       });
     }
 
@@ -1633,16 +1643,48 @@ async function fetchNotesList(silent = false) {
         try { Object.assign(meta, JSON.parse(file.description)); } catch(e) {}
       }
       const prev = prevNotesMap.get(file.id);
-      const isSameVersion = prev && prev.modifiedTime === file.modifiedTime && prev._cachedBody !== undefined;
+      if (prev) {
+        const prevTimeMs = Math.max(new Date(prev.modifiedTime || 0).getTime(), prev._localUpdatedAt || 0);
+        const driveTimeMs = new Date(file.modifiedTime || 0).getTime();
+        const isLocalNewerOrQueued = isNoteDirtyOrQueued(file.id) || (prevTimeMs > driveTimeMs + 500) || (prev._localUpdatedAt && (Date.now() - prev._localUpdatedAt < 15000));
+        if (isLocalNewerOrQueued) {
+          return {
+            ...file,
+            ...prev,
+            id: file.id,
+            parentId: prev.parentId || (file.parents && file.parents[0]) || file.parentFolderId || state.folderId
+          };
+        }
+        const isCloudNotNewer = (driveTimeMs <= prevTimeMs + 1500) && (prev._cachedBody !== undefined || prev._cachedHtml !== undefined);
+        if (isCloudNotNewer) {
+          return {
+            ...file,
+            parentId: (file.parents && file.parents[0]) || file.parentFolderId || state.folderId,
+            meta,
+            _localUpdatedAt: prev._localUpdatedAt,
+            _cachedBody: prev._cachedBody,
+            _cachedHtml: prev._cachedHtml,
+            _cachedMeta: prev._cachedMeta || meta
+          };
+        }
+      }
       return {
         ...file,
         parentId: (file.parents && file.parents[0]) || file.parentFolderId || state.folderId,
         meta,
-        _cachedBody: isSameVersion ? prev._cachedBody : undefined,
-        _cachedHtml: isSameVersion ? prev._cachedHtml : undefined,
-        _cachedMeta: isSameVersion ? prev._cachedMeta : undefined
+        _cachedBody: undefined,
+        _cachedHtml: undefined,
+        _cachedMeta: undefined
       };
     });
+
+    if (unsyncedLocalNewNotes.length > 0) {
+      unsyncedLocalNewNotes.forEach(localN => {
+        if (!state.notes.some(n => (localN.id && n.id === localN.id) || (localN._tempId && n._tempId === localN._tempId))) {
+          state.notes.unshift(localN);
+        }
+      });
+    }
 
     // 💡 雲端自動採納：掃描所有雲端筆記，若筆記內含有自訂機型/內容/急迫性/標籤，立即採納並寫入雲端設定檔
     let needUpdateCloudConfig = false;
@@ -6101,13 +6143,19 @@ function closeSidebar() {
 
 // ----------------- 選取與載入筆記 -----------------
 async function selectNote(noteId) {
-  const noteMeta = state.notes.find(n => n.id === noteId);
+  // 🛡️ v2.7.1 零掉字核心護欄：切換至其他筆記前，必須在第 0 毫秒「同步鎖定並結算」上一篇正在編輯的筆記快照與排入雲端佇列！
+  if (!state.isUndoingOrRedoing && state.currentNote && (state.currentNote.id !== noteId || state.isDirty)) {
+    try {
+      commitActiveEditorStateImmediately();
+    } catch (commitErr) {
+      console.warn('切換筆記前同步結算快照警告:', commitErr);
+    }
+  }
+
+  const noteMeta = state.notes.find(n => n.id === noteId || n._tempId === noteId);
   if (!noteMeta) return;
 
-  // 切換筆記前，先將上一篇筆記尚未滿 800ms 的打字變更結算進時光機
-  if (!state.isUndoingOrRedoing && state.currentNote && state.currentNote.id && state.currentNote.id !== noteId) {
-    try { flushPendingEditorInputHistory(); } catch (e) {}
-  }
+  const mySelectSeq = (state.selectNoteSeq = (state.selectNoteSeq || 0) + 1);
 
   // 手機介面優化：點擊筆記後自動收合側欄抽屜，呈現全螢幕編輯區
   if (window.innerWidth < 768) {
@@ -6115,7 +6163,7 @@ async function selectNote(noteId) {
   }
 
   localStorage.setItem('lvi_last_active_note_id', noteId);
-  DOM.noteTitle.value = noteMeta.name.replace(/\.md$/i, '');
+  DOM.noteTitle.value = (noteMeta.name || '').replace(/\.md$/i, '');
   DOM.headerTitle.textContent = DOM.noteTitle.value;
 
   // 🚀 動態快取渲染：若記憶體中已有快取內容，立即 0ms 呈現，徹底消除等待感！
@@ -6217,6 +6265,12 @@ async function selectNote(noteId) {
     initLucide();
   }
 
+  // 若為剛建立尚未取得雲端正式 ID 的本地新筆記，或該筆記正處於背景上傳佇列中，直接以本地最新快取為準，不發動舊雲端讀取覆蓋！
+  if (!state.accessToken || String(noteId).startsWith('temp_') || isNoteDirtyOrQueued(noteId)) {
+    state.isDirty = false;
+    return;
+  }
+
   try {
     const res = await fetch(`https://www.googleapis.com/drive/v3/files/${noteId}?alt=media`, {
       headers: { Authorization: `Bearer ${state.accessToken}` }
@@ -6232,6 +6286,16 @@ async function selectNote(noteId) {
     }
 
     const rawText = await res.text();
+
+    // 🛡️ 護欄 1：若在等待網路回應的幾百毫秒內，使用者已經切換到別篇筆記，或已經開始打字修改本筆記，絕對不可覆蓋當前畫面！
+    if (state.selectNoteSeq !== mySelectSeq || !state.currentNote || state.currentNote.id !== noteId) {
+      return;
+    }
+    if (state.isDirty || isNoteDirtyOrQueued(noteId)) {
+      console.log('🛡️ 偵測到使用者已在筆記內輸入新內容或有待傳快照，略過舊雲端回應覆蓋');
+      return;
+    }
+
     const { meta: bodyMeta, body } = parseFrontmatter(rawText);
 
     // 🛡️ 核心修復：優先採納 state.notes / file.description 中由使用者最新設定的分類屬性！
@@ -6349,18 +6413,7 @@ let autoSaveMaxTimer = null;
 
 
 function flushImmediateCloudSave() {
-  if (state.isDirty && !state.isSaving) {
-    if (state.autoSaveTimer) {
-      clearTimeout(state.autoSaveTimer);
-      state.autoSaveTimer = null;
-    }
-    if (autoSaveMaxTimer) {
-      clearTimeout(autoSaveMaxTimer);
-      autoSaveMaxTimer = null;
-    }
-    saveLocalDraftImmediately();
-    saveCurrentNote();
-  }
+  commitActiveEditorStateImmediately();
 }
 
 
@@ -6400,7 +6453,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261023_v2.7.0', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261025_v2.7.2', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -6431,25 +6484,72 @@ function pruneOldSyncedDrafts() {
 }
 
 function saveLocalDraftImmediately() {
-  if (!state.currentNote || !state.currentNote.id) return;
+  if (!state.currentNote) return;
+  if (!state.currentNote.id && !state.currentNote._tempId) {
+    state.currentNote._tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+  }
   pruneOldSyncedDrafts();
-  const noteId = state.currentNote.id;
+  const noteKey = state.currentNote.id || state.currentNote._tempId;
+  const cleanTitle = (DOM.noteTitle && DOM.noteTitle.value ? DOM.noteTitle.value.trim() : '') || (state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '未命名筆記');
+  const currentHtml = DOM.editor ? DOM.editor.innerHTML : '';
+  const currentMeta = {
+    icon: DOM.noteEmojiBtn ? DOM.noteEmojiBtn.textContent : ((state.currentNote.meta && state.currentNote.meta.icon) || '🛠️'),
+    cover: state.currentNote.meta ? state.currentNote.meta.cover : null,
+    machineModel: DOM.noteMachineSelect ? DOM.noteMachineSelect.value : ((state.currentNote.meta && state.currentNote.meta.machineModel) || '未分類'),
+    workContent: DOM.noteContentSelect ? DOM.noteContentSelect.value : ((state.currentNote.meta && state.currentNote.meta.workContent) || '未分類'),
+    urgency: DOM.noteUrgencySelect ? DOM.noteUrgencySelect.value : ((state.currentNote.meta && state.currentNote.meta.urgency) || '未分類'),
+    clientVendor: DOM.noteClientSelect ? DOM.noteClientSelect.value.trim() : ((state.currentNote.meta && state.currentNote.meta.clientVendor) || ''),
+    dueDate: DOM.noteDueDate ? DOM.noteDueDate.value : ((state.currentNote.meta && state.currentNote.meta.dueDate) || ''),
+    tags: (state.currentNote.meta && Array.isArray(state.currentNote.meta.tags)) ? state.currentNote.meta.tags.slice() : [],
+    pinned: Boolean(state.currentNote.meta && state.currentNote.meta.pinned)
+  };
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+
+  // ⚡ 0ms 同步更新記憶體中的 state.currentNote 與 state.notes 快取！
+  // 確保即使下一毫秒立刻切換到別篇筆記或表格資料庫，記憶體中也已經是最新內容！
+  state.currentNote.name = cleanTitle.toLowerCase().endsWith('.md') ? cleanTitle : `${cleanTitle}.md`;
+  state.currentNote.meta = currentMeta;
+  state.currentNote.modifiedTime = nowIso;
+  state.currentNote._localUpdatedAt = nowMs;
+
+  const idx = state.notes.findIndex(n => (state.currentNote.id && n.id === state.currentNote.id) || (state.currentNote._tempId && n._tempId === state.currentNote._tempId) || n === state.currentNote);
+  if (idx !== -1) {
+    state.notes[idx] = {
+      ...state.notes[idx],
+      name: state.currentNote.name,
+      meta: currentMeta,
+      modifiedTime: nowIso,
+      _localUpdatedAt: nowMs,
+      _cachedHtml: currentHtml,
+      _cachedMeta: currentMeta
+    };
+  } else {
+    state.notes.unshift({
+      ...state.currentNote,
+      _localUpdatedAt: nowMs,
+      _cachedHtml: currentHtml,
+      _cachedBody: '',
+      _cachedMeta: currentMeta
+    });
+  }
+
   const draft = {
-    noteId: noteId,
-    title: DOM.noteTitle ? DOM.noteTitle.value : (state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : ''),
-    html: DOM.editor ? DOM.editor.innerHTML : '',
-    meta: state.currentNote.meta || {},
-    updatedAt: Date.now(),
+    noteId: noteKey,
+    title: cleanTitle,
+    html: currentHtml,
+    meta: currentMeta,
+    updatedAt: nowMs,
     synced: false
   };
   try {
-    localStorage.setItem(`lvi_draft_${noteId}`, JSON.stringify(draft));
+    localStorage.setItem(`lvi_draft_${noteKey}`, JSON.stringify(draft));
     let queue = [];
     try {
       queue = JSON.parse(localStorage.getItem('lvi_pending_sync_queue') || '[]');
     } catch (e) {}
-    if (!queue.includes(noteId)) {
-      queue.push(noteId);
+    if (!queue.includes(noteKey)) {
+      queue.push(noteKey);
       localStorage.setItem('lvi_pending_sync_queue', JSON.stringify(queue));
     }
   } catch (err) {
@@ -6627,21 +6727,127 @@ function convertHtmlToMarkdown(html) {
              .replace(/<br\s*\/?>/gi, '\n');
 }
 
-async function saveCurrentNote() {
-  if (!state.accessToken) {
-    console.warn('saveCurrentNote: 未登入或無 accessToken');
-    updateSyncStatus('offline', '尚未登入 Google');
-    DOM.statAutosave.innerHTML = '<span class="text-amber-500 font-medium cursor-pointer hover:underline">⚠️ 尚未登入 Google (點此登入儲存)</span>';
-    DOM.statAutosave.onclick = () => handleLogin();
-    return;
+// ============================================================================
+// 🚀 v2.7.1 零掉字・原子快照佇列與跨視圖 0ms 同步引擎 (Zero-Loss Atomic Snapshot & Per-Note Queue Engine)
+// 徹底解決：在 PC 或手機上快速切換筆記、快速切換表格/未分類視圖、或網路延遲時剛改的內容沒存到之問題
+// ============================================================================
+
+const pendingCloudSaveMap = new Map(); // key: noteId or tempId -> immutable snapshot
+let activeSavingSnapshotKey = null;
+let isProcessingCloudQueue = false;
+
+/**
+ * 檢查指定筆記是否正處於「本地有未同步修改」或「正在背景上傳佇列中」
+ */
+function isNoteDirtyOrQueued(noteId) {
+  if (!noteId) return false;
+  if (pendingCloudSaveMap.has(noteId) || activeSavingSnapshotKey === noteId) return true;
+  if (state.currentNote && (state.currentNote.id === noteId || state.currentNote._tempId === noteId) && state.isDirty) return true;
+  const draft = getLocalDraft(noteId);
+  if (draft && !draft.synced) return true;
+  return false;
+}
+
+/**
+ * 在第 0 毫秒「同步擷取」當前編輯器筆記的不可變快照 (Immutable Snapshot)，
+ * 立即更新 state.notes 記憶體快取、搜尋索引與 localStorage，完全不需等待網路！
+ */
+function captureCurrentNoteAtomicSnapshot() {
+  if (!state.currentNote || !DOM.editor) return null;
+  if (!state.currentNote.id && !state.currentNote._tempId) {
+    state.currentNote._tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
   }
 
-  // 🛡️ 平行儲存互斥鎖：若已有請求在傳輸中，排入佇列待完成後立即發動最新儲存
-  if (state.isSaving) {
-    state.savePending = true;
-    return;
+  const noteKey = state.currentNote.id || state.currentNote._tempId;
+  const rawTitle = (DOM.noteTitle && DOM.noteTitle.value ? DOM.noteTitle.value.trim() : '') || (state.currentNote.name ? state.currentNote.name.replace(/\.md$/i, '') : '') || '未命名筆記';
+  if (DOM.headerTitle && state.currentView === 'editor') {
+    DOM.headerTitle.textContent = rawTitle;
   }
-  state.isSaving = true;
+  const fileName = rawTitle.toLowerCase().endsWith('.md') ? rawTitle : `${rawTitle}.md`;
+
+  const meta = {
+    icon: DOM.noteEmojiBtn ? DOM.noteEmojiBtn.textContent : ((state.currentNote.meta && state.currentNote.meta.icon) || '🛠️'),
+    cover: state.currentNote.meta ? state.currentNote.meta.cover : null,
+    machineModel: DOM.noteMachineSelect ? DOM.noteMachineSelect.value : ((state.currentNote.meta && state.currentNote.meta.machineModel) || '未分類'),
+    workContent: DOM.noteContentSelect ? DOM.noteContentSelect.value : ((state.currentNote.meta && state.currentNote.meta.workContent) || '未分類'),
+    urgency: DOM.noteUrgencySelect ? DOM.noteUrgencySelect.value : ((state.currentNote.meta && state.currentNote.meta.urgency) || '未分類'),
+    clientVendor: DOM.noteClientSelect ? DOM.noteClientSelect.value.trim() : ((state.currentNote.meta && state.currentNote.meta.clientVendor) || ''),
+    dueDate: DOM.noteDueDate ? DOM.noteDueDate.value : ((state.currentNote.meta && state.currentNote.meta.dueDate) || ''),
+    tags: (state.currentNote.meta && Array.isArray(state.currentNote.meta.tags)) ? state.currentNote.meta.tags.slice() : [],
+    pinned: Boolean(state.currentNote.meta && state.currentNote.meta.pinned)
+  };
+
+  const htmlSnapshot = DOM.editor.innerHTML;
+  const markdownBody = convertHtmlToMarkdown(htmlSnapshot);
+  const fullContent = buildFrontmatterString(meta) + markdownBody;
+  const nowMs = Date.now();
+  const nowIso = new Date(nowMs).toISOString();
+
+  // 1. 立即同步寫入本機 localStorage 草稿
+  saveLocalDraftImmediately();
+
+  // 2. 立即同步更新 state.currentNote 與 state.notes 陣列中的快取與全文檢索索引
+  state.currentNote.name = fileName;
+  state.currentNote.meta = JSON.parse(JSON.stringify(meta));
+  state.currentNote.modifiedTime = nowIso;
+  state.currentNote._localUpdatedAt = nowMs;
+
+  const idx = state.notes.findIndex(n => (state.currentNote.id && n.id === state.currentNote.id) || (state.currentNote._tempId && n._tempId === state.currentNote._tempId) || n === state.currentNote);
+  if (idx !== -1) {
+    state.notes[idx] = {
+      ...state.notes[idx],
+      name: fileName,
+      meta: JSON.parse(JSON.stringify(meta)),
+      modifiedTime: nowIso,
+      _localUpdatedAt: nowMs,
+      _cachedBody: markdownBody,
+      _cachedHtml: htmlSnapshot,
+      _cachedMeta: JSON.parse(JSON.stringify(meta))
+    };
+  } else {
+    state.notes.unshift({
+      ...state.currentNote,
+      _localUpdatedAt: nowMs,
+      _cachedBody: markdownBody,
+      _cachedHtml: htmlSnapshot,
+      _cachedMeta: JSON.parse(JSON.stringify(meta))
+    });
+  }
+
+  try { updateNoteSearchIndex(noteKey, nowIso, markdownBody); } catch (e) {}
+  try { saveSwrCacheSnapshot(); } catch (e) {}
+
+  return {
+    key: noteKey,
+    noteRef: state.currentNote,
+    noteId: state.currentNote.id || null,
+    tempId: state.currentNote._tempId || null,
+    parentId: state.currentNote.parentId || null,
+    rawTitle,
+    fileName,
+    meta: JSON.parse(JSON.stringify(meta)),
+    html: htmlSnapshot,
+    markdownBody,
+    fullContent,
+    updatedAt: nowMs,
+    updatedIso: nowIso
+  };
+}
+
+/**
+ * 切換筆記、切換視圖、失焦或離開頁面前呼叫：
+ * 在 0ms 內同步結算當前畫面上的所有變更並排入雲端佇列，保證切換再快也絕不掉字！
+ */
+function commitActiveEditorStateImmediately() {
+  if (!state.currentNote || !DOM.editor) return null;
+
+  const hasTimer = Boolean(state.autoSaveTimer || autoSaveMaxTimer);
+  const htmlChanged = state.editorSnapshotBeforeEdit !== null && DOM.editor.innerHTML !== state.editorSnapshotBeforeEdit;
+  const titleChanged = state.titleBeforeEdit !== undefined && DOM.noteTitle && DOM.noteTitle.value !== state.titleBeforeEdit;
+
+  if (!state.isDirty && !hasTimer && !htmlChanged && !titleChanged) {
+    return null;
+  }
 
   if (state.autoSaveTimer) {
     clearTimeout(state.autoSaveTimer);
@@ -6652,189 +6858,250 @@ async function saveCurrentNote() {
     autoSaveMaxTimer = null;
   }
 
-  if (!state.folderId) await ensureNotesFolder();
+  if (!state.isUndoingOrRedoing) {
+    try { flushPendingEditorInputHistory(); } catch (e) {}
+  }
 
-  updateSyncStatus('syncing', '儲存至 Google Drive...');
-  DOM.statAutosave.innerHTML = '<svg class="w-3 h-3 text-blue-500 animate-spin inline-block mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> 正在同步至雲端...';
+  const snap = captureCurrentNoteAtomicSnapshot();
+  state.isDirty = false;
+  if (snap) {
+    pendingCloudSaveMap.set(snap.key, snap);
+    processCloudSaveQueue();
+  }
+  return snap;
+}
 
-  let title = DOM.noteTitle.value.trim() || '未命名筆記';
-  DOM.headerTitle.textContent = title;
-  if (!title.toLowerCase().endsWith('.md')) title += '.md';
+/**
+ * 背景非同步佇列處理器：逐一將 pendingCloudSaveMap 中的凍結快照上傳至 Google Drive，
+ * 全程只讀取 snap 內部資料，絕不依賴外部已切換的 state.currentNote 或 DOM.editor！
+ */
+async function processCloudSaveQueue() {
+  if (!state.accessToken) {
+    updateSyncStatus('offline', '尚未登入 Google (已存於本機快取)');
+    if (DOM.statAutosave) {
+      DOM.statAutosave.innerHTML = '<span class="text-amber-500 font-medium cursor-pointer hover:underline">⚠️ 尚未登入 Google (內容已安全保存於本機)</span>';
+      DOM.statAutosave.onclick = () => handleLogin();
+    }
+    return;
+  }
 
-  const meta = {
-    icon: DOM.noteEmojiBtn.textContent,
-    cover: state.currentNote && state.currentNote.meta ? state.currentNote.meta.cover : null,
-    machineModel: DOM.noteMachineSelect ? DOM.noteMachineSelect.value : '未分類',
-    workContent: DOM.noteContentSelect ? DOM.noteContentSelect.value : '未分類',
-    urgency: DOM.noteUrgencySelect ? DOM.noteUrgencySelect.value : '未分類',
-    clientVendor: DOM.noteClientSelect ? DOM.noteClientSelect.value.trim() : '',
-    dueDate: DOM.noteDueDate ? DOM.noteDueDate.value : '',
-    tags: (state.currentNote && state.currentNote.meta && state.currentNote.meta.tags) || [],
-    pinned: state.currentNote ? state.currentNote.meta.pinned : false
-  };
+  if (isProcessingCloudQueue) {
+    state.savePending = true;
+    return;
+  }
 
-  const markdownBody = convertHtmlToMarkdown(DOM.editor.innerHTML);
-  const fullContent = buildFrontmatterString(meta) + markdownBody;
+  isProcessingCloudQueue = true;
+  state.isSaving = true;
 
   try {
-    const boundary = '-------CloudNotesBoundary' + Math.random().toString(36).substring(2);
+    while (pendingCloudSaveMap.size > 0) {
+      const firstEntry = pendingCloudSaveMap.entries().next().value;
+      if (!firstEntry) break;
+      const [snapKey, snap] = firstEntry;
+      pendingCloudSaveMap.delete(snapKey);
+      activeSavingSnapshotKey = snapKey;
 
-    let url;
-    let method;
-    let metadata = {
-      name: title,
-      description: JSON.stringify(meta)
-    };
-
-    // 🛡️ 三種大分類缺一不可：若機型、工作內容或急迫性任一未選擇，一律留在未分類資料夾
-    const isFullyClassified = !isNoteUncategorized({ meta });
-    const targetCategory = isFullyClassified ? (meta.machineModel || '').trim() : '未分類';
-    const targetFolderId = await ensureCategoryFolder(targetCategory);
-
-    if (state.currentNote && state.currentNote.id) {
-      let parentParam = '';
-      const currentParent = state.currentNote.parentId;
-      if (currentParent && currentParent !== targetFolderId) {
-        parentParam = `&addParents=${targetFolderId}&removeParents=${currentParent}`;
-      } else if (!currentParent) {
-        parentParam = `&addParents=${targetFolderId}`;
+      updateSyncStatus('syncing', `正在同步「${snap.rawTitle}」...`);
+      if (DOM.statAutosave) {
+        DOM.statAutosave.innerHTML = `<svg class="w-3 h-3 text-blue-500 animate-spin inline-block mr-1" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> 正在同步「${escapeHtml(snap.rawTitle.slice(0, 12))}」...`;
       }
-      url = `https://www.googleapis.com/upload/drive/v3/files/${state.currentNote.id}?uploadType=multipart${parentParam}`;
-      method = 'PATCH';
-    } else {
-      url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-      method = 'POST';
-      metadata.parents = [targetFolderId];
-    }
 
-    // 🚀 原生 Blob Multipart 串流傳輸：徹底解決多位元組中文字元 Content-Length 錯誤與截斷問題
-    const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json; charset=UTF-8' });
-    const contentBlob = new Blob([fullContent], { type: 'text/markdown; charset=UTF-8' });
-    const multipartBody = new Blob([
-      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
-      metadataBlob,
-      `\r\n--${boundary}\r\nContent-Type: text/markdown; charset=UTF-8\r\n\r\n`,
-      contentBlob,
-      `\r\n--${boundary}--`
-    ], { type: `multipart/related; boundary=${boundary}` });
-
-    let res = await fetch(url, {
-      method: method,
-      headers: {
-        Authorization: `Bearer ${state.accessToken}`,
-        'Content-Type': `multipart/related; boundary=${boundary}`
-      },
-      body: multipartBody
-    });
-
-    // 🛡️ 400 Bad Request 容錯降級：若因 parentParam 目錄不一致報錯，立即移除 parentParam 重試純內容儲存
-    if (!res.ok && res.status === 400 && parentParam) {
-      console.warn('帶 parentParam 儲存失敗 (400)，降級為純內容與屬性更新...');
-      url = `https://www.googleapis.com/upload/drive/v3/files/${state.currentNote.id}?uploadType=multipart`;
-      res = await fetch(url, {
-        method: method,
-        headers: {
-          Authorization: `Bearer ${state.accessToken}`,
-          'Content-Type': `multipart/related; boundary=${boundary}`
-        },
-        body: multipartBody
-      });
-    }
-
-    // 🛡️ 401 Token 過期自我修復：背景靜默無感重新取得 Token 並自動重試儲存
-    if (res.status === 401) {
-      console.warn('Google 登入 Token 已過期 (401)，嘗試無感更新並自動重試儲存...');
       try {
-        await refreshGoogleToken();
-        res = await fetch(url, {
+        if (!state.folderId) await ensureNotesFolder();
+
+        const boundary = '-------CloudNotesBoundary' + Math.random().toString(36).substring(2);
+        const metadata = {
+          name: snap.fileName,
+          description: JSON.stringify(snap.meta)
+        };
+
+        const isFullyClassified = !isNoteUncategorized({ meta: snap.meta });
+        const targetCategory = isFullyClassified ? (snap.meta.machineModel || '').trim() : '未分類';
+        const targetFolderId = await ensureCategoryFolder(targetCategory);
+
+        // 查找該筆記是否已經擁有正式的雲端 ID（例如前一次佇列剛為同一篇新筆記建立了 ID）
+        const matchedNoteInState = state.notes.find(n => (snap.noteId && n.id === snap.noteId) || (snap.tempId && n._tempId === snap.tempId) || n === snap.noteRef);
+        const effectiveNoteId = snap.noteId || (matchedNoteInState && matchedNoteInState.id) || (snap.noteRef && snap.noteRef.id) || null;
+        const effectiveParentId = snap.parentId || (matchedNoteInState && matchedNoteInState.parentId) || null;
+
+        let url;
+        let method;
+        let parentParam = '';
+
+        if (effectiveNoteId && !String(effectiveNoteId).startsWith('temp_')) {
+          if (effectiveParentId && effectiveParentId !== targetFolderId) {
+            parentParam = `&addParents=${targetFolderId}&removeParents=${effectiveParentId}`;
+          } else if (!effectiveParentId && targetFolderId) {
+            parentParam = `&addParents=${targetFolderId}`;
+          }
+          url = `https://www.googleapis.com/upload/drive/v3/files/${effectiveNoteId}?uploadType=multipart${parentParam}`;
+          method = 'PATCH';
+        } else {
+          url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+          method = 'POST';
+          if (targetFolderId) metadata.parents = [targetFolderId];
+        }
+
+        const metadataBlob = new Blob([JSON.stringify(metadata)], { type: 'application/json; charset=UTF-8' });
+        const contentBlob = new Blob([snap.fullContent], { type: 'text/markdown; charset=UTF-8' });
+        const multipartBody = new Blob([
+          `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
+          metadataBlob,
+          `\r\n--${boundary}\r\nContent-Type: text/markdown; charset=UTF-8\r\n\r\n`,
+          contentBlob,
+          `\r\n--${boundary}--`
+        ], { type: `multipart/related; boundary=${boundary}` });
+
+        let res = await fetch(url, {
           method: method,
           headers: {
             Authorization: `Bearer ${state.accessToken}`,
             'Content-Type': `multipart/related; boundary=${boundary}`
           },
-          body: multipartBody
+          body: multipartBody,
+          keepalive: multipartBody.size < 60000
         });
-      } catch (refErr) {
-        console.warn('無感更新 Token 失敗:', refErr);
-        localStorage.removeItem('cloudnotes_access_token');
-        updateSyncStatus('offline', '憑證過期 (請點擊登入)');
-        DOM.loginBtn.classList.remove('hidden');
-        DOM.userProfile.classList.add('hidden');
-        throw new Error('Google 登入憑證已過期，請點擊右上角登入按鈕重新授權 (內容已妥善保留於畫布)');
+
+        if (!res.ok && res.status === 400 && parentParam && effectiveNoteId) {
+          url = `https://www.googleapis.com/upload/drive/v3/files/${effectiveNoteId}?uploadType=multipart`;
+          res = await fetch(url, {
+            method: method,
+            headers: {
+              Authorization: `Bearer ${state.accessToken}`,
+              'Content-Type': `multipart/related; boundary=${boundary}`
+            },
+            body: multipartBody
+          });
+        }
+
+        if (res.status === 401) {
+          await refreshGoogleToken();
+          res = await fetch(url, {
+            method: method,
+            headers: {
+              Authorization: `Bearer ${state.accessToken}`,
+              'Content-Type': `multipart/related; boundary=${boundary}`
+            },
+            body: multipartBody
+          });
+        }
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Google Drive API 回應錯誤 (HTTP ${res.status}): ${errText}`);
+        }
+
+        const savedFile = await res.json();
+        const finalCloudId = savedFile.id || effectiveNoteId;
+
+        // 更新對應筆記的雲端 ID 與資料夾，但絕不拿舊快照去覆蓋使用者在傳輸期間又新打的字！
+        const targetIdx = state.notes.findIndex(n => (finalCloudId && n.id === finalCloudId) || (snap.tempId && n._tempId === snap.tempId) || n === snap.noteRef);
+        if (targetIdx !== -1) {
+          const existingNote = state.notes[targetIdx];
+          const hasNewerLocalEdit = existingNote._localUpdatedAt && existingNote._localUpdatedAt > snap.updatedAt;
+          existingNote.id = finalCloudId;
+          existingNote.parentId = targetFolderId;
+          if (!hasNewerLocalEdit) {
+            existingNote.name = snap.fileName;
+            existingNote.meta = snap.meta;
+            existingNote.modifiedTime = snap.updatedIso;
+            existingNote._cachedBody = snap.markdownBody;
+            existingNote._cachedHtml = snap.html;
+            existingNote._cachedMeta = snap.meta;
+          }
+        } else {
+          state.notes.unshift({
+            id: finalCloudId,
+            _tempId: snap.tempId,
+            name: snap.fileName,
+            parentId: targetFolderId,
+            meta: snap.meta,
+            modifiedTime: snap.updatedIso,
+            _localUpdatedAt: snap.updatedAt,
+            _cachedBody: snap.markdownBody,
+            _cachedHtml: snap.html,
+            _cachedMeta: snap.meta
+          });
+        }
+
+        if (snap.noteRef) {
+          snap.noteRef.id = finalCloudId;
+          snap.noteRef.parentId = targetFolderId;
+        }
+        if (state.currentNote && (state.currentNote === snap.noteRef || (snap.tempId && state.currentNote._tempId === snap.tempId) || (finalCloudId && state.currentNote.id === finalCloudId))) {
+          state.currentNote.id = finalCloudId;
+          state.currentNote.parentId = targetFolderId;
+          localStorage.setItem('lvi_last_active_note_id', finalCloudId);
+        }
+
+        // 若佇列中沒有針對此筆記的更新快照，則標記本機草稿已同步完成
+        if (!pendingCloudSaveMap.has(snapKey) && !pendingCloudSaveMap.has(finalCloudId)) {
+          markLocalDraftSynced(snapKey);
+          if (finalCloudId && finalCloudId !== snapKey) {
+            markLocalDraftSynced(finalCloudId);
+          }
+        } else if (finalCloudId && snapKey !== finalCloudId && pendingCloudSaveMap.has(snapKey)) {
+          const newerSnap = pendingCloudSaveMap.get(snapKey);
+          newerSnap.noteId = finalCloudId;
+        }
+
+        try { updateNoteSearchIndex(finalCloudId, snap.updatedIso, snap.markdownBody); } catch (e) {}
+        saveSwrCacheSnapshot();
+        renderWorkTagLists();
+        renderSidebarTags();
+        renderNotesList();
+        if (state.currentView === 'editor') renderBreadcrumbs();
+      } catch (e) {
+        console.error(`儲存筆記「${snap.rawTitle}」失敗:`, e);
+        try {
+          localStorage.setItem('lvi_emergency_draft_' + (snap.noteId || snap.key), snap.fullContent);
+        } catch (err) {}
+        updateSyncStatus('error', '儲存失敗 (已保底存於本機)');
+        if (DOM.statAutosave) {
+          DOM.statAutosave.innerHTML = `<span class="text-red-500 font-medium cursor-pointer hover:underline" title="${escapeHtml(e.message || '')}">⚠️ 同步失敗 (已存於本機，點此重試)</span>`;
+          DOM.statAutosave.onclick = () => {
+            pendingCloudSaveMap.set(snap.key, snap);
+            processCloudSaveQueue();
+          };
+        }
+      } finally {
+        activeSavingSnapshotKey = null;
       }
     }
 
-    if (!res.ok) {
-      const errText = await res.text();
-      throw new Error(`Google Drive API 回應錯誤 (HTTP ${res.status}): ${errText}`);
-    }
-
-    const savedFile = await res.json();
-
-    if (!state.currentNote || !state.currentNote.id) {
-      state.currentNote = {
-        id: savedFile.id,
-        name: title,
-        parentId: targetFolderId,
-        meta: meta
-      };
-      state.notes.unshift({
-        ...state.currentNote,
-        _cachedBody: markdownBody,
-        _cachedHtml: DOM.editor.innerHTML,
-        _cachedMeta: meta
-      });
-    } else {
-      state.currentNote.name = title;
-      state.currentNote.parentId = targetFolderId;
-      state.currentNote.meta = meta;
-      const nowIso = new Date().toISOString();
-      state.currentNote.modifiedTime = nowIso;
-      localStorage.setItem('lvi_last_active_note_id', state.currentNote.id);
-      const idx = state.notes.findIndex(n => n.id === state.currentNote.id);
-      if (idx !== -1) {
-        state.notes[idx] = {
-          ...state.notes[idx],
-          name: title,
-          parentId: targetFolderId,
-          meta: meta,
-          modifiedTime: nowIso,
-          _cachedBody: markdownBody,
-          _cachedHtml: DOM.editor.innerHTML,
-          _cachedMeta: meta
-        };
+    if (pendingCloudSaveMap.size === 0) {
+      updateSyncStatus('synced', '已儲存');
+      if (DOM.statAutosave) {
+        DOM.statAutosave.innerHTML = '<span class="text-emerald-500 font-medium">✓ 已自動同步至 Google Drive</span>';
       }
     }
-
-    markLocalDraftSynced(state.currentNote.id); // 標記本機草稿已完成雲端同步
-    try { updateNoteSearchIndex(state.currentNote.id, state.currentNote.modifiedTime, markdownBody); } catch (e) {}
-    saveSwrCacheSnapshot();
-    updateSyncStatus('synced', '已儲存');
-    DOM.statAutosave.innerHTML = '<span class="text-emerald-500 font-medium">✓ 已自動同步至 Google Drive</span>';
-    renderWorkTagLists();
-    renderSidebarTags();
-    renderNotesList();
-    renderBreadcrumbs();
-    state.isDirty = false;
-  } catch (e) {
-    console.error('儲存筆記失敗:', e);
-    // 🛡️ 本地緊急備份草稿，確保文字 100% 絕不丟失
-    try {
-      const draftKey = 'lvi_emergency_draft_' + (state.currentNote ? state.currentNote.id : 'current');
-      localStorage.setItem(draftKey, fullContent);
-    } catch(err) {}
-
-    updateSyncStatus('error', '儲存失敗');
-    DOM.statAutosave.innerHTML = `<span class="text-red-500 font-medium cursor-pointer hover:underline" title="${escapeHtml(e.message || '')}">⚠️ 同步失敗 (點此重試)</span>`;
-    DOM.statAutosave.onclick = () => saveCurrentNote();
-    showToast(`⚠️ 儲存失敗：${e.message || '請檢查網路連線或授權狀態'}`);
   } finally {
+    isProcessingCloudQueue = false;
     state.isSaving = false;
-    if (state.savePending) {
+    activeSavingSnapshotKey = null;
+    if (pendingCloudSaveMap.size > 0 || state.savePending) {
       state.savePending = false;
-      setTimeout(() => saveCurrentNote(), 100);
+      setTimeout(() => processCloudSaveQueue(), 50);
     }
   }
+}
+
+async function saveCurrentNote() {
+  if (state.autoSaveTimer) {
+    clearTimeout(state.autoSaveTimer);
+    state.autoSaveTimer = null;
+  }
+  if (autoSaveMaxTimer) {
+    clearTimeout(autoSaveMaxTimer);
+    autoSaveMaxTimer = null;
+  }
+
+  const snap = captureCurrentNoteAtomicSnapshot();
+  state.isDirty = false;
+  if (snap) {
+    pendingCloudSaveMap.set(snap.key, snap);
+  }
+  await processCloudSaveQueue();
 }
 
 async function deleteCurrentNote() {
@@ -8347,8 +8614,7 @@ function insertSlashSnippet(type) {
       html = '<hr class="notion-divider"><p><br></p>';
       break;
     case 'camera':
-      saveCameraCheckpoint();
-      if (DOM.cameraCaptureInput) DOM.cameraCaptureInput.click();
+      openInAppCameraModal();
       break;
     case 'media':
       saveCameraCheckpoint();
@@ -8498,15 +8764,6 @@ function handleTextSelection() {
     return;
   }
 
-  // 📱 在手機裝置上反白文字時，自動浮出底部大尺寸螢光筆色盤，避開上方 Android 原生「複製/分享」選單遮擋
-  if (window.innerWidth < 768 && DOM.mbHighlightPalette) {
-    DOM.mbHighlightPalette.classList.remove('hidden');
-    const mbStatus = document.getElementById('mb-hl-status-text');
-    if (mbStatus) {
-      mbStatus.textContent = `✨ 已選取「${text.slice(0, 10)}${text.length > 10 ? '…' : ''}」：點下方顏色立即塗色`;
-    }
-  }
-
   updateSelectionToolbarActiveStates();
 
   const rect = range.getBoundingClientRect();
@@ -8514,15 +8771,41 @@ function handleTextSelection() {
 
   DOM.selectionToolbar.classList.remove('hidden');
   const tbRect = DOM.selectionToolbar.getBoundingClientRect();
-  const toolbarWidth = tbRect.width || (window.innerWidth < 768 ? Math.min(window.innerWidth - 16, 360) : 360);
+  const vWidth = (window.visualViewport && window.visualViewport.width) ? window.visualViewport.width : window.innerWidth;
+  const vHeight = (window.visualViewport && window.visualViewport.height) ? window.visualViewport.height : window.innerHeight;
+  const vOffsetTop = (window.visualViewport && window.visualViewport.offsetTop) ? window.visualViewport.offsetTop : 0;
+
+  const toolbarWidth = Math.min(tbRect.width || 340, vWidth - 16);
   const toolbarHeight = tbRect.height || 40;
 
-  let left = Math.max(8, Math.min(rect.left + rect.width / 2 - toolbarWidth / 2, window.innerWidth - toolbarWidth - 8));
-  let top = rect.top + window.scrollY - toolbarHeight - 10;
+  let left = Math.max(8, Math.min(rect.left + rect.width / 2 - toolbarWidth / 2, vWidth - toolbarWidth - 8));
+  let top;
 
-  // 若太靠近視窗頂部 (小於 72px)，自動翻轉至選取文字下方，避開頂部導覽列與瀏覽器原生選單
-  if (rect.top < 72) {
-    top = rect.bottom + window.scrollY + 10;
+  if (window.innerWidth < 768) {
+    // 📱 手機端防遮擋演算法 (解決截圖二 1252.jpg)：
+    // Android 原生「剪下 | 複製 | 貼上」固定佔據選取範圍上方 [rect.top - 62px, rect.top]，
+    // 而下方兩個藍色水滴拉柄佔據 [rect.bottom, rect.bottom + 38px]。
+    const belowTeardropsTop = rect.bottom + 44; // 避開下方藍色水滴拉柄
+    const aboveAndroidMenuTop = rect.top - toolbarHeight - 66; // 避開上方 Android 原生選單
+
+    // 計算距離虛擬鍵盤頂部或底部工具列的可視下界
+    const bottomSafeLimit = vOffsetTop + vHeight - (vHeight < window.innerHeight * 0.78 ? 10 : 62);
+
+    if (belowTeardropsTop + toolbarHeight <= bottomSafeLimit) {
+      // 優先放於藍色水滴拉柄正下方，與上方 Android 原生選單完全上下分離！
+      top = belowTeardropsTop + window.scrollY;
+    } else if (aboveAndroidMenuTop >= 48) {
+      // 若下方緊貼虛擬鍵盤，則置於 Android 原生選單「更上方 66px 處」，絕不重疊！
+      top = aboveAndroidMenuTop + window.scrollY;
+    } else {
+      // 極端情況：固定於可視區頂部安全位置
+      top = Math.max(48, vOffsetTop + 52);
+    }
+  } else {
+    top = rect.top + window.scrollY - toolbarHeight - 10;
+    if (rect.top < 72) {
+      top = rect.bottom + window.scrollY + 10;
+    }
   }
 
   DOM.selectionToolbar.style.left = `${Math.round(left)}px`;
@@ -9013,6 +9296,10 @@ function setLayout(mode) {
 // ==========================================================================
 
 async function createQuickNote() {
+  // 建立新筆記前，先將當前正在編輯的上一篇筆記同步結算並排入背景上傳佇列
+  try {
+    commitActiveEditorStateImmediately();
+  } catch (e) {}
   const now = new Date();
   const dateKey = now.toISOString().split('T')[0];
   
@@ -9419,6 +9706,12 @@ function renderUncategorizedView() {
 }
 
 function switchView(viewName) {
+  // 🛡️ 零掉字保護：從編輯器切往表格資料庫、未分類、待辦或行事曆前，第 0 毫秒同步結算當前筆記快照並排入背景上傳佇列！
+  if (state.currentView === 'editor' && viewName !== 'editor') {
+    try {
+      commitActiveEditorStateImmediately();
+    } catch (e) {}
+  }
   state.currentView = viewName;
 
   // 1. 切換標籤按鈕 active 樣式
@@ -14965,5 +15258,332 @@ function ensureHighContrastInDarkMode(container = DOM.editor) {
     });
   } catch (e) {
     console.warn('ensureHighContrastInDarkMode warning:', e);
+  }
+}
+
+
+// ============================================================================
+// 📷 v2.7.2 零閃退「網頁內建 720P 光學硬體相機」引擎 (In-App WebRTC 720P Camera)
+// 為什麼不會閃退？
+// 1. 全程在瀏覽器前景取景 (getUserMedia)，不喚起外部系統 50MP 相機 App，Android LMK 絕不殺分頁！
+// 2. 直接向硬體 ISP 要求 1280×720 (720P) 視訊流，記憶體佔用 < 4MB（傳統 50MP 照片解碼需 >200MB）。
+// 3. 支援「⚡ 即拍即傳」與「預覽後按確定上傳」雙模式、手電筒補光 (Torch) 與前後鏡頭切換。
+// ============================================================================
+const inAppCameraState = {
+  stream: null,
+  facingMode: 'environment',
+  torchOn: false,
+  instantUpload: true,
+  capturedFile: null,
+  capturedPreviewUrl: null
+};
+
+function stopInAppCameraStream() {
+  if (inAppCameraState.stream) {
+    try {
+      inAppCameraState.stream.getTracks().forEach(track => {
+        try { track.stop(); } catch (e) {}
+      });
+    } catch (e) {}
+    inAppCameraState.stream = null;
+  }
+  inAppCameraState.torchOn = false;
+  const videoEl = document.getElementById('inapp-camera-video');
+  if (videoEl) {
+    try { videoEl.srcObject = null; } catch (e) {}
+  }
+}
+
+function closeInAppCameraModal() {
+  stopInAppCameraStream();
+  if (inAppCameraState.capturedPreviewUrl) {
+    URL.revokeObjectURL(inAppCameraState.capturedPreviewUrl);
+    inAppCameraState.capturedPreviewUrl = null;
+  }
+  inAppCameraState.capturedFile = null;
+  const modal = document.getElementById('inapp-camera-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function startInAppCameraStream() {
+  stopInAppCameraStream();
+  const videoEl = document.getElementById('inapp-camera-video');
+  const previewImg = document.getElementById('inapp-camera-preview-img');
+  const liveControls = document.getElementById('inapp-camera-live-controls');
+  const confirmControls = document.getElementById('inapp-camera-confirm-controls');
+  const torchBtn = document.getElementById('inapp-camera-torch-btn');
+  const statusEl = document.getElementById('inapp-camera-status');
+  const resLabel = document.getElementById('inapp-camera-res-label');
+
+  if (previewImg) previewImg.classList.add('hidden');
+  if (videoEl) videoEl.classList.remove('hidden');
+  if (liveControls) {
+    liveControls.classList.remove('hidden');
+    liveControls.classList.add('flex');
+  }
+  if (confirmControls) {
+    confirmControls.classList.add('hidden');
+    confirmControls.classList.remove('flex');
+  }
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    closeInAppCameraModal();
+    if (DOM.genericFileUploadInput) DOM.genericFileUploadInput.click();
+    return;
+  }
+
+  try {
+    if (statusEl) statusEl.textContent = '⏳ 正在啟動 720P 硬體光學鏡頭...';
+    const constraints = {
+      audio: false,
+      video: {
+        facingMode: { ideal: inAppCameraState.facingMode },
+        width: { ideal: 1280, max: 1920 },
+        height: { ideal: 720, max: 1080 }
+      }
+    };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    inAppCameraState.stream = stream;
+
+    if (videoEl) {
+      videoEl.srcObject = stream;
+      await videoEl.play().catch(() => {});
+      const vw = videoEl.videoWidth || 1280;
+      const vh = videoEl.videoHeight || 720;
+      if (resLabel) resLabel.textContent = `${vw}×${vh}`;
+    }
+
+    // 偵測是否支援機台內部補光燈 (Torch)
+    const videoTrack = stream.getVideoTracks()[0];
+    if (videoTrack && torchBtn) {
+      const caps = (typeof videoTrack.getCapabilities === 'function') ? videoTrack.getCapabilities() : {};
+      if (caps && caps.torch) {
+        torchBtn.classList.remove('hidden');
+      } else {
+        torchBtn.classList.add('hidden');
+      }
+    }
+
+    if (statusEl) {
+      statusEl.textContent = inAppCameraState.instantUpload
+        ? '⚡ 即拍即傳模式：按下快門立即寫入筆記並上傳雲端（絕不閃退）'
+        : '🔍 預覽確認模式：按下快門後可先檢視畫面，再按「確定使用」';
+    }
+  } catch (err) {
+    console.warn('無法開啟內建 WebRTC 相機，切換為安全相簿選圖:', err);
+    closeInAppCameraModal();
+    showToast('💡 請允許相機權限以使用內建防閃退相機，或直接由相簿選圖');
+    if (DOM.genericFileUploadInput) DOM.genericFileUploadInput.click();
+  }
+}
+
+async function openInAppCameraModal() {
+  // 拍照前先同步鎖定當前筆記狀態，雙重保障零掉字
+  try { commitActiveEditorStateImmediately(); } catch (e) {}
+
+  try {
+    const savedInstant = localStorage.getItem('lvi_camera_instant_mode');
+    if (savedInstant !== null) {
+      inAppCameraState.instantUpload = savedInstant === 'true';
+    }
+  } catch (e) {}
+
+  const instantBtn = document.getElementById('inapp-camera-instant-toggle');
+  if (instantBtn) {
+    instantBtn.textContent = inAppCameraState.instantUpload ? '⚡ 即拍即傳: 開' : '🔍 預覽確認: 開';
+    instantBtn.className = inAppCameraState.instantUpload
+      ? 'px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 text-[11px] font-bold transition cursor-pointer whitespace-nowrap'
+      : 'px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/50 text-[11px] font-bold transition cursor-pointer whitespace-nowrap';
+  }
+
+  const modal = document.getElementById('inapp-camera-modal');
+  if (modal) {
+    modal.classList.remove('hidden');
+    initLucide();
+    await startInAppCameraStream();
+  }
+}
+
+async function captureInAppPhotoFrame() {
+  const videoEl = document.getElementById('inapp-camera-video');
+  const canvas = document.getElementById('inapp-camera-canvas');
+  if (!videoEl || !canvas) return;
+
+  const rawW = videoEl.videoWidth || 1280;
+  const rawH = videoEl.videoHeight || 720;
+  const maxW = rawH > rawW ? 720 : 1280;
+  const maxH = rawH > rawW ? 1280 : 720;
+  const scale = Math.min(maxW / rawW, maxH / rawH, 1.0);
+  const targetW = Math.max(1, Math.round(rawW * scale));
+  const targetH = Math.max(1, Math.round(rawH * scale));
+
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d', { alpha: false });
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, targetW, targetH);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'medium';
+  ctx.drawImage(videoEl, 0, 0, targetW, targetH);
+
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+  if (!blob) {
+    showToast('⚠️ 擷取畫面失敗，請再按一次快門');
+    return;
+  }
+
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+  const fileName = `Photo_${stamp}.jpg`;
+  const photoFile = new File([blob], fileName, { type: 'image/jpeg', lastModified: Date.now() });
+  photoFile._is720p = true;
+
+  if (inAppCameraState.instantUpload) {
+    // ⚡ 即拍即傳：直接關閉相機並以 0.01 秒樂觀渲染寫入筆記 + 背景上傳雲端！
+    closeInAppCameraModal();
+    showToast(`📸 已拍攝「${fileName}」並插入筆記！`, 2200);
+    await uploadGenericFile(photoFile);
+  } else {
+    // 🔍 預覽確認模式：顯示剛剛拍下的 720P 照片供使用者檢視，按下「✅ 確定使用並上傳」100% 不閃退！
+    if (inAppCameraState.capturedPreviewUrl) {
+      URL.revokeObjectURL(inAppCameraState.capturedPreviewUrl);
+    }
+    inAppCameraState.capturedFile = photoFile;
+    inAppCameraState.capturedPreviewUrl = URL.createObjectURL(photoFile);
+
+    const previewImg = document.getElementById('inapp-camera-preview-img');
+    const liveControls = document.getElementById('inapp-camera-live-controls');
+    const confirmControls = document.getElementById('inapp-camera-confirm-controls');
+    const statusEl = document.getElementById('inapp-camera-status');
+
+    if (previewImg) {
+      previewImg.src = inAppCameraState.capturedPreviewUrl;
+      previewImg.classList.remove('hidden');
+    }
+    videoEl.classList.add('hidden');
+    if (liveControls) {
+      liveControls.classList.add('hidden');
+      liveControls.classList.remove('flex');
+    }
+    if (confirmControls) {
+      confirmControls.classList.remove('hidden');
+      confirmControls.classList.add('flex');
+    }
+    if (statusEl) {
+      statusEl.textContent = `✅ 已擷取 720P 高清畫面 (${formatFileSizeDisplay(photoFile.size)})，請點擊下方「確定使用並上傳」`;
+    }
+  }
+}
+
+function initInAppCameraListeners() {
+  const topCamBtn = document.getElementById('top-camera-btn');
+  const closeBtn = document.getElementById('inapp-camera-close-btn');
+  const doneBtn = document.getElementById('inapp-camera-done-btn');
+  const shutterBtn = document.getElementById('inapp-camera-shutter-btn');
+  const switchBtn = document.getElementById('inapp-camera-switch-btn');
+  const torchBtn = document.getElementById('inapp-camera-torch-btn');
+  const instantBtn = document.getElementById('inapp-camera-instant-toggle');
+  const fallbackBtn = document.getElementById('inapp-camera-fallback-btn');
+  const retakeBtn = document.getElementById('inapp-camera-retake-btn');
+  const confirmUseBtn = document.getElementById('inapp-camera-confirm-use-btn');
+
+  if (topCamBtn) {
+    topCamBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openInAppCameraModal();
+    });
+  }
+  if (closeBtn) closeBtn.addEventListener('click', closeInAppCameraModal);
+  if (doneBtn) doneBtn.addEventListener('click', closeInAppCameraModal);
+
+  if (shutterBtn) {
+    shutterBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      captureInAppPhotoFrame();
+    });
+  }
+
+  if (switchBtn) {
+    switchBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      inAppCameraState.facingMode = inAppCameraState.facingMode === 'environment' ? 'user' : 'environment';
+      await startInAppCameraStream();
+    });
+  }
+
+  if (torchBtn) {
+    torchBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (!inAppCameraState.stream) return;
+      const track = inAppCameraState.stream.getVideoTracks()[0];
+      if (!track) return;
+      try {
+        inAppCameraState.torchOn = !inAppCameraState.torchOn;
+        await track.applyConstraints({ advanced: [{ torch: inAppCameraState.torchOn }] });
+        torchBtn.className = inAppCameraState.torchOn
+          ? 'px-2 py-1 rounded-lg bg-amber-400 text-slate-950 border border-amber-300 text-[11px] font-bold transition cursor-pointer whitespace-nowrap'
+          : 'px-2 py-1 rounded-lg bg-slate-800 hover:bg-amber-500/20 text-slate-200 hover:text-amber-300 border border-slate-700 text-[11px] font-semibold transition cursor-pointer whitespace-nowrap';
+      } catch (err) {
+        showToast('此鏡頭不支援手電筒常亮控制');
+      }
+    });
+  }
+
+  if (instantBtn) {
+    instantBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      inAppCameraState.instantUpload = !inAppCameraState.instantUpload;
+      try { localStorage.setItem('lvi_camera_instant_mode', String(inAppCameraState.instantUpload)); } catch (err) {}
+      instantBtn.textContent = inAppCameraState.instantUpload ? '⚡ 即拍即傳: 開' : '🔍 預覽確認: 開';
+      instantBtn.className = inAppCameraState.instantUpload
+        ? 'px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 text-[11px] font-bold transition cursor-pointer whitespace-nowrap'
+        : 'px-2 py-1 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/50 text-[11px] font-bold transition cursor-pointer whitespace-nowrap';
+      const statusEl = document.getElementById('inapp-camera-status');
+      if (statusEl) {
+        statusEl.textContent = inAppCameraState.instantUpload
+          ? '⚡ 即拍即傳模式：按下快門立即寫入筆記並上傳雲端（絕不閃退）'
+          : '🔍 預覽確認模式：按下快門後可先檢視畫面，再按「確定使用」';
+      }
+    });
+  }
+
+  if (fallbackBtn) {
+    fallbackBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeInAppCameraModal();
+      if (DOM.genericFileUploadInput) DOM.genericFileUploadInput.click();
+    });
+  }
+
+  if (retakeBtn) {
+    retakeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const videoEl = document.getElementById('inapp-camera-video');
+      const previewImg = document.getElementById('inapp-camera-preview-img');
+      const liveControls = document.getElementById('inapp-camera-live-controls');
+      const confirmControls = document.getElementById('inapp-camera-confirm-controls');
+      if (previewImg) previewImg.classList.add('hidden');
+      if (videoEl) videoEl.classList.remove('hidden');
+      if (liveControls) {
+        liveControls.classList.remove('hidden');
+        liveControls.classList.add('flex');
+      }
+      if (confirmControls) {
+        confirmControls.classList.add('hidden');
+        confirmControls.classList.remove('flex');
+      }
+    });
+  }
+
+  if (confirmUseBtn) {
+    confirmUseBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const fileToUpload = inAppCameraState.capturedFile;
+      closeInAppCameraModal();
+      if (fileToUpload) {
+        showToast(`📸 已確認照片「${fileToUpload.name}」，正在同步至雲端...`, 2200);
+        await uploadGenericFile(fileToUpload);
+      }
+    });
   }
 }

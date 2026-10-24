@@ -2205,7 +2205,7 @@ mark.fuzzy-hl {
 }
 
 /* ==========================================================================
-   🚀 v2.7.0 四大進階功能樣式：
+   🚀 v2.7.2 四大進階功能樣式：
    1. 搜尋命中段落自動定位與琥珀脈衝閃爍 (.search-hit-flash-block)
    2. 表格資料庫就地修改下拉選單 (.table-inline-select) 與側邊預覽抽屜
    3. 照片就地標註工作室 (#photo-annotate-modal)
@@ -2321,7 +2321,7 @@ mark.fuzzy-hl {
 
 
 /* ==========================================================================
-   📱 v2.7.0 手機端單行俐落按鈕列、點塗螢光筆與內建圖片燈箱專用樣式
+   📱 v2.7.2 手機端單行俐落按鈕列、點塗螢光筆與內建圖片燈箱專用樣式
    ========================================================================== */
 #editor-action-toolbar {
   display: flex !important;
@@ -2387,7 +2387,7 @@ mark.notion-highlight.selected-mark-target {
 
 
 /* ==========================================================================
-   🌙 v2.7.0 深色模式全站極致高對比度保證 (WCAG AAA High-Contrast Dark Mode)
+   🌙 v2.7.2 深色模式全站極致高對比度保證 (WCAG AAA High-Contrast Dark Mode)
    徹底解決深色模式下淺色半透明背景泛灰、字體霧化看不清楚的問題
    ========================================================================== */
 
@@ -2571,4 +2571,47 @@ mark.notion-highlight.selected-mark-target {
   background-color: #0f1115 !important;
   color: #ffffff !important;
   border-color: #3b4252 !important;
+}
+
+
+/* ==========================================================================
+   📱 v2.7.2 手機端動態視窗安全區、螢光筆浮動抽屜防遮擋與選字工具列避障樣式
+   ========================================================================== */
+html, body {
+  height: 100vh;
+  height: 100dvh !important;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  /* 確保手機底部工具列自動避開 Android 三鍵導航列與 iOS Home Indicator */
+  #mobile-toolbar {
+    position: relative !important;
+    z-index: 45 !important;
+    min-height: 50px !important;
+    height: auto !important;
+    padding-top: 6px !important;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 8px)) !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* 修復截圖一 (1254.jpg)：強制 #mb-highlight-palette 永遠懸浮於 #mobile-toolbar 正上方 10px，絕不往下沉入虛擬導航鍵 */
+  #mb-highlight-palette {
+    position: absolute !important;
+    bottom: calc(100% + 10px) !important;
+    top: auto !important;
+    left: 8px !important;
+    right: 8px !important;
+    z-index: 98 !important;
+    box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.65) !important;
+  }
+
+  /* 修復截圖二 (1252.jpg)：手機選字多功能工具列防截斷與高優先層級 */
+  #selection-toolbar {
+    max-width: calc(100vw - 16px) !important;
+    z-index: 96 !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+    white-space: nowrap !important;
+  }
 }

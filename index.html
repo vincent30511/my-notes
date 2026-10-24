@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>LVI_Note v2.7.0 - 雲端工作筆記</title>
+  <title>LVI_Note v2.7.2 - 雲端工作筆記</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -44,20 +44,20 @@
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <link rel="manifest" href="manifest.json?v=20261023_v2.7.0">
+  <link rel="manifest" href="manifest.json?v=20261025_v2.7.2">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LVI_Note">
   <meta name="application-name" content="LVI_Note">
-  <meta name="version" content="v2.7.0">
+  <meta name="version" content="v2.7.2">
   <meta name="theme-color" content="#191919">
-  <link rel="stylesheet" href="styles.css?v=20261023_v2.7.0">
+  <link rel="stylesheet" href="styles.css?v=20261025_v2.7.2">
   <script>
-    // 🛡️ LVI_Note v2.7.0 強制破除舊版 Service Worker 快取守門員
+    // 🛡️ LVI_Note v2.7.2 強制破除舊版 Service Worker 快取守門員
     (function() {
       try {
-        var CURRENT_VER = 'v2.7.0';
+        var CURRENT_VER = 'v2.7.2';
         var savedVer = localStorage.getItem('lvi_installed_version');
         if (savedVer !== CURRENT_VER) {
           localStorage.setItem('lvi_installed_version', CURRENT_VER);
@@ -111,7 +111,7 @@
       <img src="logo.png" alt="LVI_Note Logo" class="w-6 h-6 rounded-full border border-blue-500/40 shadow-xs object-cover shrink-0 cursor-pointer hover:scale-105 transition-transform" onclick="switchView('table')" title="LVI_Note">
       
       <!-- 版本徽章 (手機與電腦皆常駐清晰顯示) + 麵包屑導航 -->
-      <span id="header-version-badge" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shrink-0 shadow-2xs" title="當前版本號：v2.7.0 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)">v2.7.0</span>
+      <span id="header-version-badge" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shrink-0 shadow-2xs" title="當前版本號：v2.7.2 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)">v2.7.2</span>
       <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1 truncate max-w-[110px] sm:max-w-xs">
         <span class="hidden sm:inline font-medium text-gray-700 dark:text-gray-300 shrink-0">
           <span id="header-folder-name">LVI_Note</span>
@@ -256,7 +256,7 @@
           <img src="logo.png" alt="LVI_Note Logo" class="w-7 h-7 rounded-full border border-blue-500/40 shadow-sm object-cover shrink-0">
           <div class="flex items-center gap-1.5">
             <span class="text-sm font-bold tracking-tight text-gray-800 dark:text-gray-100">LVI_Note</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">v2.7.0</span>
+            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">v2.7.2</span>
           </div>
         </div>
         <div class="flex items-center space-x-1">
@@ -435,7 +435,7 @@
         <span class="flex items-center gap-1.5 truncate">
           <i data-lucide="cloud" class="w-3 h-3 text-blue-500"></i>
           <span id="sidebar-folder-label">LVI_Note</span>
-          <span class="app-version-badge text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">v2.7.0</span>
+          <span class="app-version-badge text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">v2.7.2</span>
         </span>
         <button id="refresh-btn" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-600" title="重新整理">
           <i data-lucide="rotate-cw" class="w-3 h-3"></i>
@@ -550,7 +550,7 @@
               </div>
             </div>
 
-            <!-- 2. 操作按鈕列：手機端與 PC 端全面統一「純圖示 (Icon-Only)」極簡俐落設計 (v2.7.0 Stable) -->
+            <!-- 2. 操作按鈕列：手機端與 PC 端全面統一「純圖示 (Icon-Only)」極簡俐落設計 (v2.7.2 Stable) -->
             <div id="editor-action-toolbar" class="flex items-center justify-between gap-1.5 mb-2.5 p-1 rounded-xl bg-gray-100/70 dark:bg-notion-darker/80 border border-gray-200/60 dark:border-notion-borderDark/80">
               <!-- 左側純圖示功能膠囊列 (收折媒體、檔案上傳、螢光筆、排查模板) -->
               <div class="flex items-center gap-1.5 flex-nowrap min-w-0">
@@ -597,6 +597,11 @@
                 <button id="top-insert-troubleshoot-btn" type="button" class="w-9 h-8 rounded-lg text-rose-600 dark:text-rose-300 bg-rose-50/90 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200/80 dark:border-rose-800/80 inline-flex items-center justify-center transition shadow-2xs active:scale-95 cursor-pointer shrink-0" title="一鍵插入【1.異常現象與量測讀值 ➔ 2.排查過程與測試點位 ➔ 3.根本原因與最終解決對策】三段式模板">
                   <i data-lucide="wrench" class="w-4 h-4 shrink-0"></i>
                 </button>
+
+                <!-- 📷 零閃退內建 720P 光學相機拍照直傳按鈕 (純圖示，緊鄰排查模板鈕旁) -->
+                <button id="top-camera-btn" type="button" class="w-9 h-8 rounded-lg text-sky-600 dark:text-sky-300 bg-sky-50/90 dark:bg-sky-950/50 hover:bg-sky-100 dark:hover:bg-sky-900/60 border border-sky-200/80 dark:border-sky-800/80 inline-flex items-center justify-center transition shadow-2xs active:scale-95 cursor-pointer shrink-0" title="開啟內建 720P 防閃退相機（當場拍照直接上傳至筆記，不跳離網頁絕不閃退）">
+                  <i data-lucide="camera" class="w-4 h-4 shrink-0"></i>
+                </button>
               </div>
 
               <!-- 右側功能按鈕：釘選 & 刪除 -->
@@ -610,7 +615,7 @@
               </div>
             </div>
 
-            <!-- 屬性面板 (工作專用 3 級多類型標籤：機型、內容、急迫性 + 客戶、日期、自訂標籤 - v2.7.0 手機垂直切齊優化) -->
+            <!-- 屬性面板 (工作專用 3 級多類型標籤：機型、內容、急迫性 + 客戶、日期、自訂標籤 - v2.7.2 手機垂直切齊優化) -->
             <div id="note-properties-container" class="space-y-1.5 sm:space-y-2 text-xs text-gray-600 dark:text-gray-300 bg-gray-50/70 dark:bg-notion-darker/60 p-2 sm:p-2.5 rounded-xl border border-gray-200/70 dark:border-notion-borderDark">
               <!-- 手機/電腦通用：屬性面板標題、收合摘要徽章與收合開關 -->
               <div class="flex items-center justify-between gap-2 pb-1 border-b border-gray-200/40 dark:border-notion-borderDark/40">
@@ -1145,10 +1150,10 @@
       </aside>
 
       <!-- ✨ 內嵌 AI 助手側欄 (CloudNotes AI) -->
-      <!-- 手機專屬：底部快捷編輯工具列 (v2.7.0 深度觸控優化版) -->
+      <!-- 手機專屬：底部快捷編輯工具列 (v2.7.2 深度觸控優化版) -->
       <div id="mobile-toolbar" class="md:hidden relative h-12 border-t border-gray-200 dark:border-notion-borderDark bg-white/95 dark:bg-notion-dark/95 backdrop-blur-md flex items-center justify-around px-1.5 z-20 shrink-0 text-gray-600 dark:text-gray-300">
         <!-- 📱 手機專屬智慧螢光筆工作抽屜 (支援「⚡免反白點塗」+「點選既有螢光筆直接換色/清除」) -->
-        <div id="mb-highlight-palette" class="hidden absolute bottom-13 left-2 right-2 bg-slate-900/98 text-white border border-slate-700/90 rounded-2xl shadow-2xl px-3 py-2.5 flex flex-col gap-2 z-50 backdrop-blur-md">
+        <div id="mb-highlight-palette" class="hidden absolute bottom-full mb-2.5 left-2 right-2 bg-slate-900/98 text-white border border-slate-700/90 rounded-2xl shadow-2xl px-3 py-2.5 flex flex-col gap-2 z-[95] backdrop-blur-md">
           <div class="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-700/80 text-[11px]">
             <span id="mb-hl-status-text" class="text-slate-200 font-semibold truncate">🖍️ 點選顏色上色，或開啟「點塗」免長按</span>
             <div class="flex items-center gap-1.5 shrink-0">
@@ -1585,7 +1590,7 @@
       <div class="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-notion-borderDark">
         <div class="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
           <span>系統版本</span>
-          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.7.0</span>
+          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.7.2</span>
         </div>
         <button id="save-settings-btn" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition shadow-sm">
           儲存所有設定
@@ -1752,7 +1757,7 @@
     </div>
   </div>
 
-  <!-- 👁️ 表格資料庫「側邊快速預覽抽屜」 (Table Quick Peek Drawer - v2.7.0) -->
+  <!-- 👁️ 表格資料庫「側邊快速預覽抽屜」 (Table Quick Peek Drawer - v2.7.2) -->
   <div id="table-quick-peek-backdrop" class="fixed inset-0 bg-black/35 backdrop-blur-2xs z-[80] hidden"></div>
   <aside id="table-quick-peek-drawer" class="fixed top-0 right-0 bottom-0 w-full sm:w-[480px] md:w-[560px] bg-white dark:bg-notion-card border-l border-gray-200 dark:border-notion-borderDark shadow-2xl z-[85] flex flex-col hidden">
     <!-- 預覽抽屜頂部列 -->
@@ -1786,7 +1791,79 @@
     <div id="peek-note-body" class="flex-1 overflow-y-auto p-4 sm:p-6 prose dark:prose-invert max-w-none text-sm leading-relaxed text-gray-800 dark:text-gray-100"></div>
   </aside>
 
-  <!-- 🔍 筆記照片「全螢幕高清檢視燈箱」 (In-Note Photo Lightbox - v2.7.0 解決標註後點擊圖片無法開啟問題) -->
+  <!-- 📷 零閃退「網頁內建 720P 硬體光學相機」 (In-App WebRTC 720P Camera Modal - v2.7.2)
+       徹底解決 Android 手機呼叫系統外部 50MP 相機 App 導致 Chrome 退入背景被系統殺分頁 (LMK) 或按下確定時記憶體暴衝閃退之問題 -->
+  <div id="inapp-camera-modal" class="fixed inset-0 bg-black/95 backdrop-blur-md z-[99992] flex flex-col justify-between hidden select-none">
+    <!-- 頂部狀態與控制列 -->
+    <div class="px-3.5 py-2.5 bg-slate-900/95 border-b border-slate-800 flex items-center justify-between gap-2 text-white shrink-0">
+      <div class="flex items-center gap-2 min-w-0">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0"></span>
+        <div class="min-w-0">
+          <div class="text-xs sm:text-sm font-bold text-white truncate">📷 現場 720P 防閃退光學相機</div>
+          <div id="inapp-camera-status" class="text-[10px] text-emerald-300 truncate">前景硬體直連中 · 記憶體安全 (&lt;4MB) · 拍完絕不閃退</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button type="button" id="inapp-camera-instant-toggle" class="px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 text-[11px] font-bold transition cursor-pointer whitespace-nowrap" title="開啟後，按下快門立即自動插入筆記並上傳雲端；關閉則可先預覽再按確定">
+          ⚡ 即拍即傳: 開
+        </button>
+        <button type="button" id="inapp-camera-torch-btn" class="hidden px-2 py-1 rounded-lg bg-slate-800 hover:bg-amber-500/20 text-slate-200 hover:text-amber-300 border border-slate-700 text-[11px] font-semibold transition cursor-pointer whitespace-nowrap" title="開關機台內部照明補光燈">
+          🔦 補光燈
+        </button>
+        <button type="button" id="inapp-camera-switch-btn" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-[11px] font-semibold transition cursor-pointer whitespace-nowrap" title="切換前後鏡頭">
+          🔄 鏡頭
+        </button>
+        <button type="button" id="inapp-camera-close-btn" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-200 hover:text-white inline-flex items-center justify-center text-sm font-bold transition cursor-pointer" title="關閉相機">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- 中央取景窗 / 拍攝預覽區 -->
+    <div class="relative flex-1 bg-black flex items-center justify-center overflow-hidden p-2">
+      <video id="inapp-camera-video" autoplay playsinline muted class="max-w-full max-h-[72vh] rounded-xl object-contain shadow-2xl border border-slate-800/80"></video>
+      <img id="inapp-camera-preview-img" src="" alt="拍攝預覽" class="hidden max-w-full max-h-[72vh] rounded-xl object-contain shadow-2xl border-2 border-emerald-500/80" />
+      <canvas id="inapp-camera-canvas" class="hidden"></canvas>
+
+      <!-- 取景準星與 720P 規格徽章 -->
+      <div id="inapp-camera-overlay-badge" class="pointer-events-none absolute top-4 left-4 px-2.5 py-1 rounded-full bg-black/65 border border-white/15 text-[11px] font-mono text-slate-200 flex items-center gap-1.5 backdrop-blur-xs">
+        <span class="text-sky-400 font-bold">HD 720P</span>
+        <span>•</span>
+        <span id="inapp-camera-res-label">1280×720</span>
+      </div>
+    </div>
+
+    <!-- 底部快門與確認操作列 (預留手機底部安全距離) -->
+    <div class="px-4 py-3.5 pb-6 bg-slate-900/95 border-t border-slate-800 flex items-center justify-center gap-5 shrink-0" style="padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 16px));">
+      <!-- 模式 A：取景拍攝狀態按鈕組 -->
+      <div id="inapp-camera-live-controls" class="flex items-center justify-between w-full max-w-md gap-4">
+        <button type="button" id="inapp-camera-fallback-btn" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap" title="從手機相簿選擇現有照片">
+          <i data-lucide="image" class="w-4 h-4 text-emerald-400"></i>
+          <span>相簿選圖</span>
+        </button>
+
+        <button type="button" id="inapp-camera-shutter-btn" class="w-16 h-16 rounded-full bg-white hover:bg-sky-50 active:scale-90 transition flex items-center justify-center shadow-[0_0_0_5px_rgba(56,189,248,0.45)] cursor-pointer shrink-0" title="按下快門拍照">
+          <span class="w-12 h-12 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center text-white text-xl shadow-inner">📷</span>
+        </button>
+
+        <button type="button" id="inapp-camera-done-btn" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer whitespace-nowrap">
+          <span>完成關閉</span>
+        </button>
+      </div>
+
+      <!-- 模式 B：預覽確認狀態按鈕組 (當「即拍即傳」設為關閉時顯示，按確定 100% 不閃退) -->
+      <div id="inapp-camera-confirm-controls" class="hidden items-center justify-center w-full max-w-md gap-3">
+        <button type="button" id="inapp-camera-retake-btn" class="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 transition cursor-pointer">
+          <span>↩️ 重拍一張</span>
+        </button>
+        <button type="button" id="inapp-camera-confirm-use-btn" class="flex-1 py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-1.5 shadow-lg transition active:scale-95 cursor-pointer">
+          <span>✅ 確定使用並上傳</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🔍 筆記照片「全螢幕高清檢視燈箱」 (In-Note Photo Lightbox - v2.7.2 解決標註後點擊圖片無法開啟問題) -->
   <div id="photo-lightbox-modal" class="fixed inset-0 bg-black/92 backdrop-blur-md z-[88] flex flex-col hidden">
     <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-2 bg-slate-900/90 text-white shrink-0">
       <div class="flex items-center gap-2 min-w-0">
@@ -1813,7 +1890,7 @@
     </div>
   </div>
 
-  <!-- ✏️ 筆記照片「就地標註工作室」 (In-Note Photo Markup & Annotation Studio - v2.7.0) -->
+  <!-- ✏️ 筆記照片「就地標註工作室」 (In-Note Photo Markup & Annotation Studio - v2.7.2) -->
   <div id="photo-annotate-modal" class="fixed inset-0 bg-black/80 backdrop-blur-xs z-[99990] flex flex-col items-center justify-between p-2 sm:p-4 hidden select-none">
     <!-- 頂部工具列 -->
     <div class="w-full max-w-5xl bg-slate-900/95 border border-slate-700/80 rounded-2xl px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 text-white shadow-2xl shrink-0">
@@ -1884,6 +1961,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261023_v2.7.0"></script>
+  <script src="app.js?v=20261025_v2.7.2"></script>
 </body>
 </html>
