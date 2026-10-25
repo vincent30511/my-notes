@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.7.2'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.7.3'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -739,6 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
   try { initCoverPresetsUI(); } catch (e) { console.error('initCoverPresetsUI error:', e); }
   try { initFullWidth(); } catch (e) { console.error('initFullWidth error:', e); }
   try { bindEvents(); } catch (e) { console.error('bindEvents error:', e); }
+  try { purgeCorruptedLocalDraftsOnBoot(); } catch (e) {}
   try { hydrateFromSwrCacheOnBoot(); } catch (e) { console.error('hydrateFromSwrCacheOnBoot error:', e); }
   try { setupGoogleAuth(); } catch (e) { console.error('setupGoogleAuth error:', e); }
   try { checkAiKeyStatus(); } catch (e) { console.error('checkAiKeyStatus error:', e); }
@@ -1764,7 +1765,36 @@ async function fetchNotesList(silent = false) {
       createNewNote();
     }
     saveSwrCacheSnapshot();
-    setTimeout(() => { try { scheduleBackgroundFullTextIndexing(); } catch (e) {} }, 150);
+    setTimeout(() => {
+      try { scheduleBackgroundFullTextIndexing(); } catch (e) {}
+      // 🛡️ 背景巡檢：若發現之前曾受骨架屏波及的筆記，自動於背景從 Google Drive 歷史版本無損復原！
+      ['1mFyMO_qqJFgKvC8fSknTEFl-4YgPZEMS', '1DjCcVDu3gaZPhXXjBAim5_mXb-8XVeyv'].forEach(async (checkId) => {
+        const targetN = state.notes.find(n => n.id === checkId);
+        if (targetN && state.accessToken) {
+          try {
+            const checkRes = await fetch(`https://www.googleapis.com/drive/v3/files/${checkId}?alt=media`, {
+              headers: { Authorization: `Bearer ${state.accessToken}` }
+            });
+            if (checkRes.ok) {
+              const checkTxt = await checkRes.text();
+              if (isHtmlSkeletonOrError(checkTxt)) {
+                const healedTxt = await autoRecoverCorruptedNoteFromDriveRevisions(checkId, targetN);
+                if (healedTxt) {
+                  const { meta: hm, body: hb } = parseFrontmatter(healedTxt);
+                  targetN._cachedRawText = healedTxt;
+                  targetN._cachedBody = hb;
+                  targetN._cachedMeta = hm;
+                  renderNotesList();
+                  if (state.currentNote && state.currentNote.id === checkId && !state.isDirty) {
+                    selectNote(checkId);
+                  }
+                }
+              }
+            }
+          } catch (e) {}
+        }
+      });
+    }, 150);
   } catch (e) {
     console.error('載入雲端筆記清單失敗:', e);
     if (!silent) updateSyncStatus('error', '雲端同步出錯');
@@ -6141,10 +6171,140 @@ function closeSidebar() {
   DOM.sidebarBackdrop.classList.add('hidden');
 }
 
+// ----------------- 🛡️ 筆記安全守門員與雲端歷史版本自動救援引擎 (v2.7.3) -----------------
+
+/**
+ * 嚴格檢查一段 HTML 或 Markdown 是否為「載入中骨架屏」或「錯誤提示畫面」
+ * 任何時候只要此函式回傳 true，全系統 100% 嚴禁將其寫入快取、localStorage 或上傳至 Google Drive！
+ */
+function isHtmlSkeletonOrError(str) {
+  if (!str || typeof str !== 'string') return false;
+  return (
+    str.includes('note-skeleton-wrapper') ||
+    str.includes('skeleton-shimmer') ||
+    str.includes('正在載入雲端筆記內容') ||
+    str.includes('筆記載入失敗')
+  );
+}
+
+/**
+ * 開機時立即清除 localStorage 中任何曾被骨架屏污染的草稿或 SWR 快取
+ */
+function purgeCorruptedLocalDraftsOnBoot() {
+  try {
+    const keys = Object.keys(localStorage);
+    for (const k of keys) {
+      if (k.startsWith('lvi_draft_') || k.startsWith('lvi_emergency_draft_')) {
+        const raw = localStorage.getItem(k) || '';
+        if (isHtmlSkeletonOrError(raw)) {
+          console.warn('🧹 自動清除受骨架屏污染的本機草稿:', k);
+          localStorage.removeItem(k);
+        }
+      }
+    }
+    const swrRaw = localStorage.getItem('lvi_swr_notes_v1');
+    if (swrRaw && isHtmlSkeletonOrError(swrRaw)) {
+      const parsed = JSON.parse(swrRaw);
+      if (parsed && Array.isArray(parsed.notes)) {
+        parsed.notes.forEach(n => {
+          if (isHtmlSkeletonOrError(n._cachedBody) || isHtmlSkeletonOrError(n._cachedHtml)) {
+            delete n._cachedBody;
+            delete n._cachedHtml;
+          }
+        });
+        localStorage.setItem('lvi_swr_notes_v1', JSON.stringify(parsed));
+      }
+    }
+  } catch (e) {}
+}
+
+/**
+ * 🛡️ Google Drive 雲端版本歷史 (Revisions API) 自動無損救援引擎：
+ * 若偵測到某篇雲端筆記曾被誤寫入「正在載入雲端筆記內容... (note-skeleton-wrapper)」，
+ * 自動向 Google Drive 調閱該檔案的歷史版本清單 (files/{id}/revisions)，找回最後一份乾淨的原始內容與標題並自動修復！
+ */
+async function autoRecoverCorruptedNoteFromDriveRevisions(noteId, noteMeta) {
+  if (!state.accessToken || !noteId || String(noteId).startsWith('temp_')) return null;
+  try {
+    console.log(`🛡️ 啟動雲端歷史版本救援引擎，正在為筆記 ${noteId} 調閱 Google Drive 歷史版本...`);
+    const revListRes = await fetch(
+      `https://www.googleapis.com/drive/v3/files/${noteId}/revisions?fields=revisions(id,modifiedTime,originalFilename,size)`,
+      { headers: { Authorization: `Bearer ${state.accessToken}` } }
+    );
+    if (!revListRes.ok) return null;
+    const revData = await revListRes.json();
+    const revisions = Array.isArray(revData.revisions) ? revData.revisions : [];
+    if (revisions.length === 0) return null;
+
+    // 從倒數第二個版本開始往回找最後一份「不含骨架屏」的正常版本
+    for (let i = revisions.length - 1; i >= 0; i--) {
+      const rev = revisions[i];
+      const rRes = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${noteId}/revisions/${rev.id}?alt=media`,
+        { headers: { Authorization: `Bearer ${state.accessToken}` } }
+      );
+      if (!rRes.ok) continue;
+      const revText = await rRes.text();
+      if (revText && !isHtmlSkeletonOrError(revText)) {
+        // 找到乾淨的歷史版本！同時檢查是否需要恢復原始檔名
+        let recoveredName = (rev.originalFilename && rev.originalFilename !== '未命名隨手筆記.md')
+          ? rev.originalFilename
+          : ((noteMeta && noteMeta.name) || '恢復的筆記.md');
+
+        // 針對已知特定筆記 ID 若原名為「機台出機標配文件種類.md」自動精準復原標題
+        if (noteId === '1mFyMO_qqJFgKvC8fSknTEFl-4YgPZEMS' && recoveredName === '未命名隨手筆記.md') {
+          recoveredName = '機台出機標配文件種類.md';
+        }
+
+        // 立即將乾淨的歷史版本寫回 Google Drive 正式覆蓋受損版本
+        const { meta: cleanBodyMeta } = parseFrontmatter(revText);
+        const mergedMeta = { ...(cleanBodyMeta || {}), ...((noteMeta && noteMeta.meta) || {}) };
+        const boundary = '-------CloudNotesRecoveryBoundary' + Math.random().toString(36).substring(2);
+        const metadata = { name: recoveredName, description: JSON.stringify(mergedMeta) };
+        const multipartBody = new Blob([
+          `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
+          new Blob([JSON.stringify(metadata)], { type: 'application/json; charset=UTF-8' }),
+          `\r\n--${boundary}\r\nContent-Type: text/markdown; charset=UTF-8\r\n\r\n`,
+          new Blob([revText], { type: 'text/markdown; charset=UTF-8' }),
+          `\r\n--${boundary}--`
+        ], { type: `multipart/related; boundary=${boundary}` });
+
+        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${noteId}?uploadType=multipart`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${state.accessToken}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`
+          },
+          body: multipartBody
+        });
+
+        if (noteMeta) {
+          noteMeta.name = recoveredName;
+        }
+        markLocalDraftSynced(noteId);
+        localStorage.removeItem(`lvi_draft_${noteId}`);
+        showToast(`🛡️ 已從 Google 雲端歷史版本自動無損救回「${recoveredName.replace(/\.md$/i, '')}」！`, 4500);
+        return revText;
+      }
+    }
+  } catch (err) {
+    console.warn('雲端歷史版本自動救援異常:', err);
+  }
+  return null;
+}
+
 // ----------------- 選取與載入筆記 -----------------
 async function selectNote(noteId) {
-  // 🛡️ v2.7.1 零掉字核心護欄：切換至其他筆記前，必須在第 0 毫秒「同步鎖定並結算」上一篇正在編輯的筆記快照與排入雲端佇列！
-  if (!state.isUndoingOrRedoing && state.currentNote && (state.currentNote.id !== noteId || state.isDirty)) {
+  // 🛡️ 鐵律 1：僅當上一篇筆記「確實曾被使用者親手修改 (state.isDirty === true)」且「不在載入骨架屏狀態」時，才在切換前結算存檔！
+  // 單純點開檢視或切換筆記，100% 唯讀，絕不觸發任何寫入！
+  if (
+    !state.isUndoingOrRedoing &&
+    !state.isLoadingNote &&
+    state.isDirty &&
+    state.currentNote &&
+    DOM.editor &&
+    !isHtmlSkeletonOrError(DOM.editor.innerHTML)
+  ) {
     try {
       commitActiveEditorStateImmediately();
     } catch (commitErr) {
@@ -6155,41 +6315,60 @@ async function selectNote(noteId) {
   const noteMeta = state.notes.find(n => n.id === noteId || n._tempId === noteId);
   if (!noteMeta) return;
 
+  // 若記憶體快取中曾殘留受骨架屏污染的內容，立即丟棄該快取強制重新自雲端載入
+  if (isHtmlSkeletonOrError(noteMeta._cachedBody) || isHtmlSkeletonOrError(noteMeta._cachedHtml)) {
+    delete noteMeta._cachedBody;
+    delete noteMeta._cachedHtml;
+  }
+
   const mySelectSeq = (state.selectNoteSeq = (state.selectNoteSeq || 0) + 1);
 
-  // 手機介面優化：點擊筆記後自動收合側欄抽屜，呈現全螢幕編輯區
   if (window.innerWidth < 768) {
     closeSidebar();
   }
 
   localStorage.setItem('lvi_last_active_note_id', noteId);
-  DOM.noteTitle.value = (noteMeta.name || '').replace(/\.md$/i, '');
-  DOM.headerTitle.textContent = DOM.noteTitle.value;
+  const cleanNoteTitle = (noteMeta.name || '').replace(/\.md$/i, '');
+  DOM.noteTitle.value = cleanNoteTitle;
+  DOM.headerTitle.textContent = cleanNoteTitle;
 
-  // 🚀 動態快取渲染：若記憶體中已有快取內容，立即 0ms 呈現，徹底消除等待感！
-  const hasCache = noteMeta._cachedBody !== undefined;
+  const finalMetaInitial = {
+    ...(noteMeta._cachedMeta || {}),
+    ...(noteMeta.meta || {})
+  };
+  // 🛡️ 鐵律 2：無論有無快取，第一時間同步將 state.currentNote 指向新選取的筆記，徹底杜絕標題與筆記指標張冠李戴！
+  state.currentNote = {
+    id: noteMeta.id,
+    _tempId: noteMeta._tempId,
+    name: noteMeta.name,
+    parentId: noteMeta.parentId,
+    meta: finalMetaInitial
+  };
+  state.titleBeforeEdit = cleanNoteTitle;
+  state.snapshotNoteId = noteId;
+  state.isDirty = false;
+  try { renderCurrentNote(); } catch (e) {}
+
+  // 檢查是否有合法的本機未同步草稿（必須非骨架屏！）
+  const localDraft = getLocalDraft(noteId);
+  if (localDraft && isHtmlSkeletonOrError(localDraft.html)) {
+    localStorage.removeItem(`lvi_draft_${noteId}`);
+  }
+  const validLocalDraft = (localDraft && !isHtmlSkeletonOrError(localDraft.html)) ? localDraft : null;
+  const cloudModifiedMs = new Date(noteMeta.modifiedTime || 0).getTime();
+  const hasUnsyncedDraft = Boolean(validLocalDraft && !validLocalDraft.synced && (validLocalDraft.updatedAt > cloudModifiedMs) && validLocalDraft.html);
+
+  const hasCache = (noteMeta._cachedBody !== undefined && !isHtmlSkeletonOrError(noteMeta._cachedBody)) || hasUnsyncedDraft;
+
   if (hasCache) {
-    const finalMeta = {
-      ...(noteMeta._cachedMeta || {}),
-      ...(noteMeta.meta || {})
-    };
-    state.currentNote = {
-      id: noteMeta.id,
-      name: noteMeta.name,
-      parentId: noteMeta.parentId,
-      meta: finalMeta
-    };
-    try { renderCurrentNote(); } catch (e) { console.warn('renderCurrentNote cache error:', e); }
-    const localDraft = getLocalDraft(noteId);
-    const cloudModifiedMs = new Date(noteMeta.modifiedTime || 0).getTime();
-    const hasUnsyncedDraft = localDraft && !localDraft.synced && (localDraft.updatedAt > cloudModifiedMs);
-    if (hasUnsyncedDraft && localDraft.html) {
-      DOM.editor.innerHTML = localDraft.html;
-      if (localDraft.title) {
-        DOM.noteTitle.value = localDraft.title;
-        DOM.headerTitle.textContent = localDraft.title;
+    state.isLoadingNote = false;
+    if (hasUnsyncedDraft) {
+      DOM.editor.innerHTML = validLocalDraft.html;
+      if (validLocalDraft.title) {
+        DOM.noteTitle.value = validLocalDraft.title;
+        DOM.headerTitle.textContent = validLocalDraft.title;
       }
-      showToast('⚡ 已為您自動救回上次未上傳之草稿！', 4000);
+      showToast('⚡ 已為您自動救回上次未上傳之草稿！', 3500);
       triggerAutoSaveDebounce();
     } else {
       DOM.editor.innerHTML = noteMeta._cachedHtml || (window.marked ? window.marked.parse(noteMeta._cachedBody) : noteMeta._cachedBody);
@@ -6201,25 +6380,23 @@ async function selectNote(noteId) {
     try { renderOutline(); } catch (e) { console.warn(e); }
     try { renderNotesList(); } catch (e) { console.warn(e); }
 
-    // 🛡️ 關鍵修復：自快取秒開筆記時，必須同步更新快照基準至當前筆記，防止復原時誤拿上一篇筆記內容覆蓋！
     state.titleBeforeEdit = DOM.noteTitle.value;
     state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
     state.snapshotNoteId = noteId;
-    state.snapshotNoteId = noteId;
 
-    // 觸發流暢滑入開启动效
     DOM.editor.classList.remove('note-open-animate');
     void DOM.editor.offsetWidth;
     DOM.editor.classList.add('note-open-animate');
 
-    // 🎯 若由搜尋結果點開此筆記，自動捲動並閃爍高亮命中段落
     if (state.pendingScrollMatch && state.pendingScrollMatch.noteId === noteId) {
       const matchData = state.pendingScrollMatch;
       state.pendingScrollMatch = null;
       executeScrollToMatchedParagraph(matchData);
     }
   } else {
-    // 首次載入或切換呈現自然大氣的 Notion 風骨架屏流光動畫 (長動畫)
+    // 尚無本地快取：進入唯讀載入骨架屏狀態 (state.isLoadingNote = true)，期間嚴禁任何存檔動作！
+    state.isLoadingNote = true;
+    state.editorSnapshotBeforeEdit = null;
     DOM.editor.innerHTML = `
       <div class="note-skeleton-wrapper max-w-3xl mx-auto py-8 px-2 space-y-6">
         <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/60 shadow-xs">
@@ -6243,31 +6420,19 @@ async function selectNote(noteId) {
           <div class="h-4 rounded skeleton-shimmer w-11/12"></div>
           <div class="h-4 rounded skeleton-shimmer w-4/5"></div>
         </div>
-
-        <div class="p-4 rounded-xl border border-gray-200 dark:border-notion-borderDark bg-gray-50/50 dark:bg-notion-darker/50 space-y-3">
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <div class="w-4 h-4 rounded skeleton-shimmer"></div>
-              <div class="h-4 w-32 rounded skeleton-shimmer"></div>
-            </div>
-            <div class="w-4 h-4 rounded skeleton-shimmer"></div>
-          </div>
-          <div class="h-40 rounded-lg skeleton-shimmer w-full"></div>
-        </div>
-
-        <div class="space-y-2.5 pt-2">
-          <div class="h-4 rounded skeleton-shimmer w-full"></div>
-          <div class="h-4 rounded skeleton-shimmer w-5/6"></div>
-          <div class="h-4 rounded skeleton-shimmer w-3/4"></div>
-        </div>
       </div>
     `;
+    try { renderNotesList(); } catch (e) {}
     initLucide();
   }
 
-  // 若為剛建立尚未取得雲端正式 ID 的本地新筆記，或該筆記正處於背景上傳佇列中，直接以本地最新快取為準，不發動舊雲端讀取覆蓋！
-  if (!state.accessToken || String(noteId).startsWith('temp_') || isNoteDirtyOrQueued(noteId)) {
-    state.isDirty = false;
+  // 僅當「尚未登入」或「剛建立尚未取得雲端 ID 的 temp_ 筆記」才不發送雲端讀取；
+  // 若 !hasCache，無論如何都必須向 Google Drive 下載內容，絕不可提前 return 卡在骨架屏！
+  if (!state.accessToken || String(noteId).startsWith('temp_')) {
+    state.isLoadingNote = false;
+    return;
+  }
+  if (hasCache && isNoteDirtyOrQueued(noteId)) {
     return;
   }
 
@@ -6285,17 +6450,33 @@ async function selectNote(noteId) {
       throw new Error(`Google Drive API 回應錯誤 (HTTP ${res.status})`);
     }
 
-    const rawText = await res.text();
+    let rawText = await res.text();
 
-    // 🛡️ 護欄 1：若在等待網路回應的幾百毫秒內，使用者已經切換到別篇筆記，或已經開始打字修改本筆記，絕對不可覆蓋當前畫面！
+    // 🛡️ 自動偵測與歷史版本救援：若從雲端讀回的內容竟含有 note-skeleton-wrapper，立即自動從 Google Drive Revisions 救回原始筆記！
+    if (isHtmlSkeletonOrError(rawText)) {
+      const recoveredRaw = await autoRecoverCorruptedNoteFromDriveRevisions(noteId, noteMeta);
+      if (recoveredRaw) {
+        rawText = recoveredRaw;
+      } else {
+        rawText = rawText.replace(/<div class="note-skeleton-wrapper[\s\S]*?<\/div>\s*<\/div>/gi, '<p><br></p>');
+      }
+    }
+
+    // 🛡️ 護欄：若在等待網路回應期間使用者已經切換到別篇筆記，僅在背景更新此筆記的快取，不更動當前畫面！
     if (state.selectNoteSeq !== mySelectSeq || !state.currentNote || state.currentNote.id !== noteId) {
+      const { meta: bgMeta, body: bgBody } = parseFrontmatter(rawText);
+      if (!isHtmlSkeletonOrError(bgBody)) {
+        noteMeta._cachedRawText = rawText;
+        noteMeta._cachedBody = bgBody;
+        noteMeta._cachedMeta = bgMeta;
+      }
       return;
     }
-    if (state.isDirty || isNoteDirtyOrQueued(noteId)) {
-      console.log('🛡️ 偵測到使用者已在筆記內輸入新內容或有待傳快照，略過舊雲端回應覆蓋');
+    if (state.isDirty && hasCache) {
       return;
     }
 
+    state.isLoadingNote = false;
     const { meta: bodyMeta, body } = parseFrontmatter(rawText);
 
     // 🛡️ 核心修復：優先採納 state.notes / file.description 中由使用者最新設定的分類屬性！
@@ -6330,10 +6511,17 @@ async function selectNote(noteId) {
     try { updateNoteSearchIndex(noteMeta.id, noteMeta.modifiedTime, body); } catch (e) {}
     saveSwrCacheSnapshot();
 
-    // 🛡️ 核心救援：檢查本機是否有上次關閉軟體前尚未完成上傳的最新草稿
+    // 若透過雲端歷史版本救回了原始標題，同步更新畫面標題列
+    const latestCleanTitle = (noteMeta.name || '').replace(/\.md$/i, '');
+    if (DOM.noteTitle && latestCleanTitle) {
+      DOM.noteTitle.value = latestCleanTitle;
+      if (DOM.headerTitle) DOM.headerTitle.textContent = latestCleanTitle;
+    }
+
+    // 🛡️ 核心救援：檢查本機是否有上次關閉軟體前尚未完成上傳的最新草稿（嚴格排除骨架屏）
     const localDraft = getLocalDraft(noteId);
     const cloudModifiedMs = new Date(noteMeta.modifiedTime || 0).getTime();
-    const hasUnsyncedDraft = localDraft && !localDraft.synced && (localDraft.updatedAt > cloudModifiedMs);
+    const hasUnsyncedDraft = localDraft && !localDraft.synced && !isHtmlSkeletonOrError(localDraft.html) && (localDraft.updatedAt > cloudModifiedMs);
 
     if (hasUnsyncedDraft && localDraft.html) {
       console.log('⚡ 偵測到本機有未同步之最新草稿 (關閉前尚未完成上傳)，自動執行無損救援！');
@@ -6380,6 +6568,7 @@ async function selectNote(noteId) {
       executeScrollToMatchedParagraph(matchData);
     }
   } catch (e) {
+    state.isLoadingNote = false;
     console.error('讀取筆記失敗:', e);
     if (!hasCache) {
       DOM.editor.innerHTML = `<div class="p-8 text-center max-w-md mx-auto my-12 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-2xl shadow-xs">
@@ -6453,7 +6642,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261025_v2.7.2', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261025_v2.7.3', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -6484,7 +6673,11 @@ function pruneOldSyncedDrafts() {
 }
 
 function saveLocalDraftImmediately() {
-  if (!state.currentNote) return;
+  if (!state.currentNote || state.isLoadingNote) return;
+  if (DOM.editor && isHtmlSkeletonOrError(DOM.editor.innerHTML)) {
+    console.warn('🛡️ [Safety Guard] 攔截將載入骨架屏寫入本機草稿');
+    return;
+  }
   if (!state.currentNote.id && !state.currentNote._tempId) {
     state.currentNote._tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
   }
@@ -6585,6 +6778,11 @@ function markLocalDraftSynced(noteId) {
 
 async function saveDraftToDriveBackground(draft) {
   if (!state.accessToken || !draft || !draft.noteId) return;
+  if (isHtmlSkeletonOrError(draft.html)) {
+    markLocalDraftSynced(draft.noteId);
+    localStorage.removeItem(`lvi_draft_${draft.noteId}`);
+    return;
+  }
   const boundary = '-------CloudNotesBoundary' + Math.random().toString(36).substring(2);
   let title = (draft.title || '未命名筆記').trim();
   if (!title.toLowerCase().endsWith('.md')) title += '.md';
@@ -6627,12 +6825,13 @@ async function flushPendingSyncQueue() {
 
   console.log(`📡 發現 ${queue.length} 篇待補傳草稿，自動執行背景補傳...`);
   for (const noteId of queue) {
-    if (state.currentNote && state.currentNote.id === noteId) {
-      saveCurrentNote();
+    const draft = getLocalDraft(noteId);
+    if (draft && isHtmlSkeletonOrError(draft.html)) {
+      markLocalDraftSynced(noteId);
+      localStorage.removeItem(`lvi_draft_${noteId}`);
       continue;
     }
-    const draft = getLocalDraft(noteId);
-    if (draft && !draft.synced && draft.html) {
+    if (draft && !draft.synced && draft.html && !isHtmlSkeletonOrError(draft.html)) {
       try {
         await saveDraftToDriveBackground(draft);
         markLocalDraftSynced(noteId);
@@ -6753,7 +6952,11 @@ function isNoteDirtyOrQueued(noteId) {
  * 立即更新 state.notes 記憶體快取、搜尋索引與 localStorage，完全不需等待網路！
  */
 function captureCurrentNoteAtomicSnapshot() {
-  if (!state.currentNote || !DOM.editor) return null;
+  if (!state.currentNote || !DOM.editor || state.isLoadingNote) return null;
+  if (isHtmlSkeletonOrError(DOM.editor.innerHTML)) {
+    console.warn('🛡️ [Safety Guard] 攔截擷取載入骨架屏快照');
+    return null;
+  }
   if (!state.currentNote.id && !state.currentNote._tempId) {
     state.currentNote._tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
   }
@@ -6839,13 +7042,14 @@ function captureCurrentNoteAtomicSnapshot() {
  * 在 0ms 內同步結算當前畫面上的所有變更並排入雲端佇列，保證切換再快也絕不掉字！
  */
 function commitActiveEditorStateImmediately() {
-  if (!state.currentNote || !DOM.editor) return null;
+  if (!state.currentNote || !DOM.editor || state.isLoadingNote) return null;
+  if (isHtmlSkeletonOrError(DOM.editor.innerHTML)) {
+    return null;
+  }
 
+  // 🛡️ 鐵律：只有當使用者真正動手修改過筆記 (state.isDirty === true 或有啟動中的自動存檔計時器) 時，才允許結算存檔！
   const hasTimer = Boolean(state.autoSaveTimer || autoSaveMaxTimer);
-  const htmlChanged = state.editorSnapshotBeforeEdit !== null && DOM.editor.innerHTML !== state.editorSnapshotBeforeEdit;
-  const titleChanged = state.titleBeforeEdit !== undefined && DOM.noteTitle && DOM.noteTitle.value !== state.titleBeforeEdit;
-
-  if (!state.isDirty && !hasTimer && !htmlChanged && !titleChanged) {
+  if (!state.isDirty && !hasTimer) {
     return null;
   }
 
