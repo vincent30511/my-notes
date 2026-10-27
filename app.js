@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.7.3'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.7.4'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -739,7 +739,7 @@ document.addEventListener('DOMContentLoaded', () => {
   try { initCoverPresetsUI(); } catch (e) { console.error('initCoverPresetsUI error:', e); }
   try { initFullWidth(); } catch (e) { console.error('initFullWidth error:', e); }
   try { bindEvents(); } catch (e) { console.error('bindEvents error:', e); }
-  try { purgeCorruptedLocalDraftsOnBoot(); } catch (e) {}
+  try { purgeCorruptedLocalCachesOnBoot(); } catch (e) {}
   try { hydrateFromSwrCacheOnBoot(); } catch (e) { console.error('hydrateFromSwrCacheOnBoot error:', e); }
   try { setupGoogleAuth(); } catch (e) { console.error('setupGoogleAuth error:', e); }
   try { checkAiKeyStatus(); } catch (e) { console.error('checkAiKeyStatus error:', e); }
@@ -1765,36 +1765,36 @@ async function fetchNotesList(silent = false) {
       createNewNote();
     }
     saveSwrCacheSnapshot();
-    setTimeout(() => {
-      try { scheduleBackgroundFullTextIndexing(); } catch (e) {}
-      // 🛡️ 背景巡檢：若發現之前曾受骨架屏波及的筆記，自動於背景從 Google Drive 歷史版本無損復原！
-      ['1mFyMO_qqJFgKvC8fSknTEFl-4YgPZEMS', '1DjCcVDu3gaZPhXXjBAim5_mXb-8XVeyv'].forEach(async (checkId) => {
-        const targetN = state.notes.find(n => n.id === checkId);
-        if (targetN && state.accessToken) {
-          try {
-            const checkRes = await fetch(`https://www.googleapis.com/drive/v3/files/${checkId}?alt=media`, {
+    // 🚑 背景自動巡檢：若發現雲端清單中有曾被誤改為「未命名隨手筆記.md」的已知受波及筆記，自動從雲端歷史版本修復！
+    setTimeout(async () => {
+      try {
+        for (const n of state.notes) {
+          if (n && n.id && (KNOWN_NOTE_RECOVERY_FALLBACKS[n.id] || n.id === '1DjCcVDu3gaZPhXXjBAim5_mXb-8XVeyv') && n.name === '未命名隨手筆記.md') {
+            const checkRes = await fetch(`https://www.googleapis.com/drive/v3/files/${n.id}?alt=media`, {
               headers: { Authorization: `Bearer ${state.accessToken}` }
             });
             if (checkRes.ok) {
-              const checkTxt = await checkRes.text();
-              if (isHtmlSkeletonOrError(checkTxt)) {
-                const healedTxt = await autoRecoverCorruptedNoteFromDriveRevisions(checkId, targetN);
-                if (healedTxt) {
-                  const { meta: hm, body: hb } = parseFrontmatter(healedTxt);
-                  targetN._cachedRawText = healedTxt;
-                  targetN._cachedBody = hb;
-                  targetN._cachedMeta = hm;
+              const rawTxt = await checkRes.text();
+              if (isSkeletonOrCorruptedContent(rawTxt)) {
+                const rec = await autoRecoverCorruptedNoteFromDriveRevisions(n.id, n, rawTxt);
+                if (rec) {
+                  n._cachedBody = rec.body;
+                  n._cachedHtml = DOMPurify.sanitize(window.marked ? window.marked.parse(rec.body) : rec.body);
                   renderNotesList();
-                  if (state.currentNote && state.currentNote.id === checkId && !state.isDirty) {
-                    selectNote(checkId);
+                  if (state.currentNote && state.currentNote.id === n.id) {
+                    DOM.noteTitle.value = rec.fileName.replace(/\.md$/i, '');
+                    DOM.headerTitle.textContent = DOM.noteTitle.value;
+                    DOM.editor.innerHTML = n._cachedHtml;
+                    enhanceAllEditorBlocks(DOM.editor);
                   }
                 }
               }
             }
-          } catch (e) {}
+          }
         }
-      });
-    }, 150);
+      } catch (e) {}
+    }, 600);
+    setTimeout(() => { try { scheduleBackgroundFullTextIndexing(); } catch (e) {} }, 150);
   } catch (e) {
     console.error('載入雲端筆記清單失敗:', e);
     if (!silent) updateSyncStatus('error', '雲端同步出錯');
@@ -6171,13 +6171,14 @@ function closeSidebar() {
   DOM.sidebarBackdrop.classList.add('hidden');
 }
 
-// ----------------- 🛡️ 筆記安全守門員與雲端歷史版本自動救援引擎 (v2.7.3) -----------------
+// ============================================================================
+// 🛡️ v2.7.3 筆記絕對安全第一守門員 (Five-Layer Anti-Corruption & Revision Auto-Recovery)
+// ============================================================================
 
 /**
- * 嚴格檢查一段 HTML 或 Markdown 是否為「載入中骨架屏」或「錯誤提示畫面」
- * 任何時候只要此函式回傳 true，全系統 100% 嚴禁將其寫入快取、localStorage 或上傳至 Google Drive！
+ * 檢查指定 HTML 或 Markdown 字串是否包含載入骨架屏或錯誤訊息（絕對禁止作為筆記內容儲存！）
  */
-function isHtmlSkeletonOrError(str) {
+function isSkeletonOrCorruptedContent(str) {
   if (!str || typeof str !== 'string') return false;
   return (
     str.includes('note-skeleton-wrapper') ||
@@ -6188,26 +6189,39 @@ function isHtmlSkeletonOrError(str) {
 }
 
 /**
- * 開機時立即清除 localStorage 中任何曾被骨架屏污染的草稿或 SWR 快取
+ * 檢查當前編輯器畫面是否處於「安全可存檔」狀態
  */
-function purgeCorruptedLocalDraftsOnBoot() {
+function isEditorContentSafeToSave(htmlToCheck) {
+  if (state.isLoadingNote) return false;
+  const html = typeof htmlToCheck === 'string' ? htmlToCheck : (DOM.editor ? DOM.editor.innerHTML : '');
+  if (isSkeletonOrCorruptedContent(html)) {
+    console.warn('🛡️ [安全攔截] 偵測到畫布處於載入骨架屏或錯誤顯示狀態，已嚴格阻斷存檔以保護筆記安全！');
+    return false;
+  }
+  return true;
+}
+
+/**
+ * 開機啟動時自動掃描並清除 localStorage 中任何曾被骨架屏污染的草稿或快取
+ */
+function purgeCorruptedLocalCachesOnBoot() {
   try {
     const keys = Object.keys(localStorage);
     for (const k of keys) {
       if (k.startsWith('lvi_draft_') || k.startsWith('lvi_emergency_draft_')) {
         const raw = localStorage.getItem(k) || '';
-        if (isHtmlSkeletonOrError(raw)) {
-          console.warn('🧹 自動清除受骨架屏污染的本機草稿:', k);
+        if (isSkeletonOrCorruptedContent(raw)) {
+          console.log('🧹 自動清除受骨架屏污染之本機草稿:', k);
           localStorage.removeItem(k);
         }
       }
     }
     const swrRaw = localStorage.getItem('lvi_swr_notes_v1');
-    if (swrRaw && isHtmlSkeletonOrError(swrRaw)) {
+    if (swrRaw && isSkeletonOrCorruptedContent(swrRaw)) {
       const parsed = JSON.parse(swrRaw);
       if (parsed && Array.isArray(parsed.notes)) {
         parsed.notes.forEach(n => {
-          if (isHtmlSkeletonOrError(n._cachedBody) || isHtmlSkeletonOrError(n._cachedHtml)) {
+          if (isSkeletonOrCorruptedContent(n._cachedBody) || isSkeletonOrCorruptedContent(n._cachedHtml)) {
             delete n._cachedBody;
             delete n._cachedHtml;
           }
@@ -6218,92 +6232,121 @@ function purgeCorruptedLocalDraftsOnBoot() {
   } catch (e) {}
 }
 
+// 內建已知受波及筆記之保底還原字典（若雲端歷史版本因故無標題時作為最終保底）
+const KNOWN_NOTE_RECOVERY_FALLBACKS = {
+  '1mFyMO_qqJFgKvC8fSknTEFl-4YgPZEMS': {
+    title: '機台出機標配文件種類',
+    body: `<details class="notion-media-collapse notion-draggable-block my-3 rounded-xl border border-gray-200 dark:border-notion-borderDark bg-gray-50/70 dark:bg-notion-darker/70 overflow-hidden shadow-xs transition" open contenteditable="false" draggable="true" data-file-id="1SD-cZ0G8TLLzfYqMYiBjoP7eTSD7RpLp" data-file-name="IMG_20261022_132507.jpg"><summary class="cursor-pointer select-none px-3 py-2 flex items-center justify-between gap-2 bg-gray-100/80 dark:bg-notion-card hover:bg-gray-200/60 dark:hover:bg-gray-800 transition font-medium text-xs"><div class="flex items-center gap-2 min-w-0 flex-1"><span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0" title="拖動改變位置"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span><i data-lucide="image" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i><span class="truncate font-semibold text-gray-800 dark:text-gray-100">IMG_20261022_132507.jpg</span></div><div class="flex items-center gap-1.5 shrink-0"><button type="button" class="media-card-annotate-btn px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-500 hover:text-white text-[11px] font-bold inline-flex items-center gap-1 transition shadow-2xs cursor-pointer shrink-0"><span class="pointer-events-none">✏️ 標註</span></button><button type="button" class="media-card-delete-btn px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/70 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 hover:bg-rose-600 hover:text-white text-[11px] font-bold inline-flex items-center gap-1 transition shadow-2xs cursor-pointer shrink-0"><span>刪除</span></button><i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 collapse-arrow transition-transform duration-200"></i></div></summary><div class="p-3 text-center border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content"><img src="https://drive.google.com/thumbnail?id=1SD-cZ0G8TLLzfYqMYiBjoP7eTSD7RpLp&sz=w1280" alt="IMG_20261022_132507.jpg" class="rounded-xl shadow-xs border border-gray-200 dark:border-notion-borderDark max-h-[520px] mx-auto object-contain cursor-pointer hover:opacity-95 transition" /><div class="text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar"><span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">IMG_20261022_132507.jpg</span><span>•</span><a href="https://drive.google.com/uc?export=download&id=1SD-cZ0G8TLLzfYqMYiBjoP7eTSD7RpLp" target="_blank" download="IMG_20261022_132507.jpg" class="text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-1 font-semibold">下載原圖</a><span>•</span><a href="https://drive.google.com/file/d/1SD-cZ0G8TLLzfYqMYiBjoP7eTSD7RpLp/view?usp=sharing" target="_blank" rel="noopener noreferrer" class="text-blue-500 hover:underline flex items-center gap-1">雲端檢視</a></div></div></details><p><mark class="notion-highlight" style="background-color: rgb(251, 207, 232); color: rgb(17, 24, 39);">CAL</mark></p><p><mark class="notion-highlight" style="background-color: rgb(251, 207, 232); color: rgb(17, 24, 39);">FAT</mark></p><p><mark class="notion-highlight" style="background-color: rgb(251, 207, 232); color: rgb(17, 24, 39);">操作手冊</mark></p><p>設備保養手冊</p>`
+  }
+};
+
 /**
- * 🛡️ Google Drive 雲端版本歷史 (Revisions API) 自動無損救援引擎：
- * 若偵測到某篇雲端筆記曾被誤寫入「正在載入雲端筆記內容... (note-skeleton-wrapper)」，
- * 自動向 Google Drive 調閱該檔案的歷史版本清單 (files/{id}/revisions)，找回最後一份乾淨的原始內容與標題並自動修復！
+ * 🚑 Google Drive 雲端歷史版本自動無損救援引擎：
+ * 當發現某篇雲端筆記內容曾被骨架屏 (note-skeleton-wrapper) 誤覆蓋時，
+ * 自動向 Google Drive Revisions API 調閱該檔案的歷史版本，找回被覆蓋前的最後一份正常內容與原始檔名並自動修復！
  */
-async function autoRecoverCorruptedNoteFromDriveRevisions(noteId, noteMeta) {
-  if (!state.accessToken || !noteId || String(noteId).startsWith('temp_')) return null;
+async function autoRecoverCorruptedNoteFromDriveRevisions(noteId, noteMeta, currentRawText) {
+  if (!noteId || !state.accessToken) return null;
   try {
-    console.log(`🛡️ 啟動雲端歷史版本救援引擎，正在為筆記 ${noteId} 調閱 Google Drive 歷史版本...`);
-    const revListRes = await fetch(
-      `https://www.googleapis.com/drive/v3/files/${noteId}/revisions?fields=revisions(id,modifiedTime,originalFilename,size)`,
-      { headers: { Authorization: `Bearer ${state.accessToken}` } }
-    );
-    if (!revListRes.ok) return null;
-    const revData = await revListRes.json();
-    const revisions = Array.isArray(revData.revisions) ? revData.revisions : [];
-    if (revisions.length === 0) return null;
+    console.log(`🚑 [雲端歷史救援] 正在從 Google Drive 歷史版本自動找回筆記 (${noteId}) 的原始內容...`);
+    showToast('🛡️ 偵測到異常快取，正在從 Google Drive 歷史版本自動還原筆記...', 3500);
 
-    // 從倒數第二個版本開始往回找最後一份「不含骨架屏」的正常版本
-    for (let i = revisions.length - 1; i >= 0; i--) {
-      const rev = revisions[i];
-      const rRes = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${noteId}/revisions/${rev.id}?alt=media`,
-        { headers: { Authorization: `Bearer ${state.accessToken}` } }
-      );
-      if (!rRes.ok) continue;
-      const revText = await rRes.text();
-      if (revText && !isHtmlSkeletonOrError(revText)) {
-        // 找到乾淨的歷史版本！同時檢查是否需要恢復原始檔名
-        let recoveredName = (rev.originalFilename && rev.originalFilename !== '未命名隨手筆記.md')
-          ? rev.originalFilename
-          : ((noteMeta && noteMeta.name) || '恢復的筆記.md');
+    const revListRes = await fetch(`https://www.googleapis.com/drive/v3/files/${noteId}/revisions?fields=revisions(id,modifiedTime,originalFilename,size)`, {
+      headers: { Authorization: `Bearer ${state.accessToken}` }
+    });
 
-        // 針對已知特定筆記 ID 若原名為「機台出機標配文件種類.md」自動精準復原標題
-        if (noteId === '1mFyMO_qqJFgKvC8fSknTEFl-4YgPZEMS' && recoveredName === '未命名隨手筆記.md') {
-          recoveredName = '機台出機標配文件種類.md';
+    let recoveredRawText = null;
+    let recoveredFileName = null;
+
+    if (revListRes.ok) {
+      const revData = await revListRes.json();
+      const revisions = Array.isArray(revData.revisions) ? revData.revisions : [];
+      // 由倒數第二版往前找最後一個不含 note-skeleton-wrapper 的正常版本
+      for (let i = revisions.length - 1; i >= 0; i--) {
+        const rev = revisions[i];
+        if (rev.originalFilename && !rev.originalFilename.startsWith('未命名隨手筆記') && !recoveredFileName) {
+          recoveredFileName = rev.originalFilename;
         }
-
-        // 立即將乾淨的歷史版本寫回 Google Drive 正式覆蓋受損版本
-        const { meta: cleanBodyMeta } = parseFrontmatter(revText);
-        const mergedMeta = { ...(cleanBodyMeta || {}), ...((noteMeta && noteMeta.meta) || {}) };
-        const boundary = '-------CloudNotesRecoveryBoundary' + Math.random().toString(36).substring(2);
-        const metadata = { name: recoveredName, description: JSON.stringify(mergedMeta) };
-        const multipartBody = new Blob([
-          `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
-          new Blob([JSON.stringify(metadata)], { type: 'application/json; charset=UTF-8' }),
-          `\r\n--${boundary}\r\nContent-Type: text/markdown; charset=UTF-8\r\n\r\n`,
-          new Blob([revText], { type: 'text/markdown; charset=UTF-8' }),
-          `\r\n--${boundary}--`
-        ], { type: `multipart/related; boundary=${boundary}` });
-
-        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${noteId}?uploadType=multipart`, {
-          method: 'PATCH',
-          headers: {
-            Authorization: `Bearer ${state.accessToken}`,
-            'Content-Type': `multipart/related; boundary=${boundary}`
-          },
-          body: multipartBody
-        });
-
-        if (noteMeta) {
-          noteMeta.name = recoveredName;
-        }
-        markLocalDraftSynced(noteId);
-        localStorage.removeItem(`lvi_draft_${noteId}`);
-        showToast(`🛡️ 已從 Google 雲端歷史版本自動無損救回「${recoveredName.replace(/\.md$/i, '')}」！`, 4500);
-        return revText;
+        try {
+          const revContentRes = await fetch(`https://www.googleapis.com/drive/v3/files/${noteId}/revisions/${rev.id}?alt=media`, {
+            headers: { Authorization: `Bearer ${state.accessToken}` }
+          });
+          if (revContentRes.ok) {
+            const txt = await revContentRes.text();
+            if (txt && !isSkeletonOrCorruptedContent(txt) && txt.trim().length > 0) {
+              recoveredRawText = txt;
+              if (rev.originalFilename && !rev.originalFilename.startsWith('未命名隨手筆記')) {
+                recoveredFileName = rev.originalFilename;
+              }
+              break;
+            }
+          }
+        } catch (revErr) {}
       }
     }
+
+    const fallback = KNOWN_NOTE_RECOVERY_FALLBACKS[noteId];
+    if (!recoveredRawText && fallback) {
+      const parsedCur = parseFrontmatter(currentRawText || '');
+      const mergedMeta = { ...(parsedCur.meta || {}), ...(noteMeta && noteMeta.meta ? noteMeta.meta : {}) };
+      recoveredRawText = buildFrontmatterString(mergedMeta) + fallback.body;
+      recoveredFileName = `${fallback.title}.md`;
+    } else if (recoveredRawText && (!recoveredFileName || recoveredFileName.startsWith('未命名隨手筆記')) && fallback) {
+      recoveredFileName = `${fallback.title}.md`;
+    }
+
+    if (recoveredRawText) {
+      const { meta: recMeta, body: recBody } = parseFrontmatter(recoveredRawText);
+      const finalMeta = { ...(recMeta || {}), ...(noteMeta && noteMeta.meta ? noteMeta.meta : {}) };
+      const finalFileName = recoveredFileName || (noteMeta && noteMeta.name) || '已還原筆記.md';
+      const fullRepairedContent = buildFrontmatterString(finalMeta) + recBody;
+
+      // 立即將修復後的乾淨內容寫回 Google Drive
+      const boundary = '-------CloudNotesRecoveryBoundary' + Math.random().toString(36).substring(2);
+      const metadata = { name: finalFileName, description: JSON.stringify(finalMeta) };
+      const multipartBody = new Blob([
+        `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`,
+        new Blob([JSON.stringify(metadata)], { type: 'application/json; charset=UTF-8' }),
+        `\r\n--${boundary}\r\nContent-Type: text/markdown; charset=UTF-8\r\n\r\n`,
+        new Blob([fullRepairedContent], { type: 'text/markdown; charset=UTF-8' }),
+        `\r\n--${boundary}--`
+      ], { type: `multipart/related; boundary=${boundary}` });
+
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${noteId}?uploadType=multipart`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body: multipartBody
+      }).catch(() => {});
+
+      try { localStorage.removeItem(`lvi_draft_${noteId}`); } catch (e) {}
+      if (noteMeta) {
+        noteMeta.name = finalFileName;
+        noteMeta.meta = finalMeta;
+      }
+      showToast(`✅ 已成功從雲端歷史紀錄無損還原「${finalFileName.replace(/\.md$/i, '')}」！`, 4500);
+      return { rawText: fullRepairedContent, fileName: finalFileName, meta: finalMeta, body: recBody };
+    }
   } catch (err) {
-    console.warn('雲端歷史版本自動救援異常:', err);
+    console.warn('雲端歷史版本救援失敗:', err);
   }
   return null;
 }
 
-// ----------------- 選取與載入筆記 -----------------
+// ----------------- 選取與載入筆記 (v2.7.3 絕對安全零污染版) -----------------
 async function selectNote(noteId) {
-  // 🛡️ 鐵律 1：僅當上一篇筆記「確實曾被使用者親手修改 (state.isDirty === true)」且「不在載入骨架屏狀態」時，才在切換前結算存檔！
-  // 單純點開檢視或切換筆記，100% 唯讀，絕不觸發任何寫入！
+  // 🛡️ 鐵律 1：僅當上一篇筆記「確實有使用者手動修改 (state.isDirty === true)」且「非載入骨架屏狀態 (!state.isLoadingNote)」時，才在切換前結算儲存！
+  // 單純瀏覽或點選其他筆記絕對不觸發任何寫入，100% 杜絕波及其他筆記！
   if (
     !state.isUndoingOrRedoing &&
-    !state.isLoadingNote &&
-    state.isDirty &&
     state.currentNote &&
+    state.currentNote.id !== noteId &&
+    state.isDirty &&
+    !state.isLoadingNote &&
     DOM.editor &&
-    !isHtmlSkeletonOrError(DOM.editor.innerHTML)
+    isEditorContentSafeToSave(DOM.editor.innerHTML)
   ) {
     try {
       commitActiveEditorStateImmediately();
@@ -6312,14 +6355,19 @@ async function selectNote(noteId) {
     }
   }
 
+  // 切換筆記時立即取消前一篇未觸發的防抖計時器並重置髒資料旗標
+  if (state.autoSaveTimer) {
+    clearTimeout(state.autoSaveTimer);
+    state.autoSaveTimer = null;
+  }
+  if (autoSaveMaxTimer) {
+    clearTimeout(autoSaveMaxTimer);
+    autoSaveMaxTimer = null;
+  }
+  state.isDirty = false;
+
   const noteMeta = state.notes.find(n => n.id === noteId || n._tempId === noteId);
   if (!noteMeta) return;
-
-  // 若記憶體快取中曾殘留受骨架屏污染的內容，立即丟棄該快取強制重新自雲端載入
-  if (isHtmlSkeletonOrError(noteMeta._cachedBody) || isHtmlSkeletonOrError(noteMeta._cachedHtml)) {
-    delete noteMeta._cachedBody;
-    delete noteMeta._cachedHtml;
-  }
 
   const mySelectSeq = (state.selectNoteSeq = (state.selectNoteSeq || 0) + 1);
 
@@ -6327,58 +6375,63 @@ async function selectNote(noteId) {
     closeSidebar();
   }
 
-  localStorage.setItem('lvi_last_active_note_id', noteId);
-  const cleanNoteTitle = (noteMeta.name || '').replace(/\.md$/i, '');
-  DOM.noteTitle.value = cleanNoteTitle;
-  DOM.headerTitle.textContent = cleanNoteTitle;
+  // 若快取本身曾遭骨架屏污染，立即清除該快取以強制重新自雲端載入並觸發歷史版本救援
+  if (isSkeletonOrCorruptedContent(noteMeta._cachedBody) || isSkeletonOrCorruptedContent(noteMeta._cachedHtml)) {
+    delete noteMeta._cachedBody;
+    delete noteMeta._cachedHtml;
+  }
 
-  const finalMetaInitial = {
+  const initialMeta = {
     ...(noteMeta._cachedMeta || {}),
     ...(noteMeta.meta || {})
   };
-  // 🛡️ 鐵律 2：無論有無快取，第一時間同步將 state.currentNote 指向新選取的筆記，徹底杜絕標題與筆記指標張冠李戴！
+
+  // 🛡️ 鐵律 2：無論有無本地快取，第一時間先將 state.currentNote 指向目標筆記！
+  // 解決 v2.7.1/v2.7.2 因 else 分支未更新 state.currentNote 導致雲端載入完成後被 `state.currentNote.id !== noteId` 誤攔截卡死的問題！
   state.currentNote = {
     id: noteMeta.id,
     _tempId: noteMeta._tempId,
     name: noteMeta.name,
     parentId: noteMeta.parentId,
-    meta: finalMetaInitial
+    meta: initialMeta
   };
-  state.titleBeforeEdit = cleanNoteTitle;
-  state.snapshotNoteId = noteId;
-  state.isDirty = false;
+
+  localStorage.setItem('lvi_last_active_note_id', noteId);
+  DOM.noteTitle.value = (noteMeta.name || '').replace(/\.md$/i, '');
+  DOM.headerTitle.textContent = DOM.noteTitle.value;
   try { renderCurrentNote(); } catch (e) {}
+  try { renderNotesList(); } catch (e) {}
 
-  // 檢查是否有合法的本機未同步草稿（必須非骨架屏！）
-  const localDraft = getLocalDraft(noteId);
-  if (localDraft && isHtmlSkeletonOrError(localDraft.html)) {
-    localStorage.removeItem(`lvi_draft_${noteId}`);
-  }
-  const validLocalDraft = (localDraft && !isHtmlSkeletonOrError(localDraft.html)) ? localDraft : null;
-  const cloudModifiedMs = new Date(noteMeta.modifiedTime || 0).getTime();
-  const hasUnsyncedDraft = Boolean(validLocalDraft && !validLocalDraft.synced && (validLocalDraft.updatedAt > cloudModifiedMs) && validLocalDraft.html);
-
-  const hasCache = (noteMeta._cachedBody !== undefined && !isHtmlSkeletonOrError(noteMeta._cachedBody)) || hasUnsyncedDraft;
-
+  const hasCache = noteMeta._cachedBody !== undefined && !isSkeletonOrCorruptedContent(noteMeta._cachedBody);
   if (hasCache) {
     state.isLoadingNote = false;
+    const localDraft = getLocalDraft(noteId);
+    const cloudModifiedMs = new Date(noteMeta.modifiedTime || 0).getTime();
+    const hasUnsyncedDraft = (
+      localDraft &&
+      !localDraft.synced &&
+      (localDraft.updatedAt > cloudModifiedMs) &&
+      localDraft.html &&
+      !isSkeletonOrCorruptedContent(localDraft.html)
+    );
+
     if (hasUnsyncedDraft) {
-      DOM.editor.innerHTML = validLocalDraft.html;
-      if (validLocalDraft.title) {
-        DOM.noteTitle.value = validLocalDraft.title;
-        DOM.headerTitle.textContent = validLocalDraft.title;
+      DOM.editor.innerHTML = localDraft.html;
+      if (localDraft.title && !localDraft.title.startsWith('未命名隨手筆記')) {
+        DOM.noteTitle.value = localDraft.title;
+        DOM.headerTitle.textContent = localDraft.title;
       }
       showToast('⚡ 已為您自動救回上次未上傳之草稿！', 3500);
       triggerAutoSaveDebounce();
     } else {
       DOM.editor.innerHTML = noteMeta._cachedHtml || (window.marked ? window.marked.parse(noteMeta._cachedBody) : noteMeta._cachedBody);
     }
+
     try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn(e); }
     try { updateToggleAllMediaBtnUI(true); } catch (e) { console.warn(e); }
     try { attachCodeCopyButtons(); } catch (e) { console.warn(e); }
     try { updateStats(); } catch (e) { console.warn(e); }
     try { renderOutline(); } catch (e) { console.warn(e); }
-    try { renderNotesList(); } catch (e) { console.warn(e); }
 
     state.titleBeforeEdit = DOM.noteTitle.value;
     state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
@@ -6394,16 +6447,16 @@ async function selectNote(noteId) {
       executeScrollToMatchedParagraph(matchData);
     }
   } else {
-    // 尚無本地快取：進入唯讀載入骨架屏狀態 (state.isLoadingNote = true)，期間嚴禁任何存檔動作！
+    // 尚無本地快取：進入載入保護狀態 (state.isLoadingNote = true)，期間嚴禁任何存檔動作！
     state.isLoadingNote = true;
     state.editorSnapshotBeforeEdit = null;
+    state.titleBeforeEdit = DOM.noteTitle.value;
     DOM.editor.innerHTML = `
-      <div class="note-skeleton-wrapper max-w-3xl mx-auto py-8 px-2 space-y-6">
+      <div class="note-skeleton-wrapper max-w-3xl mx-auto py-8 px-2 space-y-6" contenteditable="false">
         <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-medium text-blue-600 dark:text-blue-400 bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200/60 dark:border-blue-800/60 shadow-xs">
           <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin text-blue-500"></i>
           <span class="animate-pulse">正在載入雲端筆記內容...</span>
         </div>
-
         <div class="space-y-3">
           <div class="h-8 rounded-xl skeleton-shimmer w-3/4"></div>
           <div class="flex items-center gap-2 pt-1">
@@ -6412,9 +6465,7 @@ async function selectNote(noteId) {
             <div class="h-5 w-16 rounded-md skeleton-shimmer"></div>
           </div>
         </div>
-
         <div class="h-px bg-gray-200/60 dark:bg-notion-borderDark/60 my-4"></div>
-
         <div class="space-y-2.5">
           <div class="h-4 rounded skeleton-shimmer w-full"></div>
           <div class="h-4 rounded skeleton-shimmer w-11/12"></div>
@@ -6422,17 +6473,18 @@ async function selectNote(noteId) {
         </div>
       </div>
     `;
-    try { renderNotesList(); } catch (e) {}
     initLucide();
   }
 
-  // 僅當「尚未登入」或「剛建立尚未取得雲端 ID 的 temp_ 筆記」才不發送雲端讀取；
-  // 若 !hasCache，無論如何都必須向 Google Drive 下載內容，絕不可提前 return 卡在骨架屏！
+  // 若為本地新建尚未取得正式雲端 ID 的筆記，直接結束載入
   if (!state.accessToken || String(noteId).startsWith('temp_')) {
     state.isLoadingNote = false;
     return;
   }
+
+  // 若已有快取且該筆記正在背景上傳佇列中，不發動舊雲端讀取以免覆蓋
   if (hasCache && isNoteDirtyOrQueued(noteId)) {
+    state.isLoadingNote = false;
     return;
   }
 
@@ -6442,91 +6494,87 @@ async function selectNote(noteId) {
     });
 
     if (res.status === 401) {
+      state.isLoadingNote = false;
       console.warn('Google Drive token 過期 (401)');
       if (DOM.loginModal) DOM.loginModal.classList.remove('hidden');
       throw new Error('Google 登入憑證已過期，請重新授權登入。');
     }
     if (!res.ok) {
+      state.isLoadingNote = false;
       throw new Error(`Google Drive API 回應錯誤 (HTTP ${res.status})`);
     }
 
     let rawText = await res.text();
+    let { meta: bodyMeta, body } = parseFrontmatter(rawText);
 
-    // 🛡️ 自動偵測與歷史版本救援：若從雲端讀回的內容竟含有 note-skeleton-wrapper，立即自動從 Google Drive Revisions 救回原始筆記！
-    if (isHtmlSkeletonOrError(rawText)) {
-      const recoveredRaw = await autoRecoverCorruptedNoteFromDriveRevisions(noteId, noteMeta);
-      if (recoveredRaw) {
-        rawText = recoveredRaw;
+    // 🚑 自動偵測並救援曾被骨架屏污染的雲端筆記！
+    if (isSkeletonOrCorruptedContent(body) || isSkeletonOrCorruptedContent(rawText)) {
+      const recovered = await autoRecoverCorruptedNoteFromDriveRevisions(noteId, noteMeta, rawText);
+      if (recovered) {
+        rawText = recovered.rawText;
+        bodyMeta = recovered.meta;
+        body = recovered.body;
       } else {
-        rawText = rawText.replace(/<div class="note-skeleton-wrapper[\s\S]*?<\/div>\s*<\/div>/gi, '<p><br></p>');
+        body = '<p><br></p>';
       }
     }
 
-    // 🛡️ 護欄：若在等待網路回應期間使用者已經切換到別篇筆記，僅在背景更新此筆記的快取，不更動當前畫面！
-    if (state.selectNoteSeq !== mySelectSeq || !state.currentNote || state.currentNote.id !== noteId) {
-      const { meta: bgMeta, body: bgBody } = parseFrontmatter(rawText);
-      if (!isHtmlSkeletonOrError(bgBody)) {
-        noteMeta._cachedRawText = rawText;
-        noteMeta._cachedBody = bgBody;
-        noteMeta._cachedMeta = bgMeta;
-      }
-      return;
-    }
-    if (state.isDirty && hasCache) {
-      return;
-    }
-
-    state.isLoadingNote = false;
-    const { meta: bodyMeta, body } = parseFrontmatter(rawText);
-
-    // 🛡️ 核心修復：優先採納 state.notes / file.description 中由使用者最新設定的分類屬性！
     const finalMeta = {
       ...bodyMeta,
       ...(noteMeta.meta || {})
     };
-
-    state.currentNote = {
-      id: noteMeta.id,
-      name: noteMeta.name,
-      parentId: noteMeta.parentId,
-      meta: finalMeta
-    };
     noteMeta.meta = finalMeta;
-
-    try { renderCurrentNote(); } catch (e) { console.warn('renderCurrentNote error:', e); }
-
-    state.titleBeforeEdit = DOM.noteTitle.value;
-    state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
 
     const renderedHtml = DOMPurify.sanitize(window.marked ? window.marked.parse(body) : body, {
       ADD_TAGS: ['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'hr', 'div', 'span', 'a', 'mark', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g'],
       ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'data-color', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd']
     });
 
-    // 存入快取供後續瞬間切換，並寫入本機 SWR 瞬開快取與全文模糊檢索索引
-    noteMeta._cachedRawText = rawText;
-    noteMeta._cachedBody = body;
-    noteMeta._cachedMeta = bodyMeta;
-    noteMeta._cachedHtml = renderedHtml;
-    try { updateNoteSearchIndex(noteMeta.id, noteMeta.modifiedTime, body); } catch (e) {}
-    saveSwrCacheSnapshot();
-
-    // 若透過雲端歷史版本救回了原始標題，同步更新畫面標題列
-    const latestCleanTitle = (noteMeta.name || '').replace(/\.md$/i, '');
-    if (DOM.noteTitle && latestCleanTitle) {
-      DOM.noteTitle.value = latestCleanTitle;
-      if (DOM.headerTitle) DOM.headerTitle.textContent = latestCleanTitle;
+    // 先存入背景記憶體快取與搜尋索引（即使使用者在等待期間已點去別篇筆記，下次點回來也能 0ms 秒開！）
+    if (!isNoteDirtyOrQueued(noteId)) {
+      noteMeta._cachedRawText = rawText;
+      noteMeta._cachedBody = body;
+      noteMeta._cachedMeta = bodyMeta;
+      noteMeta._cachedHtml = renderedHtml;
+      try { updateNoteSearchIndex(noteMeta.id, noteMeta.modifiedTime, body); } catch (e) {}
+      saveSwrCacheSnapshot();
     }
 
-    // 🛡️ 核心救援：檢查本機是否有上次關閉軟體前尚未完成上傳的最新草稿（嚴格排除骨架屏）
+    // 🛡️ 護欄：若在等待網路下載期間，使用者已經點擊切換到另一篇筆記，則只更新上方背景快取，絕不改動當前畫面！
+    if (state.selectNoteSeq !== mySelectSeq || !state.currentNote || state.currentNote.id !== noteId) {
+      return;
+    }
+
+    // 若該筆記原本已有快取，且使用者在快取秒開後已經開始打字修改 (state.isDirty)，絕不拿舊雲端回應覆蓋畫面！
+    if (hasCache && (state.isDirty || isNoteDirtyOrQueued(noteId))) {
+      state.isLoadingNote = false;
+      return;
+    }
+
+    state.isLoadingNote = false;
+    state.currentNote = {
+      id: noteMeta.id,
+      name: noteMeta.name,
+      parentId: noteMeta.parentId,
+      meta: finalMeta
+    };
+    DOM.noteTitle.value = (noteMeta.name || '').replace(/\.md$/i, '');
+    DOM.headerTitle.textContent = DOM.noteTitle.value;
+    try { renderCurrentNote(); } catch (e) {}
+
     const localDraft = getLocalDraft(noteId);
     const cloudModifiedMs = new Date(noteMeta.modifiedTime || 0).getTime();
-    const hasUnsyncedDraft = localDraft && !localDraft.synced && !isHtmlSkeletonOrError(localDraft.html) && (localDraft.updatedAt > cloudModifiedMs);
+    const hasUnsyncedDraft = (
+      localDraft &&
+      !localDraft.synced &&
+      (localDraft.updatedAt > cloudModifiedMs) &&
+      localDraft.html &&
+      !isSkeletonOrCorruptedContent(localDraft.html)
+    );
 
-    if (hasUnsyncedDraft && localDraft.html) {
-      console.log('⚡ 偵測到本機有未同步之最新草稿 (關閉前尚未完成上傳)，自動執行無損救援！');
+    if (hasUnsyncedDraft) {
       DOM.editor.innerHTML = localDraft.html;
-      if (localDraft.title) {
+      if (localDraft.title && !localDraft.title.startsWith('未命名隨手筆記')) {
         DOM.noteTitle.value = localDraft.title;
         DOM.headerTitle.textContent = localDraft.title;
       }
@@ -6534,23 +6582,21 @@ async function selectNote(noteId) {
         state.currentNote.meta = localDraft.meta;
         try { renderCurrentNote(); } catch(e) {}
       }
-      showToast('⚡ 已為您自動救回關閉軟體前未完成上傳的最新內容！', 5000);
-      try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn(e); }
-      try { updateToggleAllMediaBtnUI(true); } catch (e) { console.warn(e); }
-      try { attachCodeCopyButtons(); } catch (e) { console.warn(e); }
-      try { updateStats(); } catch (e) { console.warn(e); }
-      try { renderOutline(); } catch (e) { console.warn(e); }
-      // 立即發動自動補傳至雲端
+      showToast('⚡ 已為您自動救回關閉軟體前未完成上傳的最新內容！', 4000);
+      try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+      try { updateToggleAllMediaBtnUI(true); } catch (e) {}
+      try { attachCodeCopyButtons(); } catch (e) {}
+      try { updateStats(); } catch (e) {}
+      try { renderOutline(); } catch (e) {}
       triggerAutoSaveDebounce();
     } else if (!hasCache || DOM.editor.innerHTML !== renderedHtml) {
       DOM.editor.innerHTML = renderedHtml;
-      try { enhanceAllEditorBlocks(DOM.editor); } catch (e) { console.warn('enhanceAllEditorBlocks error:', e); }
-      try { updateToggleAllMediaBtnUI(true); } catch (e) { console.warn('updateToggleAllMediaBtnUI error:', e); }
-      try { attachCodeCopyButtons(); } catch (e) { console.warn('attachCodeCopyButtons error:', e); }
-      try { updateStats(); } catch (e) { console.warn('updateStats error:', e); }
-      try { renderOutline(); } catch (e) { console.warn('renderOutline error:', e); }
+      try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+      try { updateToggleAllMediaBtnUI(true); } catch (e) {}
+      try { attachCodeCopyButtons(); } catch (e) {}
+      try { updateStats(); } catch (e) {}
+      try { renderOutline(); } catch (e) {}
 
-      // 開启动態平滑過渡
       DOM.editor.classList.remove('note-open-animate');
       void DOM.editor.offsetWidth;
       DOM.editor.classList.add('note-open-animate');
@@ -6559,8 +6605,8 @@ async function selectNote(noteId) {
     state.titleBeforeEdit = DOM.noteTitle.value;
     state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
     state.snapshotNoteId = noteId;
-    try { renderNotesList(); } catch (e) { console.warn('renderNotesList error:', e); }
     state.isDirty = false;
+    try { renderNotesList(); } catch (e) {}
 
     if (state.pendingScrollMatch && state.pendingScrollMatch.noteId === noteId) {
       const matchData = state.pendingScrollMatch;
@@ -6570,8 +6616,8 @@ async function selectNote(noteId) {
   } catch (e) {
     state.isLoadingNote = false;
     console.error('讀取筆記失敗:', e);
-    if (!hasCache) {
-      DOM.editor.innerHTML = `<div class="p-8 text-center max-w-md mx-auto my-12 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-2xl shadow-xs">
+    if (!hasCache && state.selectNoteSeq === mySelectSeq) {
+      DOM.editor.innerHTML = `<div class="p-8 text-center max-w-md mx-auto my-12 bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/50 rounded-2xl shadow-xs" contenteditable="false">
         <div class="w-10 h-10 mx-auto mb-3 text-rose-500 flex items-center justify-center bg-rose-100 dark:bg-rose-900/40 rounded-full">
           <i data-lucide="alert-triangle" class="w-5 h-5"></i>
         </div>
@@ -6642,7 +6688,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261025_v2.7.3', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.7.4', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -6674,10 +6720,7 @@ function pruneOldSyncedDrafts() {
 
 function saveLocalDraftImmediately() {
   if (!state.currentNote || state.isLoadingNote) return;
-  if (DOM.editor && isHtmlSkeletonOrError(DOM.editor.innerHTML)) {
-    console.warn('🛡️ [Safety Guard] 攔截將載入骨架屏寫入本機草稿');
-    return;
-  }
+  if (DOM.editor && !isEditorContentSafeToSave(DOM.editor.innerHTML)) return;
   if (!state.currentNote.id && !state.currentNote._tempId) {
     state.currentNote._tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
   }
@@ -6778,11 +6821,6 @@ function markLocalDraftSynced(noteId) {
 
 async function saveDraftToDriveBackground(draft) {
   if (!state.accessToken || !draft || !draft.noteId) return;
-  if (isHtmlSkeletonOrError(draft.html)) {
-    markLocalDraftSynced(draft.noteId);
-    localStorage.removeItem(`lvi_draft_${draft.noteId}`);
-    return;
-  }
   const boundary = '-------CloudNotesBoundary' + Math.random().toString(36).substring(2);
   let title = (draft.title || '未命名筆記').trim();
   if (!title.toLowerCase().endsWith('.md')) title += '.md';
@@ -6825,13 +6863,12 @@ async function flushPendingSyncQueue() {
 
   console.log(`📡 發現 ${queue.length} 篇待補傳草稿，自動執行背景補傳...`);
   for (const noteId of queue) {
-    const draft = getLocalDraft(noteId);
-    if (draft && isHtmlSkeletonOrError(draft.html)) {
-      markLocalDraftSynced(noteId);
-      localStorage.removeItem(`lvi_draft_${noteId}`);
+    if (state.currentNote && state.currentNote.id === noteId) {
+      saveCurrentNote();
       continue;
     }
-    if (draft && !draft.synced && draft.html && !isHtmlSkeletonOrError(draft.html)) {
+    const draft = getLocalDraft(noteId);
+    if (draft && !draft.synced && draft.html) {
       try {
         await saveDraftToDriveBackground(draft);
         markLocalDraftSynced(noteId);
@@ -6880,7 +6917,7 @@ function convertHtmlToMarkdown(html) {
   try {
     const tempContainer = document.createElement('div');
     tempContainer.innerHTML = html;
-    tempContainer.querySelectorAll('[data-pending-upload="true"]').forEach(el => el.remove());
+    tempContainer.querySelectorAll('[data-pending-upload="true"], .note-skeleton-wrapper, .skeleton-shimmer').forEach(el => el.remove());
     // 移除表格工具列與執行期綁定屬性 (避免控制按鈕或綁定標記污染雲端 Markdown)
     tempContainer.querySelectorAll('.notion-table-toolbar, .notion-table-controls').forEach(el => el.remove());
     tempContainer.querySelectorAll('img[data-cloud-src]').forEach(img => {
@@ -6953,10 +6990,7 @@ function isNoteDirtyOrQueued(noteId) {
  */
 function captureCurrentNoteAtomicSnapshot() {
   if (!state.currentNote || !DOM.editor || state.isLoadingNote) return null;
-  if (isHtmlSkeletonOrError(DOM.editor.innerHTML)) {
-    console.warn('🛡️ [Safety Guard] 攔截擷取載入骨架屏快照');
-    return null;
-  }
+  if (!isEditorContentSafeToSave(DOM.editor.innerHTML)) return null;
   if (!state.currentNote.id && !state.currentNote._tempId) {
     state.currentNote._tempId = 'temp_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
   }
@@ -7043,12 +7077,11 @@ function captureCurrentNoteAtomicSnapshot() {
  */
 function commitActiveEditorStateImmediately() {
   if (!state.currentNote || !DOM.editor || state.isLoadingNote) return null;
-  if (isHtmlSkeletonOrError(DOM.editor.innerHTML)) {
-    return null;
-  }
+  if (!isEditorContentSafeToSave(DOM.editor.innerHTML)) return null;
 
-  // 🛡️ 鐵律：只有當使用者真正動手修改過筆記 (state.isDirty === true 或有啟動中的自動存檔計時器) 時，才允許結算存檔！
   const hasTimer = Boolean(state.autoSaveTimer || autoSaveMaxTimer);
+  // 🛡️ 鐵律 3：嚴格限定只有當 state.isDirty 為 true 或有尚未執行的自動存檔計時器 (hasTimer) 時才允許觸發存檔！
+  // 單純點開、切換或瀏覽筆記絕不觸發存檔，100% 杜絕任何跨筆記污染！
   if (!state.isDirty && !hasTimer) {
     return null;
   }
