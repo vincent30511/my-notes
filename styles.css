@@ -2207,7 +2207,7 @@ mark.fuzzy-hl {
 }
 
 /* ==========================================================================
-   🚀 v2.7.6 四大進階功能樣式：
+   🚀 v2.8.1 四大進階功能樣式：
    1. 搜尋命中段落自動定位與琥珀脈衝閃爍 (.search-hit-flash-block)
    2. 表格資料庫就地修改下拉選單 (.table-inline-select) 與側邊預覽抽屜
    3. 照片就地標註工作室 (#photo-annotate-modal)
@@ -2323,7 +2323,7 @@ mark.fuzzy-hl {
 
 
 /* ==========================================================================
-   📱 v2.7.6 手機端單行俐落按鈕列、點塗螢光筆與內建圖片燈箱專用樣式
+   📱 v2.8.1 手機端單行俐落按鈕列、點塗螢光筆與內建圖片燈箱專用樣式
    ========================================================================== */
 #editor-action-toolbar {
   display: flex !important;
@@ -2389,7 +2389,7 @@ mark.notion-highlight.selected-mark-target {
 
 
 /* ==========================================================================
-   🌙 v2.7.6 深色模式全站極致高對比度保證 (WCAG AAA High-Contrast Dark Mode)
+   🌙 v2.8.1 深色模式全站極致高對比度保證 (WCAG AAA High-Contrast Dark Mode)
    徹底解決深色模式下淺色半透明背景泛灰、字體霧化看不清楚的問題
    ========================================================================== */
 
@@ -2577,7 +2577,7 @@ mark.notion-highlight.selected-mark-target {
 
 
 /* ==========================================================================
-   📱 v2.7.6 手機端動態視窗安全區、螢光筆浮動抽屜防遮擋與選字工具列避障樣式
+   📱 v2.8.1 手機端動態視窗安全區、螢光筆浮動抽屜防遮擋與選字工具列避障樣式
    ========================================================================== */
 html, body {
   height: 100vh;
@@ -2620,7 +2620,7 @@ html, body {
 
 
 /* ==========================================================================
-   📱 v2.7.6 手機端極致寬幅滿版顯示 (減少兩側空白) + 頂部 7 鈕單行零重疊保證
+   📱 v2.8.1 手機端極致寬幅滿版顯示 (減少兩側空白) + 頂部 7 鈕單行零重疊保證
    ========================================================================== */
 #editor-action-toolbar {
   display: flex !important;
@@ -2714,7 +2714,7 @@ html, body {
 
 
 /* ==========================================================================
-   🖼️ v2.7.6 圖片四大升級：HEIC 標註、頂部高對比文字註記欄、真實雲端旋轉、防 Backspace 誤刪
+   🖼️ v2.8.1 圖片四大升級：HEIC 標註、頂部高對比文字註記欄、真實雲端旋轉、防 Backspace 誤刪
    ========================================================================== */
 
 /* 圖片框上方專屬文字註記欄 (.media-top-note-bar & .media-top-note-input)
@@ -2814,7 +2814,7 @@ html, body {
 
 
 /* ==========================================================================
-   🧹 v2.7.6 徹底移除殘留無用按鍵 (左繞/置中/右繞、右下角縮放鈕)
+   🧹 v2.8.1 徹底移除殘留無用按鍵 (左繞/置中/右繞、右下角縮放鈕)
    ========================================================================== */
 .media-wrap-btn,
 div[title*="圖片位置與自動文繞圖模式"],
@@ -2842,7 +2842,7 @@ details.notion-media-collapse {
 }
 
 /* ==========================================================================
-   🖨️ v2.7.6 旗艦級 PDF 匯出與列印引擎 (Magazine-Grade High-Contrast PDF Export)
+   🖨️ v2.8.1 旗艦級 PDF 匯出與列印引擎 (Magazine-Grade High-Contrast PDF Export)
    - 徹底解決深色模式白字印在白紙上看不清楚的問題 (強制 18.1:1 極致黑字白底高對比)
    - 徹底清除多餘互動按鈕，轉換為專業工程技術報告版面
    - 防止圖片與表格跨頁腰斬 (break-inside: avoid)
@@ -3209,4 +3209,408 @@ details.notion-media-collapse {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
+}
+
+
+/* ============================================================================
+   📋 LVI_Note v2.8.1 待辦事項 (5段式卡片架構) & 表格資料庫待辦醒目列樣式
+   100% 對齊使用者架構圖 (ae646093.png) 並融合 LVI_Note 主體設計語言
+   ============================================================================ */
+
+.lvi-todo-card {
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 14px 16px;
+  box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.lvi-todo-card:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.08);
+}
+
+.lvi-todo-card.is-completed-card {
+  border-color: #86efac;
+  background: linear-gradient(180deg, rgba(240, 253, 244, 0.65) 0%, #ffffff 95px);
+}
+
+.dark .lvi-todo-card {
+  background: #191919;
+  border-color: #2f2f2f;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.dark .lvi-todo-card:hover {
+  border-color: #3b82f6;
+}
+
+.dark .lvi-todo-card.is-completed-card {
+  border-color: #166534;
+  background: linear-gradient(180deg, rgba(20, 83, 45, 0.2) 0%, #191919 95px);
+}
+
+/* 第 1 列：輸入標題 | 機型分類 | 客戶或廠商 | 進度選項 */
+.lvi-todo-row-1 {
+  display: grid;
+  grid-template-columns: minmax(210px, 2.3fr) minmax(145px, 1.1fr) minmax(150px, 1.15fr) minmax(150px, 1.15fr);
+  gap: 8px;
+  align-items: stretch;
+}
+
+/* 第 2 列：事件建立時間 (左側小框) | 關聯筆記陳列及新增 (右側寬框) */
+.lvi-todo-row-2 {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: stretch;
+}
+
+/* 第 5 列：標籤新增及陳列 | 處理人員列表 | 事件結束時間 (右側小框) */
+.lvi-todo-row-5 {
+  display: grid;
+  grid-template-columns: minmax(210px, 1.9fr) minmax(180px, 1.35fr) auto;
+  gap: 8px;
+  align-items: stretch;
+}
+
+@media (max-width: 960px) {
+  .lvi-todo-row-1 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .lvi-todo-row-2 {
+    grid-template-columns: 1fr;
+  }
+  .lvi-todo-row-5 {
+    grid-template-columns: 1fr 1fr;
+  }
+  .lvi-todo-endtime-pill {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 560px) {
+  .lvi-todo-card {
+    padding: 10px 8px;
+    gap: 8px;
+  }
+  .lvi-todo-row-1,
+  .lvi-todo-row-2,
+  .lvi-todo-row-5 {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .lvi-todo-endtime-pill {
+    grid-column: span 1;
+  }
+}
+
+/* 通用欄位圓角框 (配合筆記網站主體屬性欄風格) */
+.lvi-todo-box {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.lvi-todo-box:focus-within {
+  border-color: #3b82f6;
+  background: #ffffff;
+}
+
+.dark .lvi-todo-box {
+  background: #202020;
+  border-color: #333333;
+}
+
+.dark .lvi-todo-box:focus-within {
+  border-color: #3b82f6;
+  background: #252525;
+}
+
+.lvi-todo-box-label {
+  font-size: 10px;
+  font-weight: 800;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 2px;
+  user-select: none;
+}
+
+.dark .lvi-todo-box-label {
+  color: #9ca3af;
+}
+
+.todo-title-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.todo-title-input::placeholder {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.dark .todo-title-input {
+  color: #f8fafc;
+}
+
+.todo-box-select {
+  width: 100%;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+  padding: 1px 0;
+}
+
+.dark .todo-box-select {
+  color: #f1f5f9;
+}
+
+.dark .todo-box-select option,
+.dark .todo-box-select optgroup {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+/* 事件建立時間 與 事件結束時間 緊湊膠囊框 */
+.lvi-todo-created-pill,
+.lvi-todo-endtime-pill {
+  background: #eff6ff;
+  border: 1px solid #93c5fd;
+  border-radius: 10px;
+  padding: 6px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.lvi-todo-created-pill:hover,
+.lvi-todo-endtime-pill:hover {
+  background: #dbeafe;
+}
+
+.lvi-todo-endtime-pill.is-done {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+}
+
+.dark .lvi-todo-created-pill,
+.dark .lvi-todo-endtime-pill {
+  background: rgba(30, 58, 138, 0.35);
+  border-color: #1d4ed8;
+}
+
+.dark .lvi-todo-endtime-pill.is-done {
+  background: rgba(6, 78, 59, 0.45);
+  border-color: #059669;
+}
+
+/* 關聯筆記陳列及新增框 */
+.lvi-todo-linked-notes-box {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #3b82f6;
+  border-radius: 10px;
+  padding: 6px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+
+.dark .lvi-todo-linked-notes-box {
+  background: #202020;
+  border-color: #333333;
+  border-left: 4px solid #3b82f6;
+}
+
+/* 第 3 列：待辦事件說明及檔案附件陳列 */
+.lvi-todo-issue-box {
+  background: #fffafa;
+  border: 1px solid #fecaca;
+  border-left: 5px solid #ef4444;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.dark .lvi-todo-issue-box {
+  background: rgba(69, 10, 10, 0.14);
+  border-color: #7f1d1d;
+  border-left: 5px solid #ef4444;
+}
+
+/* 第 4 列：如何處理、處理結果及檔案附件陳列 */
+.lvi-todo-resolution-box {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-left: 5px solid #3b82f6;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.dark .lvi-todo-resolution-box {
+  background: rgba(30, 41, 59, 0.45);
+  border-color: #334155;
+  border-left: 5px solid #3b82f6;
+}
+
+.lvi-todo-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.lvi-todo-section-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dark .lvi-todo-section-title {
+  color: #f1f5f9;
+}
+
+.lvi-todo-textarea {
+  width: 100%;
+  min-height: 62px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.55;
+  color: #0f172a;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.lvi-todo-textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.16);
+}
+
+.dark .lvi-todo-textarea {
+  background: #141414;
+  border-color: #333333;
+  color: #f8fafc;
+}
+
+.todo-attachments-gallery {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.todo-attachments-gallery:empty {
+  margin-top: 0;
+}
+
+/* 表格資料庫中「待辦事項」專屬醒目列樣式 */
+tr.lvi-table-todo-row {
+  background: rgba(254, 243, 199, 0.38) !important;
+  border-left: 4px solid #f59e0b !important;
+}
+
+tr.lvi-table-todo-row:hover {
+  background: rgba(254, 243, 199, 0.72) !important;
+}
+
+tr.lvi-table-todo-row.is-todo-completed {
+  background: rgba(209, 250, 229, 0.32) !important;
+  border-left: 4px solid #10b981 !important;
+}
+
+.dark tr.lvi-table-todo-row {
+  background: rgba(120, 53, 15, 0.18) !important;
+  border-left: 4px solid #f59e0b !important;
+}
+
+.dark tr.lvi-table-todo-row:hover {
+  background: rgba(120, 53, 15, 0.32) !important;
+}
+
+.dark tr.lvi-table-todo-row.is-todo-completed {
+  background: rgba(6, 78, 59, 0.22) !important;
+  border-left: 4px solid #10b981 !important;
+}
+
+.lvi-table-todo-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 800;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  white-space: nowrap;
+}
+
+.lvi-table-todo-badge.is-done {
+  background: #d1fae5;
+  color: #065f46;
+  border-color: #10b981;
+}
+
+.dark .lvi-table-todo-badge {
+  background: rgba(146, 64, 14, 0.45);
+  color: #fde68a;
+  border-color: #d97706;
+}
+
+.dark .lvi-table-todo-badge.is-done {
+  background: rgba(6, 95, 70, 0.5);
+  color: #a7f3d0;
+  border-color: #059669;
+}
+
+@keyframes todoCardHighlightPulse {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.65); border-color: #f59e0b; }
+  50% { box-shadow: 0 0 0 8px rgba(245, 158, 11, 0); border-color: #2563eb; }
+  100% { box-shadow: 0 3px 12px rgba(15, 23, 42, 0.05); }
+}
+
+.lvi-todo-card.todo-flash-focus {
+  animation: todoCardHighlightPulse 1.8s ease-out 1;
 }
