@@ -1536,7 +1536,7 @@ async function reloadCurrentNoteContentSilently(noteId, fileMeta) {
     const { meta: bodyMeta, body } = parseFrontmatter(rawText);
     const renderedHtml = DOMPurify.sanitize(window.marked ? window.marked.parse(body) : body, {
       ADD_TAGS: ['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'hr', 'div', 'span', 'a', 'mark', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g'],
-      ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'data-color', 'data-wrap-mode', 'data-custom-width', 'data-image-note', 'data-rotation', 'data-placeholder', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd']
+      ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'data-color', 'data-image-note', 'data-rotation', 'data-placeholder', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd']
     });
 
     if (DOM.editor && !state.isDirty) {
@@ -1779,7 +1779,7 @@ async function fetchNotesList(silent = false) {
                 const rec = await autoRecoverCorruptedNoteFromDriveRevisions(n.id, n, rawTxt);
                 if (rec) {
                   n._cachedBody = rec.body;
-                  n._cachedHtml = DOMPurify.sanitize(window.marked ? window.marked.parse(rec.body) : rec.body, { ADD_TAGS: ['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'hr', 'div', 'span', 'a', 'mark', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g'], ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'data-color', 'data-wrap-mode', 'data-custom-width', 'data-image-note', 'data-rotation', 'data-placeholder', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd'] });
+                  n._cachedHtml = DOMPurify.sanitize(window.marked ? window.marked.parse(rec.body) : rec.body, { ADD_TAGS: ['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'hr', 'div', 'span', 'a', 'mark', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g'], ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'data-color', 'data-image-note', 'data-rotation', 'data-placeholder', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd'] });
                   renderNotesList();
                   if (state.currentNote && state.currentNote.id === n.id) {
                     DOM.noteTitle.value = rec.fileName.replace(/\.md$/i, '');
@@ -4533,7 +4533,7 @@ async function compressImageForUpload(file, maxDimension = 1280, quality = 0.76)
   const t0 = performance.now();
   try {
     const origSize = file.size;
-    // 🍏 v2.7.5 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 原況照片能直接顯示、旋轉與標註
+    // 🍏 v2.7.5 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
     if (await isHeicFileOrBlob(file, file.name)) {
       const convertedJpegBlob = await convertHeicBlobToJpegBlob(file, Math.max(0.84, quality));
       if (convertedJpegBlob) {
@@ -5001,18 +5001,6 @@ function initMediaDeleteConfirmModal() {
         return;
       }
 
-      const wrapBtn = e.target.closest('.media-wrap-btn');
-      if (wrapBtn && DOM.editor.contains(wrapBtn)) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (e.stopImmediatePropagation) e.stopImmediatePropagation();
-        const targetBlock = wrapBtn.closest('details.notion-media-collapse');
-        if (targetBlock) {
-          setMediaBlockWrapMode(targetBlock, wrapBtn.getAttribute('data-wrap') || 'none');
-        }
-        return;
-      }
-
       const rotLeftBtn = e.target.closest('.media-card-rotate-left-btn');
       if (rotLeftBtn && DOM.editor.contains(rotLeftBtn)) {
         e.preventDefault();
@@ -5076,13 +5064,11 @@ function initMediaDeleteConfirmModal() {
 }
 
 // 產生統一規格的媒體收折卡片 HTML (僅保留頂部標題列刪除按鈕，不顯示多餘圖片註解)
-function buildMediaCollapseCardHtml({ fileId, fileName, isImage, isVideo, isAudio, directSrc, previewUrl, previewEmbedUrl, downloadUrl, topNoteText = '', wrapMode = 'none', customWidth = '' }) {
+function buildMediaCollapseCardHtml({ fileId, fileName, isImage, isVideo, isAudio, directSrc, previewUrl, previewEmbedUrl, downloadUrl, topNoteText = '' }) {
   const safeName = escapeHtml(fileName || '媒體檔案');
   const mediaTypeLabel = isImage ? '原圖' : (isVideo ? '影片' : '音訊');
   const iconName = isImage ? 'image' : (isVideo ? 'video' : 'music');
   const safeTopNote = topNoteText || '';
-  const widthStyle = customWidth ? `style="width: ${escapeHtml(customWidth)};"` : '';
-  const dataWidthAttr = customWidth ? `data-custom-width="${escapeHtml(customWidth)}"` : '';
 
   let bodyMediaHtml = '';
   if (isImage) {
@@ -5094,24 +5080,19 @@ function buildMediaCollapseCardHtml({ fileId, fileName, isImage, isVideo, isAudi
   }
 
   return `
-    <details class="notion-media-collapse notion-draggable-block my-3 rounded-xl border border-gray-200 dark:border-notion-borderDark bg-gray-50/70 dark:bg-notion-darker/70 overflow-hidden shadow-xs transition" open contenteditable="false" draggable="true" data-file-id="${fileId || ''}" data-file-name="${safeName}" data-wrap-mode="${wrapMode || 'none'}" ${dataWidthAttr} ${widthStyle}>
-      <summary class="cursor-pointer select-none px-2.5 py-1.5 flex flex-wrap items-center justify-between gap-1.5 bg-gray-100/80 dark:bg-notion-card hover:bg-gray-200/60 dark:hover:bg-gray-800 transition font-medium text-xs">
-        <div class="flex items-center gap-1.5 min-w-0 flex-1">
-          <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 shrink-0 px-0.5" title="按住拖曳至任意段落（靠左放自動左文繞圖、靠右放自動右文繞圖）"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span>
+    <details class="notion-media-collapse notion-draggable-block my-3 rounded-xl border border-gray-200 dark:border-notion-borderDark bg-gray-50/70 dark:bg-notion-darker/70 overflow-hidden shadow-xs transition" open contenteditable="false" draggable="true" data-file-id="${fileId || ''}" data-file-name="${safeName}">
+      <summary class="cursor-pointer select-none px-3 py-2 flex items-center justify-between gap-2 bg-gray-100/80 dark:bg-notion-card hover:bg-gray-200/60 dark:hover:bg-gray-800 transition font-medium text-xs">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <span class="drag-handle cursor-grab active:cursor-grabbing text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 shrink-0" title="拖動改變位置"><i data-lucide="grip-vertical" class="w-3.5 h-3.5"></i></span>
           <i data-lucide="${iconName}" class="w-3.5 h-3.5 text-blue-500 shrink-0"></i>
           <span class="truncate font-semibold text-gray-800 dark:text-gray-100">${safeName}</span>
         </div>
-        <div class="flex items-center gap-1 flex-wrap shrink-0 media-card-controls">
+        <div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
           ${isImage ? `
-          <div class="inline-flex items-center rounded-md border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-slate-800/80 p-0.5 gap-0.5 shrink-0" title="圖片位置與自動文繞圖模式">
-            <button type="button" class="media-wrap-btn px-1.5 py-0.5 rounded text-[10px] font-bold text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition cursor-pointer ${wrapMode === 'left' ? 'active' : ''}" data-wrap="left" title="靠左浮動（右側文字自動繞行）">◧左繞</button>
-            <button type="button" class="media-wrap-btn px-1.5 py-0.5 rounded text-[10px] font-bold text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition cursor-pointer ${(!wrapMode || wrapMode === 'none') ? 'active' : ''}" data-wrap="none" title="獨立置中區塊">▬置中</button>
-            <button type="button" class="media-wrap-btn px-1.5 py-0.5 rounded text-[10px] font-bold text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition cursor-pointer ${wrapMode === 'right' ? 'active' : ''}" data-wrap="right" title="靠右浮動（左側文字自動繞行）">◨右繞</button>
-          </div>
-          <button type="button" class="media-card-rotate-left-btn px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-600 hover:text-white text-[11px] font-bold inline-flex items-center transition shadow-2xs cursor-pointer shrink-0" title="逆時針旋轉 90° 並重新存回雲端硬碟">
+          <button type="button" class="media-card-rotate-left-btn px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-600 hover:text-white text-[11px] font-bold inline-flex items-center gap-0.5 transition shadow-2xs cursor-pointer shrink-0" title="逆時針旋轉 90° 並重新存回雲端硬碟">
             <span class="pointer-events-none">↺</span>
           </button>
-          <button type="button" class="media-card-rotate-right-btn px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-600 hover:text-white text-[11px] font-bold inline-flex items-center transition shadow-2xs cursor-pointer shrink-0" title="順時針旋轉 90° 並重新存回雲端硬碟">
+          <button type="button" class="media-card-rotate-right-btn px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-600 hover:text-white text-[11px] font-bold inline-flex items-center gap-0.5 transition shadow-2xs cursor-pointer shrink-0" title="順時針旋轉 90° 並重新存回雲端硬碟">
             <span class="pointer-events-none">↻</span>
           </button>
           <button type="button" class="media-card-annotate-btn px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-500 hover:text-white text-[11px] font-bold inline-flex items-center gap-1 transition shadow-2xs cursor-pointer shrink-0" title="在照片上畫紅圈、箭頭或加文字標註 (支援 HEIC/JPG/PNG)">
@@ -5121,6 +5102,7 @@ function buildMediaCollapseCardHtml({ fileId, fileName, isImage, isVideo, isAudi
             ${TRASH_ICON_SVG}
             <span class="pointer-events-none">刪除</span>
           </button>
+          <span class="text-[10px] text-gray-400 collapse-hint hidden sm:inline">點擊收折/展開</span>
           <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 collapse-arrow transition-transform duration-200"></i>
         </div>
       </summary>
@@ -5129,7 +5111,7 @@ function buildMediaCollapseCardHtml({ fileId, fileName, isImage, isVideo, isAudi
         <span class="media-top-note-label">📝 圖片註記：</span>
         <div class="media-top-note-input" contenteditable="true" data-placeholder="點擊輸入此圖片的文字註記或說明...">${safeTopNote}</div>
       </div>` : ''}
-      <div class="p-3 text-center border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content relative">
+      <div class="p-3 text-center border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content">
         ${bodyMediaHtml}
         <div class="text-[11px] text-gray-400 mt-2 flex items-center justify-center gap-2 flex-wrap media-caption-bar">
           <span class="font-medium text-gray-700 dark:text-gray-300 truncate max-w-[200px]">${safeName}</span>
@@ -5144,9 +5126,6 @@ function buildMediaCollapseCardHtml({ fileId, fileName, isImage, isVideo, isAudi
             <span>雲端檢視</span>
           </a>
         </div>
-        ${isImage ? `
-        <div class="media-resize-handle-e" title="拖曳右側邊緣調整圖片框寬度"></div>
-        <div class="media-resize-handle-se" title="按住右下角拖曳自由放大縮小圖片框">↘</div>` : ''}
       </div>
     </details>
     <p><br></p>
@@ -6620,7 +6599,7 @@ async function selectNote(noteId) {
 
     const renderedHtml = DOMPurify.sanitize(window.marked ? window.marked.parse(body) : body, {
       ADD_TAGS: ['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'hr', 'div', 'span', 'a', 'mark', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g'],
-      ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'data-color', 'data-wrap-mode', 'data-custom-width', 'data-image-note', 'data-rotation', 'data-placeholder', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd']
+      ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'data-color', 'data-image-note', 'data-rotation', 'data-placeholder', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd']
     });
 
     // 先存入背景記憶體快取與搜尋索引（即使使用者在等待期間已點去別篇筆記，下次點回來也能 0ms 秒開！）
@@ -8212,14 +8191,14 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
         });
       }
 
-      // 注入旋轉按鈕 (↺ 左轉 / ↻ 右轉)
+      // 注入旋轉按鈕 (↺ 左轉 90° / ↻ 右轉 90°)
       let rotRightBtn = summary.querySelector('.media-card-rotate-right-btn');
       if (!rotRightBtn) {
         rotRightBtn = document.createElement('button');
         rotRightBtn.type = 'button';
         annotateBtn.parentElement.insertBefore(rotRightBtn, annotateBtn);
       }
-      rotRightBtn.className = 'media-card-rotate-right-btn px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-600 hover:text-white text-[11px] font-bold inline-flex items-center transition shadow-2xs cursor-pointer shrink-0';
+      rotRightBtn.className = 'media-card-rotate-right-btn px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-600 hover:text-white text-[11px] font-bold inline-flex items-center gap-0.5 transition shadow-2xs cursor-pointer shrink-0';
       rotRightBtn.title = '順時針旋轉 90° 並重新存回雲端硬碟';
       rotRightBtn.innerHTML = '<span class="pointer-events-none">↻</span>';
 
@@ -8229,32 +8208,11 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
         rotLeftBtn.type = 'button';
         rotRightBtn.parentElement.insertBefore(rotLeftBtn, rotRightBtn);
       }
-      rotLeftBtn.className = 'media-card-rotate-left-btn px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-600 hover:text-white text-[11px] font-bold inline-flex items-center transition shadow-2xs cursor-pointer shrink-0';
+      rotLeftBtn.className = 'media-card-rotate-left-btn px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 hover:bg-blue-600 hover:text-white text-[11px] font-bold inline-flex items-center gap-0.5 transition shadow-2xs cursor-pointer shrink-0';
       rotLeftBtn.title = '逆時針旋轉 90° 並重新存回雲端硬碟';
       rotLeftBtn.innerHTML = '<span class="pointer-events-none">↺</span>';
 
-      // 注入文繞圖模式按鈕組 (◧左繞 / ▬置中 / ◨右繞)
-      const curWrap = details.getAttribute('data-wrap-mode') || 'none';
-      if (!details.hasAttribute('data-wrap-mode')) {
-        details.setAttribute('data-wrap-mode', curWrap);
-      }
-      let wrapGroup = summary.querySelector('.media-wrap-btn')?.parentElement;
-      if (!wrapGroup) {
-        wrapGroup = document.createElement('div');
-        wrapGroup.className = 'inline-flex items-center rounded-md border border-gray-200 dark:border-gray-700 bg-white/80 dark:bg-slate-800/80 p-0.5 gap-0.5 shrink-0';
-        wrapGroup.title = '圖片位置與自動文繞圖模式';
-        wrapGroup.innerHTML = `
-          <button type="button" class="media-wrap-btn px-1.5 py-0.5 rounded text-[10px] font-bold text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition cursor-pointer" data-wrap="left" title="靠左浮動（右側文字自動繞行）">◧左繞</button>
-          <button type="button" class="media-wrap-btn px-1.5 py-0.5 rounded text-[10px] font-bold text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition cursor-pointer" data-wrap="none" title="獨立置中區塊">▬置中</button>
-          <button type="button" class="media-wrap-btn px-1.5 py-0.5 rounded text-[10px] font-bold text-gray-600 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition cursor-pointer" data-wrap="right" title="靠右浮動（左側文字自動繞行）">◨右繞</button>
-        `;
-        rotLeftBtn.parentElement.insertBefore(wrapGroup, rotLeftBtn);
-      }
-      wrapGroup.querySelectorAll('.media-wrap-btn').forEach(b => {
-        b.classList.toggle('active', (b.getAttribute('data-wrap') || 'none') === curWrap);
-      });
-
-      // 注入圖片框上方的「📝 圖片註記」可編輯文字區塊 (.media-top-note-bar)
+      // 注入圖片框上方的「📝 圖片註記」高對比可編輯文字區塊 (.media-top-note-bar)
       let topNoteBar = details.querySelector('.media-top-note-bar');
       const contentBox = details.querySelector('.media-collapse-content') || details.querySelector('.p-3');
       if (!topNoteBar) {
@@ -8281,30 +8239,6 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
         }
       }
       bindMediaTopNoteInputEvents(details);
-
-      // 注入右下角與右側自由縮放控制手把 (.media-resize-handle-se, .media-resize-handle-e)
-      if (contentBox) {
-        contentBox.classList.add('relative');
-        if (!contentBox.querySelector('.media-resize-handle-e')) {
-          const he = document.createElement('div');
-          he.className = 'media-resize-handle-e';
-          he.title = '拖曳右側邊緣調整圖片框寬度';
-          contentBox.appendChild(he);
-        }
-        if (!contentBox.querySelector('.media-resize-handle-se')) {
-          const hse = document.createElement('div');
-          hse.className = 'media-resize-handle-se';
-          hse.title = '按住右下角拖曳自由放大縮小圖片框';
-          hse.textContent = '↘';
-          contentBox.appendChild(hse);
-        }
-      }
-
-      // 還原已儲存的自訂寬度
-      const savedWidth = details.getAttribute('data-custom-width');
-      if (savedWidth && !details.style.width) {
-        details.style.width = savedWidth;
-      }
     }
   });
 
@@ -8340,7 +8274,7 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
         heicBtn = document.createElement('button');
         heicBtn.type = 'button';
         heicBtn.className = 'file-attachment-annotate-heic-btn px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/70 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 hover:bg-amber-500 hover:text-white text-xs font-bold inline-flex items-center gap-1 transition cursor-pointer';
-        heicBtn.title = '將此 HEIC/圖片附件轉為可縮放圖片框並開啟畫筆標註';
+        heicBtn.title = '將此 HEIC/圖片附件轉為圖片框並開啟畫筆標註';
         heicBtn.innerHTML = '<span class="pointer-events-none">✏️ 轉圖片標註</span>';
         delBtn.parentElement.insertBefore(heicBtn, delBtn);
       }
@@ -8455,87 +8389,52 @@ function setupEditorDragAndDrop() {
     e.dataTransfer.dropEffect = 'move';
 
     const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('#editor > *');
-    document.querySelectorAll('#editor > *').forEach(el => el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-indicator-float-left', 'drop-indicator-float-right'));
+    document.querySelectorAll('#editor > *').forEach(el => el.classList.remove('drop-indicator-top', 'drop-indicator-bottom'));
     if (target && target !== draggedEditorBlock && DOM.editor.contains(target)) {
-      const editorRect = DOM.editor.getBoundingClientRect();
-      const relX = (e.clientX - editorRect.left) / Math.max(1, editorRect.width);
-      const isMediaCard = draggedEditorBlock.classList.contains('notion-media-collapse');
-      if (isMediaCard && relX < 0.36) {
-        target.classList.add('drop-indicator-float-left');
-      } else if (isMediaCard && relX > 0.64) {
-        target.classList.add('drop-indicator-float-right');
-      } else {
-        const rect = target.getBoundingClientRect();
-        const isAfter = (e.clientY - rect.top) > (rect.height / 2);
-        if (isAfter) target.classList.add('drop-indicator-bottom');
-        else target.classList.add('drop-indicator-top');
-      }
+      const rect = target.getBoundingClientRect();
+      const isAfter = (e.clientY - rect.top) > (rect.height / 2);
+      if (isAfter) target.classList.add('drop-indicator-bottom');
+      else target.classList.add('drop-indicator-top');
     }
   });
 
   DOM.editor.addEventListener('dragleave', (e) => {
     const target = e.target.closest('#editor > *');
     if (target) {
-      target.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-indicator-float-left', 'drop-indicator-float-right');
+      target.classList.remove('drop-indicator-top', 'drop-indicator-bottom');
     }
   });
 
   DOM.editor.addEventListener('dragend', () => {
-    document.querySelectorAll('#editor > *').forEach(el => el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-indicator-float-left', 'drop-indicator-float-right', 'dragging'));
+    document.querySelectorAll('#editor > *').forEach(el => el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'dragging'));
     draggedEditorBlock = null;
   });
 
   DOM.editor.addEventListener('drop', (e) => {
     if (!draggedEditorBlock) return;
     e.preventDefault();
-    document.querySelectorAll('#editor > *').forEach(el => el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-indicator-float-left', 'drop-indicator-float-right', 'dragging'));
+    document.querySelectorAll('#editor > *').forEach(el => el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'dragging'));
 
     const target = document.elementFromPoint(e.clientX, e.clientY)?.closest('#editor > *');
     if (target && target !== draggedEditorBlock && DOM.editor.contains(target)) {
-      const editorRect = DOM.editor.getBoundingClientRect();
-      const relX = (e.clientX - editorRect.left) / Math.max(1, editorRect.width);
-      const isMediaCard = draggedEditorBlock.classList.contains('notion-media-collapse');
       const rect = target.getBoundingClientRect();
       const isAfter = (e.clientY - rect.top) > (rect.height / 2);
       const blockRef = draggedEditorBlock;
-
-      let chosenWrap = blockRef.getAttribute('data-wrap-mode') || 'none';
-      if (isMediaCard) {
-        if (relX < 0.36) chosenWrap = 'left';
-        else if (relX > 0.64) chosenWrap = 'right';
-        else chosenWrap = 'none';
-      }
-
       commitEditorCanvasAction(
         'drag_block',
-        isMediaCard && chosenWrap !== 'none'
-          ? `🖐️ 自由放置圖片並開啟「${chosenWrap === 'left' ? '靠左文繞圖' : '靠右文繞圖'}」`
-          : '🖐️ 拖曳移動區塊位置',
+        '🖐️ 拖曳移動區塊位置',
         '',
         () => {
-          if (isMediaCard && chosenWrap !== 'none') {
-            // 文繞圖時，將圖片框置於目標段落正前方，讓該段落與後續文字立即繞行於圖片側邊
-            target.insertAdjacentElement('beforebegin', blockRef);
-            applyMediaWrapModeToElement(blockRef, chosenWrap);
+          if (isAfter) {
+            target.insertAdjacentElement('afterend', blockRef);
           } else {
-            if (isAfter) {
-              target.insertAdjacentElement('afterend', blockRef);
-            } else {
-              target.insertAdjacentElement('beforebegin', blockRef);
-            }
-            if (isMediaCard) {
-              applyMediaWrapModeToElement(blockRef, 'none');
-            }
+            target.insertAdjacentElement('beforebegin', blockRef);
           }
         }
       );
       saveLocalDraftImmediately();
       triggerAutoSaveDebounce();
-      if (isMediaCard && chosenWrap !== 'none') {
-        showToast(`✅ 已放置圖片並啟用「${chosenWrap === 'left' ? '靠左文繞圖' : '靠右文繞圖'}」（文字自動繞行）`);
-      } else {
-        showToast('✅ 已移動元件位置 (可按 Ctrl+Z 復原)');
-      }
+      showToast('✅ 已移動元件位置 (可按 Ctrl+Z 復原)');
     }
     draggedEditorBlock = null;
   });
@@ -15128,7 +15027,6 @@ async function openPhotoAnnotatorForBlock(detailsBlock) {
 
   let loadUrl = rawSrc;
 
-  // 若為本地或暫存 HEIC Data URL / Blob，先轉為標準 JPEG Data URL
   if (rawSrc.startsWith('data:image/heic') || rawSrc.startsWith('data:image/heif') || (/\.(heic|heif)$/i.test(fileName) && (rawSrc.startsWith('blob:') || rawSrc.startsWith('data:')))) {
     try {
       const resp = await fetch(rawSrc);
@@ -15140,7 +15038,6 @@ async function openPhotoAnnotatorForBlock(detailsBlock) {
     } catch (heicLocalErr) {}
   }
 
-  // 若為 Google Drive 雲端圖片（或失效的舊 blob: 但具有 fileId）且已登入，優先透過 Drive API 下載並自動將 HEIC 轉為可標註 JPEG Data URL
   if (fileId && state.accessToken && (rawSrc.includes('drive.google.com') || rawSrc.startsWith('blob:') || /\.(heic|heif)$/i.test(fileName))) {
     const driveDataUrl = await fetchDriveImageAsDataUrl(fileId, fileName);
     if (driveDataUrl) {
@@ -16112,12 +16009,11 @@ function initInAppCameraListeners() {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.7.5 圖片全能引擎：
+// 🚀 LVI_Note v2.7.5 圖片四大升級引擎：
 // 1. HEIC/HEIF 完整解碼與標註支援 (heic2any + ImageBitmap + Drive 雲端轉檔)
-// 2. 圖片框上方專屬文字註記欄 (.media-top-note-bar)
+// 2. 圖片框上方專屬高對比文字註記欄 (.media-top-note-bar，淺/深色皆 >18:1 超高對比)
 // 3. 真實圖片旋轉 (90° 左/右旋轉 + PATCH/POST 重新存回 Google Drive 雲端硬碟)
-// 4. 圖片框自由放大縮小與自由放置 + 文字自動繞行 (Float Left / Right / Block)
-// 5. 嚴格防誤刪保護 (禁止常規 Backspace / Delete 刪除圖片框，僅允許專屬刪除鍵)
+// 4. 嚴格防誤刪保護 (禁止常規 Backspace / Delete 刪除圖片框，僅允許專屬刪除鍵)
 // ============================================================================
 
 function blobToDataUrl(blob) {
@@ -16129,9 +16025,6 @@ function blobToDataUrl(blob) {
   });
 }
 
-/**
- * 偵測 File 或 Blob 是否為 Apple HEIC / HEIF 格式（檢查副檔名、MIME 與 ISO ftyp 魔術字元）
- */
 async function isHeicFileOrBlob(blobOrFile, fileName = '') {
   if (!blobOrFile) return false;
   const type = (blobOrFile.type || '').toLowerCase();
@@ -16155,13 +16048,9 @@ async function isHeicFileOrBlob(blobOrFile, fileName = '') {
   return false;
 }
 
-/**
- * 將 HEIC / HEIF Blob 轉換為標準 JPEG Blob（優先使用 heic2any，備援使用原生 createImageBitmap / Image）
- */
 async function convertHeicBlobToJpegBlob(blobOrFile, quality = 0.85) {
   if (!blobOrFile) return null;
 
-  // 1. 優先使用 heic2any 解碼器
   if (typeof window.heic2any === 'function') {
     try {
       const converted = await window.heic2any({
@@ -16178,7 +16067,6 @@ async function convertHeicBlobToJpegBlob(blobOrFile, quality = 0.85) {
     }
   }
 
-  // 2. 備援：若瀏覽器原生支援 HEIC (如 Safari / iOS / 部分具備硬體 HEVC 解碼器之裝置)
   if (typeof createImageBitmap === 'function') {
     try {
       const bmp = await createImageBitmap(blobOrFile);
@@ -16199,7 +16087,6 @@ async function convertHeicBlobToJpegBlob(blobOrFile, quality = 0.85) {
     } catch (bmpErr) {}
   }
 
-  // 3. 備援：透過 Image 元素載入
   try {
     const url = URL.createObjectURL(blobOrFile);
     const img = await new Promise((resolve, reject) => {
@@ -16227,9 +16114,6 @@ async function convertHeicBlobToJpegBlob(blobOrFile, quality = 0.85) {
   return null;
 }
 
-/**
- * 將舊版筆記中的 .heic/.heif 一般附件卡片一鍵升級為圖片框並開啟標註工作室
- */
 async function upgradeHeicAttachmentToImageCardAndAnnotate(attBlock) {
   if (!attBlock) return;
   const fileId = (attBlock.getAttribute('data-file-id') || '').trim();
@@ -16269,12 +16153,28 @@ async function upgradeHeicAttachmentToImageCardAndAnnotate(attBlock) {
 }
 
 /**
- * 綁定圖片框上方文字註記輸入框 (.media-top-note-input) 的即時同步與防誤刪事件
+ * 清理圖片註記欄內可能導致低對比的行內色彩屬性，確保註記文字永遠與背景保持極致高對比
  */
+function sanitizeTopNoteHighContrast(noteInput) {
+  if (!noteInput) return;
+  noteInput.querySelectorAll('[style]').forEach(el => {
+    if (el.tagName === 'MARK') return;
+    if (el.style && el.style.color) {
+      el.style.removeProperty('color');
+    }
+    if (el.style && el.style.backgroundColor) {
+      el.style.removeProperty('background-color');
+    }
+  });
+  noteInput.querySelectorAll('font[color]').forEach(f => f.removeAttribute('color'));
+}
+
 function bindMediaTopNoteInputEvents(detailsBlock) {
   if (!detailsBlock) return;
   const noteInput = detailsBlock.querySelector('.media-top-note-input');
-  if (!noteInput || noteInput._topNoteBound) return;
+  if (!noteInput) return;
+  sanitizeTopNoteHighContrast(noteInput);
+  if (noteInput._topNoteBound) return;
   noteInput._topNoteBound = true;
 
   let beforeEditNoteHtml = null;
@@ -16295,7 +16195,6 @@ function bindMediaTopNoteInputEvents(detailsBlock) {
       return;
     }
     if (e.key === 'Backspace' || e.key === 'Delete') {
-      // 在圖片文字註記框內按 Backspace/Delete 僅修改註記文字，若已空則攔截避免冒泡刪除整個圖片框
       const txt = (noteInput.textContent || '');
       if (txt.length === 0) {
         e.preventDefault();
@@ -16305,6 +16204,7 @@ function bindMediaTopNoteInputEvents(detailsBlock) {
 
   noteInput.addEventListener('input', (e) => {
     e.stopPropagation();
+    sanitizeTopNoteHighContrast(noteInput);
     const val = noteInput.innerHTML.trim();
     if (val === '<br>') {
       noteInput.innerHTML = '';
@@ -16316,6 +16216,7 @@ function bindMediaTopNoteInputEvents(detailsBlock) {
   });
 
   noteInput.addEventListener('blur', () => {
+    sanitizeTopNoteHighContrast(noteInput);
     const val = noteInput.innerHTML.trim();
     detailsBlock.setAttribute('data-image-note', val);
     if (DOM.editor && beforeEditNoteHtml !== null && beforeEditNoteHtml !== DOM.editor.innerHTML) {
@@ -16338,9 +16239,6 @@ function bindMediaTopNoteInputEvents(detailsBlock) {
   });
 }
 
-/**
- * 統一將旋轉後或標註後的圖片二進位檔寫回 Google Drive (若已有 fileId 則優先 PATCH 原檔覆寫，失敗則 POST 新檔案)
- */
 async function syncBinaryImageBlobToDriveForBlock(block, imageFileOrBlob, targetFileName, actionLabel = '旋轉圖片') {
   if (!block || !imageFileOrBlob || !state.accessToken) return null;
   const imgEl = block.querySelector('img');
@@ -16351,7 +16249,6 @@ async function syncBinaryImageBlobToDriveForBlock(block, imageFileOrBlob, target
     const boundary = '-------LVINoteMediaSyncBoundary' + Math.random().toString(36).substring(2);
     let finalFileId = '';
 
-    // 1. 若該圖片已有 Google Drive File ID，優先使用 PATCH 直接覆寫更新雲端原檔案！
     if (existingFileId) {
       const patchMeta = {
         name: targetFileName,
@@ -16392,7 +16289,6 @@ async function syncBinaryImageBlobToDriveForBlock(block, imageFileOrBlob, target
       }
     }
 
-    // 2. 若原本無 fileId 或 PATCH 因權限限制未成功，則透過 POST 上傳至 _assets 媒體資料夾
     if (!finalFileId) {
       if (!state.folderId) await ensureNotesFolder();
       if (!state.mediaFolderId) await ensureMediaFolder();
@@ -16447,7 +16343,6 @@ async function syncBinaryImageBlobToDriveForBlock(block, imageFileOrBlob, target
       const viewLink = block.querySelector('a[rel*="noopener"]');
       if (viewLink) viewLink.href = previewUrl;
 
-      // 維持當前清晰的 Base64 畫面並綁定 data-cloud-src，讓 convertHtmlToMarkdown 存檔與跨裝置同步都擁有最新雲端連結
       if (imgEl && !existingFileId) {
         const preload = new Image();
         preload.onload = () => {
@@ -16477,9 +16372,6 @@ async function syncBinaryImageBlobToDriveForBlock(block, imageFileOrBlob, target
   return null;
 }
 
-/**
- * 在筆記圖片框上直接真實旋轉圖片 90° (順時針/逆時針) 並重新存回雲端硬碟
- */
 async function rotateMediaBlockImageAndSyncCloud(detailsBlock, deltaDeg = 90) {
   if (!detailsBlock) return;
   const imgEl = detailsBlock.querySelector('img');
@@ -16533,7 +16425,6 @@ async function rotateMediaBlockImageAndSyncCloud(detailsBlock, deltaDeg = 90) {
     const drawW = Math.max(1, Math.round(srcW * scale));
     const drawH = Math.max(1, Math.round(srcH * scale));
 
-    // 旋轉 90° 後，畫布寬高對調
     const canvas = document.createElement('canvas');
     canvas.width = drawH;
     canvas.height = drawW;
@@ -16557,7 +16448,6 @@ async function rotateMediaBlockImageAndSyncCloud(detailsBlock, deltaDeg = 90) {
     const prevRot = parseInt(detailsBlock.getAttribute('data-rotation') || '0', 10) || 0;
     const nextRot = ((prevRot + deltaDeg) % 360 + 360) % 360;
 
-    // 1. 立即更新畫面上的圖片與屬性 (0ms 無延遲回饋)
     imgEl.src = rotatedDataUrl;
     imgEl.setAttribute('data-annotated-backup', rotatedDataUrl);
     detailsBlock.setAttribute('data-rotation', String(nextRot));
@@ -16586,7 +16476,6 @@ async function rotateMediaBlockImageAndSyncCloud(detailsBlock, deltaDeg = 90) {
     saveLocalDraftImmediately();
     triggerAutoSaveDebounce();
 
-    // 2. 若已登入 Google Drive，真正將旋轉後的圖片二進位檔重新存回雲端硬碟！
     if (state.accessToken) {
       await syncBinaryImageBlobToDriveForBlock(detailsBlock, rotatedFile, cleanJpgName, '旋轉後圖片');
     } else {
@@ -16598,14 +16487,10 @@ async function rotateMediaBlockImageAndSyncCloud(detailsBlock, deltaDeg = 90) {
   }
 }
 
-/**
- * 在「現場照片標註工作室 (#photo-annotate-modal)」內直接旋轉底圖 90°
- */
 async function rotateCanvasInsidePhotoAnnotator(deltaDeg = 90) {
   const canvas = DOM.photoAnnotateCanvas;
   if (!canvas || !photoAnnotatorState.baseImage) return;
 
-  // 先將當前畫布（包含已畫上的筆跡與底圖）合並輸出為新的旋轉底圖
   redrawPhotoAnnotatorCanvas();
 
   const curW = canvas.width;
@@ -16640,260 +16525,6 @@ async function rotateCanvasInsidePhotoAnnotator(deltaDeg = 90) {
 }
 
 /**
- * 設定圖片框的文繞圖與浮動模式 ('left' | 'right' | 'none')，讓旁邊文字自動繞行
- */
-function applyMediaWrapModeToElement(detailsBlock, wrapMode = 'none') {
-  if (!detailsBlock) return;
-  const mode = ['left', 'right', 'none'].includes(wrapMode) ? wrapMode : 'none';
-  detailsBlock.setAttribute('data-wrap-mode', mode);
-
-  // 更新按鈕組高亮狀態
-  detailsBlock.querySelectorAll('.media-wrap-btn').forEach(btn => {
-    btn.classList.toggle('active', (btn.getAttribute('data-wrap') || 'none') === mode);
-  });
-
-  // 若切換為左繞或右繞，且使用者尚未縮小圖片框（目前為預設 100% 滿寬），自動縮放為 48% 寬度以便文字立即在側邊自動繞行！
-  if (mode === 'left' || mode === 'right') {
-    const curCustomW = detailsBlock.getAttribute('data-custom-width') || '';
-    if (!curCustomW || curCustomW === '100%') {
-      const editorW = DOM.editor ? DOM.editor.clientWidth : 680;
-      const autoWrapPx = Math.max(180, Math.min(360, Math.round(editorW * 0.46)));
-      detailsBlock.style.width = `${autoWrapPx}px`;
-      detailsBlock.setAttribute('data-custom-width', `${autoWrapPx}px`);
-    }
-    // 若圖片緊鄰的下一個元素是空白佔位段落 <p><br></p>，且再下一個元素是有文字的段落，移除空白佔位段落讓文字直接從圖片頂部齊平繞行
-    const nextEl = detailsBlock.nextElementSibling;
-    if (nextEl && nextEl.tagName === 'P' && !(nextEl.textContent || '').trim() && !nextEl.querySelector('img, details') && nextEl.nextElementSibling) {
-      nextEl.remove();
-    }
-  }
-}
-
-function setMediaBlockWrapMode(detailsBlock, wrapMode = 'none') {
-  if (!detailsBlock) return;
-  const modeLabel = wrapMode === 'left' ? '◧ 靠左文繞圖' : (wrapMode === 'right' ? '◨ 靠右文繞圖' : '▬ 獨立置中');
-  commitEditorCanvasAction(
-    'media_op',
-    `📐 切換圖片排版：「${modeLabel}」`,
-    detailsBlock.getAttribute('data-file-name') || '',
-    () => {
-      applyMediaWrapModeToElement(detailsBlock, wrapMode);
-    }
-  );
-  saveLocalDraftImmediately();
-  triggerAutoSaveDebounce();
-  showToast(`✅ 已切換為「${modeLabel}」`);
-}
-
-/**
- * 圖片框自由放大縮小互動控制 (支援滑鼠拖曳與手機觸控拖曳右下角/右側邊緣)
- */
-let activeResizingMediaState = null;
-
-function initMediaCardFreeResize() {
-  if (!DOM.editor || DOM.editor._mediaFreeResizeBound) return;
-  DOM.editor._mediaFreeResizeBound = true;
-
-  const startResize = (e) => {
-    const handle = e.target.closest('.media-resize-handle-se, .media-resize-handle-e');
-    if (!handle || !DOM.editor.contains(handle)) return;
-    const details = handle.closest('details.notion-media-collapse');
-    if (!details) return;
-
-    if (e.cancelable) e.preventDefault();
-    e.stopPropagation();
-
-    const clientX = e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX;
-    const rect = details.getBoundingClientRect();
-    const editorRect = DOM.editor.getBoundingClientRect();
-
-    details.classList.add('is-resizing');
-    details.removeAttribute('draggable');
-
-    let badge = details.querySelector('.media-resize-badge');
-    if (!badge) {
-      badge = document.createElement('div');
-      badge.className = 'media-resize-badge';
-      const contentBox = details.querySelector('.media-collapse-content') || details;
-      contentBox.appendChild(badge);
-    }
-    badge.textContent = `📏 ${Math.round(rect.width)}px`;
-
-    activeResizingMediaState = {
-      details,
-      badge,
-      startX: clientX,
-      startWidth: rect.width,
-      maxEditorWidth: Math.max(240, editorRect.width),
-      beforeHtml: DOM.editor.innerHTML
-    };
-  };
-
-  const onMoveResize = (e) => {
-    if (!activeResizingMediaState) return;
-    if (e.cancelable) e.preventDefault();
-    const clientX = e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX;
-    const { details, badge, startX, startWidth, maxEditorWidth } = activeResizingMediaState;
-    const wrapMode = details.getAttribute('data-wrap-mode') || 'none';
-    // 若圖片為靠右浮動，往右拉或往左拉皆以直覺方向計算寬度變化
-    const deltaX = clientX - startX;
-    const minW = window.innerWidth <= 768 ? 130 : 160;
-    const newWidth = Math.max(minW, Math.min(maxEditorWidth, Math.round(startWidth + deltaX)));
-    const pct = Math.round((newWidth / maxEditorWidth) * 100);
-
-    details.style.width = `${newWidth}px`;
-    details.setAttribute('data-custom-width', `${newWidth}px`);
-    if (badge) {
-      badge.textContent = `📏 ${newWidth}px (${pct}%)`;
-    }
-  };
-
-  const endResize = () => {
-    if (!activeResizingMediaState) return;
-    const { details, badge, beforeHtml } = activeResizingMediaState;
-    activeResizingMediaState = null;
-
-    details.classList.remove('is-resizing');
-    details.setAttribute('draggable', 'true');
-    if (badge && badge.parentNode) badge.remove();
-
-    if (DOM.editor && beforeHtml !== DOM.editor.innerHTML) {
-      const afterHtml = DOM.editor.innerHTML;
-      const noteId = state.currentNote ? state.currentNote.id : null;
-      const wText = details.getAttribute('data-custom-width') || '';
-      state.isDirty = true;
-      state.editorSnapshotBeforeEdit = afterHtml;
-      recordAction({
-        type: 'media_op',
-        title: `📐 自由縮放圖片框大小 (${wText})`,
-        subtitle: details.getAttribute('data-file-name') || '圖片',
-        noteId,
-        undo: () => applyNoteCanvasSnapshot(noteId, beforeHtml),
-        redo: () => applyNoteCanvasSnapshot(noteId, afterHtml)
-      });
-      saveLocalDraftImmediately();
-      triggerAutoSaveDebounce();
-    }
-  };
-
-  DOM.editor.addEventListener('mousedown', startResize, true);
-  window.addEventListener('mousemove', onMoveResize, { passive: false });
-  window.addEventListener('mouseup', endResize);
-
-  DOM.editor.addEventListener('touchstart', startResize, { capture: true, passive: false });
-  window.addEventListener('touchmove', onMoveResize, { passive: false });
-  window.addEventListener('touchend', endResize);
-}
-
-/**
- * 📱 手機端與觸控裝置長按/拖曳圖片框手把 (.drag-handle) 自由移動位置與切換左右文繞圖
- */
-let activeTouchDragMediaState = null;
-
-function initMobileTouchDragMediaBlock() {
-  if (!DOM.editor || DOM.editor._mobileTouchDragBound) return;
-  DOM.editor._mobileTouchDragBound = true;
-
-  DOM.editor.addEventListener('touchstart', (e) => {
-    const handle = e.target.closest('.drag-handle');
-    if (!handle || !DOM.editor.contains(handle)) return;
-    const block = handle.closest('.notion-draggable-block');
-    if (!block) return;
-
-    const touch = e.touches && e.touches[0];
-    if (!touch) return;
-
-    activeTouchDragMediaState = {
-      block,
-      startX: touch.clientX,
-      startY: touch.clientY,
-      hasMoved: false,
-      lastTarget: null,
-      lastClientX: touch.clientX,
-      lastClientY: touch.clientY
-    };
-    block.classList.add('dragging');
-  }, { passive: true });
-
-  window.addEventListener('touchmove', (e) => {
-    if (!activeTouchDragMediaState) return;
-    const touch = e.touches && e.touches[0];
-    if (!touch) return;
-
-    const dx = touch.clientX - activeTouchDragMediaState.startX;
-    const dy = touch.clientY - activeTouchDragMediaState.startY;
-    if (Math.hypot(dx, dy) < 8 && !activeTouchDragMediaState.hasMoved) return;
-
-    activeTouchDragMediaState.hasMoved = true;
-    activeTouchDragMediaState.lastClientX = touch.clientX;
-    activeTouchDragMediaState.lastClientY = touch.clientY;
-    if (e.cancelable) e.preventDefault();
-
-    document.querySelectorAll('#editor > *').forEach(el => el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-indicator-float-left', 'drop-indicator-float-right'));
-    const elAtPoint = document.elementFromPoint(touch.clientX, touch.clientY);
-    const target = elAtPoint ? elAtPoint.closest('#editor > *') : null;
-    if (target && target !== activeTouchDragMediaState.block && DOM.editor.contains(target)) {
-      activeTouchDragMediaState.lastTarget = target;
-      const editorRect = DOM.editor.getBoundingClientRect();
-      const relX = (touch.clientX - editorRect.left) / Math.max(1, editorRect.width);
-      const isMedia = activeTouchDragMediaState.block.classList.contains('notion-media-collapse');
-      if (isMedia && relX < 0.36) {
-        target.classList.add('drop-indicator-float-left');
-      } else if (isMedia && relX > 0.64) {
-        target.classList.add('drop-indicator-float-right');
-      } else {
-        const r = target.getBoundingClientRect();
-        if ((touch.clientY - r.top) > r.height / 2) target.classList.add('drop-indicator-bottom');
-        else target.classList.add('drop-indicator-top');
-      }
-    }
-  }, { passive: false });
-
-  window.addEventListener('touchend', () => {
-    if (!activeTouchDragMediaState) return;
-    const { block, hasMoved, lastTarget, lastClientX, lastClientY } = activeTouchDragMediaState;
-    activeTouchDragMediaState = null;
-
-    document.querySelectorAll('#editor > *').forEach(el => el.classList.remove('drop-indicator-top', 'drop-indicator-bottom', 'drop-indicator-float-left', 'drop-indicator-float-right', 'dragging'));
-
-    if (!hasMoved || !lastTarget || lastTarget === block || !DOM.editor.contains(lastTarget)) return;
-
-    const editorRect = DOM.editor.getBoundingClientRect();
-    const relX = (lastClientX - editorRect.left) / Math.max(1, editorRect.width);
-    const isMedia = block.classList.contains('notion-media-collapse');
-    const r = lastTarget.getBoundingClientRect();
-    const isAfter = (lastClientY - r.top) > r.height / 2;
-
-    let chosenWrap = block.getAttribute('data-wrap-mode') || 'none';
-    if (isMedia) {
-      if (relX < 0.36) chosenWrap = 'left';
-      else if (relX > 0.64) chosenWrap = 'right';
-      else chosenWrap = 'none';
-    }
-
-    commitEditorCanvasAction(
-      'drag_block',
-      isMedia && chosenWrap !== 'none'
-        ? `🖐️ 自由放置圖片並開啟「${chosenWrap === 'left' ? '靠左文繞圖' : '靠右文繞圖'}」`
-        : '🖐️ 拖曳移動區塊位置',
-      '',
-      () => {
-        if (isMedia && chosenWrap !== 'none') {
-          lastTarget.insertAdjacentElement('beforebegin', block);
-          applyMediaWrapModeToElement(block, chosenWrap);
-        } else {
-          if (isAfter) lastTarget.insertAdjacentElement('afterend', block);
-          else lastTarget.insertAdjacentElement('beforebegin', block);
-          if (isMedia) applyMediaWrapModeToElement(block, 'none');
-        }
-      }
-    );
-    saveLocalDraftImmediately();
-    triggerAutoSaveDebounce();
-  });
-}
-
-/**
  * 🛡️ 圖片框防 Backspace / Delete 誤刪三層金鐘罩：
  * 第 1 層：Capture Phase 攔截 keydown (Backspace / Delete / Cut)
  * 第 2 層：Capture Phase 攔截 beforeinput (deleteContentBackward / Forward / Cut，支援手機虛擬鍵盤)
@@ -16913,8 +16544,6 @@ function syncProtectedMediaBlocksSnapshot() {
       return {
         guardId: b.dataset.guardId,
         outerHTML: b.outerHTML,
-        nextGuardId: b.nextElementSibling ? (b.nextElementSibling.dataset?.guardId || '') : '',
-        prevTextHint: b.previousElementSibling ? (b.previousElementSibling.textContent || '').slice(0, 20) : '',
         childIndex: Array.from(DOM.editor.children).indexOf(b)
       };
     });
@@ -16973,13 +16602,11 @@ function handleProtectedMediaDeleteInterception(e, isBackward) {
   if (!sel || sel.rangeCount === 0) return false;
   const range = sel.getRangeAt(0);
 
-  // 若焦點在圖片上方文字註記欄 (.media-top-note-input) 內，交由該輸入框自行處理文字刪除，絕不影響外部圖片框
   const anchorEl = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
   if (anchorEl && anchorEl.closest('.media-top-note-input')) {
     return false;
   }
 
-  // 情況 A：使用者反白選取了一段範圍 (!range.collapsed)，且範圍涵蓋或觸及任何圖片框 / 附件框
   if (!range.collapsed) {
     const allProtected = Array.from(DOM.editor.querySelectorAll('details.notion-media-collapse, .notion-file-attachment'));
     const touchedCards = allProtected.filter(card => {
@@ -16995,7 +16622,6 @@ function handleProtectedMediaDeleteInterception(e, isBackward) {
       e.stopPropagation();
       if (e.stopImmediatePropagation) e.stopImmediatePropagation();
 
-      // 僅刪除選取範圍內「非圖片框」的一般文字段落，完整保留所有圖片框！
       const topChildren = Array.from(DOM.editor.children);
       topChildren.forEach(child => {
         if (child.matches('details.notion-media-collapse, .notion-file-attachment') || child.querySelector('details.notion-media-collapse, .notion-file-attachment')) {
@@ -17014,7 +16640,6 @@ function handleProtectedMediaDeleteInterception(e, isBackward) {
     }
   }
 
-  // 情況 B：游標直接落在圖片框內部（非 .media-top-note-input）
   const directMedia = anchorEl ? anchorEl.closest('details.notion-media-collapse, .notion-file-attachment') : null;
   if (directMedia) {
     if (e.cancelable) e.preventDefault();
@@ -17024,7 +16649,6 @@ function handleProtectedMediaDeleteInterception(e, isBackward) {
     return true;
   }
 
-  // 情況 C：折疊游標 (range.collapsed) 在段落開頭按 Backspace，或段落結尾按 Delete，而相鄰元素正是圖片框
   let topBlock = anchorEl ? anchorEl.closest('#editor > *') : null;
   if (!topBlock && range.startContainer === DOM.editor) {
     const idx = range.startOffset;
@@ -17040,13 +16664,18 @@ function handleProtectedMediaDeleteInterception(e, isBackward) {
 
   if (topBlock && DOM.editor.contains(topBlock)) {
     if (isBackward && isCaretAtBlockBoundary(range, topBlock, true)) {
-      const prevEl = topBlock.previousElementSibling;
+      let prevEl = topBlock.previousElementSibling;
+      // 若中間隔著一個空白佔位段落 <p><br></p>，而其上方就是圖片框，一併納入防誤刪攔截
+      if (prevEl && prevEl.tagName === 'P' && !(prevEl.textContent || '').trim() && !prevEl.querySelector('img, details') && prevEl.previousElementSibling && prevEl.previousElementSibling.matches('details.notion-media-collapse, .notion-file-attachment')) {
+        const emptySpacer = prevEl;
+        prevEl = prevEl.previousElementSibling;
+        emptySpacer.remove();
+      }
       if (prevEl && prevEl.matches('details.notion-media-collapse, .notion-file-attachment')) {
         if (e.cancelable) e.preventDefault();
         e.stopPropagation();
         if (e.stopImmediatePropagation) e.stopImmediatePropagation();
 
-        // 若當前段落為空白佔位行，且圖片前方有可編輯段落，將游標安全跳過圖片框移至圖片前方的段落末尾，絕不刪除圖片框！
         let beforeCardEl = prevEl.previousElementSibling;
         if (!beforeCardEl || beforeCardEl.matches('details.notion-media-collapse, .notion-file-attachment')) {
           beforeCardEl = document.createElement('p');
@@ -17087,7 +16716,6 @@ function initMediaBackspaceProtection() {
   if (!DOM.editor || DOM.editor._mediaBackspaceGuardBound) return;
   DOM.editor._mediaBackspaceGuardBound = true;
 
-  // 1. Capture Phase keydown 攔截
   DOM.editor.addEventListener('keydown', (e) => {
     if (e.isComposing) return;
     if (e.key === 'Backspace' || e.keyCode === 8) {
@@ -17102,7 +16730,6 @@ function initMediaBackspaceProtection() {
     }
   }, true);
 
-  // 2. Capture Phase beforeinput 攔截 (針對 Android / iOS 手機虛擬鍵盤 Backspace)
   DOM.editor.addEventListener('beforeinput', (e) => {
     const it = e.inputType || '';
     if (it.startsWith('delete')) {
@@ -17112,7 +16739,6 @@ function initMediaBackspaceProtection() {
     }
   }, true);
 
-  // 3. Input 後置守護檢查：萬一任何特殊手勢或輸入法移除圖片框，0ms 自動復原
   DOM.editor.addEventListener('input', () => {
     restoreUnauthorizedRemovedMediaBlocks();
     syncProtectedMediaBlocksSnapshot();
@@ -17120,8 +16746,6 @@ function initMediaBackspaceProtection() {
 }
 
 function initV275ImageSuite() {
-  initMediaCardFreeResize();
-  initMobileTouchDragMediaBlock();
   initMediaBackspaceProtection();
   syncProtectedMediaBlocksSnapshot();
 }
