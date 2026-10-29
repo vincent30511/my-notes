@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.7.5'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.7.6'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -4533,7 +4533,7 @@ async function compressImageForUpload(file, maxDimension = 1280, quality = 0.76)
   const t0 = performance.now();
   try {
     const origSize = file.size;
-    // 🍏 v2.7.5 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
+    // 🍏 v2.7.6 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
     if (await isHeicFileOrBlob(file, file.name)) {
       const convertedJpegBlob = await convertHeicBlobToJpegBlob(file, Math.max(0.84, quality));
       if (convertedJpegBlob) {
@@ -5072,7 +5072,7 @@ function buildMediaCollapseCardHtml({ fileId, fileName, isImage, isVideo, isAudi
 
   let bodyMediaHtml = '';
   if (isImage) {
-    bodyMediaHtml = `<img src="${directSrc}" alt="${safeName}" loading="lazy" decoding="async" class="rounded-xl shadow-xs border border-gray-200 dark:border-notion-borderDark max-h-[520px] mx-auto object-contain cursor-pointer hover:opacity-95 transition" />`;
+    bodyMediaHtml = `<img src="${directSrc}" alt="${safeName}" loading="eager" decoding="sync" class="rounded-xl shadow-xs border border-gray-200 dark:border-notion-borderDark max-h-[520px] mx-auto object-contain cursor-pointer hover:opacity-95 transition" />`;
   } else if (isVideo) {
     bodyMediaHtml = `<iframe src="${previewEmbedUrl}" class="w-full aspect-video rounded-xl border border-gray-200 dark:border-notion-borderDark shadow-xs" allow="autoplay" allowfullscreen></iframe>`;
   } else if (isAudio) {
@@ -6760,7 +6760,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.7.5', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.7.6', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -6990,8 +6990,13 @@ function convertHtmlToMarkdown(html) {
     const tempContainer = document.createElement('div');
     tempContainer.innerHTML = html;
     tempContainer.querySelectorAll('[data-pending-upload="true"], .note-skeleton-wrapper, .skeleton-shimmer').forEach(el => el.remove());
-    // 移除表格工具列與執行期綁定屬性 (避免控制按鈕或綁定標記污染雲端 Markdown)
-    tempContainer.querySelectorAll('.notion-table-toolbar, .notion-table-controls').forEach(el => el.remove());
+    // 移除表格工具列與執行期綁定屬性，並徹底清除舊版殘留之文繞圖/縮放按鈕 (避免污染雲端 Markdown)
+    tempContainer.querySelectorAll('.notion-table-toolbar, .notion-table-controls, .media-wrap-btn, div[title*="文繞圖"], .media-resize-handle-se, .media-resize-handle-e, .media-resize-badge').forEach(el => el.remove());
+    tempContainer.querySelectorAll('details.notion-media-collapse').forEach(d => {
+      d.removeAttribute('data-wrap-mode');
+      d.removeAttribute('data-custom-width');
+      if (d.style && d.style.width) d.style.removeProperty('width');
+    });
     tempContainer.querySelectorAll('img[data-cloud-src]').forEach(img => {
       img.setAttribute('src', img.getAttribute('data-cloud-src'));
       img.removeAttribute('data-cloud-src');
@@ -8297,8 +8302,44 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
     }
   });
 
-  // 7. 清理歷史按鈕殘留，並為卡片綁定平滑收折/展開動畫
-  container.querySelectorAll('.summary-edit-img-btn, .caption-edit-img-btn, .image-hover-edit-btn').forEach(el => el.remove());
+  // 7. 清理歷史按鈕殘留（含舊版左繞/置中/右繞按鈕組與右下角 ↘ 縮放控制鈕），並為卡片綁定平滑收折/展開動畫
+  let purgedLegacyControls = false;
+  container.querySelectorAll('.summary-edit-img-btn, .caption-edit-img-btn, .image-hover-edit-btn, .media-resize-handle-se, .media-resize-handle-e, .media-resize-badge').forEach(el => {
+    el.remove();
+    purgedLegacyControls = true;
+  });
+  container.querySelectorAll('.media-wrap-btn').forEach(btn => {
+    const parentGroup = btn.parentElement;
+    btn.remove();
+    if (parentGroup && parentGroup !== container && parentGroup.tagName === 'DIV' && parentGroup.children.length === 0) {
+      parentGroup.remove();
+    }
+    purgedLegacyControls = true;
+  });
+  container.querySelectorAll('div[title*="文繞圖"], div[title*="圖片位置與自動文繞圖模式"]').forEach(el => {
+    el.remove();
+    purgedLegacyControls = true;
+  });
+  container.querySelectorAll('details.notion-media-collapse').forEach(d => {
+    if (d.hasAttribute('data-wrap-mode') || d.hasAttribute('data-custom-width') || (d.style && d.style.width)) {
+      d.removeAttribute('data-wrap-mode');
+      d.removeAttribute('data-custom-width');
+      if (d.style) d.style.removeProperty('width');
+      purgedLegacyControls = true;
+    }
+    const img = d.querySelector('img');
+    if (img && img.getAttribute('loading') === 'lazy') {
+      img.setAttribute('loading', 'eager');
+    }
+  });
+  if (purgedLegacyControls && container === DOM.editor && state.currentNote && !state.isLoadingNote) {
+    setTimeout(() => {
+      try {
+        saveLocalDraftImmediately();
+        triggerAutoSaveDebounce();
+      } catch (e) {}
+    }, 50);
+  }
 
   container.querySelectorAll('details.notion-media-collapse').forEach(details => {
     try {
@@ -9541,35 +9582,255 @@ function exportMarkdown() {
   DOM.exportMenu.classList.add('hidden');
 }
 
-function exportHTML() {
-  const title = (DOM.noteTitle.value.trim() || '未命名筆記');
-  const htmlContent = `
-<!DOCTYPE html>
-<html>
+/**
+ * 收集當前筆記的完整分類屬性與標題資訊，供 PDF 工程報告表頭與 HTML 匯出共用
+ */
+function collectCurrentNoteExportMetadata() {
+  const title = (DOM.noteTitle && DOM.noteTitle.value ? DOM.noteTitle.value.trim() : '') || '未命名工程筆記';
+  const emoji = (DOM.noteEmojiBtn && DOM.noteEmojiBtn.textContent ? DOM.noteEmojiBtn.textContent.trim() : '') || '📝';
+  const getSelectLabel = (selEl) => {
+    if (!selEl) return '';
+    const val = (selEl.value || '').trim();
+    if (!val || val === 'none' || val === '未分類' || val === '不指定') return val || '未指定';
+    const opt = selEl.options && selEl.selectedIndex >= 0 ? selEl.options[selEl.selectedIndex] : null;
+    return opt ? opt.textContent.trim() : val;
+  };
+  const machine = getSelectLabel(document.getElementById('note-machine-select')) || '未指定';
+  const workContent = getSelectLabel(document.getElementById('note-content-select')) || '未指定';
+  const urgency = getSelectLabel(document.getElementById('note-urgency-select')) || '一般';
+  const client = getSelectLabel(document.getElementById('note-client-select')) || '未指定';
+  const dueDate = (document.getElementById('note-due-date')?.value || '').trim() || '未排定';
+  const activeTags = Array.from(document.querySelectorAll('#note-active-tags .notion-tag'))
+    .map(t => (t.textContent || '').replace(/×/g, '').trim())
+    .filter(Boolean);
+  const now = new Date();
+  const exportTime = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  return { title, emoji, machine, workContent, urgency, client, dueDate, activeTags, exportTime };
+}
+
+/**
+ * 建立或更新列印專用的高質感工程報告表頭 (#pdf-print-executive-header)
+ */
+function renderPdfPrintExecutiveHeader() {
+  const wrapper = document.getElementById('canvas-inner-wrapper');
+  const editorEl = DOM.editor;
+  if (!wrapper || !editorEl) return null;
+
+  let headerEl = document.getElementById('pdf-print-executive-header');
+  if (!headerEl) {
+    headerEl = document.createElement('div');
+    headerEl.id = 'pdf-print-executive-header';
+    wrapper.insertBefore(headerEl, editorEl);
+  }
+
+  const meta = collectCurrentNoteExportMetadata();
+  const tagsDisplay = meta.activeTags.length > 0 ? meta.activeTags.join('、') : '無';
+
+  headerEl.innerHTML = `
+    <div class="pdf-brand-bar">
+      <span>LVI_Note 工程技術與工作紀錄報告</span>
+      <span>匯出時間：${escapeHtml(meta.exportTime)}</span>
+    </div>
+    <div class="pdf-doc-title">${escapeHtml(meta.emoji)} ${escapeHtml(meta.title)}</div>
+    <div class="pdf-meta-grid">
+      <div class="pdf-meta-item"><span class="pdf-meta-label">機型設備：</span><span class="pdf-meta-val">${escapeHtml(meta.machine)}</span></div>
+      <div class="pdf-meta-item"><span class="pdf-meta-label">工作內容：</span><span class="pdf-meta-val">${escapeHtml(meta.workContent)}</span></div>
+      <div class="pdf-meta-item"><span class="pdf-meta-label">急迫性：</span><span class="pdf-meta-val">${escapeHtml(meta.urgency)}</span></div>
+      <div class="pdf-meta-item"><span class="pdf-meta-label">客戶/廠商：</span><span class="pdf-meta-val">${escapeHtml(meta.client)}</span></div>
+      <div class="pdf-meta-item"><span class="pdf-meta-label">處理日期：</span><span class="pdf-meta-val">${escapeHtml(meta.dueDate)}</span></div>
+      <div class="pdf-meta-item"><span class="pdf-meta-label">專案標籤：</span><span class="pdf-meta-val">${escapeHtml(tagsDisplay)}</span></div>
+    </div>
+  `;
+  return headerEl;
+}
+
+/**
+ * 匯出 PDF / HTML 前的「零破圖圖片預先水合與解碼引擎」：
+ * 1. 自動展開所有收折的圖片框 (details.notion-media-collapse)
+ * 2. 標記未填寫內容的 .media-top-note-bar 為 .is-empty-note，避免印出空白提示字
+ * 3. 自動將 Google Drive 雲端圖片轉為自包含高畫質 Base64 Data URL，並等待所有 img 完成 decode()，徹底消滅 PDF 破圖與空白框！
+ */
+async function prepareAllEditorImagesForExport(container = DOM.editor) {
+  if (!container) return;
+
+  // 1. 展開所有圖片卡片並標記空白註記欄
+  const cards = Array.from(container.querySelectorAll('details.notion-media-collapse'));
+  for (const card of cards) {
+    if (!card.hasAttribute('open')) {
+      card.setAttribute('open', '');
+      card.dataset.openedForPrint = 'true';
+    }
+    const topBar = card.querySelector('.media-top-note-bar');
+    const topInput = card.querySelector('.media-top-note-input');
+    if (topBar && topInput) {
+      const hasNote = (topInput.textContent || '').trim().length > 0;
+      topBar.classList.toggle('is-empty-note', !hasNote);
+    }
+  }
+
+  // 2. 確保每一張圖片皆已完成載入，若為 Google Drive 連結或破圖則主動拉取永久 Base64 Data URL
+  const imgs = Array.from(container.querySelectorAll('img'));
+  await Promise.all(imgs.map(async (img) => {
+    try {
+      img.setAttribute('loading', 'eager');
+      img.setAttribute('decoding', 'sync');
+      const card = img.closest('details.notion-media-collapse');
+      const fileId = card ? extractDriveFileIdFromMediaBlock(card) : '';
+      const fileName = card ? (card.getAttribute('data-file-name') || '') : (img.getAttribute('alt') || '');
+      const rawSrc = (img.getAttribute('src') || '').trim();
+
+      const needsCloudHydration = (
+        fileId &&
+        state.accessToken &&
+        (!rawSrc.startsWith('data:image/') || !img.complete || img.naturalWidth === 0)
+      );
+
+      if (needsCloudHydration) {
+        const dataUrl = await fetchDriveImageAsDataUrl(fileId, fileName);
+        if (dataUrl && dataUrl.startsWith('data:image/')) {
+          img.src = dataUrl;
+        }
+      } else if (!rawSrc.startsWith('data:image/') && img.complete && img.naturalWidth > 0) {
+        // 若畫面已載入圖片，嘗試轉為本地 Canvas Data URL 以確保列印引擎 0 延遲讀取
+        try {
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth;
+          c.height = img.naturalHeight;
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, c.width, c.height);
+          ctx.drawImage(img, 0, 0);
+          const localDataUrl = c.toDataURL('image/jpeg', 0.88);
+          if (localDataUrl && localDataUrl.startsWith('data:image/')) {
+            img.src = localDataUrl;
+          }
+        } catch (taintErr) {}
+      }
+
+      if (!img.complete || img.naturalWidth === 0) {
+        await new Promise((resolve) => {
+          const timer = setTimeout(resolve, 3500);
+          img.addEventListener('load', () => { clearTimeout(timer); resolve(); }, { once: true });
+          img.addEventListener('error', () => { clearTimeout(timer); resolve(); }, { once: true });
+        });
+      }
+      if (typeof img.decode === 'function') {
+        await img.decode().catch(() => {});
+      }
+    } catch (e) {}
+  }));
+}
+
+async function exportHTML() {
+  if (DOM.exportMenu) DOM.exportMenu.classList.add('hidden');
+  showToast('⏳ 正在打包高畫質內嵌圖片 HTML 報告...', 1800);
+  await prepareAllEditorImagesForExport(DOM.editor);
+
+  const meta = collectCurrentNoteExportMetadata();
+  const tagsDisplay = meta.activeTags.length > 0 ? meta.activeTags.join('、') : '無';
+
+  // 複製並清理編輯器內容中的互動按鈕
+  const clone = document.createElement('div');
+  clone.innerHTML = DOM.editor ? DOM.editor.innerHTML : '';
+  clone.querySelectorAll('.media-card-rotate-left-btn, .media-card-rotate-right-btn, .media-card-annotate-btn, .media-card-delete-btn, .file-attachment-delete-btn, .file-attachment-annotate-heic-btn, .media-wrap-btn, div[title*="文繞圖"], .media-resize-handle-se, .media-resize-handle-e, .media-resize-badge, .collapse-hint, .collapse-arrow, .drag-handle, .media-caption-bar, .notion-table-toolbar').forEach(el => el.remove());
+  clone.querySelectorAll('.media-top-note-bar').forEach(bar => {
+    const inp = bar.querySelector('.media-top-note-input');
+    if (!inp || !(inp.textContent || '').trim()) bar.remove();
+    else inp.removeAttribute('contenteditable');
+  });
+
+  const htmlContent = `<!DOCTYPE html>
+<html lang="zh-TW">
 <head>
   <meta charset="utf-8">
-  <title>${escapeHtml(title)}</title>
+  <title>${escapeHtml(meta.title)} - LVI_Note 工程報告</title>
   <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; color: #37352f; }
-    h1, h2, h3 { color: #111827; }
-    pre { background: #1e1e1e; color: #f8fafc; padding: 12px; border-radius: 6px; }
-    img, video { max-width: 100%; border-radius: 6px; }
-    blockquote { border-left: 3px solid #2383e2; padding-left: 12px; color: #4b5563; }
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", sans-serif; max-width: 840px; margin: 32px auto; padding: 28px 36px; line-height: 1.7; color: #0f172a; background: #ffffff; }
+    .report-header { border-bottom: 2.5px solid #0f172a; padding-bottom: 16px; margin-bottom: 24px; }
+    .brand-bar { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 10px; }
+    .doc-title { font-size: 28px; font-weight: 800; color: #0f172a; margin: 8px 0 14px 0; }
+    .meta-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px 14px; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; font-size: 13px; }
+    .meta-label { color: #475569; font-weight: 700; }
+    .meta-val { color: #0f172a; font-weight: 800; }
+    h1, h2, h3, h4 { color: #000000; font-weight: 800; }
+    h1 { font-size: 22px; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 6px; }
+    p, li, td, th, span, div { color: #0f172a; }
+    mark { color: #000000 !important; font-weight: 700; padding: 1px 4px; border-radius: 3px; border: 1px solid rgba(15,23,42,0.2); }
+    details.notion-media-collapse { border: 1.5px solid #cbd5e1; border-radius: 10px; margin: 16px 0; background: #ffffff; overflow: hidden; page-break-inside: avoid; }
+    details.notion-media-collapse > summary { padding: 8px 14px; background: #f1f5f9; border-bottom: 1px solid #cbd5e1; font-weight: 700; font-size: 13px; color: #0f172a; list-style: none; }
+    .media-top-note-bar { display: flex; gap: 8px; padding: 8px 14px; background: #fffbeb; border-bottom: 1.5px solid #f59e0b; font-weight: 700; color: #0f172a; }
+    .media-top-note-label { color: #92400e; font-weight: 800; white-space: nowrap; }
+    .media-collapse-content { padding: 12px; text-align: center; }
+    img { max-width: 100%; max-height: 520px; border-radius: 6px; border: 1px solid #e2e8f0; object-fit: contain; }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+    th { background: #f1f5f9; color: #0f172a; font-weight: 800; border: 1px solid #94a3b8; padding: 8px 10px; }
+    td { background: #ffffff; color: #0f172a; border: 1px solid #cbd5e1; padding: 8px 10px; }
+    blockquote, .notion-callout { background: #f8fafc; border: 1px solid #94a3b8; border-left: 5px solid #2563eb; border-radius: 8px; padding: 10px 14px; margin: 12px 0; color: #0f172a; }
   </style>
 </head>
 <body>
-  <h1>${escapeHtml(title)}</h1>
-  ${DOM.editor.innerHTML}
+  <div class="report-header">
+    <div class="brand-bar">
+      <span>LVI_Note 工程技術與工作紀錄報告</span>
+      <span>匯出時間：${escapeHtml(meta.exportTime)}</span>
+    </div>
+    <div class="doc-title">${escapeHtml(meta.emoji)} ${escapeHtml(meta.title)}</div>
+    <div class="meta-grid">
+      <div><span class="meta-label">機型設備：</span><span class="meta-val">${escapeHtml(meta.machine)}</span></div>
+      <div><span class="meta-label">工作內容：</span><span class="meta-val">${escapeHtml(meta.workContent)}</span></div>
+      <div><span class="meta-label">急迫性：</span><span class="meta-val">${escapeHtml(meta.urgency)}</span></div>
+      <div><span class="meta-label">客戶/廠商：</span><span class="meta-val">${escapeHtml(meta.client)}</span></div>
+      <div><span class="meta-label">處理日期：</span><span class="meta-val">${escapeHtml(meta.dueDate)}</span></div>
+      <div><span class="meta-label">專案標籤：</span><span class="meta-val">${escapeHtml(tagsDisplay)}</span></div>
+    </div>
+  </div>
+  ${clone.innerHTML}
 </body>
 </html>`;
   const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
-  downloadBlob(blob, `${title}.html`);
-  DOM.exportMenu.classList.add('hidden');
+  downloadBlob(blob, `${meta.title}.html`);
+  showToast('✅ 已匯出高質感 HTML 報告！', 2200);
 }
 
-function exportPDF() {
-  DOM.exportMenu.classList.add('hidden');
-  window.print();
+async function exportPDF() {
+  if (DOM.exportMenu) DOM.exportMenu.classList.add('hidden');
+  showToast('📄 正在準備高質感 PDF 報告（自動載入高解析圖片與高對比排版...）', 2200);
+
+  // 1. 渲染專業工程報告 PDF 表頭
+  renderPdfPrintExecutiveHeader();
+
+  // 2. 預先展開所有圖片框、將雲端圖片轉為永久 Base64 Data URL 並完成解碼，徹底杜絕 PDF 破圖！
+  await prepareAllEditorImagesForExport(DOM.editor);
+
+  // 3. 暫時切換為淺色高對比列印模式（防止深色模式任何殘留樣式影響 PDF 對比度），列印結束後自動還原
+  const wasDark = document.documentElement.classList.contains('dark');
+  if (wasDark) {
+    document.documentElement.classList.remove('dark');
+  }
+
+  const restoreAfterPrint = () => {
+    if (wasDark) {
+      document.documentElement.classList.add('dark');
+    }
+    if (DOM.editor) {
+      DOM.editor.querySelectorAll('details.notion-media-collapse[data-opened-for-print="true"]').forEach(d => {
+        d.removeAttribute('open');
+        delete d.dataset.openedForPrint;
+      });
+    }
+    window.removeEventListener('afterprint', restoreAfterPrint);
+  };
+  window.addEventListener('afterprint', restoreAfterPrint);
+
+  // 等待 80ms 讓瀏覽器完成高對比與圖片重繪後喚起系統 PDF 列印引擎
+  setTimeout(() => {
+    try {
+      window.print();
+    } finally {
+      setTimeout(restoreAfterPrint, 600);
+    }
+  }, 80);
 }
 
 function downloadBlob(blob, filename) {
@@ -16009,7 +16270,7 @@ function initInAppCameraListeners() {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.7.5 圖片四大升級引擎：
+// 🚀 LVI_Note v2.7.6 圖片四大升級引擎：
 // 1. HEIC/HEIF 完整解碼與標註支援 (heic2any + ImageBitmap + Drive 雲端轉檔)
 // 2. 圖片框上方專屬高對比文字註記欄 (.media-top-note-bar，淺/深色皆 >18:1 超高對比)
 // 3. 真實圖片旋轉 (90° 左/右旋轉 + PATCH/POST 重新存回 Google Drive 雲端硬碟)
@@ -16749,3 +17010,22 @@ function initV275ImageSuite() {
   initMediaBackspaceProtection();
   syncProtectedMediaBlocksSnapshot();
 }
+
+window.addEventListener('beforeprint', () => {
+  try {
+    renderPdfPrintExecutiveHeader();
+    if (DOM.editor) {
+      DOM.editor.querySelectorAll('details.notion-media-collapse').forEach(card => {
+        if (!card.hasAttribute('open')) {
+          card.setAttribute('open', '');
+          card.dataset.openedForPrint = 'true';
+        }
+        const topBar = card.querySelector('.media-top-note-bar');
+        const topInput = card.querySelector('.media-top-note-input');
+        if (topBar && topInput) {
+          topBar.classList.toggle('is-empty-note', (topInput.textContent || '').trim().length === 0);
+        }
+      });
+    }
+  } catch (e) {}
+});

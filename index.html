@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>LVI_Note v2.7.5 - 雲端工作筆記</title>
+  <title>LVI_Note v2.7.6 - 雲端工作筆記</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -46,20 +46,20 @@
   <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
-  <link rel="manifest" href="manifest.json?v=20261029_v2.7.5">
+  <link rel="manifest" href="manifest.json?v=20261029_v2.7.6">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LVI_Note">
   <meta name="application-name" content="LVI_Note">
-  <meta name="version" content="v2.7.5">
+  <meta name="version" content="v2.7.6">
   <meta name="theme-color" content="#191919">
-  <link rel="stylesheet" href="styles.css?v=20261029_v2.7.5">
+  <link rel="stylesheet" href="styles.css?v=20261029_v2.7.6">
   <script>
-    // 🛡️ LVI_Note v2.7.5 強制破除舊版 Service Worker 快取守門員
+    // 🛡️ LVI_Note v2.7.6 強制破除舊版 Service Worker 快取守門員
     (function() {
       try {
-        var CURRENT_VER = 'v2.7.5';
+        var CURRENT_VER = 'v2.7.6';
         var savedVer = localStorage.getItem('lvi_installed_version');
         if (savedVer !== CURRENT_VER) {
           localStorage.setItem('lvi_installed_version', CURRENT_VER);
@@ -113,7 +113,7 @@
       <img src="logo.png" alt="LVI_Note Logo" class="w-6 h-6 rounded-full border border-blue-500/40 shadow-xs object-cover shrink-0 cursor-pointer hover:scale-105 transition-transform" onclick="switchView('table')" title="LVI_Note">
       
       <!-- 版本徽章 (手機與電腦皆常駐清晰顯示) + 麵包屑導航 -->
-      <span id="header-version-badge" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shrink-0 shadow-2xs" title="當前版本號：v2.7.5 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)">v2.7.5</span>
+      <span id="header-version-badge" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shrink-0 shadow-2xs" title="當前版本號：v2.7.6 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)">v2.7.6</span>
       <div class="flex items-center text-xs text-gray-500 dark:text-gray-400 space-x-1 truncate max-w-[110px] sm:max-w-xs">
         <span class="hidden sm:inline font-medium text-gray-700 dark:text-gray-300 shrink-0">
           <span id="header-folder-name">LVI_Note</span>
@@ -258,7 +258,7 @@
           <img src="logo.png" alt="LVI_Note Logo" class="w-7 h-7 rounded-full border border-blue-500/40 shadow-sm object-cover shrink-0">
           <div class="flex items-center gap-1.5">
             <span class="text-sm font-bold tracking-tight text-gray-800 dark:text-gray-100">LVI_Note</span>
-            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">v2.7.5</span>
+            <span class="px-1.5 py-0.2 rounded-full text-[9px] font-mono font-bold bg-blue-100 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800" title="當前版本號" class="app-version-badge px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">v2.7.6</span>
           </div>
         </div>
         <div class="flex items-center space-x-1">
@@ -437,7 +437,7 @@
         <span class="flex items-center gap-1.5 truncate">
           <i data-lucide="cloud" class="w-3 h-3 text-blue-500"></i>
           <span id="sidebar-folder-label">LVI_Note</span>
-          <span class="app-version-badge text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">v2.7.5</span>
+          <span class="app-version-badge text-[10px] font-mono text-emerald-600 dark:text-emerald-400 font-bold">v2.7.6</span>
         </span>
         <button id="refresh-btn" class="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 hover:text-gray-600" title="重新整理">
           <i data-lucide="rotate-cw" class="w-3 h-3"></i>
@@ -552,7 +552,7 @@
               </div>
             </div>
 
-            <!-- 2. 操作按鈕列：手機端與 PC 端全面統一「純圖示 (Icon-Only)」極簡俐落設計 (v2.7.5 Stable) -->
+            <!-- 2. 操作按鈕列：手機端與 PC 端全面統一「純圖示 (Icon-Only)」極簡俐落設計 (v2.7.6 Stable) -->
             <div id="editor-action-toolbar" class="flex items-center justify-between gap-1 sm:gap-2 mb-2.5 p-1 rounded-xl bg-gray-100/70 dark:bg-notion-darker/80 border border-gray-200/60 dark:border-notion-borderDark/80">
               <!-- 左側純圖示功能膠囊列 (收折媒體、檔案上傳、螢光筆、排查模板、防閃退相機 — 嚴禁 min-w-0 以杜絕重疊) -->
               <div class="flex items-center gap-1 sm:gap-1.5 flex-nowrap shrink-0">
@@ -617,7 +617,7 @@
               </div>
             </div>
 
-            <!-- 屬性面板 (工作專用 3 級多類型標籤：機型、內容、急迫性 + 客戶、日期、自訂標籤 - v2.7.5 手機垂直切齊優化) -->
+            <!-- 屬性面板 (工作專用 3 級多類型標籤：機型、內容、急迫性 + 客戶、日期、自訂標籤 - v2.7.6 手機垂直切齊優化) -->
             <div id="note-properties-container" class="space-y-1.5 sm:space-y-2 text-xs text-gray-600 dark:text-gray-300 bg-gray-50/70 dark:bg-notion-darker/60 p-2 sm:p-2.5 rounded-xl border border-gray-200/70 dark:border-notion-borderDark">
               <!-- 手機/電腦通用：屬性面板標題、收合摘要徽章與收合開關 -->
               <div class="flex items-center justify-between gap-2 pb-1 border-b border-gray-200/40 dark:border-notion-borderDark/40">
@@ -1152,7 +1152,7 @@
       </aside>
 
       <!-- ✨ 內嵌 AI 助手側欄 (CloudNotes AI) -->
-      <!-- 手機專屬：底部快捷編輯工具列 (v2.7.5 深度觸控優化版) -->
+      <!-- 手機專屬：底部快捷編輯工具列 (v2.7.6 深度觸控優化版) -->
       <div id="mobile-toolbar" class="md:hidden relative h-12 border-t border-gray-200 dark:border-notion-borderDark bg-white/95 dark:bg-notion-dark/95 backdrop-blur-md flex items-center justify-around px-1.5 z-20 shrink-0 text-gray-600 dark:text-gray-300">
         <!-- 📱 手機專屬智慧螢光筆工作抽屜 (支援「⚡免反白點塗」+「點選既有螢光筆直接換色/清除」) -->
         <div id="mb-highlight-palette" class="hidden absolute bottom-full mb-2.5 left-2 right-2 bg-slate-900/98 text-white border border-slate-700/90 rounded-2xl shadow-2xl px-3 py-2.5 flex flex-col gap-2 z-[95] backdrop-blur-md">
@@ -1592,7 +1592,7 @@
       <div class="pt-2 flex items-center justify-between border-t border-gray-100 dark:border-notion-borderDark">
         <div class="text-[11px] text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
           <span>系統版本</span>
-          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.7.5</span>
+          <span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-100 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800">v2.7.6</span>
         </div>
         <button id="save-settings-btn" class="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-medium transition shadow-sm">
           儲存所有設定
@@ -1759,7 +1759,7 @@
     </div>
   </div>
 
-  <!-- 👁️ 表格資料庫「側邊快速預覽抽屜」 (Table Quick Peek Drawer - v2.7.5) -->
+  <!-- 👁️ 表格資料庫「側邊快速預覽抽屜」 (Table Quick Peek Drawer - v2.7.6) -->
   <div id="table-quick-peek-backdrop" class="fixed inset-0 bg-black/35 backdrop-blur-2xs z-[80] hidden"></div>
   <aside id="table-quick-peek-drawer" class="fixed top-0 right-0 bottom-0 w-full sm:w-[480px] md:w-[560px] bg-white dark:bg-notion-card border-l border-gray-200 dark:border-notion-borderDark shadow-2xl z-[85] flex flex-col hidden">
     <!-- 預覽抽屜頂部列 -->
@@ -1793,7 +1793,7 @@
     <div id="peek-note-body" class="flex-1 overflow-y-auto p-4 sm:p-6 prose dark:prose-invert max-w-none text-sm leading-relaxed text-gray-800 dark:text-gray-100"></div>
   </aside>
 
-  <!-- 📷 零閃退「網頁內建 720P 硬體光學相機」 (In-App WebRTC 720P Camera Modal - v2.7.5)
+  <!-- 📷 零閃退「網頁內建 720P 硬體光學相機」 (In-App WebRTC 720P Camera Modal - v2.7.6)
        徹底解決 Android 手機呼叫系統外部 50MP 相機 App 導致 Chrome 退入背景被系統殺分頁 (LMK) 或按下確定時記憶體暴衝閃退之問題 -->
   <div id="inapp-camera-modal" class="fixed inset-0 bg-black/95 backdrop-blur-md z-[99992] flex flex-col justify-between hidden select-none">
     <!-- 頂部狀態與控制列 -->
@@ -1865,7 +1865,7 @@
     </div>
   </div>
 
-  <!-- 🔍 筆記照片「全螢幕高清檢視燈箱」 (In-Note Photo Lightbox - v2.7.5 解決標註後點擊圖片無法開啟問題) -->
+  <!-- 🔍 筆記照片「全螢幕高清檢視燈箱」 (In-Note Photo Lightbox - v2.7.6 解決標註後點擊圖片無法開啟問題) -->
   <div id="photo-lightbox-modal" class="fixed inset-0 bg-black/92 backdrop-blur-md z-[88] flex flex-col hidden">
     <div class="px-4 py-3 border-b border-slate-800 flex items-center justify-between gap-2 bg-slate-900/90 text-white shrink-0">
       <div class="flex items-center gap-2 min-w-0">
@@ -1892,7 +1892,7 @@
     </div>
   </div>
 
-  <!-- ✏️ 筆記照片「就地標註工作室」 (In-Note Photo Markup & Annotation Studio - v2.7.5) -->
+  <!-- ✏️ 筆記照片「就地標註工作室」 (In-Note Photo Markup & Annotation Studio - v2.7.6) -->
   <div id="photo-annotate-modal" class="fixed inset-0 bg-black/80 backdrop-blur-xs z-[99990] flex flex-col items-center justify-between p-2 sm:p-4 hidden select-none">
     <!-- 頂部工具列 -->
     <div class="w-full max-w-5xl bg-slate-900/95 border border-slate-700/80 rounded-2xl px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 text-white shadow-2xl shrink-0">
@@ -1971,6 +1971,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20261029_v2.7.5"></script>
+  <script src="app.js?v=20261029_v2.7.6"></script>
 </body>
 </html>

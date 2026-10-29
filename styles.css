@@ -2207,7 +2207,7 @@ mark.fuzzy-hl {
 }
 
 /* ==========================================================================
-   🚀 v2.7.5 四大進階功能樣式：
+   🚀 v2.7.6 四大進階功能樣式：
    1. 搜尋命中段落自動定位與琥珀脈衝閃爍 (.search-hit-flash-block)
    2. 表格資料庫就地修改下拉選單 (.table-inline-select) 與側邊預覽抽屜
    3. 照片就地標註工作室 (#photo-annotate-modal)
@@ -2323,7 +2323,7 @@ mark.fuzzy-hl {
 
 
 /* ==========================================================================
-   📱 v2.7.5 手機端單行俐落按鈕列、點塗螢光筆與內建圖片燈箱專用樣式
+   📱 v2.7.6 手機端單行俐落按鈕列、點塗螢光筆與內建圖片燈箱專用樣式
    ========================================================================== */
 #editor-action-toolbar {
   display: flex !important;
@@ -2389,7 +2389,7 @@ mark.notion-highlight.selected-mark-target {
 
 
 /* ==========================================================================
-   🌙 v2.7.5 深色模式全站極致高對比度保證 (WCAG AAA High-Contrast Dark Mode)
+   🌙 v2.7.6 深色模式全站極致高對比度保證 (WCAG AAA High-Contrast Dark Mode)
    徹底解決深色模式下淺色半透明背景泛灰、字體霧化看不清楚的問題
    ========================================================================== */
 
@@ -2577,7 +2577,7 @@ mark.notion-highlight.selected-mark-target {
 
 
 /* ==========================================================================
-   📱 v2.7.5 手機端動態視窗安全區、螢光筆浮動抽屜防遮擋與選字工具列避障樣式
+   📱 v2.7.6 手機端動態視窗安全區、螢光筆浮動抽屜防遮擋與選字工具列避障樣式
    ========================================================================== */
 html, body {
   height: 100vh;
@@ -2620,7 +2620,7 @@ html, body {
 
 
 /* ==========================================================================
-   📱 v2.7.5 手機端極致寬幅滿版顯示 (減少兩側空白) + 頂部 7 鈕單行零重疊保證
+   📱 v2.7.6 手機端極致寬幅滿版顯示 (減少兩側空白) + 頂部 7 鈕單行零重疊保證
    ========================================================================== */
 #editor-action-toolbar {
   display: flex !important;
@@ -2714,7 +2714,7 @@ html, body {
 
 
 /* ==========================================================================
-   🖼️ v2.7.5 圖片四大升級：HEIC 標註、頂部高對比文字註記欄、真實雲端旋轉、防 Backspace 誤刪
+   🖼️ v2.7.6 圖片四大升級：HEIC 標註、頂部高對比文字註記欄、真實雲端旋轉、防 Backspace 誤刪
    ========================================================================== */
 
 /* 圖片框上方專屬文字註記欄 (.media-top-note-bar & .media-top-note-input)
@@ -2810,4 +2810,403 @@ html, body {
 .dark .media-top-note-input:focus {
   background-color: #1e293b !important;
   box-shadow: 0 0 0 2px rgba(250, 204, 21, 0.65);
+}
+
+
+/* ==========================================================================
+   🧹 v2.7.6 徹底移除殘留無用按鍵 (左繞/置中/右繞、右下角縮放鈕)
+   ========================================================================== */
+.media-wrap-btn,
+div[title*="圖片位置與自動文繞圖模式"],
+div[title*="文繞圖"],
+.media-resize-handle-se,
+.media-resize-handle-e,
+.media-resize-badge {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
+}
+
+details.notion-media-collapse {
+  float: none !important;
+  clear: both !important;
+  width: 100% !important;
+}
+
+/* 專供列印/PDF 匯出使用的工程報告表頭 (平時於螢幕編輯時隱藏，列印與匯出 PDF 時自動顯現) */
+#pdf-print-executive-header {
+  display: none;
+}
+
+/* ==========================================================================
+   🖨️ v2.7.6 旗艦級 PDF 匯出與列印引擎 (Magazine-Grade High-Contrast PDF Export)
+   - 徹底解決深色模式白字印在白紙上看不清楚的問題 (強制 18.1:1 極致黑字白底高對比)
+   - 徹底清除多餘互動按鈕，轉換為專業工程技術報告版面
+   - 防止圖片與表格跨頁腰斬 (break-inside: avoid)
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 14mm 14mm 14mm 14mm;
+  }
+
+  html,
+  body,
+  html.dark,
+  html.dark body,
+  .dark #main-scroll-container,
+  .dark #canvas-inner-wrapper,
+  .dark #editor {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 1. 隱藏所有網站導覽列、工具列、圖片操作按鈕與多餘連結 */
+  header,
+  aside,
+  #sidebar,
+  #sidebar-backdrop,
+  #editor-header,
+  #page-breadcrumbs,
+  #add-cover-btn,
+  #random-emoji-btn,
+  #page-header,
+  #editor-action-toolbar,
+  #outline-panel,
+  footer,
+  #settings-modal,
+  #toast,
+  #slash-menu,
+  #mobile-toolbar,
+  #mb-highlight-palette,
+  #selection-toolbar,
+  #ai-panel,
+  #global-top-loader,
+  #global-floating-loader,
+  #inapp-camera-modal,
+  #photo-annotate-modal,
+  #photo-lightbox-modal,
+  #media-delete-confirm-modal,
+  .media-card-rotate-left-btn,
+  .media-card-rotate-right-btn,
+  .media-card-annotate-btn,
+  .media-card-delete-btn,
+  .file-attachment-delete-btn,
+  .file-attachment-annotate-heic-btn,
+  .media-wrap-btn,
+  .media-resize-handle-se,
+  .media-resize-handle-e,
+  .media-resize-badge,
+  .collapse-hint,
+  .collapse-arrow,
+  .drag-handle,
+  .media-caption-bar,
+  .notion-table-toolbar,
+  .lvi-category-select {
+    display: none !important;
+  }
+
+  /* 2. 顯示專業工程報告專屬 PDF 表頭 (#pdf-print-executive-header) */
+  #pdf-print-executive-header {
+    display: block !important;
+    margin-bottom: 18px !important;
+    padding-bottom: 14px !important;
+    border-bottom: 2.5px solid #0f172a !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  #pdf-print-executive-header .pdf-brand-bar {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    font-size: 10pt !important;
+    font-weight: 700 !important;
+    color: #475569 !important;
+    letter-spacing: 0.04em !important;
+    text-transform: uppercase !important;
+    margin-bottom: 8px !important;
+    padding-bottom: 6px !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+  }
+
+  #pdf-print-executive-header .pdf-doc-title {
+    font-size: 20pt !important;
+    font-weight: 800 !important;
+    color: #0f172a !important;
+    line-height: 1.3 !important;
+    margin: 6px 0 12px 0 !important;
+    word-break: break-word !important;
+  }
+
+  #pdf-print-executive-header .pdf-meta-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 8px 12px !important;
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 8px !important;
+    padding: 10px 12px !important;
+  }
+
+  #pdf-print-executive-header .pdf-meta-item {
+    font-size: 9.5pt !important;
+    line-height: 1.4 !important;
+    color: #0f172a !important;
+  }
+
+  #pdf-print-executive-header .pdf-meta-label {
+    font-weight: 700 !important;
+    color: #475569 !important;
+    margin-right: 4px !important;
+  }
+
+  #pdf-print-executive-header .pdf-meta-val {
+    font-weight: 800 !important;
+    color: #0f172a !important;
+  }
+
+  /* 3. 強制編輯器內所有文字與段落維持極致高對比 (#0f172a 深黑墨色配純白底) */
+  #main-scroll-container,
+  #canvas-inner-wrapper,
+  #canvas-inner-wrapper.full-width-canvas {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #editor,
+  .dark #editor,
+  #editor p,
+  .dark #editor p,
+  #editor li,
+  .dark #editor li,
+  #editor ul,
+  .dark #editor ul,
+  #editor ol,
+  .dark #editor ol,
+  #editor div:not(.notion-callout):not(.media-top-note-bar),
+  .dark #editor div:not(.notion-callout):not(.media-top-note-bar),
+  #editor span:not(mark *),
+  .dark #editor span:not(mark *),
+  #editor .notion-todo-text,
+  .dark #editor .notion-todo-text,
+  #editor .toggle-title,
+  .dark #editor .toggle-title,
+  #editor .toggle-content,
+  .dark #editor .toggle-content {
+    color: #0f172a !important;
+    text-shadow: none !important;
+  }
+
+  #editor h1, .dark #editor h1,
+  #editor h2, .dark #editor h2,
+  #editor h3, .dark #editor h3,
+  #editor h4, .dark #editor h4,
+  #editor strong, .dark #editor strong,
+  #editor b, .dark #editor b {
+    color: #000000 !important;
+    font-weight: 800 !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  #editor h1 {
+    font-size: 16pt !important;
+    border-bottom: 1.5px solid #cbd5e1 !important;
+    padding-bottom: 4px !important;
+    margin-top: 16px !important;
+  }
+
+  #editor h2 {
+    font-size: 13.5pt !important;
+    margin-top: 14px !important;
+  }
+
+  #editor h3 {
+    font-size: 12pt !important;
+    margin-top: 10px !important;
+  }
+
+  #editor p, #editor li {
+    font-size: 11pt !important;
+    line-height: 1.65 !important;
+  }
+
+  /* 螢光筆重點標記於 PDF 中高對比呈現 */
+  #editor mark,
+  .dark #editor mark,
+  #editor mark.notion-highlight,
+  .dark #editor mark.notion-highlight,
+  #editor mark *,
+  .dark #editor mark * {
+    color: #000000 !important;
+    font-weight: 700 !important;
+    padding: 1px 4px !important;
+    border-radius: 3px !important;
+    border: 1px solid rgba(15, 23, 42, 0.22) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 4. 圖片框於 PDF 中的雜誌級卡片排版與防腰斬保護 */
+  details.notion-media-collapse,
+  .dark details.notion-media-collapse {
+    display: block !important;
+    width: 100% !important;
+    margin: 14px 0 !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden !important;
+  }
+
+  details.notion-media-collapse > summary,
+  .dark details.notion-media-collapse > summary {
+    display: flex !important;
+    align-items: center !important;
+    padding: 6px 12px !important;
+    background: #f1f5f9 !important;
+    background-color: #f1f5f9 !important;
+    border-bottom: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    font-size: 9.5pt !important;
+    font-weight: 700 !important;
+  }
+
+  details.notion-media-collapse > summary span,
+  .dark details.notion-media-collapse > summary span {
+    color: #0f172a !important;
+  }
+
+  /* 圖片上方文字註記於 PDF 中高對比呈現；若未填寫註記則自動隱藏空白列 */
+  details.notion-media-collapse .media-top-note-bar,
+  .dark details.notion-media-collapse .media-top-note-bar {
+    background: #fffbeb !important;
+    background-color: #fffbeb !important;
+    border-top: none !important;
+    border-bottom: 1.5px solid #f59e0b !important;
+    padding: 7px 12px !important;
+  }
+
+  details.notion-media-collapse .media-top-note-bar.is-empty-note {
+    display: none !important;
+  }
+
+  details.notion-media-collapse .media-top-note-label,
+  .dark details.notion-media-collapse .media-top-note-label {
+    color: #92400e !important;
+    font-weight: 800 !important;
+    font-size: 10pt !important;
+  }
+
+  details.notion-media-collapse .media-top-note-input,
+  .dark details.notion-media-collapse .media-top-note-input,
+  details.notion-media-collapse .media-top-note-input *:not(mark),
+  .dark details.notion-media-collapse .media-top-note-input *:not(mark) {
+    color: #0f172a !important;
+    font-weight: 700 !important;
+    font-size: 10.5pt !important;
+  }
+
+  details.notion-media-collapse .media-collapse-content,
+  .dark details.notion-media-collapse .media-collapse-content {
+    display: block !important;
+    padding: 10px !important;
+    background: #ffffff !important;
+    text-align: center !important;
+  }
+
+  details.notion-media-collapse img {
+    display: block !important;
+    max-width: 100% !important;
+    max-height: 440px !important;
+    width: auto !important;
+    height: auto !important;
+    margin: 0 auto !important;
+    border-radius: 6px !important;
+    border: 1px solid #e2e8f0 !important;
+    object-fit: contain !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  /* 5. 表格與排查模板區塊於 PDF 中的高對比框線與防跨頁切斷 */
+  .notion-table-container,
+  .dark .notion-table-container {
+    border: 1.5px solid #94a3b8 !important;
+    border-radius: 8px !important;
+    background: #ffffff !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin: 12px 0 !important;
+  }
+
+  #editor table,
+  .dark #editor table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    background: #ffffff !important;
+  }
+
+  #editor th,
+  .dark #editor th {
+    background: #f1f5f9 !important;
+    background-color: #f1f5f9 !important;
+    color: #0f172a !important;
+    font-weight: 800 !important;
+    border: 1px solid #94a3b8 !important;
+    padding: 6px 10px !important;
+  }
+
+  #editor td,
+  .dark #editor td {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 6px 10px !important;
+  }
+
+  .notion-callout,
+  .dark .notion-callout,
+  .lvi-troubleshoot-card,
+  .dark .lvi-troubleshoot-card {
+    background: #f8fafc !important;
+    background-color: #f8fafc !important;
+    color: #0f172a !important;
+    border: 1.5px solid #94a3b8 !important;
+    border-left-width: 5px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  #editor blockquote,
+  .dark #editor blockquote {
+    background: #f8fafc !important;
+    color: #0f172a !important;
+    border-left: 4px solid #2563eb !important;
+    padding: 8px 12px !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
 }
