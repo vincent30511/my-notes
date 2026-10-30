@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.8.2'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.8.3'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -21,6 +21,7 @@ function saveSwrCacheSnapshot() {
       tags: state.tags || [],
       folders: state.folders || [],
       todoItems: state.todoItems || [],
+      deletedTodoIds: state.deletedTodoIds || [],
       todoStatuses: state.todoStatuses || [],
       todoHandlers: state.todoHandlers || [],
       user: state.user || null,
@@ -85,7 +86,8 @@ function hydrateFromSwrCacheOnBoot() {
       if (Array.isArray(ws.clientsVendors) && ws.clientsVendors.length > 0) state.clientsVendors = ws.clientsVendors;
       if (Array.isArray(ws.tags) && ws.tags.length > 0) state.tags = ws.tags;
       if (Array.isArray(ws.folders) && ws.folders.length > 0) state.folders = ws.folders;
-      if (Array.isArray(ws.todoItems) && ws.todoItems.length > 0) state.todoItems = ws.todoItems;
+      if (Array.isArray(ws.deletedTodoIds)) state.deletedTodoIds = ws.deletedTodoIds;
+      if (Array.isArray(ws.todoItems)) state.todoItems = ws.todoItems;
       if (Array.isArray(ws.todoStatuses) && ws.todoStatuses.length > 0) state.todoStatuses = ws.todoStatuses;
       if (Array.isArray(ws.todoHandlers) && ws.todoHandlers.length > 0) state.todoHandlers = ws.todoHandlers;
       if (ws.user) state.user = ws.user;
@@ -1410,7 +1412,11 @@ async function syncWorkspaceConfigWithDrive(silent = false) {
       if (Array.isArray(config.todoHandlers) && config.todoHandlers.length > 0) {
         state.todoHandlers = config.todoHandlers;
       }
-      if (Array.isArray(config.todoItems) && config.todoItems.length > 0) {
+      if (Array.isArray(config.deletedTodoIds)) {
+        const localDel = Array.isArray(state.deletedTodoIds) ? state.deletedTodoIds : [];
+        state.deletedTodoIds = Array.from(new Set([...localDel, ...config.deletedTodoIds]));
+      }
+      if (Array.isArray(config.todoItems)) {
         state.todoItems = mergeCloudAndLocalTodoItems(config.todoItems, state.todoItems || []);
         saveTodoItemsToLocalStorageOnly();
       }
@@ -1470,6 +1476,7 @@ async function saveWorkspaceConfigToDrive() {
       folders: state.folders || DEFAULT_FOLDERS,
       tasks: state.googleTasks || [],
       todoItems: state.todoItems || [],
+      deletedTodoIds: state.deletedTodoIds || [],
       todoStatuses: state.todoStatuses || DEFAULT_TODO_STATUSES,
       todoHandlers: state.todoHandlers || DEFAULT_TODO_HANDLERS,
       updatedAt: new Date().toISOString(),
@@ -4595,7 +4602,7 @@ async function compressImageForUpload(file, maxDimension = 1280, quality = 0.76)
   const t0 = performance.now();
   try {
     const origSize = file.size;
-    // 🍏 v2.8.2 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
+    // 🍏 v2.8.3 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
     if (await isHeicFileOrBlob(file, file.name)) {
       const convertedJpegBlob = await convertHeicBlobToJpegBlob(file, Math.max(0.84, quality));
       if (convertedJpegBlob) {
@@ -6845,7 +6852,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.8.2', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.8.3', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -12301,12 +12308,13 @@ function closeTableQuickPeekDrawer() {
 }
 
 // ============================================================================
-// 📋 LVI_Note v2.8.2 待辦事項 (5段式卡片架構) + 進度/人員管理 + 表格資料庫整合 + Google Tasks 雙向同步引擎
+// 📋 LVI_Note v2.8.3 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
 // ============================================================================
 
-const TODO_STORAGE_KEY = 'lvi_todo_items_v281';
-const TODO_STATUSES_STORAGE_KEY = 'lvi_todo_statuses_v281';
-const TODO_HANDLERS_STORAGE_KEY = 'lvi_todo_handlers_v281';
+const TODO_STORAGE_KEY = 'lvi_todo_items_v283';
+const DELETED_TODO_IDS_STORAGE_KEY = 'lvi_deleted_todo_ids_v283';
+const TODO_STATUSES_STORAGE_KEY = 'lvi_todo_statuses_v283';
+const TODO_HANDLERS_STORAGE_KEY = 'lvi_todo_handlers_v283';
 
 const DEFAULT_TODO_STATUSES = [
   { id: '🔴 待處理', label: '🔴 待處理', color: 'rose' },
@@ -12316,6 +12324,29 @@ const DEFAULT_TODO_STATUSES = [
 ];
 
 const DEFAULT_TODO_HANDLERS = ['Vincent', '值班工程師', '設備保養組', '駐廠廠商'];
+
+function getDeletedTodoIdsSet() {
+  if (!Array.isArray(state.deletedTodoIds)) {
+    try {
+      const raw = localStorage.getItem(DELETED_TODO_IDS_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      state.deletedTodoIds = Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      state.deletedTodoIds = [];
+    }
+  }
+  return new Set(state.deletedTodoIds);
+}
+
+function isTodoItemDeletedTombstoned(item) {
+  if (!item) return true;
+  const delSet = getDeletedTodoIdsSet();
+  if (item.id && delSet.has(String(item.id))) return true;
+  if (item.googleTaskId && (delSet.has(String(item.googleTaskId)) || delSet.has('todo_gt_' + item.googleTaskId))) return true;
+  const embeddedMatch = (item.issueText || '').match(/\[LVI_TODO_ID:([^\]]+)\]/);
+  if (embeddedMatch && delSet.has(embeddedMatch[1])) return true;
+  return false;
+}
 
 function isTodoStatusCompleted(statusStr) {
   if (!statusStr) return false;
@@ -12340,7 +12371,7 @@ function getTodoStatusBadgeClass(statusStr) {
   ensureTodoItemsInitialized();
   const norm = normalizeTodoStatusValue(statusStr);
   const st = (state.todoStatuses || DEFAULT_TODO_STATUSES).find(s => s.label === norm || s.id === norm);
-  const color = (st && st.color) || (isTodoStatusCompleted(norm) ? 'emerald' : (norm.includes('處理中') ? 'amber' : 'rose'));
+  const color = (st && st.color) || (isTodoStatusCompleted(norm) ? 'emerald' : (norm.includes('處理中') ? 'amber' : (norm.includes('待料') ? 'orange' : 'rose')));
   const map = {
     rose: 'bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/70 dark:text-rose-200 dark:border-rose-800',
     amber: 'bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/70 dark:text-amber-200 dark:border-amber-800',
@@ -12411,10 +12442,12 @@ function getTagPillColorClass(tagName) {
   return colorMap[color] || colorMap.blue;
 }
 
+// 合併雲端與本地待辦清單：嚴格過濾已刪除 Tombstone ID，杜絕已刪除項目死灰復燃
 function mergeCloudAndLocalTodoItems(cloudList = [], localList = []) {
   const map = new Map();
-  [...localList, ...cloudList].forEach(item => {
+  [...(cloudList || []), ...(localList || [])].forEach(item => {
     if (!item || !item.id) return;
+    if (isTodoItemDeletedTombstoned(item)) return;
     const existing = map.get(item.id);
     if (!existing || (item.updatedAt || 0) >= (existing.updatedAt || 0)) {
       map.set(item.id, item);
@@ -12425,9 +12458,16 @@ function mergeCloudAndLocalTodoItems(cloudList = [], localList = []) {
 
 function saveTodoItemsToLocalStorageOnly() {
   try {
-    localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(state.todoItems || []));
+    const cleanItems = (state.todoItems || []).filter(item => !isTodoItemDeletedTombstoned(item));
+    state.todoItems = cleanItems;
+    localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(cleanItems));
+    localStorage.setItem(DELETED_TODO_IDS_STORAGE_KEY, JSON.stringify(state.deletedTodoIds || []));
     localStorage.setItem(TODO_STATUSES_STORAGE_KEY, JSON.stringify(state.todoStatuses || DEFAULT_TODO_STATUSES));
     localStorage.setItem(TODO_HANDLERS_STORAGE_KEY, JSON.stringify(state.todoHandlers || DEFAULT_TODO_HANDLERS));
+    // 同步清理舊版殘留 key，避免舊版快取被誤讀復活
+    localStorage.removeItem('lvi_todo_items_v280');
+    localStorage.removeItem('lvi_todo_items_v281');
+    localStorage.removeItem('lvi_todo_items_v282');
     saveSwrCacheSnapshot();
   } catch (e) {
     console.warn('儲存待辦事項至本機快取略過:', e);
@@ -12439,29 +12479,28 @@ function saveTodoItemsState(immediateCloud = false) {
   saveTodoItemsToLocalStorageOnly();
   updateTodoSummaryStats();
   if (immediateCloud) {
+    clearTimeout(_todoCloudSyncTimer);
     saveWorkspaceConfigToDrive();
   } else {
     clearTimeout(_todoCloudSyncTimer);
     _todoCloudSyncTimer = setTimeout(() => {
       saveWorkspaceConfigToDrive();
-    }, 850);
+    }, 650);
   }
 }
 
 function ensureTodoItemsInitialized() {
+  getDeletedTodoIdsSet();
+
   if (!Array.isArray(state.todoStatuses) || state.todoStatuses.length === 0) {
-    try {
-      const rawS = localStorage.getItem(TODO_STATUSES_STORAGE_KEY);
-      const parsedS = rawS ? JSON.parse(rawS) : null;
-      state.todoStatuses = (Array.isArray(parsedS) && parsedS.length > 0) ? parsedS : DEFAULT_TODO_STATUSES.map(x => ({ ...x }));
-    } catch (e) {
-      state.todoStatuses = DEFAULT_TODO_STATUSES.map(x => ({ ...x }));
-    }
+    state.todoStatuses = DEFAULT_TODO_STATUSES.map(x => ({ ...x }));
   }
 
   if (!Array.isArray(state.todoHandlers) || state.todoHandlers.length === 0) {
     try {
-      const rawH = localStorage.getItem(TODO_HANDLERS_STORAGE_KEY);
+      const rawH = localStorage.getItem(TODO_HANDLERS_STORAGE_KEY)
+        || localStorage.getItem('lvi_todo_handlers_v282')
+        || localStorage.getItem('lvi_todo_handlers_v281');
       const parsedH = rawH ? JSON.parse(rawH) : null;
       state.todoHandlers = (Array.isArray(parsedH) && parsedH.length > 0) ? parsedH : DEFAULT_TODO_HANDLERS.slice();
     } catch (e) {
@@ -12471,7 +12510,10 @@ function ensureTodoItemsInitialized() {
 
   if (!Array.isArray(state.todoItems)) {
     try {
-      const rawT = localStorage.getItem(TODO_STORAGE_KEY) || localStorage.getItem('lvi_todo_items_v280');
+      const rawT = localStorage.getItem(TODO_STORAGE_KEY)
+        || localStorage.getItem('lvi_todo_items_v282')
+        || localStorage.getItem('lvi_todo_items_v281')
+        || localStorage.getItem('lvi_todo_items_v280');
       const parsedT = rawT ? JSON.parse(rawT) : null;
       state.todoItems = Array.isArray(parsedT) ? parsedT : [];
     } catch (e) {
@@ -12479,49 +12521,104 @@ function ensureTodoItemsInitialized() {
     }
   }
 
-  // 升級標準化每筆待辦的欄位結構
+  // 嚴格剔除任何已記錄在 deletedTodoIds 的待辦事項，並清理曾經自動產生的預設示範卡片 (若尚未被使用者修改過)
+  state.todoItems = state.todoItems.filter(item => {
+    if (!item || !item.id) return false;
+    if (isTodoItemDeletedTombstoned(item)) return false;
+    return true;
+  });
+
   state.todoItems.forEach(item => {
     item.status = normalizeTodoStatusValue(item.status);
+    if (typeof item.machineModel !== 'string') item.machineModel = '';
     if (typeof item.clientVendor !== 'string') item.clientVendor = '';
     if (!Array.isArray(item.linkedNoteIds)) item.linkedNoteIds = [];
     if (!Array.isArray(item.tags)) item.tags = [];
     if (!Array.isArray(item.handlers)) item.handlers = [];
     if (!item.createdEpoch) item.createdEpoch = parseTodoTimestampToEpoch(item.createdAt);
   });
+}
 
-  if (state.todoItems.length === 0 && !localStorage.getItem('lvi_todo_v281_seeded')) {
-    localStorage.setItem('lvi_todo_v281_seeded', 'true');
-    const defaultMachine = getSharedMachineModelsForTodo()[0] || 'SA730-8MP';
-    const defaultClient = getSharedClientsVendorsForTodo()[0] || '台積電 (TSMC)';
-    const firstNoteId = (state.notes && state.notes[0]) ? state.notes[0].id : null;
-    state.todoItems = [
-      {
-        id: 'todo_' + Date.now(),
-        title: `${defaultMachine} 氣壓迴路與閥門動作異常待查`,
-        machineModel: defaultMachine,
-        clientVendor: defaultClient,
-        status: '🟡 處理中',
-        createdAt: formatTodoTimestamp(new Date()),
-        completedAt: '',
-        linkedNoteIds: firstNoteId ? [firstNoteId] : [],
-        issueText: '1. 現場巡檢發現 V5 氣動隔膜閥切換延遲約 1.5 秒，造成機台偶發性警報。\n2. 可點擊右上角「📷 拍照」或「📎 上傳附件」嵌入現場照片（支援 HEIC 標註、90° 旋轉與圖片註記）。',
-        issueAttachmentsHtml: '',
-        resolutionText: '1. 已先調降進氣節流閥開度並清潔電磁閥線圈接點。\n2. 預計更換新品備品後測試連續運轉 50 次確認穩定度。',
-        resolutionAttachmentsHtml: '',
-        tags: ['技術', '專案'],
-        handlers: ['Vincent'],
-        googleTaskId: '',
-        createdEpoch: Date.now(),
-        updatedAt: Date.now()
-      }
-    ];
-    saveTodoItemsToLocalStorageOnly();
+// 統一且永久的待辦事項刪除函式 (記錄 Tombstone + 本地移除 + Drive 同步 + Google Tasks 遠端刪除)
+async function deleteTodoItemById(todoId) {
+  if (!todoId) return false;
+  ensureTodoItemsInitialized();
+
+  const targetItem = (state.todoItems || []).find(t => t.id === todoId);
+  const delSet = getDeletedTodoIdsSet();
+  delSet.add(String(todoId));
+
+  const gTaskIdsToDelete = new Set();
+  if (String(todoId).startsWith('todo_gt_')) {
+    const rawGtId = String(todoId).replace(/^todo_gt_/, '');
+    delSet.add(rawGtId);
+    gTaskIdsToDelete.add(rawGtId);
   }
+
+  if (targetItem) {
+    if (targetItem.googleTaskId) {
+      delSet.add(String(targetItem.googleTaskId));
+      delSet.add('todo_gt_' + targetItem.googleTaskId);
+      gTaskIdsToDelete.add(String(targetItem.googleTaskId));
+    }
+    const embeddedMatch = (targetItem.issueText || '').match(/\[LVI_TODO_ID:([^\]]+)\]/);
+    if (embeddedMatch && embeddedMatch[1]) {
+      delSet.add(embeddedMatch[1]);
+    }
+  }
+
+  // 同時掃描 state.googleTasks 中任何關聯此 todoId 的遠端任務
+  if (Array.isArray(state.googleTasks)) {
+    state.googleTasks.forEach(rt => {
+      if (!rt || !rt.id) return;
+      const m = (rt.notes || '').match(/\[LVI_TODO_ID:([^\]]+)\]/);
+      if (rt.id === (targetItem && targetItem.googleTaskId) || ('todo_gt_' + rt.id) === todoId || (m && m[1] === todoId)) {
+        delSet.add(String(rt.id));
+        delSet.add('todo_gt_' + rt.id);
+        gTaskIdsToDelete.add(String(rt.id));
+      }
+    });
+    state.googleTasks = state.googleTasks.filter(rt => !rt || !gTaskIdsToDelete.has(String(rt.id)));
+  }
+
+  state.deletedTodoIds = Array.from(delSet);
+  state.todoItems = (state.todoItems || []).filter(t => t.id !== todoId && !isTodoItemDeletedTombstoned(t));
+
+  if (state.activeTodoDetailId === todoId) {
+    state.activeTodoDetailId = null;
+  }
+
+  // 立即寫入 localStorage 與雲端設定檔
+  saveTodoItemsState(true);
+  if (state.currentView === 'tasks') renderTasksView();
+  if (state.currentView === 'table') renderTableView();
+
+  const titleLabel = (targetItem && targetItem.title) ? targetItem.title : '待辦事項';
+  showToast(`🗑️ 已永久刪除：「${titleLabel}」`);
+
+  // 若已登入 Google 帳號，確保取得 Google Tasks 清單 ID 並將遠端對應 Task 一併刪除
+  if (state.accessToken && gTaskIdsToDelete.size > 0) {
+    try {
+      const listId = state.googleTasksListId || (await ensureGoogleTasksList());
+      if (listId) {
+        for (const gid of gTaskIdsToDelete) {
+          if (gid && !String(gid).startsWith('temp_')) {
+            await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks/${encodeURIComponent(gid)}`, {
+              method: 'DELETE',
+              headers: { Authorization: `Bearer ${state.accessToken}` }
+            }).catch(() => {});
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('遠端 Google Task 刪除略過:', err);
+    }
+  }
+  return true;
 }
 
 // ============================================================================
-// 🛠️ 6. 進度選項 (state.todoStatuses) & 7. 處理人員列表 (state.todoHandlers)
-//    完整新增、修改更名、換色、刪除 CRUD 模組
+// 🛠️ 6. 進度選項 & 7. 處理人員列表 CRUD 模組
 // ============================================================================
 
 function renderTagManagerTodoStatusList() {
@@ -12531,149 +12628,29 @@ function renderTagManagerTodoStatusList() {
   if (!listEl) return;
 
   const statuses = state.todoStatuses || DEFAULT_TODO_STATUSES;
-  if (countEl) countEl.textContent = `共 ${statuses.length} 項`;
-  listEl.innerHTML = '';
-
-  statuses.forEach((st, idx) => {
+  if (countEl) countEl.textContent = `共 ${statuses.length} 項 (固定 4 大分類)`;
+  listEl.innerHTML = statuses.map(st => {
     const label = st.label || st.id;
     const usedCount = (state.todoItems || []).filter(t => t.status === label || t.status === st.id).length;
-    const row = document.createElement('div');
-    row.className = 'p-2 bg-gray-50/80 dark:bg-notion-darker rounded-lg border border-gray-200/60 dark:border-notion-borderDark flex items-center justify-between gap-2 text-xs';
-    row.innerHTML = `
-      <div class="flex items-center gap-2 flex-1 min-w-0">
-        <input type="text" class="todo-status-rename-input flex-1 px-2 py-1 text-xs bg-white dark:bg-notion-dark border border-gray-200 dark:border-notion-borderDark rounded font-bold text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-emerald-500" value="${escapeHtml(label)}" title="直接輸入修改進度選項名稱">
-      </div>
-      <div class="flex items-center gap-1.5 shrink-0">
-        <select class="todo-status-color-select text-[11px] px-1.5 py-1 bg-white dark:bg-notion-dark border border-gray-200 dark:border-notion-borderDark rounded font-medium">
-          <option value="rose" ${st.color === 'rose' ? 'selected' : ''}>🔴 紅</option>
-          <option value="amber" ${st.color === 'amber' ? 'selected' : ''}>🟡 黃</option>
-          <option value="orange" ${st.color === 'orange' ? 'selected' : ''}>🟠 橙</option>
-          <option value="blue" ${st.color === 'blue' ? 'selected' : ''}>🔵 藍</option>
-          <option value="purple" ${st.color === 'purple' ? 'selected' : ''}>🟣 紫</option>
-          <option value="emerald" ${st.color === 'emerald' ? 'selected' : ''}>🟢 綠</option>
-          <option value="gray" ${st.color === 'gray' ? 'selected' : ''}>⚪ 灰</option>
-        </select>
-        <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-semibold">關聯 ${usedCount} 筆</span>
-        <button type="button" class="save-todo-status-btn p-1 text-gray-400 hover:text-emerald-600 rounded transition cursor-pointer" title="儲存修改">
-          <i data-lucide="check" class="w-3.5 h-3.5"></i>
-        </button>
-        <button type="button" class="del-todo-status-btn p-1 text-gray-400 hover:text-rose-600 rounded transition cursor-pointer" title="刪除此進度選項" ${statuses.length <= 1 ? 'disabled style="opacity:0.3;cursor:not-allowed;"' : ''}>
-          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-        </button>
+    return `
+      <div class="p-2.5 bg-gray-50/80 dark:bg-notion-darker rounded-lg border border-gray-200/60 dark:border-notion-borderDark flex items-center justify-between gap-2 text-xs">
+        <span class="font-bold text-gray-800 dark:text-gray-100">${escapeHtml(label)}</span>
+        <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-semibold">目前 ${usedCount} 筆</span>
       </div>
     `;
-
-    const inp = row.querySelector('.todo-status-rename-input');
-    const colSel = row.querySelector('.todo-status-color-select');
-    const saveBtn = row.querySelector('.save-todo-status-btn');
-    const delBtn = row.querySelector('.del-todo-status-btn');
-
-    const applyUpdate = () => {
-      renameTodoStatusOption(label, inp.value.trim(), colSel.value);
-    };
-    inp.addEventListener('change', applyUpdate);
-    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyUpdate(); } });
-    colSel.addEventListener('change', applyUpdate);
-    saveBtn.addEventListener('click', applyUpdate);
-
-    if (delBtn && statuses.length > 1) {
-      delBtn.addEventListener('click', () => {
-        deleteTodoStatusOption(label);
-      });
-    }
-    listEl.appendChild(row);
-  });
-  initLucide();
+  }).join('');
 }
 
 function addTodoStatusOption(name, color = 'blue') {
-  ensureTodoItemsInitialized();
-  name = (name || '').trim();
-  if (!name) {
-    showToast('請輸入進度選項名稱！');
-    return false;
-  }
-  if (state.todoStatuses.some(s => s.label === name || s.id === name)) {
-    showToast(`進度選項「${name}」已存在！`);
-    return false;
-  }
-  state.todoStatuses.push({ id: name, label: name, color: color || 'blue' });
-  saveTodoItemsState();
-  populateTodoFilterDropdowns();
-  renderTagManagerTodoStatusList();
-  if (state.currentView === 'tasks') renderTasksView();
-  if (state.currentView === 'table') renderTableView();
-  showToast(`✅ 已新增進度選項「${name}」！`);
-  return true;
+  return false;
 }
 
 function renameTodoStatusOption(oldName, newName, newColor = null) {
-  ensureTodoItemsInitialized();
-  newName = (newName || '').trim();
-  if (!newName) {
-    showToast('進度選項名稱不能為空！');
-    renderTagManagerTodoStatusList();
-    return false;
-  }
-  const st = state.todoStatuses.find(s => s.label === oldName || s.id === oldName);
-  if (!st) return false;
-  if (newName !== oldName && state.todoStatuses.some(s => s !== st && (s.label === newName || s.id === newName))) {
-    showToast(`進度選項「${newName}」已存在！`);
-    renderTagManagerTodoStatusList();
-    return false;
-  }
-
-  st.id = newName;
-  st.label = newName;
-  if (newColor) st.color = newColor;
-
-  (state.todoItems || []).forEach(item => {
-    if (item.status === oldName) {
-      item.status = newName;
-      if (isTodoStatusCompleted(newName) && !item.completedAt) {
-        item.completedAt = formatTodoTimestamp(new Date());
-      }
-    }
-  });
-
-  if (state.todoFilterStatus === oldName) state.todoFilterStatus = newName;
-  saveTodoItemsState();
-  populateTodoFilterDropdowns();
-  renderTagManagerTodoStatusList();
-  if (state.currentView === 'tasks') renderTasksView();
-  if (state.currentView === 'table') renderTableView();
-  showToast(`✅ 進度選項已更新為「${newName}」！`);
-  return true;
+  return false;
 }
 
 function deleteTodoStatusOption(name, skipConfirm = false) {
-  ensureTodoItemsInitialized();
-  if (state.todoStatuses.length <= 1) {
-    showToast('至少需保留一個進度選項！');
-    return false;
-  }
-  const idx = state.todoStatuses.findIndex(s => s.label === name || s.id === name);
-  if (idx === -1) return false;
-
-  const affected = (state.todoItems || []).filter(t => t.status === name);
-  if (!skipConfirm && affected.length > 0) {
-    if (!window.confirm(`確定要刪除進度選項「${name}」嗎？\n目前有 ${affected.length} 筆待辦事項使用此進度，刪除後將自動改為預設進度。`)) {
-      return false;
-    }
-  }
-
-  state.todoStatuses.splice(idx, 1);
-  const fallback = state.todoStatuses[0].label;
-  affected.forEach(item => { item.status = fallback; });
-  if (state.todoFilterStatus === name) state.todoFilterStatus = '';
-
-  saveTodoItemsState();
-  populateTodoFilterDropdowns();
-  renderTagManagerTodoStatusList();
-  if (state.currentView === 'tasks') renderTasksView();
-  if (state.currentView === 'table') renderTableView();
-  showToast(`🗑️ 已刪除進度選項「${name}」！`);
-  return true;
+  return false;
 }
 
 function renderTagManagerTodoHandlerList() {
@@ -12722,7 +12699,7 @@ function renderTagManagerTodoHandlerList() {
     inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyRename(); } });
     saveBtn.addEventListener('click', applyRename);
     delBtn.addEventListener('click', () => {
-      deleteTodoHandler(hName);
+      deleteTodoHandler(hName, true);
     });
     listEl.appendChild(row);
   });
@@ -12790,12 +12767,6 @@ function deleteTodoHandler(name, skipConfirm = false) {
   if (idx === -1) return false;
 
   const affected = (state.todoItems || []).filter(t => Array.isArray(t.handlers) && t.handlers.includes(name));
-  if (!skipConfirm && affected.length > 0) {
-    if (!window.confirm(`確定要從處理人員列表刪除「${name}」嗎？\n目前有 ${affected.length} 筆待辦事項指派給此人員，刪除後將從待辦中移除該人員標籤。`)) {
-      return false;
-    }
-  }
-
   state.todoHandlers.splice(idx, 1);
   affected.forEach(item => {
     item.handlers = (item.handlers || []).filter(h => h !== name);
@@ -12812,20 +12783,20 @@ function deleteTodoHandler(name, skipConfirm = false) {
 }
 
 // ============================================================================
-// 🔄 Google Tasks 智慧雙向連動橋接引擎 (LVI_Note Todo Cards <-> Google Tasks API)
+// 🔄 Google Tasks 智慧雙向連動橋接引擎 (含已刪除 Tombstone 攔截，絕不復活已刪待辦)
 // ============================================================================
 
 function formatGoogleTaskPayloadFromTodoItem(item) {
   const machPrefix = item.machineModel ? `[${item.machineModel}] ` : '';
   const titleText = `${machPrefix}${item.title || '未命名待辦事項'} (${item.status || '🔴 待處理'})`;
   const noteLines = [
-    `🏢 客戶或廠商：${item.clientVendor || '未指定'}`,
-    `👥 處理人員：${(item.handlers && item.handlers.length) ? item.handlers.join('、') : '未指派'}`,
+    `🏢 客戶或廠商：${item.clientVendor || '未選擇'}`,
+    `👥 處理人員：${(item.handlers && item.handlers.length) ? item.handlers.join('、') : '無'}`,
     `🏷️ 標籤：${(item.tags && item.tags.length) ? item.tags.map(t => '#' + t).join(' ') : '無'}`,
-    `🕒 事件建立時間：${item.createdAt || ''}`,
-    item.completedAt ? `🏁 事件結束時間：${item.completedAt}` : '',
-    item.issueText ? `\n🚨【待辦事件說明】\n${item.issueText}` : '',
-    item.resolutionText ? `\n🛠️【如何處理與結果】\n${item.resolutionText}` : '',
+    `🕒 建立時間：${item.createdAt || ''}`,
+    item.completedAt ? `🏁 結束時間：${item.completedAt}` : '',
+    item.issueText ? `\n🚨【待辦說明】\n${item.issueText}` : '',
+    item.resolutionText ? `\n🛠️【處理結果】\n${item.resolutionText}` : '',
     `\n[LVI_TODO_ID:${item.id}]`
   ].filter(Boolean).join('\n');
 
@@ -12839,7 +12810,7 @@ function formatGoogleTaskPayloadFromTodoItem(item) {
 }
 
 async function pushSingleTodoItemToGoogleTasks(item) {
-  if (!state.accessToken || !item) return;
+  if (!state.accessToken || !item || isTodoItemDeletedTombstoned(item)) return;
   try {
     const listId = await ensureGoogleTasksList();
     if (!listId) return;
@@ -12884,12 +12855,12 @@ async function syncTodoItemsWithGoogleTasks(showFeedback = false) {
   }
 
   const statusTextEl = document.getElementById('tasks-sync-status-text');
-  if (statusTextEl) statusTextEl.textContent = '正在與 Google Tasks 雙向同步...';
+  if (statusTextEl) statusTextEl.textContent = '正在同步...';
 
   try {
     const listId = await ensureGoogleTasksList();
     if (!listId) {
-      if (statusTextEl) statusTextEl.textContent = '已同步至 Google Drive 雲端硬碟';
+      if (statusTextEl) statusTextEl.textContent = '已同步至雲端硬碟';
       if (showFeedback) showToast('☁️ 待辦事項已完整備份至 Google Drive 雲端硬碟！');
       return;
     }
@@ -12900,78 +12871,92 @@ async function syncTodoItemsWithGoogleTasks(showFeedback = false) {
     if (res.ok) {
       const data = await res.json();
       const remoteTasks = data.items || [];
+      const delSet = getDeletedTodoIdsSet();
       state.googleTasks = remoteTasks;
 
-      // 1. 比對遠端 Google Tasks 狀態回寫至本地待辦卡片，或匯入遠端新增的 Task
-      remoteTasks.forEach(rt => {
-        if (!rt || !rt.title) return;
+      for (const rt of remoteTasks) {
+        if (!rt || !rt.title) continue;
         const idMatch = (rt.notes || '').match(/\[LVI_TODO_ID:([^\]]+)\]/);
-        const matchedTodo = idMatch
-          ? state.todoItems.find(t => t.id === idMatch[1])
-          : state.todoItems.find(t => t.googleTaskId === rt.id);
+        const embeddedTodoId = idMatch ? idMatch[1] : null;
+
+        // 🛡️ 防復活關鍵 1：若此 Google Task ID 或內嵌 LVI_TODO_ID 在已刪除名單中，或原本由 LVI_Note 建立但已被本地刪除，直接從 Google Tasks 刪除，絕不重新匯入！
+        if (
+          delSet.has(String(rt.id)) ||
+          delSet.has('todo_gt_' + rt.id) ||
+          (embeddedTodoId && delSet.has(embeddedTodoId)) ||
+          (embeddedTodoId && !state.todoItems.some(t => t.id === embeddedTodoId))
+        ) {
+          fetch(`https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks/${encodeURIComponent(rt.id)}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${state.accessToken}` }
+          }).catch(() => {});
+          continue;
+        }
+
+        const matchedTodo = embeddedTodoId
+          ? state.todoItems.find(t => t.id === embeddedTodoId)
+          : state.todoItems.find(t => t.googleTaskId === rt.id || t.id === ('todo_gt_' + rt.id));
 
         if (matchedTodo) {
           matchedTodo.googleTaskId = rt.id;
           if (rt.status === 'completed' && !isTodoStatusCompleted(matchedTodo.status)) {
-            const doneStatus = (state.todoStatuses.find(s => isTodoStatusCompleted(s.label)) || { label: '🟢 已完成' }).label;
-            matchedTodo.status = doneStatus;
+            matchedTodo.status = '🟢 已完成';
             if (!matchedTodo.completedAt) {
               matchedTodo.completedAt = formatTodoTimestamp(rt.completed || new Date());
             }
           }
         } else {
-          // 遠端在手機 Google Tasks 新增的項目，自動匯入為 LVI_Note 5段式待辦卡片
+          // 遠端在手機 Google Tasks 原生新建的任務：匯入時不預設任何機型、客戶、標籤或人員 (全部保持「未選擇 / 無」)
           const isDone = rt.status === 'completed';
           const cleanTitle = rt.title.replace(/^\[[^\]]+\]\s*/, '').replace(/\s*\([^)]+\)\s*$/, '').trim();
           state.todoItems.unshift({
             id: 'todo_gt_' + rt.id,
             googleTaskId: rt.id,
             title: cleanTitle || rt.title,
-            machineModel: getSharedMachineModelsForTodo()[0] || 'SA730-8MP',
+            machineModel: '',
             clientVendor: '',
             status: isDone ? '🟢 已完成' : '🔴 待處理',
             createdAt: formatTodoTimestamp(rt.updated || new Date()),
             completedAt: isDone ? formatTodoTimestamp(rt.completed || new Date()) : '',
             linkedNoteIds: [],
+            linkedNoteTitles: {},
             issueText: cleanTaskNotes(rt.notes || ''),
             issueAttachmentsHtml: '',
             resolutionText: '',
             resolutionAttachmentsHtml: '',
             tags: [],
-            handlers: ['Vincent'],
+            handlers: [],
             createdEpoch: Date.now(),
             updatedAt: Date.now()
           });
         }
-      });
+      }
 
-      // 2. 將尚未同步至 Google Tasks 的本地待辦卡片推送上去
       for (const item of state.todoItems.slice(0, 25)) {
-        if (!item.googleTaskId) {
+        if (!item.googleTaskId && !isTodoItemDeletedTombstoned(item)) {
           await pushSingleTodoItemToGoogleTasks(item);
         }
       }
 
       saveTodoItemsState(true);
-      if (statusTextEl) statusTextEl.textContent = 'Google Tasks & Drive 已同步';
-      if (showFeedback) showToast('✅ 已完成 Google Tasks 與雲端硬碟雙向同步！');
+      if (statusTextEl) statusTextEl.textContent = '雲端已同步';
+      if (showFeedback) showToast('✅ 已完成 Google Tasks 與雲端硬碟同步！');
     }
   } catch (e) {
-    console.warn('Google Tasks 雙向同步略過:', e);
-    if (statusTextEl) statusTextEl.textContent = '已同步至 Google Drive 雲端硬碟';
+    console.warn('Google Tasks 同步略過:', e);
+    if (statusTextEl) statusTextEl.textContent = '雲端已同步';
   } finally {
     if (state.currentView === 'tasks') renderTasksView();
     if (state.currentView === 'table') renderTableView();
   }
 }
 
-// 相容舊版呼叫名稱
 async function syncGoogleTasks(showFeedback = false) {
   return await syncTodoItemsWithGoogleTasks(showFeedback);
 }
 
 // ============================================================================
-// 🔍 待辦事項模糊檢索評分器 (與一般筆記共用 parseFuzzyQuery 同義詞與跳字容錯引擎)
+// 🔍 待辦事項模糊檢索評分器
 // ============================================================================
 
 function evaluateFuzzyTodoMatch(todoItem, parsedQuery) {
@@ -12989,7 +12974,7 @@ function evaluateFuzzyTodoMatch(todoItem, parsedQuery) {
       status: `${todoItem.status || ''} ${(todoItem.handlers || []).join(' ')}`,
       tags: [...(todoItem.tags || []), ...(todoItem.handlers || []), todoItem.status || '']
     },
-    _cachedBody: `【待辦事件說明】${todoItem.issueText || ''}\n【如何處理與處理結果】${todoItem.resolutionText || ''}`
+    _cachedBody: `【待辦說明】${todoItem.issueText || ''}\n【處理結果】${todoItem.resolutionText || ''}`
   };
 
   const baseRes = evaluateFuzzyNoteMatch(pseudoNote, parsedQuery);
@@ -13000,22 +12985,8 @@ function evaluateFuzzyTodoMatch(todoItem, parsedQuery) {
 }
 
 // ============================================================================
-// 📋 表格資料庫檢視 (Table Database View - v2.8.2 同時整合一般筆記與待辦事項，支援全標籤/選項過濾與模糊檢索)
+// 📋 表格資料庫檢視 (Table Database View - v2.8.3)
 // ============================================================================
-
-function openTodoItemFromTable(todoId) {
-  if (!todoId) return;
-  switchView('tasks');
-  setTimeout(() => {
-    const cardEl = document.querySelector(`.lvi-todo-card[data-todo-id="${todoId}"]`);
-    if (cardEl) {
-      cardEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      cardEl.classList.remove('todo-flash-focus');
-      void cardEl.offsetWidth;
-      cardEl.classList.add('todo-flash-focus');
-    }
-  }, 80);
-}
 
 function openTodoQuickPeekDrawer(todoId, fuzzyRes = null) {
   ensureTodoItemsInitialized();
@@ -13034,36 +13005,37 @@ function openTodoQuickPeekDrawer(todoId, fuzzyRes = null) {
   if (DOM.peekNoteMetaBar) {
     DOM.peekNoteMetaBar.innerHTML = `
       <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200 border border-amber-300">🚨 待辦事項</span>
-      <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">🚜 ${escapeHtml(item.machineModel || '未指定機型')}</span>
-      <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">🏢 ${escapeHtml(item.clientVendor || '未指定客戶/廠商')}</span>
+      <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300">🚜 ${escapeHtml(item.machineModel || '未選擇')}</span>
+      <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">🏢 ${escapeHtml(item.clientVendor || '未選擇')}</span>
       <span class="px-2 py-0.5 rounded text-[11px] font-bold border ${getTodoStatusBadgeClass(item.status)}">${escapeHtml(item.status || '🔴 待處理')}</span>
-      ${(item.handlers || []).map(h => `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200">👤 ${escapeHtml(h)}</span>`).join('')}
+      ${(item.handlers && item.handlers.length) ? item.handlers.map(h => `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200">👤 ${escapeHtml(h)}</span>`).join('') : '<span class="px-2 py-0.5 rounded text-[11px] text-gray-400">👤 無</span>'}
     `;
   }
 
   if (DOM.peekNoteBody) {
     const linkedNotesHtml = (item.linkedNoteIds || []).map(nid => {
-      const n = state.notes.find(x => x.id === nid);
-      if (!n) return '';
-      const nTitle = (n.name || '').replace(/\.md$/i, '');
+      const nTitle = resolveLinkedNoteTitle(item, nid);
       return `<button type="button" class="peek-linked-note-chip inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-bold hover:bg-blue-100 cursor-pointer" data-note-id="${escapeHtml(nid)}">📝 ${escapeHtml(nTitle)} ↗</button>`;
     }).filter(Boolean).join(' ');
 
     DOM.peekNoteBody.innerHTML = `
       <div class="space-y-4 text-xs sm:text-sm">
-        ${linkedNotesHtml ? `<div class="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800"><div class="font-bold text-blue-800 dark:text-blue-200 mb-1.5">🔗 關聯筆記捷徑：</div><div class="flex flex-wrap gap-1.5">${linkedNotesHtml}</div></div>` : ''}
+        <div class="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+          <div class="font-bold text-blue-800 dark:text-blue-200 mb-1">🔗 關聯筆記：</div>
+          <div class="flex flex-wrap gap-1.5">${linkedNotesHtml || '<span class="text-gray-400">無</span>'}</div>
+        </div>
         <div class="p-3.5 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/60 border-l-4 border-l-rose-500">
-          <div class="font-extrabold text-rose-800 dark:text-rose-300 mb-1.5">🚨 待辦事件說明及檔案附件</div>
-          <div class="whitespace-pre-wrap text-gray-800 dark:text-gray-100 font-medium">${escapeHtml(item.issueText || '（尚無說明）')}</div>
-          ${item.issueAttachmentsHtml ? `<div class="mt-3 space-y-2">${item.issueAttachmentsHtml}</div>` : ''}
+          <div class="font-extrabold text-rose-800 dark:text-rose-300 mb-1.5">🚨 待辦說明</div>
+          <div class="whitespace-pre-wrap text-gray-800 dark:text-gray-100 font-medium">${escapeHtml(item.issueText || '無')}</div>
+          ${item.issueAttachmentsHtml ? `<div class="todo-attachments-gallery mt-3">${item.issueAttachmentsHtml}</div>` : ''}
         </div>
         <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 border-l-4 border-l-blue-500">
-          <div class="font-extrabold text-slate-800 dark:text-slate-200 mb-1.5">🛠️ 如何處理、處理結果及檔案附件</div>
-          <div class="whitespace-pre-wrap text-gray-800 dark:text-gray-100 font-medium">${escapeHtml(item.resolutionText || '（尚無處理結果）')}</div>
-          ${item.resolutionAttachmentsHtml ? `<div class="mt-3 space-y-2">${item.resolutionAttachmentsHtml}</div>` : ''}
+          <div class="font-extrabold text-slate-800 dark:text-slate-200 mb-1.5">🛠️ 處理結果</div>
+          <div class="whitespace-pre-wrap text-gray-800 dark:text-gray-100 font-medium">${escapeHtml(item.resolutionText || '無')}</div>
+          ${item.resolutionAttachmentsHtml ? `<div class="todo-attachments-gallery mt-3">${item.resolutionAttachmentsHtml}</div>` : ''}
         </div>
         <div class="pt-2 flex justify-end">
-          <button type="button" id="peek-jump-to-todo-btn" class="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer">前往「待辦事項」完整編輯此卡片 ➔</button>
+          <button type="button" id="peek-jump-to-todo-btn" class="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer">進入詳細介面編輯 ➔</button>
         </div>
       </div>
     `;
@@ -13120,22 +13092,18 @@ function renderTableView() {
 
   const parsedQuery = searchKeyword ? parseFuzzyQuery(rawSearchInput) : null;
   const fuzzyEvalMap = new Map();
-  let globalFuzzyMatchCount = 0;
 
   if (parsedQuery) {
     state.notes.forEach(note => {
       const res = evaluateFuzzyNoteMatch(note, parsedQuery);
       fuzzyEvalMap.set('note_' + note.id, res);
-      if (res.matched) globalFuzzyMatchCount++;
     });
     (state.todoItems || []).forEach(todo => {
       const res = evaluateFuzzyTodoMatch(todo, parsedQuery);
       fuzzyEvalMap.set('todo_' + todo.id, res);
-      if (res.matched) globalFuzzyMatchCount++;
     });
   }
 
-  // 1. 過濾一般筆記 (若使用者選了「待辦進度」或「處理人員」專屬過濾器，或類型選擇「僅顯示待辦事項」，則一般筆記自動隱藏以精準呈現待辦)
   const shouldIncludeNotes = (filterType !== 'todo') && !filterTodoStatus && !filterTodoHandler;
   const matchedNoteRows = shouldIncludeNotes
     ? state.notes.filter(note => {
@@ -13163,10 +13131,10 @@ function renderTableView() {
       }))
     : [];
 
-  // 2. 過濾待辦事項 (支援所有標籤、機型分類、客戶或廠商、進度選項、處理人員與模糊檢索！)
   const shouldIncludeTodos = (filterType !== 'note') && !filterUrgency;
   const matchedTodoRows = shouldIncludeTodos
     ? (state.todoItems || []).filter(todo => {
+        if (isTodoItemDeletedTombstoned(todo)) return false;
         if (parsedQuery) {
           const fuzzyRes = fuzzyEvalMap.get('todo_' + todo.id);
           if (!fuzzyRes || !fuzzyRes.matched) return false;
@@ -13193,7 +13161,6 @@ function renderTableView() {
 
   const combinedRows = [...matchedNoteRows, ...matchedTodoRows];
 
-  // 依相關度 (若有搜尋) 與建立/修改日期由新到舊排列
   combinedRows.sort((a, b) => {
     if (parsedQuery && Math.abs(b.fuzzyScore - a.fuzzyScore) >= 3) {
       return b.fuzzyScore - a.fuzzyScore;
@@ -13253,7 +13220,7 @@ function renderTableView() {
   const allContentOpts = ['未分類', ...(state.workContents || []).filter(c => c !== '未分類')];
   const allUrgencyOpts = ['未分類', ...((state.urgencies && state.urgencies.length > 0 ? state.urgencies : DEFAULT_URGENCIES).map(u => u.id || u).filter(u => u !== '未分類'))];
   const allClientOpts = getSharedClientsVendorsForTodo();
-  const allTodoStatuses = (state.todoStatuses || DEFAULT_TODO_STATUSES).map(s => s.label || s.id);
+  const allTodoStatuses = FIXED_TODO_CATEGORIES;
 
   DOM.tableViewTbody.innerHTML = combinedRows.map(entry => {
     if (entry.rowType === 'todo') {
@@ -13277,11 +13244,11 @@ function renderTableView() {
         snippetHtml = `<div class="text-[11px] text-gray-500 dark:text-gray-400 truncate max-w-md mt-0.5">${escapeHtml(previewText.slice(0, 90))}</div>`;
       }
 
-      const todoMachineOptsHtml = [`<option value="" ${!todo.machineModel ? 'selected' : ''}>📥 未指定</option>`]
+      const todoMachineOptsHtml = [`<option value="" ${!todo.machineModel ? 'selected' : ''}>未選擇</option>`]
         .concat(getSharedMachineModelsForTodo().map(m => `<option value="${escapeHtml(m)}" ${todo.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`))
         .join('');
 
-      const todoClientOptsHtml = [`<option value="" ${!todo.clientVendor ? 'selected' : ''}>🏢 未指定</option>`]
+      const todoClientOptsHtml = [`<option value="" ${!todo.clientVendor ? 'selected' : ''}>未選擇</option>`]
         .concat(allClientOpts.map(c => `<option value="${escapeHtml(c)}" ${todo.clientVendor === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`))
         .join('');
 
@@ -13298,27 +13265,27 @@ function renderTableView() {
           <td class="p-2.5 text-center align-top" title="待辦事項">🚨</td>
           <td class="p-2.5 text-gray-900 dark:text-gray-100 open-todo-trigger align-top">
             <div class="flex items-center gap-1.5 font-extrabold flex-wrap">
-              <span class="lvi-table-todo-badge ${isDone ? 'is-done' : ''}">${isDone ? '✅ 待辦事項 (已結案)' : '🚨 待辦事項'}</span>
+              <span class="lvi-table-todo-badge ${isDone ? 'is-done' : ''}">${isDone ? '✅ 待辦事項 (已完成)' : '🚨 待辦事項'}</span>
               <span class="hover:underline truncate max-w-xs sm:max-w-md">${displayTitleHtml}</span>
-              <span class="text-[10px] text-gray-500 dark:text-gray-400 font-mono shrink-0" title="事件建立時間">🕒 ${escapeHtml(todo.createdAt || '')}</span>
+              <span class="text-[10px] text-gray-500 dark:text-gray-400 font-mono shrink-0" title="建立時間">🕒 ${escapeHtml(todo.createdAt || '')}</span>
             </div>
             ${snippetHtml}
           </td>
           <td class="p-2 align-top" onclick="event.stopPropagation();">
-            <select class="table-todo-inline-select table-inline-select text-blue-600 dark:text-blue-400 bg-blue-50/70 dark:bg-blue-950/40" data-todo-id="${escapeHtml(todo.id)}" data-field="machineModel" title="直接修改待辦機型分類">
+            <select class="table-todo-inline-select table-inline-select text-blue-600 dark:text-blue-400 bg-blue-50/70 dark:bg-blue-950/40" data-todo-id="${escapeHtml(todo.id)}" data-field="machineModel">
               ${todoMachineOptsHtml}
             </select>
           </td>
           <td class="p-2 align-top">
-            <div class="flex flex-wrap gap-1">${handlersBadges || '<span class="text-[11px] text-gray-400">未指派人員</span>'}</div>
+            <div class="flex flex-wrap gap-1">${handlersBadges || '<span class="text-[11px] text-gray-400">無</span>'}</div>
           </td>
           <td class="p-2 align-top" onclick="event.stopPropagation();">
-            <select class="table-todo-inline-select table-inline-select border ${getTodoStatusBadgeClass(todo.status)}" data-todo-id="${escapeHtml(todo.id)}" data-field="status" title="直接修改待辦進度選項">
+            <select class="table-todo-inline-select table-inline-select border ${getTodoStatusBadgeClass(todo.status)}" data-todo-id="${escapeHtml(todo.id)}" data-field="status">
               ${todoStatusOptsHtml}
             </select>
           </td>
           <td class="p-2 align-top" onclick="event.stopPropagation();">
-            <select class="table-todo-inline-select table-inline-select ${todo.clientVendor ? 'text-indigo-600 dark:text-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40' : 'text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/40'}" data-todo-id="${escapeHtml(todo.id)}" data-field="clientVendor" title="直接修改待辦客戶或廠商">
+            <select class="table-todo-inline-select table-inline-select ${todo.clientVendor ? 'text-indigo-600 dark:text-indigo-300 bg-indigo-50/70 dark:bg-indigo-950/40' : 'text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/40'}" data-todo-id="${escapeHtml(todo.id)}" data-field="clientVendor">
               ${todoClientOptsHtml}
             </select>
           </td>
@@ -13328,15 +13295,15 @@ function renderTableView() {
           </td>
           <td class="p-2.5 align-top">
             <div class="flex flex-wrap gap-1">
-              ${(todo.tags || []).map(t => `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold border ${getTagPillColorClass(t)}">#${escapeHtml(t)}</span>`).join('')}
+              ${(todo.tags && todo.tags.length) ? todo.tags.map(t => `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold border ${getTagPillColorClass(t)}">#${escapeHtml(t)}</span>`).join('') : '<span class="text-[11px] text-gray-400">無</span>'}
             </div>
           </td>
           <td class="p-2 text-center align-top whitespace-nowrap" onclick="event.stopPropagation();">
             <div class="inline-flex items-center gap-1">
-              <button type="button" class="table-todo-peek-btn px-2 py-1 rounded bg-amber-100/80 dark:bg-amber-950/60 hover:bg-amber-200 text-amber-900 dark:text-amber-200 text-[11px] font-bold transition cursor-pointer" data-todo-id="${escapeHtml(todo.id)}" title="預覽待辦事項完整說明與處理結果">
+              <button type="button" class="table-todo-peek-btn px-2 py-1 rounded bg-amber-100/80 dark:bg-amber-950/60 hover:bg-amber-200 text-amber-900 dark:text-amber-200 text-[11px] font-bold transition cursor-pointer" data-todo-id="${escapeHtml(todo.id)}">
                 👁️ 預覽
               </button>
-              <button type="button" class="table-todo-open-btn px-2 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold transition cursor-pointer" data-todo-id="${escapeHtml(todo.id)}" title="跳轉至待辦事項卡片">
+              <button type="button" class="table-todo-open-btn px-2 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold transition cursor-pointer" data-todo-id="${escapeHtml(todo.id)}">
                 開啟待辦
               </button>
             </div>
@@ -13345,7 +13312,6 @@ function renderTableView() {
       `;
     }
 
-    // 一般筆記列渲染
     const note = entry.note;
     const meta = note.meta || {};
     const title = (note.name || '').replace(/\.md$/i, '');
@@ -13433,22 +13399,22 @@ function renderTableView() {
           ${fuzzySnippetHtml}
         </td>
         <td class="p-2 align-top" onclick="event.stopPropagation();">
-          <select class="table-inline-select text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/30" data-note-id="${note.id}" data-field="machineModel" title="直接點擊修改機型（自動歸位）">
+          <select class="table-inline-select text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-950/30" data-note-id="${note.id}" data-field="machineModel">
             ${machineOptionsHtml}
           </select>
         </td>
         <td class="p-2 align-top" onclick="event.stopPropagation();">
-          <select class="table-inline-select text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/30" data-note-id="${note.id}" data-field="workContent" title="直接點擊修改工作內容">
+          <select class="table-inline-select text-amber-600 dark:text-amber-400 bg-amber-50/50 dark:bg-amber-950/30" data-note-id="${note.id}" data-field="workContent">
             ${contentOptionsHtml}
           </select>
         </td>
         <td class="p-2 align-top" onclick="event.stopPropagation();">
-          <select class="table-inline-select ${urgencyClass}" data-note-id="${note.id}" data-field="urgency" title="直接點擊修改急迫性">
+          <select class="table-inline-select ${urgencyClass}" data-note-id="${note.id}" data-field="urgency">
             ${urgencyOptionsHtml}
           </select>
         </td>
         <td class="p-2 align-top" onclick="event.stopPropagation();">
-          <select class="table-inline-select ${client ? 'text-indigo-600 dark:text-indigo-300 bg-indigo-50/60 dark:bg-indigo-950/40' : 'text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/40'}" data-note-id="${note.id}" data-field="clientVendor" title="直接點擊修改客戶或廠商">
+          <select class="table-inline-select ${client ? 'text-indigo-600 dark:text-indigo-300 bg-indigo-50/60 dark:bg-indigo-950/40' : 'text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800/40'}" data-note-id="${note.id}" data-field="clientVendor">
             ${clientOptionsHtml}
           </select>
         </td>
@@ -13460,10 +13426,10 @@ function renderTableView() {
         </td>
         <td class="p-2 text-center align-top whitespace-nowrap" onclick="event.stopPropagation();">
           <div class="inline-flex items-center gap-1">
-            <button type="button" class="table-peek-btn px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-300 text-[11px] font-semibold transition cursor-pointer" data-note-id="${note.id}" title="在右側展開抽屜快速預覽內容，不離開表格">
+            <button type="button" class="table-peek-btn px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 hover:bg-indigo-100 dark:hover:bg-indigo-950/70 text-gray-700 dark:text-gray-200 hover:text-indigo-600 dark:hover:text-indigo-300 text-[11px] font-semibold transition cursor-pointer" data-note-id="${note.id}">
               👁️ 預覽
             </button>
-            <button type="button" class="table-open-btn px-2 py-1 rounded bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-600 text-blue-600 dark:text-blue-300 hover:text-white text-[11px] font-semibold transition cursor-pointer" data-note-id="${note.id}" title="開啟編輯器並自動捲動定位至命中段落">
+            <button type="button" class="table-open-btn px-2 py-1 rounded bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-600 text-blue-600 dark:text-blue-300 hover:text-white text-[11px] font-semibold transition cursor-pointer" data-note-id="${note.id}">
               開啟
             </button>
           </div>
@@ -13478,7 +13444,6 @@ function renderTableView() {
       : `總筆數: ${combinedRows.length} (筆記 ${matchedNoteRows.length} 篇 / 待辦事項 ${matchedTodoRows.length} 筆)`;
   }
 
-  // 綁定一般筆記就地修改下拉選單事件
   DOM.tableViewTbody.querySelectorAll('select.table-inline-select:not(.table-todo-inline-select)').forEach(sel => {
     sel.addEventListener('click', (e) => e.stopPropagation());
     sel.addEventListener('change', (e) => {
@@ -13491,7 +13456,6 @@ function renderTableView() {
     });
   });
 
-  // 綁定待辦事項在表格資料庫中的就地修改下拉選單事件
   DOM.tableViewTbody.querySelectorAll('select.table-todo-inline-select').forEach(sel => {
     sel.addEventListener('click', (e) => e.stopPropagation());
     sel.addEventListener('change', (e) => {
@@ -13512,11 +13476,10 @@ function renderTableView() {
       saveTodoItemsState();
       pushSingleTodoItemToGoogleTasks(item);
       renderTableView();
-      showToast(`✅ 已更新待辦事項「${item.title || '未命名'}」的屬性！`);
+      showToast(`✅ 已更新待辦事項屬性！`);
     });
   });
 
-  // 綁定一般筆記預覽與開啟
   DOM.tableViewTbody.querySelectorAll('.table-peek-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -13555,7 +13518,6 @@ function renderTableView() {
     });
   });
 
-  // 綁定待辦事項預覽與開啟
   DOM.tableViewTbody.querySelectorAll('.table-todo-peek-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -13581,7 +13543,7 @@ function renderTableView() {
 }
 
 // ============================================================================
-// 📋 LVI_Note v2.8.2 待辦事項：固定 4 分類 + 簡略清單 ➔ 點擊進入五段式詳細介面
+// 📋 待辦事項：固定 4 分類 + 簡略清單 ➔ 點擊進入五段式詳細介面 (新待辦預設無/未選擇)
 // ============================================================================
 
 const FIXED_TODO_CATEGORIES = [
@@ -13591,7 +13553,6 @@ const FIXED_TODO_CATEGORIES = [
   '🟢 已完成'
 ];
 
-// 確保進度選項固定為附圖一的 4 種標準分類
 function EnforceFixedFourTodoCategories() {
   state.todoStatuses = [
     { id: '🔴 待處理', label: '🔴 待處理', color: 'rose' },
@@ -13609,7 +13570,6 @@ function EnforceFixedFourTodoCategories() {
   });
 }
 
-// 取得關聯筆記的真實標題 (優先查 state.notes，其次查卡片內建快取，若為雲端 ID 則自動背景查詢名稱並回填)
 const _pendingDriveNoteTitleLookups = new Set();
 function resolveLinkedNoteTitle(item, nid) {
   if (!nid) return '未命名筆記';
@@ -13626,7 +13586,6 @@ function resolveLinkedNoteTitle(item, nid) {
   if (item && item.linkedNoteTitles && item.linkedNoteTitles[nid]) {
     return item.linkedNoteTitles[nid];
   }
-  // 若已登入 Google Drive 且此 ID 尚未查詢過，背景向 Drive 查詢真實檔名
   if (state.accessToken && !_pendingDriveNoteTitleLookups.has(nid) && !nid.startsWith('local_')) {
     _pendingDriveNoteTitleLookups.add(nid);
     fetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(nid)}?fields=id,name`, {
@@ -13648,13 +13607,13 @@ function resolveLinkedNoteTitle(item, nid) {
       })
       .catch(() => {});
   }
-  return `關聯筆記`;
+  return '關聯筆記';
 }
 
 function updateTodoSummaryStats() {
   ensureTodoItemsInitialized();
   EnforceFixedFourTodoCategories();
-  const all = state.todoItems || [];
+  const all = (state.todoItems || []).filter(t => !isTodoItemDeletedTombstoned(t));
 
   const pendingCount = all.filter(t => t.status === '🔴 待處理').length;
   const progressCount = all.filter(t => t.status === '🟡 處理中').length;
@@ -13671,7 +13630,6 @@ function updateTodoSummaryStats() {
   if (elWaiting) elWaiting.textContent = waitingCount;
   if (sidebarBadge) sidebarBadge.textContent = uncompletedCount;
 
-  // 更新頂部 4 大分類按鈕的 active 狀態
   const activeCat = state.todoFilterStatus || '';
   document.querySelectorAll('#todo-fixed-category-bar .todo-cat-tab-btn').forEach(btn => {
     const cat = btn.getAttribute('data-cat-status');
@@ -13692,7 +13650,7 @@ function populateTodoFilterDropdowns() {
     const cur = machFilter.value;
     machFilter.innerHTML = `<option value="">🚜 全部機型 (${machines.length})</option>` +
       machines.map(m => `<option value="${escapeHtml(m)}" ${cur === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`).join('') +
-      `<option value="__empty__" ${cur === '__empty__' ? 'selected' : ''}>📥 未指定機型</option>`;
+      `<option value="__empty__" ${cur === '__empty__' ? 'selected' : ''}>未選擇</option>`;
   }
 
   const clientFilter = document.getElementById('todo-filter-client');
@@ -13700,7 +13658,7 @@ function populateTodoFilterDropdowns() {
     const cur = clientFilter.value;
     clientFilter.innerHTML = `<option value="">🏢 全部客戶/廠商 (${clients.length})</option>` +
       clients.map(c => `<option value="${escapeHtml(c)}" ${cur === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`).join('') +
-      `<option value="__empty__" ${cur === '__empty__' ? 'selected' : ''}>🏢 未指定</option>`;
+      `<option value="__empty__" ${cur === '__empty__' ? 'selected' : ''}>未選擇</option>`;
   }
 
   const tagFilter = document.getElementById('todo-filter-tag');
@@ -13720,7 +13678,6 @@ function populateTodoFilterDropdowns() {
       handlers.map(h => `<option value="${escapeHtml(h)}" ${cur === h ? 'selected' : ''}>👤 ${escapeHtml(h)}</option>`).join('');
   }
 
-  // 同步更新「表格資料庫」上方的待辦進度與處理人員篩選器
   const tblStatusFilter = document.getElementById('table-filter-todo-status');
   if (tblStatusFilter) {
     const cur = tblStatusFilter.value;
@@ -13757,53 +13714,40 @@ function openTodoItemFromTable(todoId) {
   renderTasksView();
 }
 
+// 建立新待辦事項：不預填任何機型、客戶/廠商、關聯筆記、標籤或處理人員 (直接顯示「未選擇」或「無」)
 function createNewTodoCardItem() {
   ensureTodoItemsInitialized();
   EnforceFixedFourTodoCategories();
-  const machines = getSharedMachineModelsForTodo();
-  const defaultMachine = (state.todoFilterMachine && state.todoFilterMachine !== '__empty__')
-    ? state.todoFilterMachine
-    : (state.currentMachineFilter || machines[0] || 'SA730-8MP');
-  const defaultClient = (state.todoFilterClient && state.todoFilterClient !== '__empty__')
-    ? state.todoFilterClient
-    : (state.currentClientVendorFilter || '');
+
   const defaultStatus = (state.todoFilterStatus && FIXED_TODO_CATEGORIES.includes(state.todoFilterStatus) && state.todoFilterStatus !== '🟢 已完成')
     ? state.todoFilterStatus
     : '🔴 待處理';
 
-  const curNote = state.currentNote;
-  const initialLinkedIds = (curNote && curNote.id) ? [curNote.id] : [];
-  const initialLinkedTitles = (curNote && curNote.id && curNote.name)
-    ? { [curNote.id]: curNote.name.replace(/\.md$/i, '') }
-    : {};
-
   const newItem = {
     id: 'todo_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
     title: '',
-    machineModel: defaultMachine,
-    clientVendor: defaultClient,
+    machineModel: '',
+    clientVendor: '',
     status: defaultStatus,
     createdAt: formatTodoTimestamp(new Date()),
     completedAt: '',
-    linkedNoteIds: initialLinkedIds,
-    linkedNoteTitles: initialLinkedTitles,
+    linkedNoteIds: [],
+    linkedNoteTitles: {},
     issueText: '',
     issueAttachmentsHtml: '',
     resolutionText: '',
     resolutionAttachmentsHtml: '',
-    tags: state.todoFilterTag ? [state.todoFilterTag] : [],
-    handlers: state.todoFilterHandler ? [state.todoFilterHandler] : ['Vincent'],
+    tags: [],
+    handlers: [],
     googleTaskId: '',
     createdEpoch: Date.now(),
     updatedAt: Date.now()
   };
 
   state.todoItems.unshift(newItem);
-  // 新增後直接進入該筆待辦的詳細編輯介面 (附圖二)
   state.activeTodoDetailId = newItem.id;
-  saveTodoItemsState();
+  saveTodoItemsState(true);
   renderTasksView();
-  pushSingleTodoItemToGoogleTasks(newItem);
 
   setTimeout(() => {
     const cardEl = document.querySelector(`.lvi-todo-card[data-todo-id="${newItem.id}"]`);
@@ -13812,7 +13756,7 @@ function createNewTodoCardItem() {
       if (titleInput) titleInput.focus();
     }
   }, 40);
-  showToast('✨ 已建立新待辦事項，請填寫詳細內容！');
+  showToast('✨ 已建立新待辦事項！');
 }
 
 function syncTodoCardAttachmentsFromDom(cardEl) {
@@ -13998,8 +13942,9 @@ function renderTodoSummaryRowHtml(item) {
 
       <div class="flex items-center gap-2 shrink-0">
         <span class="text-[11px] font-mono text-gray-400 dark:text-gray-500 hidden md:inline">🕒 ${escapeHtml(item.createdAt || '')}</span>
-        <button type="button" class="todo-summary-del-btn p-1.5 rounded-lg text-gray-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition cursor-pointer" data-todo-id="${escapeHtml(item.id)}" title="刪除此待辦事項">
-          <i data-lucide="trash-2" class="w-4 h-4"></i>
+        <button type="button" class="todo-summary-del-btn px-2 py-1 rounded-lg text-rose-500 hover:text-white hover:bg-rose-600 border border-rose-200 dark:border-rose-800/70 text-xs font-bold flex items-center gap-1 transition cursor-pointer" data-todo-id="${escapeHtml(item.id)}" title="刪除此筆待辦事項">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
+          <span class="pointer-events-none">刪除</span>
         </button>
         <span class="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 group-hover:bg-blue-600 group-hover:text-white text-xs font-bold transition flex items-center gap-1">
           <span>詳細</span>
@@ -14010,7 +13955,7 @@ function renderTodoSummaryRowHtml(item) {
   `;
 }
 
-// 渲染「階段二：點擊後進入的五段式詳細介面 (附圖二 + 附圖三無邊框小圖 + 附圖四精簡標籤)」
+// 渲染「階段二：五段式詳細介面 (未選擇欄位一律顯示「未選擇」或「無」)」
 function renderSingleTodoCardHtml(item) {
   const machines = getSharedMachineModelsForTodo();
   const clients = getSharedClientsVendorsForTodo();
@@ -14023,30 +13968,30 @@ function renderSingleTodoCardHtml(item) {
   const normStatus = FIXED_TODO_CATEGORIES.includes(item.status) ? item.status : '🔴 待處理';
   const isCompleted = isTodoStatusCompleted(normStatus);
 
-  // 第 1 列選單 1：機型分類 (共用主筆記 state.machineModels)
+  // 第 1 列選單 1：機型分類 (未設定時直接顯示「未選擇」)
   const machineOptionsHtml = [
-    `<option value="" ${!item.machineModel ? 'selected' : ''}>📥 未指定機型</option>`,
+    `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>`,
     ...machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`),
     `<option disabled>──────────</option>`,
     `<option value="__add_shared_machine__">➕ 新建機型...</option>`,
     `<option value="__manage_shared_machine__">⚙️ 管理機型...</option>`
   ].join('');
 
-  // 第 1 列選單 2：客戶或廠商 (共用主筆記 state.clientsVendors)
+  // 第 1 列選單 2：客戶或廠商 (未設定時直接顯示「未選擇」)
   const clientOptionsHtml = [
-    `<option value="" ${!item.clientVendor ? 'selected' : ''}>🏢 未指定客戶/廠商</option>`,
+    `<option value="" ${!item.clientVendor ? 'selected' : ''}>未選擇</option>`,
     ...clients.map(c => `<option value="${escapeHtml(c)}" ${item.clientVendor === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`),
     `<option disabled>──────────</option>`,
     `<option value="__add_shared_client__">➕ 新建客戶/廠商...</option>`,
     `<option value="__manage_shared_client__">⚙️ 管理客戶/廠商...</option>`
   ].join('');
 
-  // 第 1 列選單 3：固定 4 種進度選項 (附圖一)
+  // 第 1 列選單 3：固定 4 種進度選項
   const statusOptionsHtml = FIXED_TODO_CATEGORIES.map(lbl =>
     `<option value="${escapeHtml(lbl)}" ${normStatus === lbl ? 'selected' : ''}>${escapeHtml(lbl)}</option>`
   ).join('');
 
-  // 第 2 列右框：關聯筆記 (精簡標題 + 真實筆記名稱解析)
+  // 第 2 列右框：關聯筆記 (無預設時顯示「無」)
   const linkedNoteChipsHtml = linkedNoteIds.map(nid => {
     const n = (state.notes || []).find(x => x.id === nid);
     const nTitle = resolveLinkedNoteTitle(item, nid);
@@ -14064,7 +14009,7 @@ function renderSingleTodoCardHtml(item) {
   }).join('');
 
   const availableNotesOptionsHtml = [
-    `<option value="">＋ 新增關聯筆記...</option>`,
+    `<option value="">未選擇 (＋ 新增關聯筆記)</option>`,
     `<option value="__create_new_linked_note__">✨ 建立新關聯筆記...</option>`,
     `<option disabled>── 選擇現有筆記 ──</option>`,
     ...(state.notes || []).slice(0, 120).map(n => {
@@ -14074,7 +14019,7 @@ function renderSingleTodoCardHtml(item) {
     })
   ].join('');
 
-  // 第 5 列左框：標籤 (共用標籤庫 state.tags)
+  // 第 5 列左框：標籤 (無預設時顯示「無」)
   const tagsPillsHtml = itemTags.length > 0
     ? itemTags.map(tagName => `
         <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${getTagPillColorClass(tagName)}">
@@ -14082,10 +14027,10 @@ function renderSingleTodoCardHtml(item) {
           <button type="button" class="todo-remove-tag-btn hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-tag-name="${escapeHtml(tagName)}" title="移除標籤">×</button>
         </span>
       `).join('')
-    : `<span class="text-xs text-gray-400 italic">無</span>`;
+    : `<span class="text-xs text-gray-400">無</span>`;
 
   const bottomTagAddOptionsHtml = [
-    `<option value="">＋ 新增標籤...</option>`,
+    `<option value="">未選擇 (＋ 新增標籤)</option>`,
     ...sharedTags.map(t => {
       const name = typeof t === 'string' ? t : (t.name || t.id);
       return `<option value="${escapeHtml(name)}">#${escapeHtml(name)}</option>`;
@@ -14095,7 +14040,7 @@ function renderSingleTodoCardHtml(item) {
     `<option value="__manage_shared_tags__">⚙️ 管理標籤庫...</option>`
   ].join('');
 
-  // 第 5 列中框：處理人員
+  // 第 5 列中框：處理人員 (無預設時顯示「無」)
   const handlerPillsHtml = itemHandlers.length > 0
     ? itemHandlers.map(hName => `
         <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-cyan-50 text-cyan-900 border border-cyan-300 dark:bg-cyan-950/80 dark:text-cyan-200 dark:border-cyan-700">
@@ -14103,10 +14048,10 @@ function renderSingleTodoCardHtml(item) {
           <button type="button" class="todo-remove-handler-btn hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-handler-name="${escapeHtml(hName)}" title="移除人員">×</button>
         </span>
       `).join('')
-    : `<span class="text-xs text-gray-400 italic">未指派</span>`;
+    : `<span class="text-xs text-gray-400">無</span>`;
 
   const handlerAddOptionsHtml = [
-    `<option value="">＋ 指派人員...</option>`,
+    `<option value="">未選擇 (＋ 指派人員)</option>`,
     ...handlers.map(h => `<option value="${escapeHtml(h)}">👤 ${escapeHtml(h)}</option>`),
     `<option disabled>──────────</option>`,
     `<option value="__add_new_handler__">➕ 新增人員...</option>`,
@@ -14115,13 +14060,15 @@ function renderSingleTodoCardHtml(item) {
   ].join('');
 
   return `
-    <!-- 頂部返回列表導航列 -->
+    <!-- 頂部返回列表與刪除導航列 -->
     <div class="flex items-center justify-between gap-2 mb-2">
       <button type="button" id="btn-back-to-todo-list" class="px-3 py-1.5 rounded-lg bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs font-extrabold inline-flex items-center gap-1.5 shadow-2xs transition cursor-pointer">
         <i data-lucide="arrow-left" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
         <span>返回待辦列表</span>
       </button>
-      <span class="text-xs text-gray-400 font-semibold">自動儲存與雲端同步中</span>
+      <button type="button" class="todo-delete-card-btn px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-600 text-rose-600 dark:text-rose-300 hover:text-white border border-rose-200 dark:border-rose-800 text-xs font-extrabold inline-flex items-center gap-1 transition cursor-pointer" data-todo-id="${escapeHtml(item.id)}" title="永久刪除此筆待辦事項">
+        <span>🗑️ 刪除此待辦事項</span>
+      </button>
     </div>
 
     <article class="lvi-todo-card ${isCompleted ? 'is-completed-card' : ''}" data-todo-id="${escapeHtml(item.id)}">
@@ -14162,7 +14109,7 @@ function renderSingleTodoCardHtml(item) {
         <div class="lvi-todo-box">
           <div class="lvi-todo-box-label">
             <span>📊 進度</span>
-            <button type="button" class="todo-delete-card-btn text-rose-500 hover:text-rose-700 text-[10px] font-extrabold cursor-pointer" title="刪除此筆待辦事項">🗑️ 刪除</button>
+            <button type="button" class="todo-delete-card-btn text-rose-500 hover:text-rose-700 text-[10px] font-extrabold cursor-pointer" data-todo-id="${escapeHtml(item.id)}" title="刪除此筆待辦事項">🗑️ 刪除</button>
           </div>
           <select class="todo-box-select todo-status-select">
             ${statusOptionsHtml}
@@ -14180,7 +14127,7 @@ function renderSingleTodoCardHtml(item) {
         <div class="lvi-todo-linked-notes-box">
           <div class="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
             <span class="text-[11px] font-extrabold text-blue-700 dark:text-blue-300 shrink-0">🔗 關聯筆記：</span>
-            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400 italic">無</span>`}
+            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">無</span>`}
           </div>
           <select class="todo-link-note-select text-[11px] font-bold px-2 py-1 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-notion-dark text-blue-700 dark:text-blue-300 cursor-pointer max-w-[190px] shrink-0">
             ${availableNotesOptionsHtml}
@@ -14266,7 +14213,7 @@ function renderSingleTodoCardHtml(item) {
         <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} todo-edit-completed-time-btn" title="完成時自動記錄；點擊可手動調整">
           <span class="text-[10px] font-extrabold ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'}">🏁 結束時間</span>
           <span class="text-xs font-black ${isCompleted ? 'text-emerald-950 dark:text-emerald-100' : 'text-blue-950 dark:text-blue-100'} todo-completed-time-text">
-            ${item.completedAt ? escapeHtml(item.completedAt) : '⏳ 未結束'}
+            ${item.completedAt ? escapeHtml(item.completedAt) : '無'}
           </span>
         </div>
       </div>
@@ -14277,7 +14224,6 @@ function renderSingleTodoCardHtml(item) {
 function bindTodoCardsInteractions(listContainer) {
   if (!listContainer) return;
 
-  // 返回待辦列表按鈕
   const backBtn = document.getElementById('btn-back-to-todo-list');
   if (backBtn) {
     backBtn.addEventListener('click', (e) => {
@@ -14287,7 +14233,7 @@ function bindTodoCardsInteractions(listContainer) {
     });
   }
 
-  // 簡略列表列點擊 -> 進入詳細介面 (附圖二)
+  // 簡略列表列點擊 -> 進入詳細介面
   listContainer.querySelectorAll('.lvi-todo-summary-row').forEach(rowEl => {
     rowEl.addEventListener('click', (e) => {
       if (e.target.closest('.todo-summary-del-btn')) return;
@@ -14299,31 +14245,30 @@ function bindTodoCardsInteractions(listContainer) {
     });
   });
 
+  // 簡略列表上的刪除按鈕：直接調用統一永久刪除函式 deleteTodoItemById
   listContainer.querySelectorAll('.todo-summary-del-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
       const tid = btn.getAttribute('data-todo-id');
-      const item = (state.todoItems || []).find(t => t.id === tid);
-      if (!item) return;
-      if (!window.confirm(`⚠️ 確定要刪除待辦事項「${item.title || '未命名待辦'}」嗎？`)) return;
-      const gTaskId = item.googleTaskId;
-      state.todoItems = (state.todoItems || []).filter(t => t.id !== tid);
-      saveTodoItemsState(true);
-      renderTasksView();
-      showToast('🗑️ 已刪除待辦事項');
-      if (gTaskId && state.accessToken && state.googleTasksListId) {
-        try {
-          await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${state.googleTasksListId}/tasks/${gTaskId}`, {
-            method: 'DELETE',
-            headers: { Authorization: `Bearer ${state.accessToken}` }
-          });
-        } catch (err) {}
+      if (tid) {
+        await deleteTodoItemById(tid);
       }
     });
   });
 
-  // 確保詳細介面內的小圖支援燈箱放大、旋轉、標註與刪除
+  // 詳細介面上的所有刪除按鈕 (.todo-delete-card-btn)
+  listContainer.querySelectorAll('.todo-delete-card-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const tid = btn.getAttribute('data-todo-id') || state.activeTodoDetailId;
+      if (tid) {
+        await deleteTodoItemById(tid);
+      }
+    });
+  });
+
   listContainer.querySelectorAll('.todo-attachments-gallery').forEach(gallery => {
     try { enhanceAllEditorBlocks(gallery); } catch (e) {}
     gallery.querySelectorAll('details.notion-media-collapse').forEach(det => {
@@ -14427,7 +14372,7 @@ function bindTodoCardsInteractions(listContainer) {
       });
     }
 
-    // 4. 固定 4 種進度切換
+    // 4. 進度切換
     const statusSelect = cardEl.querySelector('.todo-status-select');
     if (statusSelect) {
       statusSelect.addEventListener('change', () => {
@@ -14450,7 +14395,7 @@ function bindTodoCardsInteractions(listContainer) {
       });
     }
 
-    // 5. 關聯筆記新增與點擊跳轉
+    // 5. 關聯筆記
     const linkNoteSelect = cardEl.querySelector('.todo-link-note-select');
     if (linkNoteSelect) {
       linkNoteSelect.addEventListener('change', async () => {
@@ -14485,8 +14430,8 @@ function bindTodoCardsInteractions(listContainer) {
               tags: Array.isArray(item.tags) ? item.tags.slice() : [],
               pinned: false
             },
-            _cachedBody: `### 🔗 關聯待辦：${item.title || ''}\n- **機型分類**：${item.machineModel || '未指定'}\n- **客戶或廠商**：${item.clientVendor || '未指定'}\n- **待辦說明**：${item.issueText || ''}\n\n`,
-            _cachedHtml: `<h3>🔗 關聯待辦：${escapeHtml(item.title || '')}</h3><p><strong>機型分類：</strong>${escapeHtml(item.machineModel || '未指定')} ｜ <strong>客戶或廠商：</strong>${escapeHtml(item.clientVendor || '未指定')}</p><p>${escapeHtml(item.issueText || '')}</p><p><br></p>`
+            _cachedBody: `### 🔗 關聯待辦：${item.title || ''}\n- **機型分類**：${item.machineModel || '未選擇'}\n- **客戶或廠商**：${item.clientVendor || '未選擇'}\n- **待辦說明**：${item.issueText || ''}\n\n`,
+            _cachedHtml: `<h3>🔗 關聯待辦：${escapeHtml(item.title || '')}</h3><p><strong>機型分類：</strong>${escapeHtml(item.machineModel || '未選擇')} ｜ <strong>客戶或廠商：</strong>${escapeHtml(item.clientVendor || '未選擇')}</p><p>${escapeHtml(item.issueText || '')}</p><p><br></p>`
           };
           state.notes.unshift(newNoteObj);
           if (!Array.isArray(item.linkedNoteIds)) item.linkedNoteIds = [];
@@ -14544,32 +14489,6 @@ function bindTodoCardsInteractions(listContainer) {
         renderTasksView();
       });
     });
-
-    // 6. 刪除待辦事項並返回列表
-    const delCardBtn = cardEl.querySelector('.todo-delete-card-btn');
-    if (delCardBtn) {
-      delCardBtn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const item = getItem();
-        if (!item) return;
-        const titleLabel = item.title || '未命名待辦事項';
-        if (!window.confirm(`⚠️ 確定要刪除待辦事項「${titleLabel}」嗎？`)) return;
-        const gTaskId = item.googleTaskId;
-        state.todoItems = (state.todoItems || []).filter(t => t.id !== todoId);
-        state.activeTodoDetailId = null;
-        saveTodoItemsState(true);
-        renderTasksView();
-        showToast(`🗑️ 已刪除：「${titleLabel}」`);
-        if (gTaskId && state.accessToken && state.googleTasksListId) {
-          try {
-            await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${state.googleTasksListId}/tasks/${gTaskId}`, {
-              method: 'DELETE',
-              headers: { Authorization: `Bearer ${state.accessToken}` }
-            });
-          } catch (err) {}
-        }
-      });
-    }
 
     // 7. 建立時間與結束時間微調
     const editCreatedBtn = cardEl.querySelector('.todo-edit-created-time-btn');
@@ -14680,7 +14599,7 @@ function bindTodoCardsInteractions(listContainer) {
       });
     });
 
-    // 10. 標籤新增及陳列
+    // 10. 標籤
     const bottomTagAddSelect = cardEl.querySelector('.todo-bottom-tag-add-select');
     if (bottomTagAddSelect) {
       bottomTagAddSelect.addEventListener('change', () => {
@@ -14836,10 +14755,9 @@ function initTodoViewTopControlsOnce() {
   }
 
   const container = document.getElementById('view-tasks-container');
-  if (!container || container._todoV282ControlsBound) return;
-  container._todoV282ControlsBound = true;
+  if (!container || container._todoV283ControlsBound) return;
+  container._todoV283ControlsBound = true;
 
-  // 綁定頂部固定 4 分類按鈕點擊事件 (點擊分類即切換至該分類的簡略列表，再次點擊同一分類則顯示全部未完成)
   container.querySelectorAll('#todo-fixed-category-bar .todo-cat-tab-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
@@ -14960,9 +14878,8 @@ function renderTasksView() {
   const filterBar = document.getElementById('todo-list-filter-bar');
   if (!listContainer) return;
 
-  // 若目前選中了某筆待辦事項 (`state.activeTodoDetailId`)，則顯示「階段二：五段式詳細介面 (附圖二)」
   if (state.activeTodoDetailId) {
-    const activeItem = (state.todoItems || []).find(t => t.id === state.activeTodoDetailId);
+    const activeItem = (state.todoItems || []).find(t => t.id === state.activeTodoDetailId && !isTodoItemDeletedTombstoned(t));
     if (activeItem) {
       if (filterBar) filterBar.classList.add('hidden');
       listContainer.innerHTML = renderSingleTodoCardHtml(activeItem);
@@ -14974,7 +14891,6 @@ function renderTasksView() {
     }
   }
 
-  // 否則顯示「階段一：單一待辦事件簡略信息列表」
   if (filterBar) filterBar.classList.remove('hidden');
 
   const rawQ = (state.tasksFilterKeyword || '').trim();
@@ -14986,10 +14902,10 @@ function renderTasksView() {
   const fHandler = state.todoFilterHandler || '';
 
   const filtered = (state.todoItems || []).filter(item => {
+    if (isTodoItemDeletedTombstoned(item)) return false;
     if (fStatus) {
       if (item.status !== fStatus) return false;
     } else if (!rawQ && !fMachine && !fClient && !fTag && !fHandler) {
-      // 預設未點選「已完成」分頁時，列表展示所有未完成項目 (待處理 + 處理中 + 待料/觀察中)
       if (item.status === '🟢 已完成') return false;
     }
     if (fMachine) {
@@ -15023,8 +14939,8 @@ function renderTasksView() {
     listContainer.innerHTML = `
       <div class="p-8 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-notion-card text-center">
         <div class="text-2xl mb-1.5">📋</div>
-        <div class="text-sm font-extrabold text-gray-700 dark:text-gray-200">${fStatus ? `「${escapeHtml(fStatus)}」分類目前沒有項目` : '目前沒有符合條件的待辦事項'}</div>
-        <div class="text-xs text-gray-400 mt-1">點擊上方其他進度分類或右上角「＋ 新增待辦事項」</div>
+        <div class="text-sm font-extrabold text-gray-700 dark:text-gray-200">${fStatus ? `「${escapeHtml(fStatus)}」分類目前沒有項目` : '目前沒有待辦事項'}</div>
+        <div class="text-xs text-gray-400 mt-1">點擊右上角「＋ 新增待辦事項」即可建立新項目</div>
       </div>
     `;
     return;
@@ -18980,7 +18896,7 @@ function initInAppCameraListeners() {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.8.2 圖片四大升級引擎：
+// 🚀 LVI_Note v2.8.3 圖片四大升級引擎：
 // 1. HEIC/HEIF 完整解碼與標註支援 (heic2any + ImageBitmap + Drive 雲端轉檔)
 // 2. 圖片框上方專屬高對比文字註記欄 (.media-top-note-bar，淺/深色皆 >18:1 超高對比)
 // 3. 真實圖片旋轉 (90° 左/右旋轉 + PATCH/POST 重新存回 Google Drive 雲端硬碟)
