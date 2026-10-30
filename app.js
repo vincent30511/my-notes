@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.8.6'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.8.7'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -11,6 +11,51 @@ const SWR_NOTES_KEY = 'lvi_swr_notes_v1';
 function getLocalTodayDateKey(d = new Date()) {
   const dt = (d instanceof Date && !isNaN(d.getTime())) ? d : new Date();
   return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+
+function safeJsonParse(rawStr, fallbackVal = null) {
+  if (!rawStr || typeof rawStr !== 'string') return fallbackVal;
+  try {
+    return JSON.parse(rawStr);
+  } catch (e) {
+    return fallbackVal;
+  }
+}
+
+function safeSetLocalStorageItem(key, valStr) {
+  try {
+    localStorage.setItem(key, valStr);
+    return true;
+  } catch (quotaErr) {
+    try {
+      if (typeof pruneOldSyncedDrafts === 'function') pruneOldSyncedDrafts();
+      localStorage.removeItem('lvi_search_index_v1');
+      localStorage.removeItem('lvi_todo_items_v280');
+      localStorage.removeItem('lvi_todo_items_v281');
+      localStorage.removeItem('lvi_todo_items_v282');
+      localStorage.setItem(key, valStr);
+      return true;
+    } catch (e2) {
+      console.warn('LocalStorage 空間不足，已略過非關鍵快取寫入:', key);
+      return false;
+    }
+  }
+}
+
+if (!window._lviGlobalStabilityShieldBound) {
+  window._lviGlobalStabilityShieldBound = true;
+  window.addEventListener('unhandledrejection', (evt) => {
+    console.warn('🛡️ [Stability Shield] 攔截非同步例外:', evt.reason);
+    if (typeof hideGlobalLoading === 'function') {
+      try { hideGlobalLoading(); } catch (e) {}
+    }
+  });
+  window.addEventListener('error', (evt) => {
+    console.warn('🛡️ [Stability Shield] 攔截執行期錯誤:', evt.message || evt.error);
+    if (typeof hideGlobalLoading === 'function') {
+      try { hideGlobalLoading(); } catch (e) {}
+    }
+  });
 }
 
 function isLocalOrTempNoteId(id) {
@@ -1108,24 +1153,55 @@ async function autoLoginFlow() {
   }
 }
 
+let _activeTokenRefreshPromise = null;
 function refreshGoogleToken() {
-  return new Promise((resolve, reject) => {
-    if (!state.tokenClient) return reject(new Error('Token Client 尚未初始化'));
+  if (_activeTokenRefreshPromise) return _activeTokenRefreshPromise;
+  _activeTokenRefreshPromise = new Promise((resolve, reject) => {
+    if (!state.tokenClient) {
+      _activeTokenRefreshPromise = null;
+      return reject(new Error('Token Client 尚未初始化'));
+    }
     const prevCallback = state.tokenClient.callback;
-    state.tokenClient.callback = async (resp) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
       state.tokenClient.callback = prevCallback;
-      if (resp.error) {
+      _activeTokenRefreshPromise = null;
+      reject(new Error('Token refresh timeout'));
+    }, 10000);
+
+    state.tokenClient.callback = async (resp) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      state.tokenClient.callback = prevCallback;
+      _activeTokenRefreshPromise = null;
+      if (resp && resp.error) {
         reject(new Error(resp.error));
-      } else if (resp.access_token) {
+      } else if (resp && resp.access_token) {
         state.accessToken = resp.access_token;
         localStorage.setItem('cloudnotes_access_token', resp.access_token);
         const expiresIn = resp.expires_in ? parseInt(resp.expires_in, 10) : 3600;
         scheduleTokenRefresh(expiresIn);
         resolve(resp.access_token);
+      } else {
+        reject(new Error('Empty token response'));
       }
     };
-    state.tokenClient.requestAccessToken({ prompt: '', hint: state.userEmail || DEFAULT_USER_EMAIL });
+    try {
+      state.tokenClient.requestAccessToken({ prompt: '', hint: state.userEmail || DEFAULT_USER_EMAIL });
+    } catch (err) {
+      if (!settled) {
+        settled = true;
+        clearTimeout(timer);
+        state.tokenClient.callback = prevCallback;
+        _activeTokenRefreshPromise = null;
+        reject(err);
+      }
+    }
   });
+  return _activeTokenRefreshPromise;
 }
 
 function scheduleTokenRefresh(expiresIn) {
@@ -1618,7 +1694,7 @@ async function saveWorkspaceConfigToDrive() {
       todoStatuses: state.todoStatuses || DEFAULT_TODO_STATUSES,
       todoHandlers: (state.todoHandlers && state.todoHandlers.length > 0) ? state.todoHandlers : DEFAULT_TODO_HANDLERS,
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.8.6'
+      source: 'Google Drive Cloud Truth v2.8.7'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -3221,7 +3297,13 @@ function renderWorkTagSelects() {
   }
   try {
     if (typeof populateTodoFilterDropdowns === 'function') populateTodoFilterDropdowns();
-    if (state.currentView === 'tasks' && typeof renderTasksView === 'function') renderTasksView();
+    if (state.currentView === 'tasks' && typeof renderTasksView === 'function') {
+      if (state.activeTodoDetailId && typeof isUserActivelyTypingInTodoCard === 'function' && isUserActivelyTypingInTodoCard()) {
+        updateTodoSummaryStats();
+      } else {
+        renderTasksView();
+      }
+    }
     if (state.currentView === 'table' && typeof renderTableView === 'function') renderTableView();
   } catch (e) {}
 }
@@ -4843,7 +4925,7 @@ async function compressImageForUpload(file, maxDimension = 1280, quality = 0.76)
   const t0 = performance.now();
   try {
     const origSize = file.size;
-    // 🍏 v2.8.6 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
+    // 🍏 v2.8.7 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
     if (await isHeicFileOrBlob(file, file.name)) {
       const convertedJpegBlob = await convertHeicBlobToJpegBlob(file, Math.max(0.84, quality));
       if (convertedJpegBlob) {
@@ -7156,7 +7238,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.8.6', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.8.7', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -12678,7 +12760,7 @@ function closeTableQuickPeekDrawer() {
 }
 
 // ============================================================================
-// 📋 LVI_Note v2.8.6 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
+// 📋 LVI_Note v2.8.7 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
 // ============================================================================
 
 const TODO_STORAGE_KEY = 'lvi_todo_items_v283';
@@ -12830,7 +12912,7 @@ function saveTodoItemsToLocalStorageOnly() {
   try {
     const cleanItems = (state.todoItems || []).filter(item => !isTodoItemDeletedTombstoned(item));
     state.todoItems = cleanItems;
-    localStorage.setItem(TODO_STORAGE_KEY, JSON.stringify(cleanItems));
+    safeSetLocalStorageItem(TODO_STORAGE_KEY, JSON.stringify(cleanItems));
     localStorage.setItem(DELETED_TODO_IDS_STORAGE_KEY, JSON.stringify(state.deletedTodoIds || []));
     localStorage.setItem(TODO_STATUSES_STORAGE_KEY, JSON.stringify(state.todoStatuses || DEFAULT_TODO_STATUSES));
     localStorage.setItem(TODO_HANDLERS_STORAGE_KEY, JSON.stringify(state.todoHandlers || DEFAULT_TODO_HANDLERS));
@@ -13196,15 +13278,121 @@ function formatGoogleTaskPayloadFromTodoItem(item) {
   };
 }
 
+let _ensureTasksListPromise = null;
+async function ensureGoogleTasksList() {
+  if (!state.accessToken) return null;
+  if (state.googleTasksListId) return state.googleTasksListId;
+  if (_ensureTasksListPromise) return _ensureTasksListPromise;
+
+  _ensureTasksListPromise = (async () => {
+    try {
+      const res = await fetch('https://tasks.googleapis.com/tasks/v1/users/@me/lists?maxResults=20', {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (res.status === 401 || res.status === 403) {
+        if (DOM.tasksAuthBtn) DOM.tasksAuthBtn.classList.remove('hidden');
+        return null;
+      }
+      if (!res.ok) return null;
+      const data = await res.json();
+      const lists = data.items || [];
+      if (DOM.tasksAuthBtn) DOM.tasksAuthBtn.classList.add('hidden');
+      const preferred = lists.find(l => l.title && (l.title.includes('LVI_Note') || l.title.includes('待辦')));
+      const chosenId = (preferred && preferred.id) || (lists[0] && lists[0].id) || '@default';
+      state.googleTasksListId = chosenId;
+      return chosenId;
+    } catch (e) {
+      return null;
+    } finally {
+      _ensureTasksListPromise = null;
+    }
+  })();
+  return _ensureTasksListPromise;
+}
+
+function cleanTaskNotes(rawNotes = '') {
+  if (!rawNotes || typeof rawNotes !== 'string') return '';
+  return rawNotes
+    .replace(/\[LVI_TODO_ID:[^\]]+\]/g, '')
+    .replace(/^🏢\s*客戶或廠商：.*$/gm, '')
+    .replace(/^👥\s*處理人員：.*$/gm, '')
+    .replace(/^🏷️\s*標籤：.*$/gm, '')
+    .replace(/^🕒\s*建立時間：.*$/gm, '')
+    .replace(/^🏁\s*結束時間：.*$/gm, '')
+    .replace(/^🚨【待辦說明】\s*$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function requestTasksAuth() {
+  const targetEmail = state.userEmail || DEFAULT_USER_EMAIL;
+  showToast('正在向 Google 請求 Tasks 待辦清單存取授權...');
+  if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+    state.tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: state.clientId || DEFAULT_CLIENT_ID,
+      scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/tasks https://www.googleapis.com/auth/calendar',
+      hint: targetEmail,
+      callback: async (resp) => {
+        if (resp.error) {
+          showToast('Tasks 授權失敗: ' + resp.error, 4000);
+          return;
+        }
+        state.accessToken = resp.access_token;
+        localStorage.setItem('cloudnotes_access_token', resp.access_token);
+        localStorage.setItem('cloudnotes_authorized', 'true');
+        if (DOM.tasksAuthBtn) DOM.tasksAuthBtn.classList.add('hidden');
+        showToast('✅ Google Tasks 授權成功！正在同步待辦事項...');
+        await syncTodoItemsWithGoogleTasks(true);
+      }
+    });
+    state.tokenClient.requestAccessToken({ prompt: 'consent', hint: targetEmail });
+  }
+}
+
+function addGoogleTask(title = '') {
+  createNewTodoCardItem();
+  if (title && state.todoItems && state.todoItems[0]) {
+    state.todoItems[0].title = title;
+    saveTodoItemsState();
+    renderTasksView();
+  }
+}
+
+function clearCompletedGoogleTasks() {
+  syncTodoItemsWithGoogleTasks(true);
+}
+
+function syncPendingLocalDrafts() {
+  try { flushPendingSyncQueue(); } catch (e) {}
+  try { saveTodoItemsState(true); } catch (e) {}
+}
+
+function isUserActivelyTypingInTodoCard() {
+  const ae = document.activeElement;
+  if (!ae || !ae.closest) return false;
+  if (!ae.closest('.lvi-todo-card')) return false;
+  return ae.matches('input, textarea, select, [contenteditable="true"]');
+}
+
+const _inFlightTodoTaskCreationMap = new Map();
 async function pushSingleTodoItemToGoogleTasks(item) {
   if (!state.accessToken || !item || isTodoItemDeletedTombstoned(item)) return;
   try {
-    const listId = await ensureGoogleTasksList();
-    if (!listId) return;
-    const payload = formatGoogleTaskPayloadFromTodoItem(item);
+    if (_inFlightTodoTaskCreationMap.has(item.id)) {
+      item._needsFollowUpTaskPatch = true;
+      await _inFlightTodoTaskCreationMap.get(item.id);
+      if (item._needsFollowUpTaskPatch && item.googleTaskId) {
+        item._needsFollowUpTaskPatch = false;
+        return await pushSingleTodoItemToGoogleTasks(item);
+      }
+      return;
+    }
 
     if (item.googleTaskId && !String(item.googleTaskId).startsWith('temp_')) {
-      const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks/${item.googleTaskId}`, {
+      const listId = await ensureGoogleTasksList();
+      if (!listId) return;
+      const payload = formatGoogleTaskPayloadFromTodoItem(item);
+      const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks/${encodeURIComponent(item.googleTaskId)}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${state.accessToken}`,
@@ -13215,18 +13403,30 @@ async function pushSingleTodoItemToGoogleTasks(item) {
       if (res.ok) return;
     }
 
-    const createRes = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${state.accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload)
-    });
-    if (createRes.ok) {
-      const created = await createRes.json();
-      item.googleTaskId = created.id;
-      saveTodoItemsToLocalStorageOnly();
+    const createPromise = (async () => {
+      const listId = await ensureGoogleTasksList();
+      if (!listId) return;
+      const payload = formatGoogleTaskPayloadFromTodoItem(item);
+      const createRes = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/${listId}/tasks`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+      if (createRes.ok) {
+        const created = await createRes.json();
+        item.googleTaskId = created.id;
+        saveTodoItemsToLocalStorageOnly();
+      }
+    })();
+
+    _inFlightTodoTaskCreationMap.set(item.id, createPromise);
+    try {
+      await createPromise;
+    } finally {
+      _inFlightTodoTaskCreationMap.delete(item.id);
     }
   } catch (e) {
     console.warn('Google Tasks 單筆同步略過:', e);
@@ -13333,7 +13533,14 @@ async function syncTodoItemsWithGoogleTasks(showFeedback = false) {
     console.warn('Google Tasks 同步略過:', e);
     if (statusTextEl) statusTextEl.textContent = '雲端已同步';
   } finally {
-    if (state.currentView === 'tasks') renderTasksView();
+    if (state.currentView === 'tasks') {
+      if (state.activeTodoDetailId && isUserActivelyTypingInTodoCard()) {
+        updateTodoSummaryStats();
+        populateTodoFilterDropdowns();
+      } else {
+        renderTasksView();
+      }
+    }
     if (state.currentView === 'table') renderTableView();
   }
 }
@@ -13380,7 +13587,7 @@ function evaluateFuzzyTodoMatch(todoItem, parsedQuery) {
 }
 
 // ============================================================================
-// 📋 表格資料庫檢視 (Table Database View - v2.8.6)
+// 📋 表格資料庫檢視 (Table Database View - v2.8.7)
 // ============================================================================
 
 function openTodoQuickPeekDrawer(todoId, fuzzyRes = null) {
@@ -14080,10 +14287,15 @@ function updateTodoSummaryStats() {
   const elWaiting = document.getElementById('todo-cat-count-waiting');
   const sidebarBadge = document.getElementById('sidebar-tasks-count');
 
+  const doneCount = all.filter(t => t.status === '🟢 已完成').length;
   if (elPending) elPending.textContent = pendingCount;
   if (elProgress) elProgress.textContent = progressCount;
   if (elWaiting) elWaiting.textContent = waitingCount;
   if (sidebarBadge) sidebarBadge.textContent = uncompletedCount;
+  const subEl = document.getElementById('todo-header-stats-subtitle');
+  if (subEl) {
+    subEl.textContent = `待處理/進行中 ${uncompletedCount} 筆（🔴 待處理 ${pendingCount} · 🟡 處理中 ${progressCount} · 🟠 待料/觀察中 ${waitingCount}）｜ 🟢 已完成 ${doneCount} 筆`;
+  }
 
   const activeCat = state.todoFilterStatus || '';
   document.querySelectorAll('#todo-fixed-category-bar .todo-cat-tab-btn').forEach(btn => {
@@ -14374,49 +14586,72 @@ async function uploadFileToTodoCardSection(cardId, section, file) {
   }
 }
 
-// 渲染「階段一：單一待辦事件簡略信息列」
+// 渲染「階段一：單一待辦事件簡略信息列 (雙行結構化高質感卡片列)」
 function renderTodoSummaryRowHtml(item) {
   const normStatus = FIXED_TODO_CATEGORIES.includes(item.status) ? item.status : '🔴 待處理';
   const statusBadgeCls = getTodoStatusBadgeClass(normStatus);
+  const statusRowAccentCls = normStatus === '🟢 已完成'
+    ? 'status-done'
+    : normStatus === '🟡 處理中'
+    ? 'status-progress'
+    : normStatus === '🟠 待料/觀察中'
+    ? 'status-waiting'
+    : 'status-pending';
+
   const titleText = (item.title || '').trim() || '（未命名待辦事項）';
-  const snippet = (item.issueText || item.resolutionText || '').replace(/\s+/g, ' ').trim();
+  const issuePreview = (item.issueText || '').replace(/\s+/g, ' ').trim();
+  const resPreview = (item.resolutionText || '').replace(/\s+/g, ' ').trim();
   const handlers = Array.isArray(item.handlers) ? item.handlers : [];
   const tags = Array.isArray(item.tags) ? item.tags : [];
   const linkedCount = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds.length : 0;
 
+  const attHtml = (item.issueAttachmentsHtml || '') + (item.resolutionAttachmentsHtml || '');
+  const imgMatches = (attHtml.match(/notion-media-collapse/g) || []).length;
+  const fileMatches = (attHtml.match(/notion-file-attachment/g) || []).length;
+  const totalAtt = imgMatches + fileMatches;
+
+  let snippetHtml = '';
+  if (issuePreview && resPreview) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🚨 ${escapeHtml(issuePreview.slice(0, 48))} ➔ 🛠️ ${escapeHtml(resPreview.slice(0, 45))}</span>`;
+  } else if (issuePreview) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">📋 ${escapeHtml(issuePreview.slice(0, 80))}</span>`;
+  } else if (resPreview) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🛠️ 處理結果：${escapeHtml(resPreview.slice(0, 80))}</span>`;
+  }
+
+  const secondaryBadgesHtml = [
+    ...handlers.map(h => `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800 shrink-0">👤 ${escapeHtml(h)}</span>`),
+    ...tags.map(t => `<span class="px-1.5 py-0.5 rounded-md text-[10.5px] font-bold border ${getTagPillColorClass(t)} shrink-0">#${escapeHtml(t)}</span>`),
+    linkedCount > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold shrink-0">🔗 關聯筆記 ${linkedCount}</span>` : '',
+    totalAtt > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold shrink-0">🖼️ 縮圖/附件 ${totalAtt}</span>` : ''
+  ].filter(Boolean).join('');
+
   return `
-    <div class="lvi-todo-summary-row group" data-todo-summary-id="${escapeHtml(item.id)}">
-      <div class="flex items-center gap-2.5 min-w-0 flex-1 flex-wrap sm:flex-nowrap">
-        <span class="px-2 py-0.5 rounded-md text-xs font-extrabold border shrink-0 ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
-        <div class="min-w-0 flex-1">
-          <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-sm font-extrabold text-gray-900 dark:text-gray-100 truncate">${escapeHtml(titleText)}</span>
-            ${item.machineModel ? `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">🚜 ${escapeHtml(item.machineModel)}</span>` : ''}
-            ${item.clientVendor ? `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">🏢 ${escapeHtml(item.clientVendor)}</span>` : ''}
-            ${handlers.map(h => `<span class="px-2 py-0.5 rounded text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800 shrink-0">👤 ${escapeHtml(h)}</span>`).join('')}
-            ${tags.map(t => `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold border ${getTagPillColorClass(t)} shrink-0">#${escapeHtml(t)}</span>`).join('')}
-            ${linkedCount > 0 ? `<span class="text-[11px] text-blue-600 dark:text-blue-400 font-bold shrink-0">🔗 關聯筆記 ${linkedCount}</span>` : ''}
-            ${(() => {
-              const attHtml = (item.issueAttachmentsHtml || '') + (item.resolutionAttachmentsHtml || '');
-              const imgMatches = (attHtml.match(/notion-media-collapse/g) || []).length;
-              const fileMatches = (attHtml.match(/notion-file-attachment/g) || []).length;
-              const totalAtt = imgMatches + fileMatches;
-              return totalAtt > 0 ? `<span class="text-[11px] text-amber-600 dark:text-amber-400 font-bold shrink-0">🖼️ 縮圖/附件 ${totalAtt}</span>` : '';
-            })()}
-          </div>
-          ${snippet ? `<div class="text-xs text-gray-500 dark:text-gray-400 truncate mt-0.5 max-w-2xl">${escapeHtml(snippet)}</div>` : ''}
+    <div class="lvi-todo-summary-row ${statusRowAccentCls} group" data-todo-summary-id="${escapeHtml(item.id)}">
+      <div class="lvi-todo-summary-main">
+        <!-- 第一行：狀態標章 + 主標題 + 機型分類 + 客戶或廠商 -->
+        <div class="lvi-todo-summary-top-line">
+          <span class="px-2.5 py-0.5 rounded-md text-xs font-extrabold border shrink-0 ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
+          <span class="lvi-todo-summary-title truncate">${escapeHtml(titleText)}</span>
+          ${item.machineModel ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">🚜 ${escapeHtml(item.machineModel)}</span>` : ''}
+          ${item.clientVendor ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">🏢 ${escapeHtml(item.clientVendor)}</span>` : ''}
         </div>
+        <!-- 第二行：問題/對策摘要 + 處理人員/標籤/關聯筆記/縮圖數量 -->
+        ${(snippetHtml || secondaryBadgesHtml) ? `
+        <div class="lvi-todo-summary-bottom-line">
+          ${snippetHtml}
+          ${secondaryBadgesHtml}
+        </div>` : ''}
       </div>
 
-      <div class="flex items-center gap-2 shrink-0">
-        <span class="text-[11px] font-mono text-gray-400 dark:text-gray-500 hidden md:inline">🕒 ${escapeHtml(item.createdAt || '')}</span>
-        <button type="button" class="todo-summary-del-btn px-2 py-1 rounded-lg text-rose-500 hover:text-white hover:bg-rose-600 border border-rose-200 dark:border-rose-800/70 text-xs font-bold flex items-center gap-1 transition cursor-pointer" data-todo-id="${escapeHtml(item.id)}" title="刪除此筆待辦事項">
-          <i data-lucide="trash-2" class="w-3.5 h-3.5 pointer-events-none"></i>
-          <span class="pointer-events-none">刪除</span>
+      <div class="lvi-todo-summary-right">
+        <span class="lvi-todo-summary-time">🕒 ${escapeHtml(item.createdAt || '')}</span>
+        <button type="button" class="todo-summary-del-btn" data-todo-id="${escapeHtml(item.id)}" title="永久刪除此筆待辦事項">
+          <span>🗑️ 刪除</span>
         </button>
-        <span class="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-300 group-hover:bg-blue-600 group-hover:text-white text-xs font-bold transition flex items-center gap-1">
+        <span class="lvi-todo-summary-open-pill">
           <span>詳細</span>
-          <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+          <span>➔</span>
         </span>
       </div>
     </div>
@@ -14435,6 +14670,7 @@ function renderSingleTodoCardHtml(item) {
   const linkedNoteIds = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds : [];
   const normStatus = FIXED_TODO_CATEGORIES.includes(item.status) ? item.status : '🔴 待處理';
   const isCompleted = isTodoStatusCompleted(normStatus);
+  const statusBadgeCls = getTodoStatusBadgeClass(normStatus);
 
   // 第 1 列選單 1：機型分類 (未設定時直接顯示「未選擇」)
   const machineOptionsHtml = [
@@ -14529,12 +14765,14 @@ function renderSingleTodoCardHtml(item) {
 
   return `
     <!-- 頂部返回列表與刪除導航列 -->
-    <div class="flex items-center justify-between gap-2 mb-2">
-      <button type="button" id="btn-back-to-todo-list" class="px-3 py-1.5 rounded-lg bg-white dark:bg-notion-card border border-gray-200 dark:border-notion-borderDark hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200 text-xs font-extrabold inline-flex items-center gap-1.5 shadow-2xs transition cursor-pointer">
-        <i data-lucide="arrow-left" class="w-4 h-4 text-blue-600 dark:text-blue-400"></i>
-        <span>返回待辦列表</span>
-      </button>
-      <button type="button" class="todo-delete-card-btn px-3 py-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-600 text-rose-600 dark:text-rose-300 hover:text-white border border-rose-200 dark:border-rose-800 text-xs font-extrabold inline-flex items-center gap-1 transition cursor-pointer" data-todo-id="${escapeHtml(item.id)}" title="永久刪除此筆待辦事項">
+    <div class="lvi-todo-detail-navbar">
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <button type="button" id="btn-back-to-todo-list">
+          <span>← 返回待辦列表</span>
+        </button>
+        <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold border ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
+      </div>
+      <button type="button" class="todo-delete-card-btn" data-todo-id="${escapeHtml(item.id)}" title="永久刪除此筆待辦事項">
         <span>🗑️ 刪除此待辦事項</span>
       </button>
     </div>
@@ -14545,8 +14783,8 @@ function renderSingleTodoCardHtml(item) {
         <!-- 1. 標題 -->
         <div class="lvi-todo-box">
           <div class="lvi-todo-box-label">
-            <span>📌 標題</span>
-            ${item.googleTaskId ? `<span class="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">☁️ 已同步</span>` : ''}
+            <span>📌 待辦事項標題</span>
+            ${item.googleTaskId ? `<span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">☁️ Tasks 已同步</span>` : ''}
           </div>
           <input type="text" class="todo-title-input" value="${escapeHtml(item.title || '')}" placeholder="請輸入待辦標題..." />
         </div>
@@ -14555,7 +14793,7 @@ function renderSingleTodoCardHtml(item) {
         <div class="lvi-todo-box">
           <div class="lvi-todo-box-label">
             <span>🚜 機型分類</span>
-            <button type="button" class="todo-open-mgr-btn text-blue-600 dark:text-blue-400 hover:underline text-[10px] font-bold cursor-pointer" data-mgr-tab="machine">管理</button>
+            <button type="button" class="todo-open-mgr-btn" data-mgr-tab="machine">⚙️ 管理</button>
           </div>
           <select class="todo-box-select todo-machine-select">
             ${machineOptionsHtml}
@@ -14566,7 +14804,7 @@ function renderSingleTodoCardHtml(item) {
         <div class="lvi-todo-box">
           <div class="lvi-todo-box-label">
             <span>🏢 客戶或廠商</span>
-            <button type="button" class="todo-open-mgr-btn text-indigo-600 dark:text-indigo-400 hover:underline text-[10px] font-bold cursor-pointer" data-mgr-tab="client">管理</button>
+            <button type="button" class="todo-open-mgr-btn" data-mgr-tab="client">⚙️ 管理</button>
           </div>
           <select class="todo-box-select todo-client-select">
             ${clientOptionsHtml}
@@ -14576,8 +14814,8 @@ function renderSingleTodoCardHtml(item) {
         <!-- 4. 進度 -->
         <div class="lvi-todo-box">
           <div class="lvi-todo-box-label">
-            <span>📊 進度</span>
-            <button type="button" class="todo-delete-card-btn text-rose-500 hover:text-rose-700 text-[10px] font-extrabold cursor-pointer" data-todo-id="${escapeHtml(item.id)}" title="刪除此筆待辦事項">🗑️ 刪除</button>
+            <span>📊 處理進度</span>
+            <span class="text-[10px] font-bold ${isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">${isCompleted ? '已結案' : '追蹤中'}</span>
           </div>
           <select class="todo-box-select todo-status-select">
             ${statusOptionsHtml}
@@ -14588,16 +14826,16 @@ function renderSingleTodoCardHtml(item) {
       <!-- 第 2 列：建立時間 | 關聯筆記 -->
       <div class="lvi-todo-row-2">
         <div class="lvi-todo-created-pill todo-edit-created-time-btn" title="點擊可調整建立時間">
-          <span class="text-[10px] font-extrabold text-blue-700 dark:text-blue-300">🕒 建立時間</span>
+          <span class="text-[10px] font-extrabold text-blue-700 dark:text-blue-300">🕒 建立時間 (點擊微調)</span>
           <span class="text-xs font-black text-blue-950 dark:text-blue-100 todo-created-time-text">${escapeHtml(item.createdAt || formatTodoTimestamp())}</span>
         </div>
 
         <div class="lvi-todo-linked-notes-box">
           <div class="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
-            <span class="text-[11px] font-extrabold text-blue-700 dark:text-blue-300 shrink-0">🔗 關聯筆記：</span>
+            <span class="text-xs font-extrabold text-blue-700 dark:text-blue-300 shrink-0">🔗 關聯筆記：</span>
             ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">無</span>`}
           </div>
-          <select class="todo-link-note-select text-[11px] font-bold px-2 py-1 rounded-lg border border-blue-200 dark:border-blue-800 bg-white dark:bg-notion-dark text-blue-700 dark:text-blue-300 cursor-pointer max-w-[190px] shrink-0">
+          <select class="todo-link-note-select">
             ${availableNotesOptionsHtml}
           </select>
         </div>
@@ -14609,12 +14847,13 @@ function renderSingleTodoCardHtml(item) {
           <div class="lvi-todo-section-title">
             <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
             <span>待辦說明</span>
+            <span class="lvi-todo-section-hint hidden sm:inline">（支援 Ctrl+V 貼上截圖或拖放照片）</span>
           </div>
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <button type="button" class="todo-section-camera-btn px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer" data-section="issue">
+          <div class="flex items-center gap-2 flex-wrap">
+            <button type="button" class="todo-section-camera-btn" data-section="issue">
               <span>📷 拍照</span>
             </button>
-            <button type="button" class="todo-section-upload-btn px-2.5 py-1 rounded-lg bg-white dark:bg-notion-card hover:bg-rose-50 dark:hover:bg-gray-800 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-700 text-xs font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer" data-section="issue">
+            <button type="button" class="todo-section-upload-btn" data-section="issue">
               <span>📎 上傳附件</span>
             </button>
           </div>
@@ -14629,12 +14868,13 @@ function renderSingleTodoCardHtml(item) {
           <div class="lvi-todo-section-title">
             <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
             <span>處理結果</span>
+            <span class="lvi-todo-section-hint hidden sm:inline">（支援 Ctrl+V 貼上截圖或拖放照片）</span>
           </div>
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <button type="button" class="todo-section-camera-btn px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer" data-section="resolution">
+          <div class="flex items-center gap-2 flex-wrap">
+            <button type="button" class="todo-section-camera-btn" data-section="resolution">
               <span>📷 拍照</span>
             </button>
-            <button type="button" class="todo-section-upload-btn px-2.5 py-1 rounded-lg bg-white dark:bg-notion-card hover:bg-blue-50 dark:hover:bg-gray-800 text-blue-700 dark:text-blue-300 border border-blue-300 dark:border-blue-700 text-xs font-bold inline-flex items-center gap-1 shadow-2xs transition cursor-pointer" data-section="resolution">
+            <button type="button" class="todo-section-upload-btn" data-section="resolution">
               <span>📎 上傳附件</span>
             </button>
           </div>
@@ -14650,10 +14890,10 @@ function renderSingleTodoCardHtml(item) {
           <div class="lvi-todo-box-label">
             <span>🏷️ 標籤</span>
             <div class="flex items-center gap-1.5">
-              <select class="todo-bottom-tag-add-select text-[11px] font-bold px-1.5 py-0.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-notion-dark text-gray-700 dark:text-gray-200 cursor-pointer">
+              <select class="todo-bottom-tag-add-select">
                 ${bottomTagAddOptionsHtml}
               </select>
-              <button type="button" class="todo-open-mgr-btn text-purple-600 dark:text-purple-400 hover:underline text-[10px] font-bold cursor-pointer" data-mgr-tab="custom">管理</button>
+              <button type="button" class="todo-open-mgr-btn" data-mgr-tab="custom">⚙️ 管理</button>
             </div>
           </div>
           <div class="flex items-center gap-1.5 flex-wrap pt-1 todo-tags-pills-wrap">
@@ -14666,10 +14906,10 @@ function renderSingleTodoCardHtml(item) {
           <div class="lvi-todo-box-label">
             <span>👥 處理人員</span>
             <div class="flex items-center gap-1.5">
-              <select class="todo-handler-add-select text-[11px] font-bold px-1.5 py-0.5 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-notion-dark text-gray-700 dark:text-gray-200 cursor-pointer">
+              <select class="todo-handler-add-select">
                 ${handlerAddOptionsHtml}
               </select>
-              <button type="button" class="todo-open-mgr-btn text-cyan-600 dark:text-cyan-400 hover:underline text-[10px] font-bold cursor-pointer" data-mgr-tab="todo_handler">管理</button>
+              <button type="button" class="todo-open-mgr-btn" data-mgr-tab="todo_handler">⚙️ 管理</button>
             </div>
           </div>
           <div class="flex items-center gap-1.5 flex-wrap pt-1 todo-handlers-pills-wrap">
@@ -19620,7 +19860,7 @@ function initInAppCameraListeners() {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.8.6 圖片四大升級引擎：
+// 🚀 LVI_Note v2.8.7 圖片四大升級引擎：
 // 1. HEIC/HEIF 完整解碼與標註支援 (heic2any + ImageBitmap + Drive 雲端轉檔)
 // 2. 圖片框上方專屬高對比文字註記欄 (.media-top-note-bar，淺/深色皆 >18:1 超高對比)
 // 3. 真實圖片旋轉 (90° 左/右旋轉 + PATCH/POST 重新存回 Google Drive 雲端硬碟)
