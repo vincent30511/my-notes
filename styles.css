@@ -2207,7 +2207,7 @@ mark.fuzzy-hl {
 }
 
 /* ==========================================================================
-   🚀 v2.8.3 四大進階功能樣式：
+   🚀 v2.8.6 四大進階功能樣式：
    1. 搜尋命中段落自動定位與琥珀脈衝閃爍 (.search-hit-flash-block)
    2. 表格資料庫就地修改下拉選單 (.table-inline-select) 與側邊預覽抽屜
    3. 照片就地標註工作室 (#photo-annotate-modal)
@@ -2323,7 +2323,7 @@ mark.fuzzy-hl {
 
 
 /* ==========================================================================
-   📱 v2.8.3 手機端單行俐落按鈕列、點塗螢光筆與內建圖片燈箱專用樣式
+   📱 v2.8.6 手機端單行俐落按鈕列、點塗螢光筆與內建圖片燈箱專用樣式
    ========================================================================== */
 #editor-action-toolbar {
   display: flex !important;
@@ -2389,7 +2389,7 @@ mark.notion-highlight.selected-mark-target {
 
 
 /* ==========================================================================
-   🌙 v2.8.3 深色模式全站極致高對比度保證 (WCAG AAA High-Contrast Dark Mode)
+   🌙 v2.8.6 深色模式全站極致高對比度保證 (WCAG AAA High-Contrast Dark Mode)
    徹底解決深色模式下淺色半透明背景泛灰、字體霧化看不清楚的問題
    ========================================================================== */
 
@@ -2577,7 +2577,7 @@ mark.notion-highlight.selected-mark-target {
 
 
 /* ==========================================================================
-   📱 v2.8.3 手機端動態視窗安全區、螢光筆浮動抽屜防遮擋與選字工具列避障樣式
+   📱 v2.8.6 手機端動態視窗安全區、螢光筆浮動抽屜防遮擋與選字工具列避障樣式
    ========================================================================== */
 html, body {
   height: 100vh;
@@ -2620,7 +2620,7 @@ html, body {
 
 
 /* ==========================================================================
-   📱 v2.8.3 手機端極致寬幅滿版顯示 (減少兩側空白) + 頂部 7 鈕單行零重疊保證
+   📱 v2.8.6 手機端極致寬幅滿版顯示 (減少兩側空白) + 頂部 7 鈕單行零重疊保證
    ========================================================================== */
 #editor-action-toolbar {
   display: flex !important;
@@ -2714,7 +2714,7 @@ html, body {
 
 
 /* ==========================================================================
-   🖼️ v2.8.3 圖片四大升級：HEIC 標註、頂部高對比文字註記欄、真實雲端旋轉、防 Backspace 誤刪
+   🖼️ v2.8.6 圖片四大升級：HEIC 標註、頂部高對比文字註記欄、真實雲端旋轉、防 Backspace 誤刪
    ========================================================================== */
 
 /* 圖片框上方專屬文字註記欄 (.media-top-note-bar & .media-top-note-input)
@@ -2814,7 +2814,7 @@ html, body {
 
 
 /* ==========================================================================
-   🧹 v2.8.3 徹底移除殘留無用按鍵 (左繞/置中/右繞、右下角縮放鈕)
+   🧹 v2.8.6 徹底移除殘留無用按鍵 (左繞/置中/右繞、右下角縮放鈕)
    ========================================================================== */
 .media-wrap-btn,
 div[title*="圖片位置與自動文繞圖模式"],
@@ -2842,7 +2842,7 @@ details.notion-media-collapse {
 }
 
 /* ==========================================================================
-   🖨️ v2.8.3 旗艦級 PDF 匯出與列印引擎 (Magazine-Grade High-Contrast PDF Export)
+   🖨️ v2.8.6 旗艦級 PDF 匯出與列印引擎 (Magazine-Grade High-Contrast PDF Export)
    - 徹底解決深色模式白字印在白紙上看不清楚的問題 (強制 18.1:1 極致黑字白底高對比)
    - 徹底清除多餘互動按鈕，轉換為專業工程技術報告版面
    - 防止圖片與表格跨頁腰斬 (break-inside: avoid)
@@ -3213,7 +3213,7 @@ details.notion-media-collapse {
 
 
 /* ============================================================================
-   📋 LVI_Note v2.8.3 待辦事項 (5段式卡片架構) & 表格資料庫待辦醒目列樣式
+   📋 LVI_Note v2.8.6 待辦事項 (5段式卡片架構) & 表格資料庫待辦醒目列樣式
    100% 對齊使用者架構圖 (ae646093.png) 並融合 LVI_Note 主體設計語言
    ============================================================================ */
 
@@ -3617,7 +3617,7 @@ tr.lvi-table-todo-row.is-todo-completed {
 
 
 /* ============================================================================
-   📋 LVI_Note v2.8.3 待辦事項：頂部固定 4 分類列 + 簡略清單 + 無邊框並排小圖陳列
+   📋 LVI_Note v2.8.6 待辦事項：頂部固定 4 分類列 + 簡略清單 + 無邊框並排小圖陳列
    ============================================================================ */
 
 /* 1. 頂部固定 4 分類按鈕 (🔴 待處理 | 🟡 處理中 | 🟠 待料/觀察中 | 🟢 已完成) */
@@ -3722,26 +3722,31 @@ tr.lvi-table-todo-row.is-todo-completed {
   background: #222222;
 }
 
-/* 3. 附圖三優化：待辦事項內圖片改為「無邊框、小圖形式、同一行可並排多張」 */
+/* 3. 待辦事項內縮圖優化 (v2.8.6)：
+   - 無外框、小圖形式、同一行可並排多張
+   - 徹底解決縮圖操作列 (summary) 擋住文字備註輸入框 (.media-top-note-bar) 的問題：
+     採用三段式獨立流向 (1. 頂部緊湊操作列 -> 2. 高對比文字備註輸入框 -> 3. 可點開展示大圖的無邊框縮圖)，
+     關閉 details 內部動畫位移，保證 0.00px 重疊、任何時刻都不會遮擋文字備註輸入！ */
 .todo-attachments-gallery {
   margin-top: 10px;
   display: flex !important;
   flex-direction: row !important;
   flex-wrap: wrap !important;
   align-items: flex-start !important;
-  gap: 12px !important;
+  gap: 14px !important;
 }
 
 .todo-attachments-gallery:empty {
   margin-top: 0;
 }
 
-/* 將待辦事項內的 details.notion-media-collapse 轉化為無邊框精巧並排縮圖 */
+/* 將待辦事項內的 details.notion-media-collapse 轉化為無邊框精巧並排縮圖卡 */
 .todo-attachments-gallery details.notion-media-collapse {
   display: inline-flex !important;
   flex-direction: column !important;
-  width: auto !important;
-  max-width: 170px !important;
+  width: 192px !important;
+  max-width: 192px !important;
+  box-sizing: border-box !important;
   margin: 0 !important;
   padding: 0 !important;
   border: none !important;
@@ -3752,66 +3757,179 @@ tr.lvi-table-todo-row.is-todo-completed {
   position: relative !important;
 }
 
-/* 隱藏原本佔空間的整列 summary 標題列，改為滑鼠移過時浮現於右上角的迷你操作列 */
+.todo-attachments-gallery details.notion-media-collapse[open] > div {
+  animation: none !important;
+  transform: none !important;
+}
+
+/* 第 1 層：獨立不重疊的迷你操作列 (position: relative 靜態流向，絕不覆蓋文字備註框或圖片) */
 .todo-attachments-gallery details.notion-media-collapse > summary {
-  position: absolute !important;
-  top: 4px !important;
-  right: 4px !important;
-  z-index: 10 !important;
-  padding: 2px 4px !important;
-  border-radius: 6px !important;
-  background: rgba(15, 23, 42, 0.78) !important;
-  backdrop-filter: blur(4px) !important;
-  border: none !important;
-  opacity: 0;
-  transition: opacity 0.15s ease;
+  position: relative !important;
+  top: auto !important;
+  right: auto !important;
+  bottom: auto !important;
+  left: auto !important;
+  z-index: 1 !important;
+  width: 192px !important;
+  max-width: 192px !important;
+  box-sizing: border-box !important;
+  padding: 3px 4px !important;
+  margin: 0 0 5px 0 !important;
+  border-radius: 7px !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  opacity: 1 !important;
   display: flex !important;
   align-items: center !important;
+  justify-content: space-between !important;
   gap: 2px !important;
+  cursor: default !important;
+  list-style: none !important;
 }
 
-.todo-attachments-gallery details.notion-media-collapse:hover > summary,
-.todo-attachments-gallery details.notion-media-collapse:focus-within > summary {
-  opacity: 1;
+.todo-attachments-gallery details.notion-media-collapse > summary::-webkit-details-marker {
+  display: none !important;
 }
 
-@media (hover: none) and (pointer: coarse) {
-  .todo-attachments-gallery details.notion-media-collapse > summary {
-    opacity: 0.92;
-  }
+.dark .todo-attachments-gallery details.notion-media-collapse > summary {
+  background: #1e293b !important;
+  border-color: #334155 !important;
 }
 
-/* 隱藏 summary 內部的檔名、拖曳把手與收折箭頭，只保留旋轉、標註、刪除小圖示 */
+/* 隱藏 summary 內部的冗長檔名、拖曳把手與收折箭頭，只保留 放大/旋轉/標註/刪除 迷你按鈕 */
 .todo-attachments-gallery details.notion-media-collapse > summary > div:first-child,
 .todo-attachments-gallery details.notion-media-collapse > summary .collapse-hint,
 .todo-attachments-gallery details.notion-media-collapse > summary .collapse-arrow {
   display: none !important;
 }
 
-.todo-attachments-gallery details.notion-media-collapse > summary button {
-  padding: 2px 5px !important;
-  font-size: 10px !important;
-  line-height: 1.1 !important;
+.todo-attachments-gallery details.notion-media-collapse > summary > div:last-child {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+  gap: 2px !important;
 }
 
+.todo-attachments-gallery details.notion-media-collapse > summary button {
+  padding: 2px 5px !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+  border-radius: 5px !important;
+  white-space: nowrap !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 2px !important;
+  height: 22px !important;
+}
+
+.todo-attachments-gallery details.notion-media-collapse > summary .media-card-delete-btn svg {
+  display: none !important;
+}
+
+/* 第 2 層：專屬高對比文字備註輸入框 (獨立一列，100% 無遮擋、隨時可點可輸入) */
+.todo-attachments-gallery details.notion-media-collapse .media-top-note-bar {
+  position: relative !important;
+  z-index: 2 !important;
+  width: 192px !important;
+  max-width: 192px !important;
+  box-sizing: border-box !important;
+  margin: 0 0 5px 0 !important;
+  padding: 4px 7px !important;
+  min-height: 26px !important;
+  border-radius: 7px !important;
+  background-color: #fffbeb !important;
+  border: 1.5px solid #f59e0b !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.dark .todo-attachments-gallery details.notion-media-collapse .media-top-note-bar {
+  background-color: #0f172a !important;
+  border: 1.5px solid #fbbf24 !important;
+}
+
+.todo-attachments-gallery details.notion-media-collapse .media-top-note-label {
+  display: none !important;
+}
+
+.todo-attachments-gallery details.notion-media-collapse .media-top-note-input,
+.todo-attachments-gallery details.notion-media-collapse .media-top-note-input *:not(mark) {
+  width: 100% !important;
+  min-width: 0 !important;
+  min-height: 18px !important;
+  box-sizing: border-box !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  color: #0f172a !important;
+  text-align: left !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.dark .todo-attachments-gallery details.notion-media-collapse .media-top-note-input,
+.dark .todo-attachments-gallery details.notion-media-collapse .media-top-note-input *:not(mark) {
+  color: #ffffff !important;
+}
+
+.todo-attachments-gallery details.notion-media-collapse .media-top-note-input:empty::before {
+  content: "📝 點擊輸入圖片備註..." !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #78350f !important;
+  opacity: 0.78 !important;
+}
+
+.dark .todo-attachments-gallery details.notion-media-collapse .media-top-note-input:empty::before {
+  color: #fde68a !important;
+  opacity: 0.85 !important;
+}
+
+.todo-attachments-gallery details.notion-media-collapse .media-top-note-input:focus {
+  background-color: transparent !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.todo-attachments-gallery details.notion-media-collapse .media-top-note-bar:focus-within {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.28) !important;
+}
+
+/* 第 3 層：無邊框高清縮圖 (點擊直接開啟全螢幕檢視燈箱) */
 .todo-attachments-gallery details.notion-media-collapse .media-collapse-content {
   padding: 0 !important;
+  margin: 0 !important;
   border: none !important;
   background: transparent !important;
   text-align: left !important;
+  position: relative !important;
+  width: 192px !important;
+  max-width: 192px !important;
+  box-sizing: border-box !important;
 }
 
 .todo-attachments-gallery details.notion-media-collapse .media-collapse-content img {
-  height: 112px !important;
-  width: auto !important;
-  max-width: 168px !important;
+  height: 122px !important;
+  width: 192px !important;
+  max-width: 192px !important;
   object-fit: cover !important;
   border: none !important;
-  box-shadow: none !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12) !important;
   border-radius: 8px !important;
   margin: 0 !important;
   display: block !important;
   cursor: zoom-in !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.todo-attachments-gallery details.notion-media-collapse .media-collapse-content img:hover {
+  transform: scale(1.02);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25) !important;
 }
 
 /* 隱藏底部冗長的下載/雲端檢視列 */
@@ -3819,40 +3937,136 @@ tr.lvi-table-todo-row.is-todo-completed {
   display: none !important;
 }
 
-/* 圖片註記改為小圖正下方極簡無邊框單行小字 (有填寫或聚焦時顯示) */
-.todo-attachments-gallery details.notion-media-collapse .media-top-note-bar {
-  order: 2 !important;
-  background: transparent !important;
-  border: none !important;
-  padding: 3px 2px 0 2px !important;
-  min-height: 0 !important;
-  max-width: 168px !important;
-}
-
-.todo-attachments-gallery details.notion-media-collapse .media-top-note-label {
-  display: none !important;
-}
-
-.todo-attachments-gallery details.notion-media-collapse .media-top-note-input {
-  font-size: 11px !important;
-  line-height: 1.3 !important;
-  color: #475569 !important;
-  text-align: center !important;
-}
-
-.dark .todo-attachments-gallery details.notion-media-collapse .media-top-note-input {
-  color: #cbd5e1 !important;
-}
-
-.todo-attachments-gallery details.notion-media-collapse .media-top-note-input:empty::before {
-  content: "點擊加註記..." !important;
-  font-size: 10px !important;
-  opacity: 0.55 !important;
-}
-
 /* 一般非圖片檔案附件在待辦中也改為緊湊膠囊卡片並排 */
 .todo-attachments-gallery .notion-file-attachment {
   margin: 0 !important;
   padding: 6px 10px !important;
   max-width: 280px !important;
+}
+
+/* 確保頂部固定 4 分類列、深色模式膠囊文字與全螢幕高清檢視燈箱在任何環境下皆完美呈現 */
+#todo-fixed-category-bar {
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+
+@media (max-width: 640px) {
+  #todo-fixed-category-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+.dark .lvi-todo-created-pill,
+.dark .lvi-todo-created-pill span,
+.dark .lvi-todo-endtime-pill,
+.dark .lvi-todo-endtime-pill span,
+.dark .lvi-todo-linked-notes-box,
+.dark .lvi-todo-linked-notes-box span {
+  color: #f1f5f9 !important;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#photo-lightbox-modal:not(.hidden) {
+  position: fixed !important;
+  inset: 0 !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  z-index: 99985 !important;
+  background-color: rgba(2, 6, 23, 0.95) !important;
+}
+
+#photo-lightbox-modal > div:first-child {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  padding: 10px 16px !important;
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border-bottom: 1px solid #334155 !important;
+}
+
+#photo-lightbox-modal > div:first-child > div {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
+}
+
+#photo-lightbox-note-bar {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 8px 16px !important;
+  background: #fffbeb !important;
+  border-bottom: 2px solid #f59e0b !important;
+}
+
+.dark #photo-lightbox-note-bar {
+  background: #1e293b !important;
+  border-bottom: 2px solid #fbbf24 !important;
+}
+
+#photo-lightbox-note-input {
+  flex: 1 1 0% !important;
+  padding: 5px 10px !important;
+  border-radius: 6px !important;
+  border: 1.5px solid #f59e0b !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+}
+
+.dark #photo-lightbox-note-input {
+  background: #0f172a !important;
+  color: #ffffff !important;
+  border-color: #fbbf24 !important;
+}
+
+#photo-lightbox-body {
+  flex: 1 1 0% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  overflow: auto !important;
+  padding: 16px !important;
+}
+
+#photo-lightbox-img {
+  max-width: 92vw !important;
+  max-height: 76vh !important;
+  object-fit: contain !important;
+  border-radius: 8px !important;
+  cursor: zoom-in !important;
+}
+
+#photo-annotate-modal {
+  z-index: 99990 !important;
+}
+
+#inapp-camera-modal {
+  z-index: 99988 !important;
+}
+
+#media-delete-confirm-modal {
+  z-index: 99995 !important;
+}
+
+
+/* 防止任何外來段落 <p> 或 <br> 佔據待辦縮圖並排空間 */
+.todo-attachments-gallery > p,
+.todo-attachments-gallery > br {
+  display: none !important;
 }
