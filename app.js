@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.8.8'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.8.9'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -1695,7 +1695,7 @@ async function saveWorkspaceConfigToDrive() {
       todoStatuses: state.todoStatuses || DEFAULT_TODO_STATUSES,
       todoHandlers: (state.todoHandlers && state.todoHandlers.length > 0) ? state.todoHandlers : DEFAULT_TODO_HANDLERS,
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.8.8'
+      source: 'Google Drive Cloud Truth v2.8.9'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -1938,7 +1938,7 @@ async function fetchNotesList(silent = false) {
       });
     }
 
-    // 💡 雲端自動採納 (v2.8.8 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
+    // 💡 雲端自動採納 (v2.8.9 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
     let needUpdateCloudConfig = false;
     const delMachines = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('machine') : new Set();
     const delContents = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('content') : new Set();
@@ -4926,7 +4926,7 @@ async function compressImageForUpload(file, maxDimension = 1280, quality = 0.76)
   const t0 = performance.now();
   try {
     const origSize = file.size;
-    // 🍏 v2.8.8 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
+    // 🍏 v2.8.9 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
     if (await isHeicFileOrBlob(file, file.name)) {
       const convertedJpegBlob = await convertHeicBlobToJpegBlob(file, Math.max(0.84, quality));
       if (convertedJpegBlob) {
@@ -5593,7 +5593,6 @@ function buildMediaCollapseCardHtml({ fileId, fileName, isImage, isVideo, isAudi
         </div>
       </div>
     </details>
-    <p><br></p>
   `;
 }
 
@@ -5644,10 +5643,9 @@ async function uploadGenericFile(file) {
 
     insertHtmlAtCursor(optimisticCardHtml);
     try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
-    ensureTrailingEditableParagraphAndFocus();
   } else {
     // 影片、音訊或一般檔案：插入進度提示框
-    let loadingHtml = `<div id="${placeholderId}" data-pending-upload="true" class="p-3 my-2 border border-dashed border-blue-400 dark:border-blue-700 bg-blue-50/40 dark:bg-blue-950/30 rounded-xl text-xs text-blue-700 dark:text-blue-300 flex items-center justify-between gap-2 animate-pulse"><div class="flex items-center gap-2 min-w-0"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-500 shrink-0"></i> <span class="loading-status-text truncate font-semibold">正在處理並上傳：${escapeHtml(file.name)} (${origSizeDisplay})...</span></div></div><p><br></p>`;
+    let loadingHtml = `<div id="${placeholderId}" data-pending-upload="true" class="p-3 my-2 border border-dashed border-blue-400 dark:border-blue-700 bg-blue-50/40 dark:bg-blue-950/30 rounded-xl text-xs text-blue-700 dark:text-blue-300 flex items-center justify-between gap-2 animate-pulse"><div class="flex items-center gap-2 min-w-0"><i data-lucide="loader-2" class="w-4 h-4 animate-spin text-blue-500 shrink-0"></i> <span class="loading-status-text truncate font-semibold">正在處理並上傳：${escapeHtml(file.name)} (${origSizeDisplay})...</span></div></div>`;
     insertHtmlAtCursor(loadingHtml);
     initLucide();
   }
@@ -5862,7 +5860,6 @@ async function uploadGenericFile(file) {
               </button>
             </div>
           </div>
-          <p><br></p>
         `;
       }
 
@@ -7239,7 +7236,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.8.8', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.8.9', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -12761,7 +12758,7 @@ function closeTableQuickPeekDrawer() {
 }
 
 // ============================================================================
-// 📋 LVI_Note v2.8.8 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
+// 📋 LVI_Note v2.8.9 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
 // ============================================================================
 
 const TODO_STORAGE_KEY = 'lvi_todo_items_v283';
@@ -13588,7 +13585,7 @@ function evaluateFuzzyTodoMatch(todoItem, parsedQuery) {
 }
 
 // ============================================================================
-// 📋 表格資料庫檢視 (Table Database View - v2.8.8)
+// 📋 表格資料庫檢視 (Table Database View - v2.8.9)
 // ============================================================================
 
 function openTodoQuickPeekDrawer(todoId, fuzzyRes = null) {
@@ -16477,101 +16474,7 @@ function bindEvents() {
   const scrollContainer = document.getElementById('main-scroll-container');
   const canvasWrapper = document.getElementById('canvas-inner-wrapper');
 
-  [scrollContainer, canvasWrapper, DOM.editor].forEach(elem => {
-    if (!elem) return;
-    elem.addEventListener('click', (e) => {
-      // 1. 若正在反白選取文字，絕對不可清除選取或強制跳轉游標
-      const sel = window.getSelection();
-      if (sel && !sel.isCollapsed && sel.toString().length > 0) {
-        return;
-      }
-
-      // 2. 若點擊在功能按鈕、連結、摘要標題、輸入框或拖曳把手等互動元件上，不介入
-      if (e.target.closest('button, a, summary, input, select, textarea, .notion-popover, .drag-handle, .notion-todo-checkbox, .highlight-color-btn, iframe, video, audio')) {
-        return;
-      }
-
-      // 3. 確保所有卡片周邊具備可直接輸入的文字段落
-      ensureEditableSpacesAroundMediaBlocks(DOM.editor);
-
-      // 4. 若點擊已在可編輯的文字段落內部 (p, h1, h2, h3, li, td, th, etc.)，由原生游標處理
-      if (e.target.closest('p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, pre')) {
-        return;
-      }
-
-      // 5. 使用者點擊在任一非檔案、非文字的空白或邊距位置 (例如卡片上方、兩張卡片之間、或編輯器下方留白)
-      const clickY = e.clientY;
-      const children = Array.from(DOM.editor.children).filter(el => el.offsetParent !== null);
-      if (children.length === 0) {
-        ensureTrailingEditableParagraphAndFocus();
-        return;
-      }
-
-      let targetParagraph = null;
-      let insertBeforeEl = null;
-
-      for (let i = 0; i < children.length; i++) {
-        const child = children[i];
-        const rect = child.getBoundingClientRect();
-
-        if (clickY < rect.top) {
-          // 點擊在第 i 個元素上方
-          if (child.previousElementSibling && child.previousElementSibling.tagName === 'P') {
-            targetParagraph = child.previousElementSibling;
-          } else {
-            insertBeforeEl = child;
-          }
-          break;
-        } else if (clickY >= rect.top && clickY <= rect.bottom) {
-          // 點擊在該元素水平邊距或空白處
-          if (child.tagName === 'P') {
-            targetParagraph = child;
-          } else {
-            if (clickY < rect.top + rect.height / 2) {
-              if (child.previousElementSibling && child.previousElementSibling.tagName === 'P') {
-                targetParagraph = child.previousElementSibling;
-              } else {
-                insertBeforeEl = child;
-              }
-            } else {
-              if (child.nextElementSibling && child.nextElementSibling.tagName === 'P') {
-                targetParagraph = child.nextElementSibling;
-              } else {
-                insertBeforeEl = child.nextElementSibling;
-              }
-            }
-          }
-          break;
-        }
-      }
-
-      if (!targetParagraph) {
-        if (insertBeforeEl) {
-          const p = document.createElement('p');
-          p.innerHTML = '<br>';
-          DOM.editor.insertBefore(p, insertBeforeEl);
-          targetParagraph = p;
-        } else {
-          ensureTrailingEditableParagraphAndFocus();
-          return;
-        }
-      }
-
-      if (targetParagraph) {
-        DOM.editor.focus();
-        try {
-          const s = window.getSelection();
-          const r = document.createRange();
-          r.selectNodeContents(targetParagraph);
-          r.collapse(false);
-          s.removeAllRanges();
-          s.addRange(r);
-        } catch (err) {
-          console.warn('游標置入失敗:', err);
-        }
-      }
-    });
-  });
+  // Legacy auto-paragraph click listener replaced by v2.8.9 Double-Click Position Memory Engine
 
   // 📷 一鍵展開/收折所有照片與影片
   if (DOM.toggleAllMediaBtn) {
@@ -17052,7 +16955,7 @@ function bindEvents() {
   if (DOM.closeTagManagerBtn) DOM.closeTagManagerBtn.addEventListener('click', closeTagManagerModal);
   if (DOM.tmDoneBtn) DOM.tmDoneBtn.addEventListener('click', closeTagManagerModal);
 
-  // Duplicate DOM.tmAddBtn listener removed in v2.8.8
+  // Duplicate DOM.tmAddBtn listener removed in v2.8.9
 
   // 下拉式標籤面板
   if (DOM.addTagBtn) {
@@ -17264,7 +17167,7 @@ function bindEvents() {
     DOM.genericFileUploadInput.addEventListener('change', async (e) => {
       const files = Array.from(e.target.files);
       DOM.genericFileUploadInput.value = '';
-      await Promise.all(files.map(f => uploadGenericFile(f)));
+      for (const f of files) { await uploadGenericFile(f); }
     });
   }
 
@@ -19839,7 +19742,7 @@ function initInAppCameraListeners() {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.8.8 圖片四大升級引擎：
+// 🚀 LVI_Note v2.8.9 圖片四大升級引擎：
 // 1. HEIC/HEIF 完整解碼與標註支援 (heic2any + ImageBitmap + Drive 雲端轉檔)
 // 2. 圖片框上方專屬高對比文字註記欄 (.media-top-note-bar，淺/深色皆 >18:1 超高對比)
 // 3. 真實圖片旋轉 (90° 左/右旋轉 + PATCH/POST 重新存回 Google Drive 雲端硬碟)
@@ -20676,7 +20579,7 @@ if (document.readyState !== 'loading') { bootLviAppOnce(); }
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.8.8 全層級分類與標籤管理中心修復與穩定引擎
+// 🚀 LVI_Note v2.8.9 全層級分類與標籤管理中心修復與穩定引擎
 // 1. 永久刪除墓碑機制 (state.deletedCategoryItems)：確保刪除或更名後的預設/自訂選項絕不因雲端同步或重整而復活
 // 2. 六大分類統一就地編輯列 (.tm-unified-item-row)：支援點擊直接修改、Enter 鍵儲存、✓ 儲存鈕、🗑️ 即時刪除 (附一鍵復原)
 // 3. 消除 input blur/change 與按鈕 click 的競態衝突 (mousedown preventDefault 保護)
@@ -21082,7 +20985,7 @@ saveWorkspaceConfigToDrive = async function() {
       todoStatuses: state.todoStatuses || DEFAULT_TODO_STATUSES,
       todoHandlers: Array.isArray(state.todoHandlers) ? state.todoHandlers : DEFAULT_TODO_HANDLERS,
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.8.8'
+      source: 'Google Drive Cloud Truth v2.8.9'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -22511,3 +22414,500 @@ try {
   initWorkTags();
   initTags();
 } catch (e) {}
+
+
+
+// ============================================================================
+// 🚀 LVI_Note v2.8.9 筆記畫布雙擊位置記憶與游標感知檔案插入引擎
+// 1. 停止自動在區塊前後塞入兩行空白段落 (<p><br></p>)
+// 2. 雙擊無輸入游標處時：先記住該位置 (state.pendingDblClickTarget)，不直接加行；待使用者後續按下 Enter 時才在該位置新增 1 行 (<p><br></p>)
+// 3. 傳入檔案時：若有輸入游標則插入於游標位置；若無輸入游標則預設插入於筆記最底部 (絕不誤插在筆記最上方)
+// ============================================================================
+
+state.hasActiveEditorCursor = false;
+state.savedEditorCursorRange = null;
+state.uploadTargetHasCursor = false;
+state.uploadTargetRange = null;
+state.pendingDblClickTarget = null;
+
+// 覆寫 ensureEditableSpacesAroundMediaBlocks：不再自動於每個卡片前後與頭尾塞入多餘空白行
+ensureEditableSpacesAroundMediaBlocks = function(container = DOM.editor) {
+  if (!container || container !== DOM.editor) return;
+  try {
+    const children = Array.from(container.children);
+    if (children.length === 0 && !(container.textContent || '').trim()) {
+      const p = document.createElement('p');
+      p.innerHTML = '<br>';
+      container.appendChild(p);
+    }
+  } catch (e) {}
+};
+
+function getOrCreateDblClickIndicatorEl() {
+  let el = document.getElementById('lvi-pending-dblclick-indicator');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'lvi-pending-dblclick-indicator';
+    el.className = 'hidden';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function clearPendingDblClickTarget() {
+  state.pendingDblClickTarget = null;
+  const ind = document.getElementById('lvi-pending-dblclick-indicator');
+  if (ind) ind.classList.add('hidden');
+}
+
+function updatePendingDblClickIndicatorPosition() {
+  const target = state.pendingDblClickTarget;
+  const ind = getOrCreateDblClickIndicatorEl();
+  if (!target || !DOM.editor) {
+    ind.classList.add('hidden');
+    return;
+  }
+  const editorRect = DOM.editor.getBoundingClientRect();
+  if (editorRect.width <= 0) {
+    ind.classList.add('hidden');
+    return;
+  }
+
+  let topPx = editorRect.top + 8;
+  if (target.refEl && DOM.editor.contains(target.refEl)) {
+    const refRect = target.refEl.getBoundingClientRect();
+    if (target.mode === 'before') {
+      topPx = Math.max(editorRect.top, refRect.top - 4);
+    } else {
+      topPx = refRect.bottom + 4;
+    }
+  } else if (DOM.editor.lastElementChild) {
+    const lastRect = DOM.editor.lastElementChild.getBoundingClientRect();
+    topPx = lastRect.bottom + 4;
+  }
+
+  ind.style.left = `${Math.round(editorRect.left)}px`;
+  ind.style.top = `${Math.round(topPx)}px`;
+  ind.style.width = `${Math.round(Math.min(editorRect.width, 280))}px`;
+  ind.classList.remove('hidden');
+}
+
+function isEditableTextElementInEditor(el) {
+  if (!el || !el.closest || !DOM.editor) return false;
+  if (el === DOM.editor) return false;
+  if (el.closest('details.notion-media-collapse, .notion-file-attachment')) {
+    return Boolean(el.closest('.media-top-note-input'));
+  }
+  const textBlock = el.closest('p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, pre, .notion-todo-text, .notion-callout-body');
+  return Boolean(textBlock && DOM.editor.contains(textBlock));
+}
+
+function resolveEditorInsertPositionFromPoint(clientX, clientY) {
+  if (!DOM.editor) return { mode: 'end', refEl: null };
+  const children = Array.from(DOM.editor.children).filter(el => el.offsetParent !== null);
+  if (children.length === 0) {
+    return { mode: 'end', refEl: null };
+  }
+
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    const rect = child.getBoundingClientRect();
+    if (clientY < rect.top) {
+      return { mode: 'before', refEl: child };
+    }
+    if (clientY >= rect.top && clientY <= rect.bottom) {
+      if (clientY < rect.top + rect.height / 2) {
+        return { mode: 'before', refEl: child };
+      } else {
+        return { mode: 'after', refEl: child };
+      }
+    }
+  }
+
+  return { mode: 'after', refEl: children[children.length - 1] };
+}
+
+function updateActiveEditorCursorFromSelection() {
+  if (!DOM.editor) return;
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) return;
+  const r = sel.getRangeAt(0);
+  if (!DOM.editor.contains(r.commonAncestorContainer)) return;
+
+  // 若選取點直接落在 DOM.editor 容器本身且不在文字段落內，不視為有效文字輸入游標
+  let anchorEl = r.startContainer.nodeType === Node.TEXT_NODE ? r.startContainer.parentElement : r.startContainer;
+  if (!anchorEl || anchorEl === DOM.editor) return;
+  if (anchorEl.closest && anchorEl.closest('details.notion-media-collapse, .notion-file-attachment')) {
+    if (!anchorEl.closest('.media-top-note-input')) return;
+  }
+
+  state.hasActiveEditorCursor = true;
+  state.savedEditorCursorRange = r.cloneRange();
+  clearPendingDblClickTarget();
+}
+
+function captureEditorCursorSnapshotForUpload() {
+  if (state.hasActiveEditorCursor && state.savedEditorCursorRange && DOM.editor && DOM.editor.contains(state.savedEditorCursorRange.commonAncestorContainer)) {
+    state.uploadTargetHasCursor = true;
+    state.uploadTargetRange = state.savedEditorCursorRange.cloneRange();
+  } else {
+    state.uploadTargetHasCursor = false;
+    state.uploadTargetRange = null;
+  }
+}
+
+// 當切換筆記或新建筆記時，重設游標狀態（預設無輸入游標，因此未點選文字前上傳檔案會自動插在最下方）
+const _origSelectNoteV288 = selectNote;
+selectNote = async function(noteId) {
+  state.hasActiveEditorCursor = false;
+  state.savedEditorCursorRange = null;
+  state.uploadTargetHasCursor = false;
+  state.uploadTargetRange = null;
+  clearPendingDblClickTarget();
+  return await _origSelectNoteV288(noteId);
+};
+
+// 覆寫 insertHtmlAtCursor：
+// 1. 絕不在檢查游標前呼叫 DOM.editor.focus()（避免無游標時瀏覽器自動把游標塞到筆記最頂端 offset 0）
+// 2. 若有有效輸入游標，精準插入於游標位置
+// 3. 若無輸入游標，一律附加於筆記最底部 (DOM.editor.appendChild)
+insertHtmlAtCursor = function(html) {
+  if (!DOM.editor) return;
+  clearPendingDblClickTarget();
+
+  let range = null;
+  // 優先檢查上傳前鎖定的游標快照，或當前有效游標
+  if (state.uploadTargetHasCursor && state.uploadTargetRange && DOM.editor.contains(state.uploadTargetRange.commonAncestorContainer)) {
+    range = state.uploadTargetRange.cloneRange();
+  } else if (state.hasActiveEditorCursor) {
+    const sel = window.getSelection();
+    if (sel && sel.rangeCount > 0) {
+      const liveR = sel.getRangeAt(0);
+      let anchorEl = liveR.startContainer.nodeType === Node.TEXT_NODE ? liveR.startContainer.parentElement : liveR.startContainer;
+      if (DOM.editor.contains(liveR.commonAncestorContainer) && anchorEl && anchorEl !== DOM.editor) {
+        range = liveR.cloneRange();
+      }
+    }
+    if (!range && state.savedEditorCursorRange && DOM.editor.contains(state.savedEditorCursorRange.commonAncestorContainer)) {
+      range = state.savedEditorCursorRange.cloneRange();
+    }
+  }
+
+  const isMajorBlockHtml = /^\s*<(div|details|table|h1|h2|h3|blockquote|pre|hr)\b/i.test(html || '');
+  const isTroubleshootCard = (html || '').includes('lvi-troubleshoot-card');
+
+  const el = document.createElement('div');
+  el.innerHTML = (html || '').trim();
+  const frag = document.createDocumentFragment();
+  let node, firstInserted = null, lastNode = null;
+  while ((node = el.firstChild)) {
+    if (!firstInserted && node.nodeType === Node.ELEMENT_NODE) firstInserted = node;
+    lastNode = frag.appendChild(node);
+  }
+  if (!lastNode) return;
+
+  if (range) {
+    let containerEl = range.commonAncestorContainer;
+    if (containerEl.nodeType === Node.TEXT_NODE) containerEl = containerEl.parentElement;
+
+    const parentP = containerEl ? containerEl.closest('p') : null;
+    const parentCallout = containerEl ? containerEl.closest('.lvi-troubleshoot-card, details.notion-media-collapse, .notion-file-attachment') : null;
+    const topBlock = containerEl ? containerEl.closest('#editor > *') : null;
+
+    if (parentCallout && parentCallout.parentNode === DOM.editor) {
+      parentCallout.after(frag);
+    } else if (isMajorBlockHtml && parentP && parentP.parentNode === DOM.editor) {
+      const pText = (parentP.textContent || '').replace(/\u200B/g, '').trim();
+      if (!pText && !parentP.querySelector('img, iframe, video, details')) {
+        // 游標位於空白行：直接於該空白行位置插入
+        parentP.replaceWith(frag);
+      } else if (typeof isCaretAtBlockBoundary === 'function' && isCaretAtBlockBoundary(range, parentP, true)) {
+        // 游標位於段落最開頭：插入於該段落上方
+        parentP.before(frag);
+      } else if (typeof isCaretAtBlockBoundary === 'function' && isCaretAtBlockBoundary(range, parentP, false)) {
+        // 游標位於段落最末尾：插入於該段落下方
+        parentP.after(frag);
+      } else {
+        // 游標位於段落文字中間：將段落自游標處切開並於中間插入
+        try {
+          const tailRange = range.cloneRange();
+          tailRange.setEndAfter(parentP.lastChild || parentP);
+          const tailFrag = tailRange.extractContents();
+          const tailText = (tailFrag.textContent || '').replace(/\u200B/g, '').trim();
+          parentP.after(frag);
+          if (tailText || tailFrag.querySelector?.('img, br')) {
+            const tailP = document.createElement('p');
+            tailP.appendChild(tailFrag);
+            if (lastNode && lastNode.parentNode === DOM.editor) {
+              lastNode.after(tailP);
+            } else {
+              DOM.editor.appendChild(tailP);
+            }
+          }
+        } catch (splitErr) {
+          parentP.after(frag);
+        }
+      }
+    } else if (isMajorBlockHtml && topBlock && topBlock.parentNode === DOM.editor) {
+      if (typeof isCaretAtBlockBoundary === 'function' && isCaretAtBlockBoundary(range, topBlock, true)) {
+        topBlock.before(frag);
+      } else {
+        topBlock.after(frag);
+      }
+    } else {
+      range.deleteContents();
+      range.insertNode(frag);
+    }
+
+    if (isTroubleshootCard && firstInserted) {
+      const firstSymptomP = firstInserted.querySelector('.troubleshoot-stage-1 p');
+      if (firstSymptomP) {
+        placeCaretAtEnd(firstSymptomP);
+        updateActiveEditorCursorFromSelection();
+        return;
+      }
+    }
+
+    if (lastNode && DOM.editor.contains(lastNode)) {
+      try {
+        const nextRange = document.createRange();
+        if (lastNode.nodeType === Node.ELEMENT_NODE && lastNode.tagName === 'P') {
+          nextRange.selectNodeContents(lastNode);
+          nextRange.collapse(true);
+        } else {
+          nextRange.setStartAfter(lastNode);
+          nextRange.collapse(true);
+        }
+        state.savedEditorCursorRange = nextRange.cloneRange();
+        if (state.uploadTargetHasCursor) {
+          state.uploadTargetRange = nextRange.cloneRange();
+        }
+        const sel = window.getSelection();
+        if (sel) {
+          sel.removeAllRanges();
+          sel.addRange(nextRange);
+        }
+      } catch (e) {}
+    }
+  } else {
+    // 無輸入游標：預設插入在筆記最下面！
+    if (
+      DOM.editor.children.length === 1 &&
+      DOM.editor.firstElementChild.tagName === 'P' &&
+      !(DOM.editor.firstElementChild.textContent || '').replace(/\u200B/g, '').trim() &&
+      !DOM.editor.firstElementChild.querySelector('img, iframe, video, details')
+    ) {
+      DOM.editor.firstElementChild.replaceWith(frag);
+    } else {
+      DOM.editor.appendChild(frag);
+    }
+  }
+};
+
+// 支援離線/未登入狀態下亦能直接將檔案/圖片依游標規則插入筆記畫布，方便本地編輯與測試
+const _origUploadGenericFileV288 = uploadGenericFile;
+uploadGenericFile = async function(file) {
+  if (!file) return;
+  if (!state.accessToken) {
+    const origSizeDisplay = formatFileSizeDisplay(file.size || 0);
+    const isImage = (file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|webp|heic|heif|bmp|gif|svg|ico)$/i.test(file.name);
+    if (isImage) {
+      const uploadTarget = await compressImageForUpload(file);
+      const localUrl = (await blobToDataUrl(uploadTarget)) || URL.createObjectURL(uploadTarget);
+      const cardHtml = buildMediaCollapseCardHtml({
+        fileId: '',
+        fileName: uploadTarget.name || file.name,
+        isImage: true,
+        isVideo: false,
+        isAudio: false,
+        directSrc: localUrl,
+        previewUrl: localUrl,
+        previewEmbedUrl: localUrl,
+        downloadUrl: localUrl
+      });
+      insertHtmlAtCursor(cardHtml);
+    } else {
+      const safeName = escapeHtml(file.name || '檔案');
+      const cardHtml = `
+        <div class="notion-file-attachment notion-draggable-block my-2.5 p-3 rounded-xl border border-gray-200 dark:border-notion-borderDark bg-gray-50/70 dark:bg-notion-darker/70 flex items-center justify-between gap-3 group transition" contenteditable="false" draggable="true" data-file-id="" data-file-name="${safeName}" data-file-size="${origSizeDisplay}">
+          <div class="flex items-center gap-2.5 min-w-0 flex-1">
+            <span class="drag-handle cursor-grab text-gray-400 shrink-0">⋮⋮</span>
+            <div class="min-w-0 flex-1">
+              <div class="text-xs sm:text-sm font-semibold text-gray-800 dark:text-gray-100 truncate">${safeName}</div>
+              <div class="text-[11px] text-gray-400 mt-0.5">${origSizeDisplay}</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <button type="button" class="file-attachment-delete-btn px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-800 text-xs font-bold cursor-pointer">刪除</button>
+          </div>
+        </div>
+      `;
+      insertHtmlAtCursor(cardHtml);
+    }
+    try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+    saveLocalDraftImmediately();
+    triggerAutoSaveDebounce();
+    state.uploadTargetHasCursor = false;
+    state.uploadTargetRange = null;
+    showToast(`✅ 已插入「${file.name}」`);
+    return;
+  }
+
+  try {
+    return await _origUploadGenericFileV288(file);
+  } finally {
+    state.uploadTargetHasCursor = false;
+    state.uploadTargetRange = null;
+  }
+};
+
+function initV289EditorCursorAndDblClickEngine() {
+  if (!DOM.editor || DOM.editor._v289EngineBound) return;
+  DOM.editor._v289EngineBound = true;
+
+  const scrollContainer = document.getElementById('main-scroll-container');
+  const canvasWrapper = document.getElementById('canvas-inner-wrapper');
+
+  // 1. 綁定上傳按鈕按下瞬間 (mousedown / touchstart) 鎖定游標快照，避免點擊按鈕或開啟檔案視窗導致游標遺失
+  const uploadTriggerBtns = [
+    document.getElementById('insert-file-btn'),
+    document.getElementById('mb-tool-file'),
+    document.getElementById('top-camera-btn'),
+    document.getElementById('insert-media-btn'),
+    document.getElementById('insert-camera-btn')
+  ].filter(Boolean);
+
+  uploadTriggerBtns.forEach(btn => {
+    btn.addEventListener('mousedown', () => {
+      captureEditorCursorSnapshotForUpload();
+    }, true);
+    btn.addEventListener('touchstart', () => {
+      captureEditorCursorSnapshotForUpload();
+    }, { capture: true, passive: true });
+  });
+
+  // 2. 監聽編輯器內正常的文字點擊、選取變更與按鍵移動，即時紀錄有效輸入游標
+  DOM.editor.addEventListener('mouseup', (e) => {
+    if (isEditableTextElementInEditor(e.target)) {
+      updateActiveEditorCursorFromSelection();
+      setTimeout(updateActiveEditorCursorFromSelection, 0);
+    }
+  });
+  document.addEventListener('selectionchange', () => {
+    if (!DOM.editor || state.pendingDblClickTarget) return;
+    if (document.activeElement === DOM.editor || DOM.editor.contains(document.activeElement)) {
+      updateActiveEditorCursorFromSelection();
+    }
+  });
+  DOM.editor.addEventListener('keyup', (e) => {
+    if (e.key === 'Escape') {
+      clearPendingDblClickTarget();
+      return;
+    }
+    updateActiveEditorCursorFromSelection();
+  });
+
+  // 3. 單擊無輸入游標的空白區或卡片外框時：不自動加行，並清除舊游標避免瀏覽器預設跳至第一行
+  const handleContainerMouseDown = (e) => {
+    if (e.target.closest('button, a, summary, input, select, textarea, .notion-popover, .drag-handle, .notion-todo-checkbox, .highlight-color-btn, .media-top-note-input')) {
+      return;
+    }
+    if (!isEditableTextElementInEditor(e.target)) {
+      // 點擊在空白處、卡片外圍或無文字游標區：阻止 contenteditable 自動將游標塞回頂端或鄰近段落
+      if (e.target === DOM.editor || e.target === canvasWrapper || e.target === scrollContainer || e.target.closest('details.notion-media-collapse, .notion-file-attachment')) {
+        e.preventDefault();
+        try { window.getSelection().removeAllRanges(); } catch (err) {}
+        if (document.activeElement === DOM.editor) {
+          DOM.editor.blur();
+        }
+        state.hasActiveEditorCursor = false;
+        state.savedEditorCursorRange = null;
+      }
+    } else {
+      clearPendingDblClickTarget();
+    }
+  };
+
+  if (scrollContainer) scrollContainer.addEventListener('mousedown', handleContainerMouseDown);
+
+  // 4. 雙擊 (dblclick) 無輸入游標的地方時：記住該位置 (顯示細線提示)，絕不直接加兩行；待後續按下 Enter 才加一行！
+  const handleContainerDblClick = (e) => {
+    if (e.target.closest('button, a, summary, input, select, textarea, .notion-popover, .drag-handle, .notion-todo-checkbox, .highlight-color-btn, .media-top-note-input')) {
+      return;
+    }
+    // 若雙擊在已有文字且已有游標的文字段落內，維持原生選詞行為
+    if (isEditableTextElementInEditor(e.target) && state.hasActiveEditorCursor) {
+      const block = e.target.closest('p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, pre');
+      if (block && (block.textContent || '').trim().length > 0) {
+        return;
+      }
+    }
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    try { window.getSelection().removeAllRanges(); } catch (err) {}
+    state.hasActiveEditorCursor = false;
+    state.savedEditorCursorRange = null;
+
+    state.pendingDblClickTarget = resolveEditorInsertPositionFromPoint(e.clientX, e.clientY);
+    updatePendingDblClickIndicatorPosition();
+  };
+
+  if (scrollContainer) {
+    scrollContainer.addEventListener('dblclick', handleContainerDblClick);
+    scrollContainer.addEventListener('scroll', () => {
+      if (state.pendingDblClickTarget) updatePendingDblClickIndicatorPosition();
+    }, { passive: true });
+  }
+
+  // 5. 當已記住雙擊位置時，使用者後續按下 Enter 才在該位置新增 1 行 (<p><br></p>) 並置入游標
+  window.addEventListener('keydown', (e) => {
+    if (!state.pendingDblClickTarget || !DOM.editor) return;
+    if (state.currentView !== 'editor') {
+      clearPendingDblClickTarget();
+      return;
+    }
+    if (e.key === 'Escape') {
+      clearPendingDblClickTarget();
+      return;
+    }
+    if (e.key === 'Enter' && !e.isComposing) {
+      const activeTag = document.activeElement ? document.activeElement.tagName : '';
+      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const target = state.pendingDblClickTarget;
+      clearPendingDblClickTarget();
+
+      const newP = document.createElement('p');
+      newP.innerHTML = '<br>';
+
+      commitEditorCanvasAction('insert_line', '➕ 於指定位置新增一行', '', () => {
+        if (target.refEl && DOM.editor.contains(target.refEl)) {
+          if (target.mode === 'before') {
+            target.refEl.before(newP);
+          } else {
+            target.refEl.after(newP);
+          }
+        } else {
+          DOM.editor.appendChild(newP);
+        }
+      });
+
+      DOM.editor.focus();
+      placeCaretAtStart(newP);
+      updateActiveEditorCursorFromSelection();
+      saveLocalDraftImmediately();
+      triggerAutoSaveDebounce();
+    }
+  }, true);
+}
+
+try {
+  initV289EditorCursorAndDblClickEngine();
+} catch (e) {
+  console.warn('initV289EditorCursorAndDblClickEngine error:', e);
+}
