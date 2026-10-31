@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.9.3'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.9.6'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -1706,7 +1706,7 @@ async function saveWorkspaceConfigToDrive() {
       todoStatuses: state.todoStatuses || DEFAULT_TODO_STATUSES,
       todoHandlers: (state.todoHandlers && state.todoHandlers.length > 0) ? state.todoHandlers : DEFAULT_TODO_HANDLERS,
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.9.3'
+      source: 'Google Drive Cloud Truth v2.9.5'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -1949,7 +1949,7 @@ async function fetchNotesList(silent = false) {
       });
     }
 
-    // 💡 雲端自動採納 (v2.9.3 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
+    // 💡 雲端自動採納 (v2.9.5 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
     let needUpdateCloudConfig = false;
     const delMachines = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('machine') : new Set();
     const delContents = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('content') : new Set();
@@ -4937,7 +4937,7 @@ async function compressImageForUpload(file, maxDimension = 1280, quality = 0.76)
   const t0 = performance.now();
   try {
     const origSize = file.size;
-    // 🍏 v2.9.3 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
+    // 🍏 v2.9.5 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
     if (await isHeicFileOrBlob(file, file.name)) {
       const convertedJpegBlob = await convertHeicBlobToJpegBlob(file, Math.max(0.84, quality));
       if (convertedJpegBlob) {
@@ -7247,7 +7247,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.3', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.6', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -7587,7 +7587,18 @@ function captureCurrentNoteAtomicSnapshot() {
   // 1. 立即同步寫入本機 localStorage 草稿
   saveLocalDraftImmediately();
 
-  // 2. 立即同步更新 state.currentNote 與 state.notes 陣列中的快取與全文檢索索引
+  // 2. 紀錄此筆記上次與雲端同步的基準時間戳記與內容 Hash (供模組 2 衝突檢測比對)
+  const existingNoteForBase = state.notes.find(n => (state.currentNote.id && n.id === state.currentNote.id) || (state.currentNote._tempId && n._tempId === state.currentNote._tempId) || n === state.currentNote);
+  const baseCloudModifiedTime = (existingNoteForBase && existingNoteForBase._baseCloudModifiedTime)
+    || state.currentNote._baseCloudModifiedTime
+    || (existingNoteForBase && existingNoteForBase.modifiedTime)
+    || state.currentNote.modifiedTime
+    || null;
+  const baseContentHash = (existingNoteForBase && existingNoteForBase._baseContentHash)
+    || state.currentNote._baseContentHash
+    || null;
+
+  // 立即同步更新 state.currentNote 與 state.notes 陣列中的快取與全文檢索索引
   state.currentNote.name = fileName;
   state.currentNote.meta = JSON.parse(JSON.stringify(meta));
   state.currentNote.modifiedTime = nowIso;
@@ -7631,7 +7642,9 @@ function captureCurrentNoteAtomicSnapshot() {
     markdownBody,
     fullContent,
     updatedAt: nowMs,
-    updatedIso: nowIso
+    updatedIso: nowIso,
+    baseCloudModifiedTime,
+    baseContentHash
   };
 }
 
@@ -7730,6 +7743,15 @@ async function processCloudSaveQueue() {
         let parentParam = '';
 
         if (effectiveNoteId && !isLocalOrTempNoteId(effectiveNoteId)) {
+          // 🛡️ 模組 2：上傳前執行雲端版本時間戳記 (lastModified) 與內容 Hash 衝突檢測
+          if (!snap.forceOverwriteCloud && typeof checkAndInterceptCloudSyncConflict === 'function') {
+            const conflictIntercepted = await checkAndInterceptCloudSyncConflict(effectiveNoteId, snap, matchedNoteInState);
+            if (conflictIntercepted) {
+              // 偵測到雲端有更新版本且內容不同：已彈出 Diff 衝突解決視窗，暫停自動覆蓋！
+              updateSyncStatus('error', '⚠️ 偵測到同步衝突 (請於視窗選擇解決方案)');
+              continue;
+            }
+          }
           if (effectiveParentId && effectiveParentId !== targetFolderId) {
             parentParam = `&addParents=${targetFolderId}&removeParents=${effectiveParentId}`;
           } else if (!effectiveParentId && targetFolderId) {
@@ -7794,6 +7816,8 @@ async function processCloudSaveQueue() {
 
         const savedFile = await res.json();
         const finalCloudId = savedFile.id || effectiveNoteId;
+        const confirmedCloudModTime = (savedFile && savedFile.modifiedTime) ? savedFile.modifiedTime : snap.updatedIso;
+        const confirmedContentHash = (typeof computeNoteContentHash === 'function') ? computeNoteContentHash(snap.markdownBody) : '';
 
         // 更新對應筆記的雲端 ID 與資料夾，但絕不拿舊快照去覆蓋使用者在傳輸期間又新打的字！
         const targetIdx = state.notes.findIndex(n => (finalCloudId && n.id === finalCloudId) || (snap.tempId && n._tempId === snap.tempId) || n === snap.noteRef);
@@ -7805,7 +7829,9 @@ async function processCloudSaveQueue() {
           if (!hasNewerLocalEdit) {
             existingNote.name = snap.fileName;
             existingNote.meta = snap.meta;
-            existingNote.modifiedTime = snap.updatedIso;
+            existingNote.modifiedTime = confirmedCloudModTime;
+            existingNote._baseCloudModifiedTime = confirmedCloudModTime;
+            existingNote._baseContentHash = confirmedContentHash;
             existingNote._cachedBody = snap.markdownBody;
             existingNote._cachedHtml = snap.html;
             existingNote._cachedMeta = snap.meta;
@@ -8839,11 +8865,29 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
     purgedLegacyControls = true;
   });
   container.querySelectorAll('details.notion-media-collapse').forEach(d => {
-    if (d.hasAttribute('data-wrap-mode') || d.hasAttribute('data-custom-width') || (d.style && d.style.width)) {
+    if (d.hasAttribute('data-wrap-mode') || d.hasAttribute('data-custom-width') || (d.style && (d.style.width || d.style.height || d.style.maxHeight || d.style.float || d.style.position))) {
       d.removeAttribute('data-wrap-mode');
       d.removeAttribute('data-custom-width');
-      if (d.style) d.style.removeProperty('width');
+      if (d.style) {
+        d.style.removeProperty('width');
+        d.style.removeProperty('height');
+        d.style.removeProperty('max-height');
+        d.style.removeProperty('float');
+        d.style.removeProperty('position');
+        d.style.removeProperty('top');
+        d.style.removeProperty('left');
+      }
       purgedLegacyControls = true;
+    }
+    if (d.dataset.isAnimating !== 'true') {
+      const cBox = d.querySelector('.media-collapse-content') || d.querySelector('.p-3');
+      if (cBox && cBox.style && (cBox.style.maxHeight || cBox.style.height || cBox.style.overflow || cBox.style.transform)) {
+        cBox.style.removeProperty('max-height');
+        cBox.style.removeProperty('height');
+        cBox.style.removeProperty('overflow');
+        cBox.style.removeProperty('transform');
+        cBox.style.removeProperty('opacity');
+      }
     }
     const img = d.querySelector('img');
     if (img && img.getAttribute('loading') === 'lazy') {
@@ -12769,7 +12813,7 @@ function closeTableQuickPeekDrawer() {
 }
 
 // ============================================================================
-// 📋 LVI_Note v2.9.3 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
+// 📋 LVI_Note v2.9.5 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
 // ============================================================================
 
 const TODO_STORAGE_KEY = 'lvi_todo_items_v283';
@@ -13596,7 +13640,7 @@ function evaluateFuzzyTodoMatch(todoItem, parsedQuery) {
 }
 
 // ============================================================================
-// 📋 表格資料庫檢視 (Table Database View - v2.9.3)
+// 📋 表格資料庫檢視 (Table Database View - v2.9.5)
 // ============================================================================
 
 function openTodoQuickPeekDrawer(todoId, fuzzyRes = null) {
@@ -16485,7 +16529,7 @@ function bindEvents() {
   const scrollContainer = document.getElementById('main-scroll-container');
   const canvasWrapper = document.getElementById('canvas-inner-wrapper');
 
-  // Legacy auto-paragraph click listener replaced by v2.9.3 Double-Click Position Memory Engine
+  // Legacy auto-paragraph click listener replaced by v2.9.5 Double-Click Position Memory Engine
 
   // 📷 一鍵展開/收折所有照片與影片
   if (DOM.toggleAllMediaBtn) {
@@ -16966,7 +17010,7 @@ function bindEvents() {
   if (DOM.closeTagManagerBtn) DOM.closeTagManagerBtn.addEventListener('click', closeTagManagerModal);
   if (DOM.tmDoneBtn) DOM.tmDoneBtn.addEventListener('click', closeTagManagerModal);
 
-  // Duplicate DOM.tmAddBtn listener removed in v2.9.3
+  // Duplicate DOM.tmAddBtn listener removed in v2.9.5
 
   // 下拉式標籤面板
   if (DOM.addTagBtn) {
@@ -19753,7 +19797,7 @@ function initInAppCameraListeners() {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.3 圖片四大升級引擎：
+// 🚀 LVI_Note v2.9.5 圖片四大升級引擎：
 // 1. HEIC/HEIF 完整解碼與標註支援 (heic2any + ImageBitmap + Drive 雲端轉檔)
 // 2. 圖片框上方專屬高對比文字註記欄 (.media-top-note-bar，淺/深色皆 >18:1 超高對比)
 // 3. 真實圖片旋轉 (90° 左/右旋轉 + PATCH/POST 重新存回 Google Drive 雲端硬碟)
@@ -20590,7 +20634,7 @@ if (document.readyState !== 'loading') { bootLviAppOnce(); }
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.3 全層級分類與標籤管理中心修復與穩定引擎
+// 🚀 LVI_Note v2.9.5 全層級分類與標籤管理中心修復與穩定引擎
 // 1. 永久刪除墓碑機制 (state.deletedCategoryItems)：確保刪除或更名後的預設/自訂選項絕不因雲端同步或重整而復活
 // 2. 六大分類統一就地編輯列 (.tm-unified-item-row)：支援點擊直接修改、Enter 鍵儲存、✓ 儲存鈕、🗑️ 即時刪除 (附一鍵復原)
 // 3. 消除 input blur/change 與按鈕 click 的競態衝突 (mousedown preventDefault 保護)
@@ -21017,7 +21061,7 @@ saveWorkspaceConfigToDrive = async function() {
       caseItems: Array.isArray(state.caseItems) ? state.caseItems : [],
       deletedCaseIds: Array.isArray(state.deletedCaseIds) ? state.deletedCaseIds : [],
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.9.3'
+      source: 'Google Drive Cloud Truth v2.9.5'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -22450,7 +22494,7 @@ try {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.3 筆記畫布雙擊位置記憶與游標感知檔案插入引擎
+// 🚀 LVI_Note v2.9.5 筆記畫布雙擊位置記憶與游標感知檔案插入引擎
 // 1. 停止自動在區塊前後塞入兩行空白段落 (<p><br></p>)
 // 2. 雙擊無輸入游標處時：先記住該位置 (state.pendingDblClickTarget)，不直接加行；待使用者後續按下 Enter 時才在該位置新增 1 行 (<p><br></p>)
 // 3. 傳入檔案時：若有輸入游標則插入於游標位置；若無輸入游標則預設插入於筆記最底部 (絕不誤插在筆記最上方)
@@ -22841,7 +22885,7 @@ function initV289EditorCursorAndDblClickEngine() {
 
   // 3. 單擊無輸入游標的空白區或卡片外框時：不自動加行，並清除舊游標避免瀏覽器預設跳至第一行
   const handleContainerMouseDown = (e) => {
-    if (e.target.closest('button, a, summary, input, select, textarea, .notion-popover, .drag-handle, .notion-todo-checkbox, .highlight-color-btn, .media-top-note-input')) {
+    if (e.target.closest('button, a, summary, input, select, textarea, .notion-popover, .drag-handle, .notion-todo-checkbox, .highlight-color-btn, .media-top-note-input, #note-backlinks-panel, #wikilink-autocomplete-menu, #page-header, #page-cover, .lvi-backlink-card, .lvi-wikilink-menu-item, .lvi-wikilink, .lvi-backlinks-copy-btn')) {
       return;
     }
     if (!isEditableTextElementInEditor(e.target)) {
@@ -22864,7 +22908,7 @@ function initV289EditorCursorAndDblClickEngine() {
 
   // 4. 雙擊 (dblclick) 無輸入游標的地方時：記住該位置 (顯示細線提示)，絕不直接加兩行；待後續按下 Enter 才加一行！
   const handleContainerDblClick = (e) => {
-    if (e.target.closest('button, a, summary, input, select, textarea, .notion-popover, .drag-handle, .notion-todo-checkbox, .highlight-color-btn, .media-top-note-input')) {
+    if (e.target.closest('button, a, summary, input, select, textarea, .notion-popover, .drag-handle, .notion-todo-checkbox, .highlight-color-btn, .media-top-note-input, #note-backlinks-panel, #wikilink-autocomplete-menu, #page-header, #page-cover, .lvi-backlink-card, .lvi-wikilink-menu-item, .lvi-wikilink, .lvi-backlinks-copy-btn')) {
       return;
     }
     // 若雙擊在已有文字且已有游標的文字段落內，維持原生選詞行為
@@ -22947,13 +22991,13 @@ try {
 
 
 // ============================================================================
-// 🛡️ LVI_Note v2.9.3 「案件追蹤」(After-Sales Case Tracking & Service Dossier) 核心模組
+// 🛡️ LVI_Note v2.9.5 「案件追蹤」(After-Sales Case Tracking & Service Dossier) 核心模組
 // 1. 與「待辦事項」同等級並列之獨立主功能 (側邊欄 + 頂部多重視圖導覽列)
 // 2. 支援共用主系統之「機型」、「客戶/廠商」、「標籤」、「處理人員」選單，並新增獨立「案號 (caseNumbers)」選單
 // 3. 內部配備比照表格資料庫之獨立搜尋與多維篩選系統 (支援同義詞智慧模糊檢索、關鍵字高亮摘要、5 大維度下拉過濾、清單/表格雙模式切換)
 // 4. 專為售後處理追蹤打造的 6 段式個案履歷介面 (含機台序號/保固、客訴與根因分析、售後對策與更換零件、多階段時間軸追蹤紀錄、現場照片/檔案縮圖、關聯筆記與報告匯出)
 // ============================================================================
-// 🛡️ LVI_Note v2.9.3 「案件追蹤」(After-Sales Case Tracking & History System) 核心模組
+// 🛡️ LVI_Note v2.9.5 「案件追蹤」(After-Sales Case Tracking & History System) 核心模組
 // 1. 移除「異常原因 / 根因分析」多餘文字框，簡化為「🚨 客訴 / 異常現象描述」與「🛠️ 售後處理對策與零件更換紀錄」兩大專區
 // 2. 兩大專區皆配備「💾 存入歷史」按鈕與「防忘記儲存自動歸檔機制」：
 //    - 當按下「💾 存入歷史」按鈕，或「有輸入文字或檔案後忘記儲存就關閉網站 / 離開頁面 / 重新整理」時，
@@ -26094,14 +26138,14 @@ try {
   initCaseViewTopControlsOnce();
   updateCaseSummaryStats();
 } catch (e) {
-  console.warn('init Case Tracking v2.9.3 error:', e);
+  console.warn('init Case Tracking v2.9.5 error:', e);
 }
 
 
 
 
 // ============================================================================
-// 🔗 LVI_Note v2.9.3 模組 1：雙向連結（Backlinks）與知識關聯索引引擎
+// 🔗 LVI_Note v2.9.5 模組 1：雙向連結（Backlinks）與知識關聯索引引擎
 // 1. 支援 [[筆記標題]]、[[#筆記ID]] 與 [[目標|顯示名稱]] 語法
 // 2. 記憶體反向索引映射表 state.backlinksIndexMap (Map<targetNoteId, Array<BacklinkRecord>>)
 // 3. 渲染單篇筆記或於編輯器輸入 `]]` 時，自動將 `[[...]]` 轉換為可點擊跳轉的內部連結 (.lvi-wikilink)
@@ -26319,6 +26363,7 @@ function extractOutboundWikiLinksFromNote(note) {
   // 建立臨時 DOM 以精準解析 <a class="lvi-wikilink">、<a class="notion-page-link"> 以及純文字 [[...]]
   const temp = document.createElement('div');
   temp.innerHTML = rawHtmlOrBody;
+  temp.querySelectorAll('details.notion-media-collapse summary, .media-top-note-label, .media-caption-bar, .notion-table-toolbar, .media-card-delete-btn, .media-card-annotate-btn, .media-card-zoom-btn, .media-card-rotate-left-btn, .media-card-rotate-right-btn, script, style').forEach(el => el.remove());
 
   // (A) 解析已渲染的 .lvi-wikilink 與 .notion-page-link
   temp.querySelectorAll('a.lvi-wikilink, a.notion-page-link[data-note-id]').forEach(a => {
@@ -26523,14 +26568,29 @@ async function handleWikiLinkClickNavigation(anchorEl, evt) {
   // 若目標筆記尚未建立（例如使用者輸入 [[新機台調機指南]]），自動為其建立該標題的新筆記並跳轉！
   const newTitle = (resolved && !resolved.isIdRef && resolved.idOrTitle) ? resolved.idOrTitle : '';
   if (newTitle) {
-    const newNote = await createQuickNote();
+    const newNote = (await createQuickNote()) || state.currentNote;
     if (newNote) {
       newNote.name = newTitle + '.md';
       const initHtml = `<p><br></p>`;
       newNote._cachedHtml = initHtml;
       newNote._cachedBody = initHtml;
+      const inList = (state.notes || []).find(n => n && (n.id === newNote.id || n._tempId === newNote.id));
+      if (inList) {
+        inList.name = newTitle + '.md';
+        inList._cachedHtml = initHtml;
+        inList._cachedBody = initHtml;
+      }
+      if (state.currentNote) {
+        state.currentNote.name = newTitle + '.md';
+      }
+      if (DOM.noteTitle) DOM.noteTitle.value = newTitle;
+      if (DOM.headerTitle) DOM.headerTitle.textContent = newTitle;
+      if (DOM.editor) DOM.editor.innerHTML = initHtml;
+      saveLocalDraftImmediately();
       rebuildBacklinksIndexMap();
-      await selectNote(newNote.id);
+      renderNotesList();
+      renderBreadcrumbs();
+      renderCurrentNoteBacklinks();
       switchView('editor');
       showToast(`✨ 已自動建立並跳轉至新關聯筆記「${newTitle}」`);
     }
@@ -26794,4 +26854,944 @@ try {
   initModule1BacklinksAndWikiLinks();
 } catch (e) {
   console.warn('initModule1BacklinksAndWikiLinks error:', e);
+}
+
+
+
+// ============================================================================
+// ⚠️ LVI_Note v2.9.5 模組 2：差異比對（Diff）與同步衝突解決機制引擎
+// 1. 版本時間戳記 (_baseCloudModifiedTime) 與內容雜湊 (_baseContentHash) 雙重比對
+// 2. 當準備上傳本地修改時，若偵測到雲端檔案的最後修改時間比本地基準版本還新且內容不同，立即攔截自動覆蓋
+// 3. 彈出「衝突解決視窗（Diff Modal）」(#sync-conflict-diff-modal)，並排標示「雲端版本」與「本地版本」差異
+// 4. 支援【保留本地】、【採用雲端】、【手動合併】三種解決方案
+// ============================================================================
+
+state.activeSyncConflict = null;
+
+/**
+ * 計算筆記內容的確定性快速雜湊值 (FNV-1a 32-bit Hex Hash)，忽略行尾空白差異
+ */
+function computeNoteContentHash(rawContent) {
+  const normalized = String(rawContent || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/[ \t]+$/gm, '')
+    .trim();
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < normalized.length; i++) {
+    hash ^= normalized.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+/**
+ * 將 HTML 轉為乾淨純文字行陣列（供視覺化行級 Diff 比對與手動合併使用）
+ */
+function extractCleanLinesFromMarkdownOrHtml(contentStr) {
+  const raw = String(contentStr || '').trim();
+  if (!raw) return [''];
+  let text = raw;
+  if (/<(p|div|h[1-6]|li|br|details|table)\b/i.test(raw)) {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = raw
+      .replace(/<\/(p|div|h[1-6]|li|tr|blockquote)>/gi, '\n')
+      .replace(/<br\s*\/?>/gi, '\n');
+    text = (tmp.textContent || tmp.innerText || '').trim();
+  }
+  return text
+    .replace(/\r\n/g, '\n')
+    .split('\n')
+    .map(l => l.trimEnd());
+}
+
+/**
+ * 計算「雲端版本」與「本地版本」的行級 LCS 差異比對 (Line-by-Line Diff)
+ * 回傳 { cloudRenderLines: [{type, text}], localRenderLines: [{type, text}], smartMergedText }
+ */
+function computeLineByLineDiff(cloudText, localText) {
+  const cloudLines = extractCleanLinesFromMarkdownOrHtml(cloudText);
+  const localLines = extractCleanLinesFromMarkdownOrHtml(localText);
+
+  const m = cloudLines.length;
+  const n = localLines.length;
+  // 建立 LCS 動態規劃矩陣
+  const dp = Array.from({ length: m + 1 }, () => new Int32Array(n + 1));
+  for (let i = m - 1; i >= 0; i--) {
+    for (let j = n - 1; j >= 0; j--) {
+      if (cloudLines[i] === localLines[j]) {
+        dp[i][j] = 1 + dp[i + 1][j + 1];
+      } else {
+        dp[i][j] = Math.max(dp[i + 1][j], dp[i][j + 1]);
+      }
+    }
+  }
+
+  const cloudRenderLines = [];
+  const localRenderLines = [];
+  const mergedLines = [];
+
+  let i = 0, j = 0;
+  while (i < m && j < n) {
+    if (cloudLines[i] === localLines[j]) {
+      cloudRenderLines.push({ type: 'same', text: cloudLines[i] });
+      localRenderLines.push({ type: 'same', text: localLines[j] });
+      mergedLines.push(cloudLines[i]);
+      i++;
+      j++;
+    } else if (dp[i + 1][j] >= dp[i][j + 1]) {
+      cloudRenderLines.push({ type: 'cloud-added', text: cloudLines[i] });
+      mergedLines.push(cloudLines[i]);
+      i++;
+    } else {
+      localRenderLines.push({ type: 'local-added', text: localLines[j] });
+      mergedLines.push(localLines[j]);
+      j++;
+    }
+  }
+  while (i < m) {
+    cloudRenderLines.push({ type: 'cloud-added', text: cloudLines[i] });
+    mergedLines.push(cloudLines[i]);
+    i++;
+  }
+  while (j < n) {
+    localRenderLines.push({ type: 'local-added', text: localLines[j] });
+    mergedLines.push(localLines[j]);
+    j++;
+  }
+
+  return {
+    cloudRenderLines,
+    localRenderLines,
+    smartMergedText: mergedLines.join('\n')
+  };
+}
+
+function formatIsoToReadableLocalTime(isoStr) {
+  if (!isoStr) return '未知時間';
+  const d = new Date(isoStr);
+  if (isNaN(d.getTime())) return String(isoStr);
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+}
+
+/**
+ * 為所有已載入的筆記補齊基準時間戳記 (_baseCloudModifiedTime) 與基準內容 Hash (_baseContentHash)
+ */
+function ensureNoteBaselineTracking(note) {
+  if (!note) return;
+  if (note.modifiedTime && !note._baseCloudModifiedTime) {
+    note._baseCloudModifiedTime = note.modifiedTime;
+  }
+  const bodyOrHtml = note._cachedBody || note._cachedHtml || '';
+  if (bodyOrHtml && !note._baseContentHash) {
+    note._baseContentHash = computeNoteContentHash(bodyOrHtml);
+  }
+}
+
+/**
+ * 開啟「衝突解決視窗（Diff Modal）」，並排顯示雲端版本與本地版本差異
+ */
+function openSyncConflictDiffModal(conflictData) {
+  if (!conflictData) return;
+  state.activeSyncConflict = conflictData;
+
+  const modal = document.getElementById('sync-conflict-diff-modal');
+  const titleEl = document.getElementById('diff-modal-title');
+  const subEl = document.getElementById('diff-modal-subtitle');
+  const cloudTimeBadge = document.getElementById('diff-cloud-time-badge');
+  const localTimeBadge = document.getElementById('diff-local-time-badge');
+  const cloudLinesBox = document.getElementById('diff-cloud-lines-box');
+  const localLinesBox = document.getElementById('diff-local-lines-box');
+  const mergeTa = document.getElementById('diff-manual-merge-textarea');
+  if (!modal) return;
+
+  const noteTitle = conflictData.title || '未命名筆記';
+  if (titleEl) {
+    titleEl.textContent = `筆記同步衝突比對：「${noteTitle}」`;
+  }
+  if (subEl) {
+    subEl.textContent = `雲端版本修改時間（${formatIsoToReadableLocalTime(conflictData.cloudModifiedTime)}）比本地基準版本（${formatIsoToReadableLocalTime(conflictData.baseModifiedTime)}）還新，且內容雜湊不同（Cloud #${conflictData.cloudHash} ≠ Local #${conflictData.localHash}）。系統已攔截自動覆蓋，請選擇解決方式：`;
+  }
+  if (cloudTimeBadge) {
+    cloudTimeBadge.textContent = `🕒 ${formatIsoToReadableLocalTime(conflictData.cloudModifiedTime)}`;
+  }
+  if (localTimeBadge) {
+    localTimeBadge.textContent = `🕒 ${formatIsoToReadableLocalTime(conflictData.localModifiedTime)}`;
+  }
+
+  const diffResult = computeLineByLineDiff(conflictData.cloudBody || conflictData.cloudHtml || '', conflictData.localBody || conflictData.localHtml || '');
+  conflictData._diffResult = diffResult;
+
+  if (cloudLinesBox) {
+    cloudLinesBox.innerHTML = diffResult.cloudRenderLines.map(ln => {
+      const cls = ln.type === 'cloud-added' ? 'diff-cloud-added' : 'diff-same';
+      const prefix = ln.type === 'cloud-added' ? '＋' : ' ';
+      return `<div class="lvi-diff-line ${cls}"><span class="lvi-diff-line-prefix">${prefix}</span><span>${escapeHtml(ln.text || ' ')}</span></div>`;
+    }).join('');
+  }
+
+  if (localLinesBox) {
+    localLinesBox.innerHTML = diffResult.localRenderLines.map(ln => {
+      const cls = ln.type === 'local-added' ? 'diff-local-added' : 'diff-same';
+      const prefix = ln.type === 'local-added' ? '＋' : ' ';
+      return `<div class="lvi-diff-line ${cls}"><span class="lvi-diff-line-prefix">${prefix}</span><span>${escapeHtml(ln.text || ' ')}</span></div>`;
+    }).join('');
+  }
+
+  if (mergeTa) {
+    mergeTa.value = diffResult.smartMergedText;
+  }
+
+  modal.classList.remove('hidden');
+}
+
+function closeSyncConflictDiffModal() {
+  const modal = document.getElementById('sync-conflict-diff-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function plainTextLinesToEditorHtml(plainText) {
+  const lines = String(plainText || '').replace(/\r\n/g, '\n').split('\n');
+  const htmlLines = lines.map(ln => {
+    const trimmed = ln.trim();
+    if (!trimmed) return '<p><br></p>';
+    return `<p>${escapeHtml(ln)}</p>`;
+  });
+  return htmlLines.join('');
+}
+
+/**
+ * 執行使用者選擇的衝突解決動作：
+ * - 'keep_local'  : 【💻 保留本地】（以本地版本覆蓋雲端，並更新基準時間戳記）
+ * - 'use_cloud'   : 【☁️ 採用雲端】（放棄本地衝突修改，採用雲端最新版本更新畫面與本地快取）
+ * - 'manual_merge': 【🔀 手動合併】（採用手動合併編輯區的內容，更新畫面並同步上傳至雲端）
+ */
+async function resolveSyncConflict(resolutionMode = 'keep_local') {
+  const conflict = state.activeSyncConflict;
+  if (!conflict) {
+    closeSyncConflictDiffModal();
+    return false;
+  }
+
+  const noteId = conflict.noteId;
+  const targetNote = (state.notes || []).find(n => n && n.id === noteId);
+  const mergeTa = document.getElementById('diff-manual-merge-textarea');
+
+  closeSyncConflictDiffModal();
+  state.activeSyncConflict = null;
+
+  if (resolutionMode === 'use_cloud') {
+    const cloudHtml = conflict.cloudHtml || plainTextLinesToEditorHtml(conflict.cloudBody || '');
+    const cloudBody = conflict.cloudBody || convertHtmlToMarkdown(cloudHtml);
+    const cloudHash = computeNoteContentHash(cloudBody);
+
+    if (targetNote) {
+      targetNote.modifiedTime = conflict.cloudModifiedTime;
+      targetNote._baseCloudModifiedTime = conflict.cloudModifiedTime;
+      targetNote._baseContentHash = cloudHash;
+      targetNote._cachedBody = cloudBody;
+      targetNote._cachedHtml = cloudHtml;
+      if (conflict.cloudMeta) {
+        targetNote.meta = { ...(targetNote.meta || {}), ...conflict.cloudMeta };
+        targetNote._cachedMeta = targetNote.meta;
+      }
+    }
+
+    if (state.currentNote && state.currentNote.id === noteId) {
+      state.currentNote.modifiedTime = conflict.cloudModifiedTime;
+      state.currentNote._baseCloudModifiedTime = conflict.cloudModifiedTime;
+      state.currentNote._baseContentHash = cloudHash;
+      if (DOM.editor) {
+        DOM.editor.innerHTML = cloudHtml;
+        try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+      }
+      state.isDirty = false;
+    }
+
+    // 清除未同步的舊本地草稿，避免再次觸發舊衝突
+    try {
+      pendingCloudSaveMap.delete(noteId);
+      markLocalDraftSynced(noteId);
+      saveSwrCacheSnapshot();
+      if (typeof renderCurrentNoteBacklinks === 'function') renderCurrentNoteBacklinks();
+    } catch (e) {}
+
+    updateSyncStatus('synced', '已採用雲端版本');
+    showToast('☁️ 已採用雲端最新版本並更新筆記內容');
+    return true;
+  }
+
+  if (resolutionMode === 'manual_merge') {
+    const mergedText = (mergeTa && mergeTa.value ? mergeTa.value.trim() : '') || (conflict._diffResult ? conflict._diffResult.smartMergedText : conflict.localBody);
+    const mergedHtml = plainTextLinesToEditorHtml(mergedText);
+    const mergedHash = computeNoteContentHash(mergedText);
+    const nowIso = new Date().toISOString();
+
+    if (targetNote) {
+      targetNote._baseCloudModifiedTime = conflict.cloudModifiedTime;
+      targetNote._baseContentHash = mergedHash;
+      targetNote.modifiedTime = nowIso;
+      targetNote._cachedBody = mergedText;
+      targetNote._cachedHtml = mergedHtml;
+    }
+
+    if (state.currentNote && state.currentNote.id === noteId) {
+      state.currentNote._baseCloudModifiedTime = conflict.cloudModifiedTime;
+      state.currentNote._baseContentHash = mergedHash;
+      if (DOM.editor) {
+        DOM.editor.innerHTML = mergedHtml;
+        try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+      }
+    }
+
+    if (conflict.snap) {
+      const mergedSnap = {
+        ...conflict.snap,
+        html: mergedHtml,
+        markdownBody: mergedText,
+        fullContent: buildFrontmatterString(conflict.snap.meta || {}) + mergedText,
+        baseCloudModifiedTime: conflict.cloudModifiedTime,
+        baseContentHash: mergedHash,
+        forceOverwriteCloud: true,
+        updatedAt: Date.now(),
+        updatedIso: nowIso
+      };
+      pendingCloudSaveMap.set(mergedSnap.key, mergedSnap);
+      if (state.accessToken) {
+        await processCloudSaveQueue();
+      }
+    }
+    try {
+      saveSwrCacheSnapshot();
+      if (typeof renderCurrentNoteBacklinks === 'function') renderCurrentNoteBacklinks();
+    } catch (e) {}
+
+    updateSyncStatus('synced', '已手動合併並同步');
+    showToast('🔀 已完成手動合併並同步至雲端');
+    return true;
+  }
+
+  // 預設：'keep_local' 【💻 保留本地】
+  if (targetNote) {
+    targetNote._baseCloudModifiedTime = conflict.cloudModifiedTime;
+    targetNote._baseContentHash = conflict.localHash;
+    targetNote._cachedBody = conflict.localBody;
+    targetNote._cachedHtml = conflict.localHtml;
+  }
+  if (state.currentNote && state.currentNote.id === noteId) {
+    state.currentNote._baseCloudModifiedTime = conflict.cloudModifiedTime;
+    state.currentNote._baseContentHash = conflict.localHash;
+    if (DOM.editor && conflict.localHtml) {
+      DOM.editor.innerHTML = conflict.localHtml;
+      try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+    }
+  }
+  if (conflict.snap) {
+    const forcedSnap = {
+      ...conflict.snap,
+      baseCloudModifiedTime: conflict.cloudModifiedTime,
+      baseContentHash: conflict.localHash,
+      forceOverwriteCloud: true
+    };
+    pendingCloudSaveMap.set(forcedSnap.key, forcedSnap);
+    if (state.accessToken) {
+      await processCloudSaveQueue();
+    }
+  }
+  try { saveSwrCacheSnapshot(); } catch (e) {}
+  updateSyncStatus('synced', '已保留本地版本');
+  showToast('💻 已保留本地修改版本並更新雲端同步基準');
+  return true;
+}
+
+/**
+ * 在上傳本地修改至 Google Drive 前，檢查雲端檔案是否已被其他裝置修改：
+ * 若 cloudModifiedTime > snap.baseCloudModifiedTime 且 cloudHash !== localHash，
+ * 立即攔截上傳並彈出 Diff 衝突解決視窗！
+ */
+async function checkAndInterceptCloudSyncConflict(effectiveNoteId, snap, matchedNoteInState) {
+  if (!effectiveNoteId || !snap) return false;
+  if (snap.forceOverwriteCloud) return false;
+
+  const baseModTime = snap.baseCloudModifiedTime || (matchedNoteInState && matchedNoteInState._baseCloudModifiedTime) || null;
+  if (!baseModTime) return false;
+
+  const baseMs = new Date(baseModTime).getTime();
+  if (!baseMs || isNaN(baseMs)) return false;
+
+  try {
+    // 1. 查詢雲端檔案的最新 modifiedTime
+    let cloudFileMeta = null;
+    if (typeof window._mockCloudConflictProvider === 'function') {
+      cloudFileMeta = await window._mockCloudConflictProvider(effectiveNoteId, 'meta');
+    } else if (state.accessToken) {
+      const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${effectiveNoteId}?fields=id,name,modifiedTime,description`, {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (metaRes.ok) {
+        cloudFileMeta = await metaRes.json();
+      }
+    }
+    if (!cloudFileMeta || !cloudFileMeta.modifiedTime) return false;
+
+    const cloudMs = new Date(cloudFileMeta.modifiedTime).getTime();
+    // 若雲端最後修改時間並未比本地基準時間新（容許 1 秒誤差），代表無衝突，直接放行上傳
+    if (cloudMs <= baseMs + 1000) {
+      return false;
+    }
+
+    // 2. 雲端時間較新：下載雲端最新檔案內容以比對內容 Hash
+    let rawCloudText = '';
+    if (typeof window._mockCloudConflictProvider === 'function') {
+      rawCloudText = await window._mockCloudConflictProvider(effectiveNoteId, 'media');
+    } else if (state.accessToken) {
+      const mediaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${effectiveNoteId}?alt=media`, {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (mediaRes.ok) {
+        rawCloudText = await mediaRes.text();
+      }
+    }
+    if (!rawCloudText) return false;
+
+    const parsedCloud = (typeof parseFrontmatter === 'function')
+      ? parseFrontmatter(rawCloudText)
+      : { meta: {}, body: rawCloudText };
+    const cloudBody = (parsedCloud && parsedCloud.body !== undefined) ? parsedCloud.body : rawCloudText;
+    const cloudHtml = (window.marked && typeof window.marked.parse === 'function')
+      ? window.marked.parse(cloudBody)
+      : plainTextLinesToEditorHtml(cloudBody);
+
+    const cloudHash = computeNoteContentHash(cloudBody);
+    const localBody = snap.markdownBody || convertHtmlToMarkdown(snap.html || '');
+    const localHash = computeNoteContentHash(localBody);
+
+    // 若兩端內容雜湊完全相同，無須打擾使用者，直接更新基準時間並放行
+    if (cloudHash === localHash) {
+      if (matchedNoteInState) {
+        matchedNoteInState._baseCloudModifiedTime = cloudFileMeta.modifiedTime;
+        matchedNoteInState._baseContentHash = cloudHash;
+      }
+      return false;
+    }
+
+    // 3. 確認發生多裝置同步衝突！攔截自動覆蓋並開啟 Diff 衝突解決視窗
+    openSyncConflictDiffModal({
+      noteId: effectiveNoteId,
+      title: snap.rawTitle || (matchedNoteInState && getCleanNoteTitle(matchedNoteInState)) || '未命名筆記',
+      baseModifiedTime: baseModTime,
+      cloudModifiedTime: cloudFileMeta.modifiedTime,
+      localModifiedTime: snap.updatedIso || new Date().toISOString(),
+      cloudBody,
+      cloudHtml,
+      cloudMeta: parsedCloud ? parsedCloud.meta : null,
+      cloudHash,
+      localBody,
+      localHtml: snap.html,
+      localHash,
+      snap
+    });
+    return true;
+  } catch (err) {
+    console.warn('雲端衝突檢查略過:', err);
+    return false;
+  }
+}
+
+function initModule2DiffConflictResolution() {
+  const btnUseCloud = document.getElementById('btn-conflict-use-cloud');
+  const btnKeepLocal = document.getElementById('btn-conflict-keep-local');
+  const btnManualMerge = document.getElementById('btn-conflict-manual-merge');
+  const btnFillBoth = document.getElementById('btn-diff-fill-both');
+
+  if (btnUseCloud && !btnUseCloud._bound) {
+    btnUseCloud._bound = true;
+    btnUseCloud.addEventListener('click', (e) => {
+      e.preventDefault();
+      resolveSyncConflict('use_cloud');
+    });
+  }
+  if (btnKeepLocal && !btnKeepLocal._bound) {
+    btnKeepLocal._bound = true;
+    btnKeepLocal.addEventListener('click', (e) => {
+      e.preventDefault();
+      resolveSyncConflict('keep_local');
+    });
+  }
+  if (btnManualMerge && !btnManualMerge._bound) {
+    btnManualMerge._bound = true;
+    btnManualMerge.addEventListener('click', (e) => {
+      e.preventDefault();
+      resolveSyncConflict('manual_merge');
+    });
+  }
+  if (btnFillBoth && !btnFillBoth._bound) {
+    btnFillBoth._bound = true;
+    btnFillBoth.addEventListener('click', (e) => {
+      e.preventDefault();
+      const c = state.activeSyncConflict;
+      const ta = document.getElementById('diff-manual-merge-textarea');
+      if (!c || !ta) return;
+      const cLines = extractCleanLinesFromMarkdownOrHtml(c.cloudBody || c.cloudHtml || '').join('\n');
+      const lLines = extractCleanLinesFromMarkdownOrHtml(c.localBody || c.localHtml || '').join('\n');
+      ta.value = `【☁️ 雲端版本內容】\n${cLines}\n\n【💻 本地修改內容】\n${lLines}`;
+      ta.focus();
+    });
+  }
+
+  // 為初始筆記陣列建立基準時間戳記與內容 Hash
+  if (Array.isArray(state.notes)) {
+    state.notes.forEach(ensureNoteBaselineTracking);
+  }
+}
+
+const _origSelectNoteV293ForDiff = selectNote;
+selectNote = async function(noteId) {
+  const res = await _origSelectNoteV293ForDiff(noteId);
+  try {
+    const n = (state.notes || []).find(x => x && x.id === noteId);
+    if (n) ensureNoteBaselineTracking(n);
+    if (state.currentNote && state.currentNote.id === noteId && n) {
+      state.currentNote._baseCloudModifiedTime = n._baseCloudModifiedTime || n.modifiedTime;
+      state.currentNote._baseContentHash = n._baseContentHash;
+    }
+  } catch (e) {}
+  return res;
+};
+
+try {
+  initModule2DiffConflictResolution();
+} catch (e) {
+  console.warn('initModule2DiffConflictResolution error:', e);
+}
+
+
+
+// ============================================================================
+// 📦 LVI_Note v2.9.5 模組 3：一鍵匯出標準 Markdown 壓縮包 `.zip` 引擎
+// 1. 按需動態載入 (Lazy Load) JSZip CDN，首屏載入零負擔；同時內建原生二進位 PKZIP 保底封裝器（無網路離線亦 100% 可打包）
+// 2. 將所有筆記拆解為獨立標準 `.md` 檔（自動過濾檔名非法字元與重名自動編號）
+// 3. 將每篇筆記的屬性（ID、建立/修改時間、機型、工作內容、急迫性、客戶/廠商、標籤 Tags）自動轉為檔案開頭的 YAML Frontmatter
+// 4. 打包為 `LVI_Note_Export_YYYYMMDD.zip` 並觸發瀏覽器下載
+// ============================================================================
+
+const JSZIP_CDN_URL = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+
+/**
+ * 按需載入 (Lazy Load) JSZip 函式庫
+ */
+async function loadJsZipLazy() {
+  if (typeof window.JSZip === 'function') {
+    return window.JSZip;
+  }
+  if (!navigator.onLine || !window.location || !/^https?:$/i.test(window.location.protocol)) {
+    return null;
+  }
+  return new Promise((resolve) => {
+    const existingScript = document.querySelector(`script[src="${JSZIP_CDN_URL}"]`);
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve(window.JSZip || null));
+      existingScript.addEventListener('error', () => resolve(null));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = JSZIP_CDN_URL;
+    script.async = true;
+    const timeoutId = setTimeout(() => resolve(window.JSZip || null), 4500);
+    script.onload = () => {
+      clearTimeout(timeoutId);
+      resolve(window.JSZip || null);
+    };
+    script.onerror = () => {
+      clearTimeout(timeoutId);
+      resolve(null);
+    };
+    document.head.appendChild(script);
+  });
+}
+
+/**
+ * 清理並正規化匯出 `.md` 檔案名稱（移除 Windows / macOS / Linux 非法字元）
+ */
+function sanitizeMarkdownExportFileName(rawTitle, usedNamesSet) {
+  let clean = String(rawTitle || '未命名筆記')
+    .replace(/\.md$/i, '')
+    .replace(/[\\/:*?"<>|\x00-\x1F]+/g, '_')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!clean || clean === '.' || clean === '..') {
+    clean = '未命名筆記';
+  }
+  if (clean.length > 90) {
+    clean = clean.slice(0, 90).trim();
+  }
+  let candidate = `${clean}.md`;
+  let counter = 2;
+  while (usedNamesSet && usedNamesSet.has(candidate.toLowerCase())) {
+    candidate = `${clean}_${counter}.md`;
+    counter++;
+  }
+  if (usedNamesSet) {
+    usedNamesSet.add(candidate.toLowerCase());
+  }
+  return candidate;
+}
+
+/**
+ * 為單篇筆記產生標準 YAML Frontmatter 標頭（含 id、title、created、updated、分類屬性與 tags）
+ */
+function buildStandardYamlFrontmatterForExport(note) {
+  const meta = (note && note.meta) || {};
+  const title = getCleanNoteTitle(note);
+  const idStr = String((note && (note.id || note._tempId)) || 'local_' + Date.now());
+  const updatedIso = (note && note.modifiedTime) || new Date().toISOString();
+  const createdIso = (note && note.createdTime) || (meta && meta.createdAt) || updatedIso;
+  const tags = Array.isArray(meta.tags) ? meta.tags.filter(Boolean) : [];
+
+  const escapeYamlStr = (val) => {
+    const s = String(val ?? '').replace(/\r?\n/g, ' ').trim();
+    return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+  };
+
+  const lines = [
+    '---',
+    `id: ${escapeYamlStr(idStr)}`,
+    `title: ${escapeYamlStr(title)}`,
+    `created: ${escapeYamlStr(createdIso)}`,
+    `updated: ${escapeYamlStr(updatedIso)}`
+  ];
+
+  if (meta.machineModel && meta.machineModel !== '未分類') {
+    lines.push(`machineModel: ${escapeYamlStr(meta.machineModel)}`);
+  }
+  if (meta.workContent && meta.workContent !== '未分類') {
+    lines.push(`workContent: ${escapeYamlStr(meta.workContent)}`);
+  }
+  if (meta.urgency && meta.urgency !== '未分類') {
+    lines.push(`urgency: ${escapeYamlStr(meta.urgency)}`);
+  }
+  if (meta.clientVendor) {
+    lines.push(`clientVendor: ${escapeYamlStr(meta.clientVendor)}`);
+  }
+  if (meta.dueDate) {
+    lines.push(`dueDate: ${escapeYamlStr(meta.dueDate)}`);
+  }
+  if (tags.length > 0) {
+    lines.push('tags:');
+    tags.forEach(t => {
+      lines.push(`  - ${escapeYamlStr(t)}`);
+    });
+  } else {
+    lines.push('tags: []');
+  }
+
+  lines.push('---', '');
+  return lines.join('\n');
+}
+
+/**
+ * 內建零相依性標準 PKZIP (ZIP 2.0 STORE) 二進位打包器（當處於無網路離線環境無法載入 JSZip CDN 時自動接手）
+ */
+function buildStandardPkZipBlobOfflineFallback(fileEntries) {
+  const enc = new TextEncoder();
+  const crcTable = (() => {
+    const table = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+      let c = n;
+      for (let k = 0; k < 8; k++) {
+        c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+      }
+      table[n] = c >>> 0;
+    }
+    return table;
+  })();
+
+  const crc32 = (bytes) => {
+    let crc = 0xffffffff;
+    for (let i = 0; i < bytes.length; i++) {
+      crc = (crc >>> 8) ^ crcTable[(crc ^ bytes[i]) & 0xff];
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  };
+
+  const localParts = [];
+  const centralParts = [];
+  let offset = 0;
+
+  fileEntries.forEach(entry => {
+    const nameBytes = enc.encode(entry.name);
+    const dataBytes = entry.content instanceof Uint8Array ? entry.content : enc.encode(String(entry.content || ''));
+    const crc = crc32(dataBytes);
+    const size = dataBytes.length;
+
+    // Local file header (30 bytes + name)
+    const lh = new Uint8Array(30 + nameBytes.length);
+    const lhv = new DataView(lh.buffer);
+    lhv.setUint32(0, 0x04034b50, true);
+    lhv.setUint16(4, 20, true);
+    lhv.setUint16(6, 0x0800, true); // UTF-8 flag
+    lhv.setUint16(8, 0, true); // STORE (0)
+    lhv.setUint16(10, 0, true);
+    lhv.setUint16(12, 0x21, true);
+    lhv.setUint32(14, crc, true);
+    lhv.setUint32(18, size, true);
+    lhv.setUint32(22, size, true);
+    lhv.setUint16(26, nameBytes.length, true);
+    lhv.setUint16(28, 0, true);
+    lh.set(nameBytes, 30);
+
+    localParts.push(lh, dataBytes);
+
+    // Central directory header (46 bytes + name)
+    const ch = new Uint8Array(46 + nameBytes.length);
+    const chv = new DataView(ch.buffer);
+    chv.setUint32(0, 0x02014b50, true);
+    chv.setUint16(4, 20, true);
+    chv.setUint16(6, 20, true);
+    chv.setUint16(8, 0x0800, true); // UTF-8 flag
+    chv.setUint16(10, 0, true);
+    chv.setUint16(12, 0, true);
+    chv.setUint16(14, 0x21, true);
+    chv.setUint32(16, crc, true);
+    chv.setUint32(20, size, true);
+    chv.setUint32(24, size, true);
+    chv.setUint16(28, nameBytes.length, true);
+    chv.setUint16(30, 0, true);
+    chv.setUint16(32, 0, true);
+    chv.setUint16(34, 0, true);
+    chv.setUint16(36, 0, true);
+    chv.setUint32(38, 0, true);
+    chv.setUint32(42, offset, true);
+    ch.set(nameBytes, 46);
+
+    centralParts.push(ch);
+    offset += lh.length + dataBytes.length;
+  });
+
+  const centralSize = centralParts.reduce((acc, b) => acc + b.length, 0);
+  const eocd = new Uint8Array(22);
+  const eocdv = new DataView(eocd.buffer);
+  eocdv.setUint32(0, 0x06054b50, true);
+  eocdv.setUint16(4, 0, true);
+  eocdv.setUint16(6, 0, true);
+  eocdv.setUint16(8, fileEntries.length, true);
+  eocdv.setUint16(10, fileEntries.length, true);
+  eocdv.setUint32(12, centralSize, true);
+  eocdv.setUint32(16, offset, true);
+  eocdv.setUint16(20, 0, true);
+
+  return new Blob([...localParts, ...centralParts, eocd], { type: 'application/zip' });
+}
+
+/**
+ * 將所有筆記匯出為標準 Markdown 壓縮包 `LVI_Note_Export_YYYYMMDD.zip`
+ */
+async function exportAllNotesMarkdownZip() {
+  if (DOM.exportMenu) DOM.exportMenu.classList.add('hidden');
+  try {
+    if (state.currentView === 'editor') {
+      captureCurrentNoteAtomicSnapshot();
+    }
+  } catch (e) {}
+
+  const notes = Array.isArray(state.notes) ? state.notes : [];
+  if (notes.length === 0) {
+    showToast('⚠️ 目前沒有可匯出的筆記');
+    return null;
+  }
+
+  const now = new Date();
+  const dateStamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+  const zipFileName = `LVI_Note_Export_${dateStamp}.zip`;
+
+  showToast(`📦 正在將 ${notes.length} 篇筆記轉換為標準 Markdown 並打包「${zipFileName}」...`, 2200);
+
+  const usedNames = new Set();
+  const exportedEntries = [];
+
+  for (const note of notes) {
+    if (!note) continue;
+    const mdFileName = sanitizeMarkdownExportFileName(getCleanNoteTitle(note), usedNames);
+    const yamlHeader = buildStandardYamlFrontmatterForExport(note);
+
+    let rawBodyMd = '';
+    if (state.currentNote && state.currentNote.id === note.id && DOM.editor && !state.isLoadingNote) {
+      rawBodyMd = convertHtmlToMarkdown(DOM.editor.innerHTML);
+    } else if (note._cachedHtml) {
+      rawBodyMd = convertHtmlToMarkdown(note._cachedHtml);
+    } else if (note._cachedBody) {
+      // 若 _cachedBody 開頭已帶有舊版 frontmatter，先剝除舊 frontmatter 再拼接標準 YAML Frontmatter
+      const parsed = (typeof parseFrontmatter === 'function') ? parseFrontmatter(note._cachedBody) : null;
+      rawBodyMd = (parsed && parsed.body !== undefined) ? parsed.body : note._cachedBody;
+    }
+
+    const fullMdContent = `${yamlHeader}${(rawBodyMd || '').trim()}\n`;
+    exportedEntries.push({
+      name: mdFileName,
+      content: fullMdContent
+    });
+  }
+
+  let zipBlob = null;
+  const JSZipLib = await loadJsZipLazy();
+  if (JSZipLib) {
+    const zip = new JSZipLib();
+    exportedEntries.forEach(entry => {
+      zip.file(entry.name, entry.content);
+    });
+    zipBlob = await zip.generateAsync({
+      type: 'blob',
+      compression: 'DEFLATE',
+      compressionOptions: { level: 6 }
+    });
+  } else {
+    // 離線或 CDN 無法連線時，自動使用內建 PKZIP 引擎生成標準 .zip
+    zipBlob = buildStandardPkZipBlobOfflineFallback(exportedEntries);
+  }
+
+  state.lastExportedMarkdownZipInfo = {
+    zipFileName,
+    fileCount: exportedEntries.length,
+    entries: exportedEntries,
+    size: zipBlob ? zipBlob.size : 0
+  };
+
+  if (zipBlob) {
+    downloadBlob(zipBlob, zipFileName);
+    showToast(`✅ 已成功匯出 ${exportedEntries.length} 篇筆記至「${zipFileName}」！`, 2800);
+  }
+  return state.lastExportedMarkdownZipInfo;
+}
+
+// ============================================================================
+// 📱 LVI_Note v2.9.5 模組 4：Android 系統分享選單整合（PWA Share Target API）引擎
+// 1. 支援讀取網址參數 ?share_title=...&share_text=...&share_url=...（亦相容 ?title=...&text=...&url=...）
+// 2. 自動建立新筆記並預填標題、分享文字與可點擊網址連結
+// 3. 處理完畢後立即呼叫 history.replaceState 清除網址參數，杜絕重新整理時重複觸發建立
+// ============================================================================
+
+function handleIncomingPwaShareTarget(customSearchString = null) {
+  try {
+    const searchStr = customSearchString !== null ? customSearchString : (window.location ? window.location.search : '');
+    if (!searchStr || searchStr.length <= 1) return null;
+
+    const params = new URLSearchParams(searchStr);
+    const hasShareParam =
+      params.has('share_title') ||
+      params.has('share_text') ||
+      params.has('share_url') ||
+      (params.has('url') && (params.has('title') || params.has('text')));
+
+    if (!hasShareParam) return null;
+
+    const rawTitle = (params.get('share_title') || params.get('title') || '').trim();
+    const rawText = (params.get('share_text') || params.get('text') || '').trim();
+    const rawUrl = (params.get('share_url') || params.get('url') || '').trim();
+
+    if (!rawTitle && !rawText && !rawUrl) return null;
+
+    // 決定新筆記標題
+    let noteTitle = rawTitle;
+    if (!noteTitle && rawText) {
+      noteTitle = rawText.split(/\r?\n/)[0].slice(0, 36).trim();
+    }
+    if (!noteTitle && rawUrl) {
+      try {
+        const u = new URL(rawUrl);
+        noteTitle = `分享連結：${u.hostname}`;
+      } catch (e) {
+        noteTitle = `系統分享筆記`;
+      }
+    }
+    if (!noteTitle) noteTitle = '外部系統分享筆記';
+
+    // 組合預填的筆記 HTML 內容
+    const bodyParts = [];
+    if (rawText) {
+      rawText.split(/\r?\n/).forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed) {
+          bodyParts.push(`<p>${escapeHtml(trimmed)}</p>`);
+        }
+      });
+    }
+    if (rawUrl) {
+      const safeUrl = escapeHtml(rawUrl);
+      bodyParts.push(
+        `<div class="notion-callout troubleshoot-stage-2" style="margin:10px 0;"><span class="notion-callout-icon">🔗</span><div class="notion-callout-body"><strong>分享來源網址：</strong><a href="${safeUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 underline break-all">${safeUrl}</a></div></div>`
+      );
+    }
+    bodyParts.push('<p><br></p>');
+    const finalHtml = bodyParts.join('');
+    const finalMd = [
+      rawText,
+      rawUrl ? `\n🔗 分享來源網址：[${rawUrl}](${rawUrl})` : ''
+    ].filter(Boolean).join('\n');
+
+    // 建立新筆記並開啟於編輯器
+    createQuickNote();
+    const createdNote = state.currentNote || (state.notes && state.notes[0]);
+    if (createdNote) {
+      createdNote.name = `${noteTitle}.md`;
+      createdNote._cachedHtml = finalHtml;
+      createdNote._cachedBody = finalMd;
+      createdNote.meta = createdNote.meta || {};
+      createdNote.meta.icon = '📲';
+      if (!Array.isArray(createdNote.meta.tags)) createdNote.meta.tags = [];
+      if (!createdNote.meta.tags.includes('外部分享')) {
+        createdNote.meta.tags.push('外部分享');
+      }
+    }
+
+    if (DOM.noteTitle) DOM.noteTitle.value = noteTitle;
+    if (DOM.headerTitle) DOM.headerTitle.textContent = noteTitle;
+    if (DOM.noteEmojiBtn) DOM.noteEmojiBtn.textContent = '📲';
+    if (DOM.editor) {
+      DOM.editor.innerHTML = finalHtml;
+      try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+    }
+
+    state.isDirty = true;
+    captureCurrentNoteAtomicSnapshot();
+    renderNotesList();
+    renderNoteActiveTags();
+    renderBreadcrumbs();
+    switchView('editor');
+
+    // 處理完畢後透過 history.replaceState 清除網址上的分享參數，避免重新整理時重複觸發！
+    if (customSearchString === null && window.history && typeof window.history.replaceState === 'function') {
+      const cleanUrl = (window.location.pathname || '/') + (window.location.hash || '');
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+
+    showToast(`📲 已接收外部系統分享並建立筆記：「${noteTitle}」`, 3200);
+    return {
+      noteId: createdNote ? createdNote.id : '',
+      title: noteTitle,
+      text: rawText,
+      url: rawUrl
+    };
+  } catch (err) {
+    console.warn('處理 PWA Share Target 參數失敗:', err);
+    return null;
+  }
+}
+
+function initModules3And4() {
+  const exportZipBtn = document.getElementById('export-md-zip-btn');
+  if (exportZipBtn && !exportZipBtn._bound) {
+    exportZipBtn._bound = true;
+    exportZipBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      exportAllNotesMarkdownZip();
+    });
+  }
+
+  // 啟動時自動檢查網址是否帶有 PWA Share Target 分享參數
+  handleIncomingPwaShareTarget();
+}
+
+try {
+  initModules3And4();
+} catch (e) {
+  console.warn('initModules3And4 error:', e);
 }

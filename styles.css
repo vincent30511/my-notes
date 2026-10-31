@@ -6855,3 +6855,476 @@ html.dark .lvi-wikilink-menu-item.active {
   background: rgba(37, 99, 235, 0.25);
   color: #93c5fd;
 }
+
+
+/* ============================================================================
+   ⚠️ LVI_Note v2.9.4 模組 2：差異比對（Diff）與同步衝突解決視窗樣式
+   ============================================================================ */
+.lvi-diff-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.lvi-diff-modal-backdrop.hidden {
+  display: none !important;
+}
+.lvi-diff-modal-card {
+  width: 100%;
+  max-width: 1040px;
+  max-height: 92vh;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.38);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+html.dark .lvi-diff-modal-card {
+  background: #111827;
+  border-color: #334155;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.75);
+}
+.lvi-diff-modal-header {
+  padding: 16px 20px 12px;
+  background: linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);
+  border-bottom: 1px solid #fde68a;
+}
+html.dark .lvi-diff-modal-header {
+  background: linear-gradient(180deg, rgba(245, 158, 11, 0.14) 0%, #111827 100%);
+  border-bottom-color: rgba(245, 158, 11, 0.35);
+}
+.lvi-diff-modal-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.lvi-diff-warn-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 900;
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #f59e0b;
+}
+html.dark .lvi-diff-warn-badge {
+  background: rgba(245, 158, 11, 0.22);
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.5);
+}
+.lvi-diff-modal-title {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #0f172a;
+  margin: 0;
+}
+html.dark .lvi-diff-modal-title {
+  color: #f8fafc;
+}
+.lvi-diff-modal-subtitle {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+}
+html.dark .lvi-diff-modal-subtitle {
+  color: #94a3b8;
+}
+
+/* 並排差異比對雙欄網格 */
+.lvi-diff-compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 14px 20px 10px;
+  overflow-y: auto;
+  max-height: 42vh;
+}
+@media (max-width: 768px) {
+  .lvi-diff-compare-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.lvi-diff-pane {
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+html.dark .lvi-diff-pane {
+  border-color: #28354c;
+  background: #0f172a;
+}
+.lvi-diff-pane.pane-cloud {
+  border-top: 3px solid #10b981;
+}
+.lvi-diff-pane.pane-local {
+  border-top: 3px solid #3b82f6;
+}
+.lvi-diff-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+}
+html.dark .lvi-diff-pane-header {
+  background: #1e293b;
+  border-bottom-color: #334155;
+}
+.lvi-diff-pane-title {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+html.dark .lvi-diff-pane-title {
+  color: #f1f5f9;
+}
+.lvi-diff-time-pill {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.69rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: #f1f5f9;
+  color: #475569;
+}
+html.dark .lvi-diff-time-pill {
+  background: #0f172a;
+  color: #94a3b8;
+}
+.lvi-diff-lines-container {
+  padding: 8px 0;
+  overflow-y: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Microsoft JhengHei", monospace;
+  font-size: 0.77rem;
+  line-height: 1.55;
+}
+.lvi-diff-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 3px 12px;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+.lvi-diff-line-prefix {
+  font-weight: 900;
+  width: 14px;
+  flex-shrink: 0;
+  user-select: none;
+}
+.lvi-diff-line.diff-same {
+  color: #475569;
+}
+html.dark .lvi-diff-line.diff-same {
+  color: #94a3b8;
+}
+.lvi-diff-line.diff-cloud-added {
+  background: rgba(16, 185, 129, 0.15);
+  color: #065f46;
+  font-weight: 700;
+  border-left: 3px solid #10b981;
+}
+html.dark .lvi-diff-line.diff-cloud-added {
+  background: rgba(16, 185, 129, 0.22);
+  color: #6ee7b7;
+  border-left-color: #34d399;
+}
+.lvi-diff-line.diff-local-added {
+  background: rgba(59, 130, 246, 0.15);
+  color: #1e40af;
+  font-weight: 700;
+  border-left: 3px solid #3b82f6;
+}
+html.dark .lvi-diff-line.diff-local-added {
+  background: rgba(59, 130, 246, 0.24);
+  color: #93c5fd;
+  border-left-color: #60a5fa;
+}
+
+/* 手動合併編輯區 */
+.lvi-diff-merge-section {
+  padding: 10px 20px 12px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+html.dark .lvi-diff-merge-section {
+  border-top-color: #28354c;
+  background: #161f30;
+}
+.lvi-diff-merge-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #1e293b;
+}
+html.dark .lvi-diff-merge-header {
+  color: #e2e8f0;
+}
+.lvi-diff-mini-btn {
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: #e0e7ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+  cursor: pointer;
+}
+html.dark .lvi-diff-mini-btn {
+  background: rgba(99, 102, 241, 0.22);
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.45);
+}
+.lvi-diff-merge-textarea {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  outline: none;
+  resize: vertical;
+}
+.lvi-diff-merge-textarea:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+}
+html.dark .lvi-diff-merge-textarea {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+/* 底部操作按鈕列 */
+.lvi-diff-modal-footer {
+  padding: 12px 20px;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+html.dark .lvi-diff-modal-footer {
+  background: #111827;
+  border-top-color: #28354c;
+}
+.lvi-diff-legend {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+}
+html.dark .lvi-diff-legend {
+  color: #94a3b8;
+}
+.lvi-diff-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.lvi-diff-legend-item .dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+}
+.lvi-diff-legend-item .dot.dot-cloud { background: #10b981; }
+.lvi-diff-legend-item .dot.dot-local { background: #3b82f6; }
+.lvi-diff-legend-item .dot.dot-same { background: #94a3b8; }
+
+.lvi-diff-action-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.lvi-diff-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+.lvi-diff-btn.btn-use-cloud {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #6ee7b7;
+}
+.lvi-diff-btn.btn-use-cloud:hover {
+  background: #10b981;
+  color: #ffffff;
+}
+html.dark .lvi-diff-btn.btn-use-cloud {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.45);
+}
+html.dark .lvi-diff-btn.btn-use-cloud:hover {
+  background: #10b981;
+  color: #ffffff;
+}
+.lvi-diff-btn.btn-keep-local {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+.lvi-diff-btn.btn-keep-local:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+html.dark .lvi-diff-btn.btn-keep-local {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.45);
+}
+html.dark .lvi-diff-btn.btn-keep-local:hover {
+  background: #2563eb;
+  color: #ffffff;
+}
+.lvi-diff-btn.btn-manual-merge {
+  background: linear-gradient(135deg, #4f46e5 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.28);
+}
+.lvi-diff-btn.btn-manual-merge:hover {
+  background: linear-gradient(135deg, #4338ca 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+}
+
+
+/* ============================================================================
+   🛡️ LVI_Note v2.9.6 畫布與反向連結面板零重疊保證 (Zero-Overlap BFC & Clickability Fix)
+   徹底解決：
+   1. 當筆記內含有展開的長尺寸照片/HEIC圖片框時，因 Flexbox (flex-1 / flex-basis: 0%) 高度限制導致圖片框溢出覆蓋底部「反向連結 (Backlinks)」面板之問題
+   2. 強制 #editor 採用獨立區塊格式化上下文 (display: flow-root; height: auto !important; flex: none !important)，確保所有圖片與附件 100% 撐開畫布高度
+   3. 確保底部 #note-backlinks-panel 與內部卡片/按鈕具備獨立清晰層級與 100% 可點擊性
+   ============================================================================ */
+#main-scroll-container:not(.hidden) {
+  display: block !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+#canvas-inner-wrapper {
+  display: block !important;
+  width: 100% !important;
+  max-width: 48rem !important;
+  height: auto !important;
+  min-height: 0 !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding-bottom: 5rem !important;
+  box-sizing: border-box !important;
+}
+
+#canvas-inner-wrapper.full-width-canvas {
+  max-width: 100% !important;
+}
+
+#editor {
+  display: flow-root !important;
+  flex: none !important;
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 320px !important;
+  overflow: visible !important;
+  position: relative !important;
+  z-index: 1 !important;
+  padding-bottom: 1.5rem !important;
+  clear: both !important;
+  box-sizing: border-box !important;
+}
+
+#editor details.notion-media-collapse {
+  display: block !important;
+  float: none !important;
+  clear: both !important;
+  position: relative !important;
+  width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  margin: 0.85rem 0 !important;
+  box-sizing: border-box !important;
+}
+
+#editor details.notion-media-collapse[open]:not([data-is-animating="true"]) > .media-collapse-content,
+#editor details.notion-media-collapse[open]:not([data-is-animating="true"]) > .p-3 {
+  display: block !important;
+  position: relative !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  transform: none !important;
+  will-change: auto !important;
+  animation: none !important;
+  box-sizing: border-box !important;
+}
+
+#editor details.notion-media-collapse img {
+  display: block !important;
+  max-width: 100% !important;
+  height: auto !important;
+  margin: 0 auto !important;
+  object-fit: contain !important;
+}
+
+#note-backlinks-panel {
+  display: block !important;
+  position: relative !important;
+  z-index: 10 !important;
+  clear: both !important;
+  width: 100% !important;
+  height: auto !important;
+  margin-top: 2rem !important;
+  margin-bottom: 5rem !important;
+  box-sizing: border-box !important;
+  pointer-events: auto !important;
+}
+
+#note-backlinks-panel.hidden,
+.lvi-wikilink-menu.hidden {
+  display: none !important;
+}
+
+#note-backlinks-panel .lvi-backlink-card,
+#note-backlinks-panel .lvi-backlinks-copy-btn {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  position: relative !important;
+  z-index: 11 !important;
+}
