@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.8.9'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.9.0'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -1583,14 +1583,19 @@ async function syncWorkspaceConfigWithDrive(silent = false) {
       let mergedTags = [];
       let mergedHandlers = [];
       let mergedDeletedTodoIds = Array.isArray(state.deletedTodoIds) ? state.deletedTodoIds.slice() : [];
+      let mergedDeletedCaseIds = Array.isArray(state.deletedCaseIds) ? state.deletedCaseIds.slice() : [];
       let mergedTodoItems = Array.isArray(state.todoItems) ? state.todoItems.slice() : [];
 
       allConfigs.forEach(cfg => {
         if (Array.isArray(cfg.deletedTodoIds)) {
           mergedDeletedTodoIds = Array.from(new Set([...mergedDeletedTodoIds, ...cfg.deletedTodoIds]));
         }
+        if (Array.isArray(cfg.deletedCaseIds)) {
+          mergedDeletedCaseIds = Array.from(new Set([...mergedDeletedCaseIds, ...cfg.deletedCaseIds]));
+        }
       });
       state.deletedTodoIds = mergedDeletedTodoIds;
+      state.deletedCaseIds = mergedDeletedCaseIds;
 
       allConfigs.forEach(cfg => {
         if (Array.isArray(cfg.machineModels)) {
@@ -1615,6 +1620,12 @@ async function syncWorkspaceConfigWithDrive(silent = false) {
         }
         if (Array.isArray(cfg.todoItems)) {
           mergedTodoItems = mergeCloudAndLocalTodoItems(cfg.todoItems, mergedTodoItems);
+        }
+        if (Array.isArray(cfg.caseNumbers)) {
+          mergedCaseNos = mergeUniqueStringList(mergedCaseNos, cfg.caseNumbers, delCaseNo);
+        }
+        if (Array.isArray(cfg.caseItems)) {
+          mergedCaseItems = mergeCloudAndLocalCaseItems(cfg.caseItems, mergedCaseItems);
         }
       });
 
@@ -1695,7 +1706,7 @@ async function saveWorkspaceConfigToDrive() {
       todoStatuses: state.todoStatuses || DEFAULT_TODO_STATUSES,
       todoHandlers: (state.todoHandlers && state.todoHandlers.length > 0) ? state.todoHandlers : DEFAULT_TODO_HANDLERS,
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.8.9'
+      source: 'Google Drive Cloud Truth v2.9.0'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -1938,7 +1949,7 @@ async function fetchNotesList(silent = false) {
       });
     }
 
-    // 💡 雲端自動採納 (v2.8.9 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
+    // 💡 雲端自動採納 (v2.9.0 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
     let needUpdateCloudConfig = false;
     const delMachines = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('machine') : new Set();
     const delContents = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('content') : new Set();
@@ -4926,7 +4937,7 @@ async function compressImageForUpload(file, maxDimension = 1280, quality = 0.76)
   const t0 = performance.now();
   try {
     const origSize = file.size;
-    // 🍏 v2.8.9 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
+    // 🍏 v2.9.0 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
     if (await isHeicFileOrBlob(file, file.name)) {
       const convertedJpegBlob = await convertHeicBlobToJpegBlob(file, Math.max(0.84, quality));
       if (convertedJpegBlob) {
@@ -7236,7 +7247,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.8.9', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.0', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -12758,7 +12769,7 @@ function closeTableQuickPeekDrawer() {
 }
 
 // ============================================================================
-// 📋 LVI_Note v2.8.9 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
+// 📋 LVI_Note v2.9.0 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
 // ============================================================================
 
 const TODO_STORAGE_KEY = 'lvi_todo_items_v283';
@@ -13585,7 +13596,7 @@ function evaluateFuzzyTodoMatch(todoItem, parsedQuery) {
 }
 
 // ============================================================================
-// 📋 表格資料庫檢視 (Table Database View - v2.8.9)
+// 📋 表格資料庫檢視 (Table Database View - v2.9.0)
 // ============================================================================
 
 function openTodoQuickPeekDrawer(todoId, fuzzyRes = null) {
@@ -16474,7 +16485,7 @@ function bindEvents() {
   const scrollContainer = document.getElementById('main-scroll-container');
   const canvasWrapper = document.getElementById('canvas-inner-wrapper');
 
-  // Legacy auto-paragraph click listener replaced by v2.8.9 Double-Click Position Memory Engine
+  // Legacy auto-paragraph click listener replaced by v2.9.0 Double-Click Position Memory Engine
 
   // 📷 一鍵展開/收折所有照片與影片
   if (DOM.toggleAllMediaBtn) {
@@ -16955,7 +16966,7 @@ function bindEvents() {
   if (DOM.closeTagManagerBtn) DOM.closeTagManagerBtn.addEventListener('click', closeTagManagerModal);
   if (DOM.tmDoneBtn) DOM.tmDoneBtn.addEventListener('click', closeTagManagerModal);
 
-  // Duplicate DOM.tmAddBtn listener removed in v2.8.9
+  // Duplicate DOM.tmAddBtn listener removed in v2.9.0
 
   // 下拉式標籤面板
   if (DOM.addTagBtn) {
@@ -19742,7 +19753,7 @@ function initInAppCameraListeners() {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.8.9 圖片四大升級引擎：
+// 🚀 LVI_Note v2.9.0 圖片四大升級引擎：
 // 1. HEIC/HEIF 完整解碼與標註支援 (heic2any + ImageBitmap + Drive 雲端轉檔)
 // 2. 圖片框上方專屬高對比文字註記欄 (.media-top-note-bar，淺/深色皆 >18:1 超高對比)
 // 3. 真實圖片旋轉 (90° 左/右旋轉 + PATCH/POST 重新存回 Google Drive 雲端硬碟)
@@ -20579,7 +20590,7 @@ if (document.readyState !== 'loading') { bootLviAppOnce(); }
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.8.9 全層級分類與標籤管理中心修復與穩定引擎
+// 🚀 LVI_Note v2.9.0 全層級分類與標籤管理中心修復與穩定引擎
 // 1. 永久刪除墓碑機制 (state.deletedCategoryItems)：確保刪除或更名後的預設/自訂選項絕不因雲端同步或重整而復活
 // 2. 六大分類統一就地編輯列 (.tm-unified-item-row)：支援點擊直接修改、Enter 鍵儲存、✓ 儲存鈕、🗑️ 即時刪除 (附一鍵復原)
 // 3. 消除 input blur/change 與按鈕 click 的競態衝突 (mousedown preventDefault 保護)
@@ -20856,17 +20867,22 @@ syncWorkspaceConfigWithDrive = async function(silent = false) {
       }
 
       let mergedDeletedTodoIds = Array.isArray(state.deletedTodoIds) ? state.deletedTodoIds.slice() : [];
+      let mergedDeletedCaseIds = Array.isArray(state.deletedCaseIds) ? state.deletedCaseIds.slice() : [];
       let mergedDeletedCats = state.deletedCategoryItems;
 
       allConfigs.forEach(cfg => {
         if (Array.isArray(cfg.deletedTodoIds)) {
           mergedDeletedTodoIds = Array.from(new Set([...mergedDeletedTodoIds, ...cfg.deletedTodoIds]));
         }
+        if (Array.isArray(cfg.deletedCaseIds)) {
+          mergedDeletedCaseIds = Array.from(new Set([...mergedDeletedCaseIds, ...cfg.deletedCaseIds]));
+        }
         if (cfg.deletedCategoryItems && typeof cfg.deletedCategoryItems === 'object') {
           mergedDeletedCats = mergeDeletedCategoryDictionaries(mergedDeletedCats, cfg.deletedCategoryItems);
         }
       });
       state.deletedTodoIds = mergedDeletedTodoIds;
+      state.deletedCaseIds = mergedDeletedCaseIds;
       state.deletedCategoryItems = mergedDeletedCats;
       saveDeletedCategoryItemsToStorage();
 
@@ -20876,6 +20892,7 @@ syncWorkspaceConfigWithDrive = async function(silent = false) {
       const delCli = getDeletedCategorySet('client');
       const delTag = getDeletedCategorySet('custom');
       const delHdl = getDeletedCategorySet('todo_handler');
+      const delCaseNo = getDeletedCategorySet('case_number');
 
       let mergedMachines = [];
       let mergedContents = [];
@@ -20883,7 +20900,9 @@ syncWorkspaceConfigWithDrive = async function(silent = false) {
       let mergedClients = [];
       let mergedTags = [];
       let mergedHandlers = [];
+      let mergedCaseNos = [];
       let mergedTodoItems = Array.isArray(state.todoItems) ? state.todoItems.slice() : [];
+      let mergedCaseItems = Array.isArray(state.caseItems) ? state.caseItems.slice() : [];
 
       allConfigs.forEach(cfg => {
         if (Array.isArray(cfg.machineModels)) {
@@ -20909,6 +20928,12 @@ syncWorkspaceConfigWithDrive = async function(silent = false) {
         if (Array.isArray(cfg.todoItems)) {
           mergedTodoItems = mergeCloudAndLocalTodoItems(cfg.todoItems, mergedTodoItems);
         }
+        if (Array.isArray(cfg.caseNumbers)) {
+          mergedCaseNos = mergeUniqueStringList(mergedCaseNos, cfg.caseNumbers, delCaseNo);
+        }
+        if (Array.isArray(cfg.caseItems)) {
+          mergedCaseItems = mergeCloudAndLocalCaseItems(cfg.caseItems, mergedCaseItems);
+        }
       });
 
       state.machineModels = mergeUniqueStringList(mergedMachines, DEFAULT_MACHINE_MODELS, delMach);
@@ -20917,7 +20942,10 @@ syncWorkspaceConfigWithDrive = async function(silent = false) {
       state.clientsVendors = mergeUniqueStringList(mergedClients, DEFAULT_CLIENTS_VENDORS, delCli);
       state.tags = mergeUniqueTagObjects(mergedTags, DEFAULT_TAGS, delTag);
       state.todoHandlers = mergeUniqueStringList(mergedHandlers, DEFAULT_TODO_HANDLERS, delHdl);
+      state.caseNumbers = mergeUniqueStringList(mergedCaseNos, DEFAULT_CASE_NUMBERS, delCaseNo);
       state.todoItems = mergedTodoItems;
+      state.caseItems = mergedCaseItems;
+      saveCaseItemsToLocalStorageOnly();
       state.hasLoadedCloudWorkspaceConfig = true;
 
       saveTodoItemsToLocalStorageOnly();
@@ -20935,6 +20963,7 @@ syncWorkspaceConfigWithDrive = async function(silent = false) {
       const delCli = getDeletedCategorySet('client');
       const delTag = getDeletedCategorySet('custom');
       const delHdl = getDeletedCategorySet('todo_handler');
+      const delCaseNo = getDeletedCategorySet('case_number');
 
       state.machineModels = mergeUniqueStringList(state.machineModels, DEFAULT_MACHINE_MODELS, delMach);
       state.workContents = mergeUniqueStringList(state.workContents, DEFAULT_WORK_CONTENTS, delCont);
@@ -20984,8 +21013,11 @@ saveWorkspaceConfigToDrive = async function() {
       deletedCategoryItems: state.deletedCategoryItems || {},
       todoStatuses: state.todoStatuses || DEFAULT_TODO_STATUSES,
       todoHandlers: Array.isArray(state.todoHandlers) ? state.todoHandlers : DEFAULT_TODO_HANDLERS,
+      caseNumbers: Array.isArray(state.caseNumbers) ? state.caseNumbers : DEFAULT_CASE_NUMBERS,
+      caseItems: Array.isArray(state.caseItems) ? state.caseItems : [],
+      deletedCaseIds: Array.isArray(state.deletedCaseIds) ? state.deletedCaseIds : [],
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.8.9'
+      source: 'Google Drive Cloud Truth v2.9.0'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -22418,7 +22450,7 @@ try {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.8.9 筆記畫布雙擊位置記憶與游標感知檔案插入引擎
+// 🚀 LVI_Note v2.9.0 筆記畫布雙擊位置記憶與游標感知檔案插入引擎
 // 1. 停止自動在區塊前後塞入兩行空白段落 (<p><br></p>)
 // 2. 雙擊無輸入游標處時：先記住該位置 (state.pendingDblClickTarget)，不直接加行；待使用者後續按下 Enter 時才在該位置新增 1 行 (<p><br></p>)
 // 3. 傳入檔案時：若有輸入游標則插入於游標位置；若無輸入游標則預設插入於筆記最底部 (絕不誤插在筆記最上方)
@@ -22910,4 +22942,2448 @@ try {
   initV289EditorCursorAndDblClickEngine();
 } catch (e) {
   console.warn('initV289EditorCursorAndDblClickEngine error:', e);
+}
+
+
+
+// ============================================================================
+// 🛡️ LVI_Note v2.9.0 「案件追蹤」(After-Sales Case Tracking & Service Dossier) 核心模組
+// 1. 與「待辦事項」同等級並列之獨立主功能 (側邊欄 + 頂部多重視圖導覽列)
+// 2. 支援共用主系統之「機型」、「客戶/廠商」、「標籤」、「處理人員」選單，並新增獨立「案號 (caseNumbers)」選單
+// 3. 內部配備比照表格資料庫之獨立搜尋與多維篩選系統 (支援同義詞智慧模糊檢索、關鍵字高亮摘要、5 大維度下拉過濾、清單/表格雙模式切換)
+// 4. 專為售後處理追蹤打造的 6 段式個案履歷介面 (含機台序號/保固、客訴與根因分析、售後對策與更換零件、多階段時間軸追蹤紀錄、現場照片/檔案縮圖、關聯筆記與報告匯出)
+// ============================================================================
+
+const CASE_STORAGE_KEY = 'lvi_case_items_v290';
+const DELETED_CASE_IDS_STORAGE_KEY = 'lvi_deleted_case_ids_v290';
+const CASE_NUMBERS_STORAGE_KEY = 'lvi_case_numbers_v290';
+
+const DEFAULT_CASE_NUMBERS = [
+  'CASE-2026-001',
+  'CASE-2026-002',
+  'RMA-2026-001'
+];
+
+const FIXED_CASE_STATUSES = [
+  '🔴 待處理',
+  '🟡 處理中',
+  '🟠 待料/觀察中',
+  '🟢 已結案'
+];
+
+state.caseItems = null;
+state.deletedCaseIds = null;
+state.caseNumbers = null;
+state.activeCaseDetailId = null;
+state.caseViewLayout = 'list'; // 'list' | 'table'
+state.caseFilterStatus = '';
+state.caseFilterCaseNo = '';
+state.caseFilterMachine = '';
+state.caseFilterClient = '';
+state.caseFilterTag = '';
+state.caseFilterHandler = '';
+state.casesFilterKeyword = '';
+
+// 擴充 deletedCategoryItems 支援 'case_number'
+const _origEnsureDeletedCategoryItemsLoadedV289 = ensureDeletedCategoryItemsLoaded;
+ensureDeletedCategoryItemsLoaded = function() {
+  const dict = _origEnsureDeletedCategoryItemsLoadedV289();
+  if (!Array.isArray(dict.case_number)) {
+    dict.case_number = [];
+    try {
+      const raw = localStorage.getItem(DELETED_CATEGORIES_STORAGE_KEY);
+      if (raw) {
+        const parsed = safeJsonParse(raw, null);
+        if (parsed && Array.isArray(parsed.case_number)) {
+          dict.case_number = Array.from(new Set(parsed.case_number));
+        }
+      }
+    } catch (e) {}
+  }
+  return dict;
+};
+
+const _origMergeDeletedCategoryDictionariesV289 = mergeDeletedCategoryDictionaries;
+mergeDeletedCategoryDictionaries = function(dictA, dictB) {
+  const out = _origMergeDeletedCategoryDictionariesV289(dictA, dictB);
+  const a = (dictA && Array.isArray(dictA.case_number)) ? dictA.case_number : [];
+  const b = (dictB && Array.isArray(dictB.case_number)) ? dictB.case_number : [];
+  out.case_number = Array.from(new Set([...a, ...b].map(x => String(x || '').trim()).filter(Boolean)));
+  return out;
+};
+
+function getDeletedCaseIdsSet() {
+  if (!Array.isArray(state.deletedCaseIds)) {
+    try {
+      const raw = localStorage.getItem(DELETED_CASE_IDS_STORAGE_KEY);
+      const parsed = raw ? safeJsonParse(raw, []) : [];
+      state.deletedCaseIds = Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      state.deletedCaseIds = [];
+    }
+  }
+  return new Set(state.deletedCaseIds);
+}
+
+function isCaseItemDeletedTombstoned(item) {
+  if (!item || !item.id) return true;
+  const delSet = getDeletedCaseIdsSet();
+  return delSet.has(String(item.id));
+}
+
+function normalizeCaseStatusValue(rawStatus) {
+  const s = String(rawStatus || '').trim();
+  if (s.includes('已結案') || s.includes('已完成')) return '🟢 已結案';
+  if (s.includes('處理中') || s.includes('進行中')) return '🟡 處理中';
+  if (s.includes('待料') || s.includes('觀察')) return '🟠 待料/觀察中';
+  return '🔴 待處理';
+}
+
+function isCaseStatusCompleted(statusStr) {
+  return normalizeCaseStatusValue(statusStr) === '🟢 已結案';
+}
+
+function getCaseStatusBadgeClass(statusStr) {
+  const norm = normalizeCaseStatusValue(statusStr);
+  if (norm === '🟢 已結案') {
+    return 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700';
+  }
+  if (norm === '🟡 處理中') {
+    return 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700';
+  }
+  if (norm === '🟠 待料/觀察中') {
+    return 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/80 dark:text-sky-200 dark:border-sky-700';
+  }
+  return 'bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700';
+}
+
+function ensureCaseItemsInitialized() {
+  ensureDeletedCategoryItemsLoaded();
+  getDeletedCaseIdsSet();
+
+  if (!Array.isArray(state.caseNumbers)) {
+    try {
+      const rawCN = localStorage.getItem(CASE_NUMBERS_STORAGE_KEY);
+      const parsedCN = rawCN ? safeJsonParse(rawCN, null) : null;
+      const baseCN = (Array.isArray(parsedCN) && parsedCN.length > 0) ? parsedCN : DEFAULT_CASE_NUMBERS.slice();
+      state.caseNumbers = filterOutDeletedCategoryItems('case_number', baseCN);
+    } catch (e) {
+      state.caseNumbers = filterOutDeletedCategoryItems('case_number', DEFAULT_CASE_NUMBERS.slice());
+    }
+  } else {
+    state.caseNumbers = filterOutDeletedCategoryItems('case_number', state.caseNumbers);
+  }
+
+  if (!Array.isArray(state.caseItems)) {
+    try {
+      const rawC = localStorage.getItem(CASE_STORAGE_KEY);
+      const parsedC = rawC ? safeJsonParse(rawC, []) : [];
+      state.caseItems = Array.isArray(parsedC) ? parsedC : [];
+    } catch (e) {
+      state.caseItems = [];
+    }
+  }
+
+  state.caseItems = state.caseItems.filter(item => item && item.id && !isCaseItemDeletedTombstoned(item));
+  state.caseItems.forEach(item => {
+    item.status = normalizeCaseStatusValue(item.status);
+    if (typeof item.caseNumber !== 'string') item.caseNumber = '';
+    if (typeof item.machineModel !== 'string') item.machineModel = '';
+    if (typeof item.clientVendor !== 'string') item.clientVendor = '';
+    if (typeof item.serialOrWarranty !== 'string') item.serialOrWarranty = '';
+    if (typeof item.symptomText !== 'string') item.symptomText = '';
+    if (typeof item.rootCauseText !== 'string') item.rootCauseText = '';
+    if (typeof item.actionTakenText !== 'string') item.actionTakenText = '';
+    if (typeof item.partsReplacedText !== 'string') item.partsReplacedText = '';
+    if (typeof item.symptomAttachmentsHtml !== 'string') item.symptomAttachmentsHtml = '';
+    if (typeof item.actionAttachmentsHtml !== 'string') item.actionAttachmentsHtml = '';
+    if (!Array.isArray(item.timelineLogs)) item.timelineLogs = [];
+    if (!Array.isArray(item.linkedNoteIds)) item.linkedNoteIds = [];
+    if (!Array.isArray(item.tags)) item.tags = [];
+    if (!Array.isArray(item.handlers)) item.handlers = [];
+    if (!item.createdEpoch) item.createdEpoch = parseTodoTimestampToEpoch(item.createdAt);
+  });
+}
+
+function mergeCloudAndLocalCaseItems(cloudList = [], localList = []) {
+  const map = new Map();
+  [...(cloudList || []), ...(localList || [])].forEach(item => {
+    if (!item || !item.id) return;
+    if (isCaseItemDeletedTombstoned(item)) return;
+    const existing = map.get(item.id);
+    if (!existing || (item.updatedAt || 0) >= (existing.updatedAt || 0)) {
+      map.set(item.id, item);
+    }
+  });
+  return Array.from(map.values()).sort((a, b) => (b.createdEpoch || 0) - (a.createdEpoch || 0));
+}
+
+function saveCaseItemsToLocalStorageOnly() {
+  try {
+    ensureCaseItemsInitialized();
+    const cleanItems = (state.caseItems || []).filter(item => !isCaseItemDeletedTombstoned(item));
+    state.caseItems = cleanItems;
+    safeSetLocalStorageItem(CASE_STORAGE_KEY, JSON.stringify(cleanItems));
+    safeSetLocalStorageItem(DELETED_CASE_IDS_STORAGE_KEY, JSON.stringify(state.deletedCaseIds || []));
+    safeSetLocalStorageItem(CASE_NUMBERS_STORAGE_KEY, JSON.stringify(state.caseNumbers || []));
+    saveSwrCacheSnapshot();
+  } catch (e) {
+    console.warn('儲存案件追蹤至本機快取略過:', e);
+  }
+}
+
+let _caseCloudSyncTimer = null;
+function saveCaseItemsState(immediateCloud = false) {
+  saveCaseItemsToLocalStorageOnly();
+  updateCaseSummaryStats();
+  if (immediateCloud) {
+    clearTimeout(_caseCloudSyncTimer);
+    saveWorkspaceConfigToDrive();
+  } else {
+    clearTimeout(_caseCloudSyncTimer);
+    _caseCloudSyncTimer = setTimeout(() => {
+      saveWorkspaceConfigToDrive();
+    }, 650);
+  }
+}
+
+function updateCaseSummaryStats() {
+  ensureCaseItemsInitialized();
+  const items = (state.caseItems || []).filter(item => !isCaseItemDeletedTombstoned(item));
+  const pendingCount = items.filter(t => normalizeCaseStatusValue(t.status) === '🔴 待處理').length;
+  const progressCount = items.filter(t => normalizeCaseStatusValue(t.status) === '🟡 處理中').length;
+  const waitingCount = items.filter(t => normalizeCaseStatusValue(t.status) === '🟠 待料/觀察中').length;
+  const activeTotal = pendingCount + progressCount + waitingCount;
+
+  const pEl = document.getElementById('case-cat-count-pending');
+  const prEl = document.getElementById('case-cat-count-progress');
+  const wEl = document.getElementById('case-cat-count-waiting');
+  if (pEl) pEl.textContent = String(pendingCount);
+  if (prEl) prEl.textContent = String(progressCount);
+  if (wEl) wEl.textContent = String(waitingCount);
+
+  const subEl = document.getElementById('case-header-stats-subtitle');
+  if (subEl) {
+    subEl.textContent = `待處理 ${pendingCount} ・ 處理中 ${progressCount} ・ 待料/觀察 ${waitingCount}`;
+  }
+
+  const sideBadge = document.getElementById('sidebar-cases-count');
+  if (sideBadge) {
+    sideBadge.textContent = String(activeTotal);
+  }
+
+  document.querySelectorAll('#case-fixed-category-bar .case-cat-tab-btn').forEach(btn => {
+    const cat = btn.getAttribute('data-case-status');
+    btn.classList.toggle('active', state.caseFilterStatus === cat);
+  });
+}
+
+// ----------------------------------------------------------------------------
+// 📁 獨立「案號 (Case Numbers)」CRUD 與管理中心分頁渲染
+// ----------------------------------------------------------------------------
+function renderTagManagerCaseNumberList() {
+  ensureCaseItemsInitialized();
+  const listEl = document.getElementById('tm-case-number-list');
+  const countEl = document.getElementById('tm-case-number-total-count');
+  if (!listEl) return;
+
+  state.caseNumbers = filterOutDeletedCategoryItems('case_number', state.caseNumbers || []);
+  listEl.innerHTML = '';
+  if (countEl) countEl.textContent = `共 ${state.caseNumbers.length} 項`;
+
+  if (state.caseNumbers.length === 0) {
+    listEl.innerHTML = '<div class="text-center py-6 text-gray-400 text-xs">尚無案號，請由上方新增</div>';
+    return;
+  }
+
+  state.caseNumbers.forEach(cNo => {
+    const usedCount = (state.caseItems || []).filter(c => !isCaseItemDeletedTombstoned(c) && c.caseNumber === cNo).length;
+    const row = createUnifiedTagManagerRow({
+      iconHtml: '<span class="text-sm shrink-0">📁</span>',
+      inputValue: cNo,
+      inputPlaceholder: '案號名稱...',
+      countText: `${usedCount} 筆`,
+      badgeClass: usedCount > 0
+        ? 'bg-teal-50 text-teal-700 dark:bg-teal-950/70 dark:text-teal-300 border-teal-200 dark:border-teal-800'
+        : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 border-gray-200 dark:border-gray-700',
+      onSave: (newName, _color, explicit) => {
+        if (newName === cNo) {
+          if (explicit) showToast(`✅ 已儲存案號「${cNo}」`);
+          return;
+        }
+        renameCaseNumber(cNo, newName);
+      },
+      onDelete: () => {
+        deleteCaseNumber(cNo);
+      }
+    });
+    listEl.appendChild(row);
+  });
+  initLucide();
+}
+
+function addCaseNumber(name, shouldRecord = true) {
+  ensureCaseItemsInitialized();
+  name = (name || '').trim();
+  if (!name) {
+    showToast('請輸入案號');
+    return false;
+  }
+  unmarkCategoryItemDeleted('case_number', name);
+  if (!Array.isArray(state.caseNumbers)) state.caseNumbers = [];
+  if (state.caseNumbers.includes(name)) {
+    showToast(`案號「${name}」已存在`);
+    return false;
+  }
+
+  state.caseNumbers.push(name);
+  const inp = document.getElementById('tm-new-case-number-input');
+  if (inp) inp.value = '';
+  saveCaseItemsState(true);
+  populateCaseFilterDropdowns();
+  renderTagManagerCaseNumberList();
+  if (state.currentView === 'cases') renderCasesView();
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'add_case_number',
+      title: `📁 新增案號「${name}」`,
+      subtitle: '已加入案號清單',
+      undo: () => { deleteCaseNumber(name, false); },
+      redo: () => { addCaseNumber(name, false); }
+    });
+  }
+  showToast(`✅ 已新增案號「${name}」`);
+  return true;
+}
+
+function renameCaseNumber(oldName, newName, shouldRecord = true) {
+  ensureCaseItemsInitialized();
+  newName = (newName || '').trim();
+  if (!newName) {
+    showToast('案號不能為空');
+    renderTagManagerCaseNumberList();
+    return false;
+  }
+  if (newName === oldName) {
+    showToast(`✅ 已儲存案號「${newName}」`);
+    return true;
+  }
+  if (!Array.isArray(state.caseNumbers)) state.caseNumbers = [];
+  if (state.caseNumbers.includes(newName)) {
+    showToast(`案號「${newName}」已存在`);
+    renderTagManagerCaseNumberList();
+    return false;
+  }
+
+  const idx = state.caseNumbers.findIndex(x => x === oldName || x.trim() === String(oldName || '').trim());
+  if (idx === -1) return false;
+
+  markCategoryItemDeleted('case_number', oldName);
+  unmarkCategoryItemDeleted('case_number', newName);
+  state.caseNumbers[idx] = newName;
+
+  (state.caseItems || []).forEach(item => {
+    if (item.caseNumber === oldName || (item.caseNumber || '').trim() === oldName.trim()) {
+      item.caseNumber = newName;
+    }
+  });
+  if (state.caseFilterCaseNo === oldName) state.caseFilterCaseNo = newName;
+
+  saveCaseItemsState(true);
+  populateCaseFilterDropdowns();
+  renderTagManagerCaseNumberList();
+  if (state.currentView === 'cases') renderCasesView();
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'rename_case_number',
+      title: `📁 更名案號「${oldName}」➔「${newName}」`,
+      subtitle: '已同步更新關聯案件',
+      undo: () => { renameCaseNumber(newName, oldName, false); },
+      redo: () => { renameCaseNumber(oldName, newName, false); }
+    });
+  }
+  showToast(`✅ 案號已更名為「${newName}」`);
+  return true;
+}
+
+function deleteCaseNumber(name, shouldRecord = true) {
+  ensureCaseItemsInitialized();
+  if (!Array.isArray(state.caseNumbers)) return false;
+  const idx = state.caseNumbers.findIndex(x => x === name || x.trim() === String(name || '').trim());
+  if (idx === -1) return false;
+
+  const targetName = state.caseNumbers[idx];
+  markCategoryItemDeleted('case_number', targetName);
+  state.caseNumbers.splice(idx, 1);
+
+  const affectedCases = (state.caseItems || []).filter(c => c.caseNumber === targetName || (c.caseNumber || '').trim() === targetName.trim());
+  affectedCases.forEach(c => { c.caseNumber = ''; });
+  if (state.caseFilterCaseNo === targetName) state.caseFilterCaseNo = '';
+
+  saveCaseItemsState(true);
+  populateCaseFilterDropdowns();
+  renderTagManagerCaseNumberList();
+  if (state.currentView === 'cases') renderCasesView();
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'delete_case_number',
+      title: `📁 刪除案號「${targetName}」`,
+      subtitle: '可按復原 (Ctrl+Z) 救回',
+      undo: () => {
+        unmarkCategoryItemDeleted('case_number', targetName);
+        if (!state.caseNumbers.includes(targetName)) {
+          state.caseNumbers.splice(Math.min(idx, state.caseNumbers.length), 0, targetName);
+        }
+        affectedCases.forEach(c => { c.caseNumber = targetName; });
+        saveCaseItemsState(true);
+        populateCaseFilterDropdowns();
+        if (state.activeTagManagerTab === 'case_number') renderTagManagerCaseNumberList();
+        if (state.currentView === 'cases') renderCasesView();
+      },
+      redo: () => { deleteCaseNumber(targetName, false); }
+    });
+  }
+  showToast(`🗑️ 已刪除案號「${targetName}」`);
+  return true;
+}
+
+// 讓共用分類 (機型、客戶、標籤、處理人員) 更名或刪除時，同步更新 state.caseItems！
+const _origRenameMachineModelV289 = renameMachineModel;
+renameMachineModel = async function(oldName, newName, shouldRecord = true) {
+  const ok = await _origRenameMachineModelV289(oldName, newName, shouldRecord);
+  if (ok && Array.isArray(state.caseItems)) {
+    state.caseItems.forEach(c => {
+      if (c.machineModel === oldName) c.machineModel = newName;
+    });
+    if (state.caseFilterMachine === oldName) state.caseFilterMachine = newName;
+    saveCaseItemsToLocalStorageOnly();
+    populateCaseFilterDropdowns();
+    if (state.currentView === 'cases') renderCasesView();
+  }
+  return ok;
+};
+
+const _origDeleteMachineModelV289 = deleteMachineModel;
+deleteMachineModel = function(name, shouldRecord = true) {
+  const ok = _origDeleteMachineModelV289(name, shouldRecord);
+  if (ok && Array.isArray(state.caseItems)) {
+    state.caseItems.forEach(c => {
+      if (c.machineModel === name) c.machineModel = '';
+    });
+    if (state.caseFilterMachine === name) state.caseFilterMachine = '';
+    saveCaseItemsToLocalStorageOnly();
+    populateCaseFilterDropdowns();
+    if (state.currentView === 'cases') renderCasesView();
+  }
+  return ok;
+};
+
+const _origRenameClientVendorV289 = renameClientVendor;
+renameClientVendor = async function(oldName, newName, shouldRecord = true) {
+  const ok = await _origRenameClientVendorV289(oldName, newName, shouldRecord);
+  if (ok && Array.isArray(state.caseItems)) {
+    state.caseItems.forEach(c => {
+      if (c.clientVendor === oldName) c.clientVendor = newName;
+    });
+    if (state.caseFilterClient === oldName) state.caseFilterClient = newName;
+    saveCaseItemsToLocalStorageOnly();
+    populateCaseFilterDropdowns();
+    if (state.currentView === 'cases') renderCasesView();
+  }
+  return ok;
+};
+
+const _origDeleteClientVendorV289 = deleteClientVendor;
+deleteClientVendor = async function(name, shouldRecord = true) {
+  const ok = await _origDeleteClientVendorV289(name, shouldRecord);
+  if (ok && Array.isArray(state.caseItems)) {
+    state.caseItems.forEach(c => {
+      if (c.clientVendor === name) c.clientVendor = '';
+    });
+    if (state.caseFilterClient === name) state.caseFilterClient = '';
+    saveCaseItemsToLocalStorageOnly();
+    populateCaseFilterDropdowns();
+    if (state.currentView === 'cases') renderCasesView();
+  }
+  return ok;
+};
+
+const _origRenameCustomTagV289 = renameCustomTag;
+renameCustomTag = function(oldName, newName, newColor = null, shouldRecord = true) {
+  const ok = _origRenameCustomTagV289(oldName, newName, newColor, shouldRecord);
+  if (ok && Array.isArray(state.caseItems)) {
+    state.caseItems.forEach(c => {
+      if (Array.isArray(c.tags) && c.tags.includes(oldName)) {
+        c.tags = Array.from(new Set(c.tags.map(t => t === oldName ? newName : t)));
+      }
+    });
+    if (state.caseFilterTag === oldName) state.caseFilterTag = newName;
+    saveCaseItemsToLocalStorageOnly();
+    populateCaseFilterDropdowns();
+    if (state.currentView === 'cases') renderCasesView();
+  }
+  return ok;
+};
+
+const _origDeleteCustomTagV289 = deleteCustomTag;
+deleteCustomTag = function(tagName, shouldRecord = true) {
+  const ok = _origDeleteCustomTagV289(tagName, shouldRecord);
+  if (ok && Array.isArray(state.caseItems)) {
+    state.caseItems.forEach(c => {
+      if (Array.isArray(c.tags) && c.tags.includes(tagName)) {
+        c.tags = c.tags.filter(t => t !== tagName);
+      }
+    });
+    if (state.caseFilterTag === tagName) state.caseFilterTag = '';
+    saveCaseItemsToLocalStorageOnly();
+    populateCaseFilterDropdowns();
+    if (state.currentView === 'cases') renderCasesView();
+  }
+  return ok;
+};
+
+const _origRenameTodoHandlerV289 = renameTodoHandler;
+renameTodoHandler = function(oldName, newName) {
+  const ok = _origRenameTodoHandlerV289(oldName, newName);
+  if (ok && Array.isArray(state.caseItems)) {
+    state.caseItems.forEach(c => {
+      if (Array.isArray(c.handlers)) {
+        c.handlers = c.handlers.map(h => h === oldName ? newName : h);
+      }
+      if (Array.isArray(c.timelineLogs)) {
+        c.timelineLogs.forEach(lg => {
+          if (lg.handler === oldName) lg.handler = newName;
+        });
+      }
+    });
+    if (state.caseFilterHandler === oldName) state.caseFilterHandler = newName;
+    saveCaseItemsToLocalStorageOnly();
+    populateCaseFilterDropdowns();
+    if (state.currentView === 'cases') renderCasesView();
+  }
+  return ok;
+};
+
+const _origDeleteTodoHandlerV289 = deleteTodoHandler;
+deleteTodoHandler = function(name) {
+  const ok = _origDeleteTodoHandlerV289(name);
+  if (ok && Array.isArray(state.caseItems)) {
+    state.caseItems.forEach(c => {
+      if (Array.isArray(c.handlers)) {
+        c.handlers = c.handlers.filter(h => h !== name);
+      }
+    });
+    if (state.caseFilterHandler === name) state.caseFilterHandler = '';
+    saveCaseItemsToLocalStorageOnly();
+    populateCaseFilterDropdowns();
+    if (state.currentView === 'cases') renderCasesView();
+  }
+  return ok;
+};
+
+const _origRefreshAllViewsAfterCategoryChangeV289 = refreshAllViewsAfterCategoryChange;
+refreshAllViewsAfterCategoryChange = function() {
+  _origRefreshAllViewsAfterCategoryChangeV289();
+  try { populateCaseFilterDropdowns(); } catch (e) {}
+  try { if (state.currentView === 'cases') renderCasesView(); } catch (e) {}
+};
+
+// 擴充 switchTagManagerTab 支援第 7 分頁 case_number
+const _origSwitchTagManagerTabV289 = switchTagManagerTab;
+switchTagManagerTab = function(tab) {
+  if (tab === 'case_number') {
+    state.activeTagManagerTab = 'case_number';
+    const allTabs = ['machine', 'content', 'urgency', 'client', 'custom', 'todo_handler', 'case_number', 'todo_status'];
+    allTabs.forEach(tid => {
+      const btn = document.getElementById(
+        tid === 'todo_handler' ? 'tm-tab-todo-handler' :
+        tid === 'case_number' ? 'tm-tab-case-number' :
+        tid === 'todo_status' ? 'tm-tab-todo-status' : `tm-tab-${tid}`
+      );
+      const pane = document.getElementById(
+        tid === 'todo_handler' ? 'tm-pane-todo-handler' :
+        tid === 'case_number' ? 'tm-pane-case-number' :
+        tid === 'todo_status' ? 'tm-pane-todo-status' : `tm-pane-${tid}`
+      );
+      if (btn && tid !== 'todo_status') btn.classList.toggle('active', tid === 'case_number');
+      if (pane) pane.classList.toggle('hidden', tid !== 'case_number');
+    });
+    renderTagManagerCaseNumberList();
+    initLucide();
+    return;
+  }
+  const caseBtn = document.getElementById('tm-tab-case-number');
+  const casePane = document.getElementById('tm-pane-case-number');
+  if (caseBtn) caseBtn.classList.remove('active');
+  if (casePane) casePane.classList.add('hidden');
+  _origSwitchTagManagerTabV289(tab);
+};
+
+// ----------------------------------------------------------------------------
+// 🧠 案件追蹤獨立模糊檢索與同義詞匹配引擎 (比照表格資料庫)
+// ----------------------------------------------------------------------------
+function extractCaseAttachmentsSearchableText(caseItem) {
+  if (!caseItem) return '';
+  const rawHtml = (caseItem.symptomAttachmentsHtml || '') + ' ' + (caseItem.actionAttachmentsHtml || '');
+  if (!rawHtml.trim()) return '';
+  try {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = rawHtml;
+    const chunks = [];
+    tmp.querySelectorAll('[data-file-name]').forEach(el => {
+      const fn = el.getAttribute('data-file-name');
+      if (fn) chunks.push(fn);
+    });
+    tmp.querySelectorAll('[data-image-note]').forEach(el => {
+      const nt = el.getAttribute('data-image-note');
+      if (nt) chunks.push(nt.replace(/<[^>]+>/g, ' '));
+    });
+    tmp.querySelectorAll('.media-top-note-input').forEach(el => {
+      const txt = (el.textContent || '').trim();
+      if (txt) chunks.push(txt);
+    });
+    return chunks.join(' ');
+  } catch (e) {
+    return '';
+  }
+}
+
+function evaluateFuzzyCaseMatch(caseItem, parsedQuery) {
+  if (!parsedQuery || !parsedQuery.rawNormalized) {
+    return {
+      matched: true,
+      score: 100,
+      confidencePct: 100,
+      matchReasons: [],
+      highlightTerms: [],
+      snippet: null,
+      isSolutionNote: Boolean(caseItem.actionTakenText)
+    };
+  }
+
+  const attSearchText = extractCaseAttachmentsSearchableText(caseItem);
+  const timelineText = (caseItem.timelineLogs || []).map(lg => `[${lg.time || ''} ${lg.handler || ''}] ${lg.text || ''}`).join('\n');
+
+  const pseudoNote = {
+    id: caseItem.id,
+    name: `${caseItem.caseNumber ? '[' + caseItem.caseNumber + '] ' : ''}${caseItem.title || '未命名案件'}`,
+    meta: {
+      machineModel: caseItem.machineModel || '',
+      workContent: `${caseItem.caseNumber || ''} ${caseItem.serialOrWarranty || ''} ${(caseItem.tags || []).join(' ')}`,
+      clientVendor: caseItem.clientVendor || '',
+      status: `${caseItem.status || ''} ${(caseItem.handlers || []).join(' ')}`,
+      tags: [...(caseItem.tags || []), ...(caseItem.handlers || []), caseItem.caseNumber || '', caseItem.status || ''].filter(Boolean)
+    },
+    _cachedBody: [
+      `【案號】${caseItem.caseNumber || ''}`,
+      `【序號/保固】${caseItem.serialOrWarranty || ''}`,
+      `【客訴與異常現象】${caseItem.symptomText || ''}`,
+      `【根因分析】${caseItem.rootCauseText || ''}`,
+      `【售後處理對策】${caseItem.actionTakenText || ''}`,
+      `【更換零件/耗材】${caseItem.partsReplacedText || ''}`,
+      timelineText ? `【追蹤時間軸】${timelineText}` : '',
+      attSearchText ? `【圖片備註與附件】${attSearchText}` : ''
+    ].filter(Boolean).join('\n')
+  };
+
+  const baseRes = evaluateFuzzyNoteMatch(pseudoNote, parsedQuery);
+  if (baseRes && baseRes.matched && ((caseItem.actionTakenText && caseItem.actionTakenText.trim()) || (caseItem.rootCauseText && caseItem.rootCauseText.trim()))) {
+    baseRes.isSolutionNote = true;
+  }
+  return baseRes;
+}
+
+// ----------------------------------------------------------------------------
+// 🗂️ 案件追蹤篩選器下拉選單與 CRUD 操作
+// ----------------------------------------------------------------------------
+function populateCaseFilterDropdowns() {
+  ensureCaseItemsInitialized();
+  const caseNos = state.caseNumbers || [];
+  const machines = getSharedMachineModelsForTodo();
+  const clients = getSharedClientsVendorsForTodo();
+  const tags = getSharedTagsForTodo();
+  const handlers = state.todoHandlers || DEFAULT_TODO_HANDLERS;
+
+  const caseNoSelect = document.getElementById('cases-filter-caseno');
+  if (caseNoSelect) {
+    const cur = state.caseFilterCaseNo || '';
+    caseNoSelect.innerHTML = `<option value="">📁 全部案號</option><option value="__empty__" ${cur === '__empty__' ? 'selected' : ''}>未指定案號</option>` +
+      caseNos.map(cn => `<option value="${escapeHtml(cn)}" ${cur === cn ? 'selected' : ''}>📁 ${escapeHtml(cn)}</option>`).join('');
+  }
+
+  const machSelect = document.getElementById('cases-filter-machine');
+  if (machSelect) {
+    const cur = state.caseFilterMachine || '';
+    machSelect.innerHTML = `<option value="">🚜 全部機型</option><option value="__empty__" ${cur === '__empty__' ? 'selected' : ''}>未選擇</option>` +
+      machines.map(m => `<option value="${escapeHtml(m)}" ${cur === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`).join('');
+  }
+
+  const clientSelect = document.getElementById('cases-filter-client');
+  if (clientSelect) {
+    const cur = state.caseFilterClient || '';
+    clientSelect.innerHTML = `<option value="">🏢 全部客戶/廠商</option><option value="__empty__" ${cur === '__empty__' ? 'selected' : ''}>未選擇</option>` +
+      clients.map(c => `<option value="${escapeHtml(c)}" ${cur === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`).join('');
+  }
+
+  const tagSelect = document.getElementById('cases-filter-tag');
+  if (tagSelect) {
+    const cur = state.caseFilterTag || '';
+    tagSelect.innerHTML = `<option value="">🏷️ 全部標籤</option>` +
+      tags.map(t => {
+        const name = typeof t === 'string' ? t : (t.name || t.id);
+        return `<option value="${escapeHtml(name)}" ${cur === name ? 'selected' : ''}>#${escapeHtml(name)}</option>`;
+      }).join('');
+  }
+
+  const handlerSelect = document.getElementById('cases-filter-handler');
+  if (handlerSelect) {
+    const cur = state.caseFilterHandler || '';
+    handlerSelect.innerHTML = `<option value="">👥 全部人員</option>` +
+      handlers.map(h => `<option value="${escapeHtml(h)}" ${cur === h ? 'selected' : ''}>👤 ${escapeHtml(h)}</option>`).join('');
+  }
+}
+
+function createNewCaseCardItem() {
+  ensureCaseItemsInitialized();
+  const nowStr = formatTodoTimestamp();
+  const newItem = {
+    id: 'case_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    title: '',
+    caseNumber: (state.caseFilterCaseNo && state.caseFilterCaseNo !== '__empty__') ? state.caseFilterCaseNo : '',
+    machineModel: (state.caseFilterMachine && state.caseFilterMachine !== '__empty__') ? state.caseFilterMachine : '',
+    clientVendor: (state.caseFilterClient && state.caseFilterClient !== '__empty__') ? state.caseFilterClient : '',
+    status: state.caseFilterStatus || '🔴 待處理',
+    serialOrWarranty: '',
+    symptomText: '',
+    rootCauseText: '',
+    actionTakenText: '',
+    partsReplacedText: '',
+    symptomAttachmentsHtml: '',
+    actionAttachmentsHtml: '',
+    timelineLogs: [],
+    linkedNoteIds: [],
+    linkedNoteTitles: {},
+    tags: state.caseFilterTag ? [state.caseFilterTag] : [],
+    handlers: state.caseFilterHandler ? [state.caseFilterHandler] : [],
+    createdAt: nowStr,
+    createdEpoch: Date.now(),
+    completedAt: '',
+    updatedAt: Date.now()
+  };
+
+  state.caseItems.unshift(newItem);
+  state.activeCaseDetailId = newItem.id;
+  saveCaseItemsState(true);
+  renderCasesView();
+
+  setTimeout(() => {
+    const cardEl = document.querySelector(`.lvi-case-card[data-case-id="${newItem.id}"]`);
+    if (cardEl) {
+      const titleInp = cardEl.querySelector('.case-title-input');
+      if (titleInp) titleInp.focus();
+    }
+  }, 50);
+  showToast('🛡️ 已建立新案件，請輸入案件資訊');
+  return newItem;
+}
+
+async function deleteCaseItemById(caseId) {
+  if (!caseId) return false;
+  ensureCaseItemsInitialized();
+  const idx = (state.caseItems || []).findIndex(c => c.id === caseId);
+  if (idx === -1) return false;
+  const targetItem = { ...state.caseItems[idx] };
+
+  const delSet = getDeletedCaseIdsSet();
+  delSet.add(String(caseId));
+  state.deletedCaseIds = Array.from(delSet);
+  state.caseItems = (state.caseItems || []).filter(c => c.id !== caseId);
+
+  if (state.activeCaseDetailId === caseId) {
+    state.activeCaseDetailId = null;
+  }
+
+  saveCaseItemsState(true);
+  if (state.currentView === 'cases') renderCasesView();
+
+  const label = targetItem.caseNumber
+    ? `[${targetItem.caseNumber}] ${targetItem.title || '未命名案件'}`
+    : (targetItem.title || '案件');
+
+  recordAction({
+    type: 'delete_case',
+    title: `🗑️ 刪除案件「${label}」`,
+    subtitle: '可按復原 (Ctrl+Z) 救回',
+    undo: () => {
+      state.deletedCaseIds = (state.deletedCaseIds || []).filter(id => id !== String(caseId));
+      if (!state.caseItems.some(c => c.id === caseId)) {
+        state.caseItems.splice(Math.min(idx, state.caseItems.length), 0, targetItem);
+      }
+      saveCaseItemsState(true);
+      if (state.currentView === 'cases') renderCasesView();
+    },
+    redo: () => { deleteCaseItemById(caseId); }
+  });
+
+  showToast(`🗑️ 已刪除案件：「${label}」`);
+  return true;
+}
+
+// 同步案件卡片內的縮圖與圖片備註
+function syncCaseCardAttachmentsFromDom(cardEl) {
+  if (!cardEl) return;
+  const caseId = cardEl.getAttribute('data-case-id');
+  if (!caseId || !Array.isArray(state.caseItems)) return;
+  const item = state.caseItems.find(c => c.id === caseId);
+  if (!item) return;
+
+  const symGallery = cardEl.querySelector('.case-symptom-attachments');
+  const actGallery = cardEl.querySelector('.case-action-attachments');
+
+  if (symGallery) {
+    symGallery.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
+    item.symptomAttachmentsHtml = compactTodoAttachmentsHtml(symGallery.innerHTML);
+  }
+  if (actGallery) {
+    actGallery.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
+    item.actionAttachmentsHtml = compactTodoAttachmentsHtml(actGallery.innerHTML);
+  }
+  item.updatedAt = Date.now();
+  saveCaseItemsState();
+}
+
+// 讓圖片上方備註與旋轉/刪除也能自動同步回 lvi-case-card
+const _origSyncTodoAttachmentsFromAnyContainerV289 = syncTodoAttachmentsFromAnyContainer;
+syncTodoAttachmentsFromAnyContainer = function(blockOrChild) {
+  if (blockOrChild && blockOrChild.closest) {
+    const parentCaseCard = blockOrChild.closest('.lvi-case-card');
+    if (parentCaseCard) {
+      syncCaseCardAttachmentsFromDom(parentCaseCard);
+      return true;
+    }
+  }
+  return _origSyncTodoAttachmentsFromAnyContainerV289(blockOrChild);
+};
+
+async function uploadFileToCaseCardSection(caseId, section, file) {
+  if (!file || !caseId) return;
+  ensureCaseItemsInitialized();
+  const item = (state.caseItems || []).find(c => c.id === caseId);
+  if (!item) return;
+
+  const cardEl = document.querySelector(`.lvi-case-card[data-case-id="${caseId}"]`);
+  const galleryEl = cardEl
+    ? cardEl.querySelector(section === 'action' ? '.case-action-attachments' : '.case-symptom-attachments')
+    : null;
+
+  const isImage = (file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|webp|heic|heif|bmp|gif|svg|ico)$/i.test(file.name);
+  let uploadTarget = file;
+  let localPermanentDataUrl = null;
+  if (isImage) {
+    showToast(`🖼️ 正在處理照片「${file.name}」...`, 1200);
+    uploadTarget = await compressImageForUpload(file);
+    try { localPermanentDataUrl = await blobToDataUrl(uploadTarget); } catch (e) {}
+  }
+
+  const finalName = uploadTarget.name || file.name;
+  const finalSizeDisplay = formatFileSizeDisplay(uploadTarget.size || file.size);
+  const tempCardId = 'case_att_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+
+  let cardHtml = '';
+  if (isImage) {
+    const srcUrl = localPermanentDataUrl || URL.createObjectURL(uploadTarget);
+    cardHtml = buildMediaCollapseCardHtml({
+      fileId: '',
+      fileName: finalName,
+      isImage: true,
+      isVideo: false,
+      isAudio: false,
+      directSrc: srcUrl,
+      previewUrl: '#',
+      previewEmbedUrl: '#',
+      downloadUrl: '#'
+    }).replace('<details ', `<details id="${tempCardId}" draggable="false" `).replace(/<p><br><\/p>\s*$/, '');
+  } else {
+    const localObjUrl = URL.createObjectURL(uploadTarget);
+    cardHtml = `
+      <div id="${tempCardId}" class="notion-file-attachment my-1 p-2 rounded-lg border border-gray-200 dark:border-notion-borderDark bg-white dark:bg-notion-card flex items-center justify-between gap-2" contenteditable="false" data-file-id="" data-file-name="${escapeHtml(finalName)}" data-file-size="${finalSizeDisplay}">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <i data-lucide="paperclip" class="w-3.5 h-3.5 text-teal-500 shrink-0"></i>
+          <span class="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">${escapeHtml(finalName)}</span>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <a href="${localObjUrl}" target="_blank" download="${escapeHtml(finalName)}" class="px-1.5 py-0.5 text-[11px] rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-bold">下載</a>
+          <button type="button" class="file-attachment-delete-btn px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 text-[11px] font-bold cursor-pointer">×</button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (galleryEl) {
+    const wrapper = document.createElement('div');
+    wrapper.innerHTML = cardHtml.trim();
+    const insertedNode = wrapper.firstElementChild;
+    if (insertedNode) {
+      galleryEl.appendChild(insertedNode);
+      if (isImage && localPermanentDataUrl) {
+        const imgEl = insertedNode.querySelector('img');
+        if (imgEl) imgEl.setAttribute('data-annotated-backup', localPermanentDataUrl);
+      }
+    }
+    try { enhanceAllEditorBlocks(galleryEl); } catch (e) {}
+    initLucide();
+    syncCaseCardAttachmentsFromDom(cardEl);
+  } else {
+    if (section === 'action') {
+      item.actionAttachmentsHtml = (item.actionAttachmentsHtml || '') + cardHtml;
+    } else {
+      item.symptomAttachmentsHtml = (item.symptomAttachmentsHtml || '') + cardHtml;
+    }
+    item.updatedAt = Date.now();
+    saveCaseItemsState();
+    renderCasesView();
+  }
+
+  showToast(`✅ 已加入案件附件「${finalName}」`, 1800);
+}
+
+// 匯出單一個案售後追蹤報告 (.md)
+function exportSingleCaseReportMarkdown(caseId) {
+  ensureCaseItemsInitialized();
+  const item = (state.caseItems || []).find(c => c.id === caseId);
+  if (!item) return;
+
+  const lines = [
+    `# 🛡️ 售後案件追蹤報告：${item.title || '未命名案件'}`,
+    ``,
+    `- **案號**：${item.caseNumber || '未指定'}`,
+    `- **案件狀態**：${item.status || '🔴 待處理'}`,
+    `- **機型分類**：${item.machineModel || '未選擇'}`,
+    `- **客戶或廠商**：${item.clientVendor || '未選擇'}`,
+    `- **機台序號 / 保固**：${item.serialOrWarranty || '無'}`,
+    `- **處理人員**：${(item.handlers && item.handlers.length) ? item.handlers.join('、') : '無'}`,
+    `- **標籤**：${(item.tags && item.tags.length) ? item.tags.map(t => '#' + t).join(' ') : '無'}`,
+    `- **立案時間**：${item.createdAt || ''}`,
+    `- **結案時間**：${item.completedAt || '無'}`,
+    ``,
+    `## 🚨 客訴與異常現象`,
+    item.symptomText || '（無紀錄）',
+    ``,
+    `## 🔍 異常原因 / 根因分析`,
+    item.rootCauseText || '（無紀錄）',
+    ``,
+    `## 🛠️ 售後處理過程與對策`,
+    item.actionTakenText || '（無紀錄）',
+    ``,
+    `## 🔩 更換零件 / 耗材紀錄`,
+    item.partsReplacedText || '（無紀錄）',
+    ``,
+    `## 🕒 售後追蹤時間軸紀錄`,
+    ...((item.timelineLogs && item.timelineLogs.length > 0)
+      ? item.timelineLogs.map(lg => `- **[${lg.time || ''}] (${lg.handler || '未指定'})**：${lg.text || ''}`)
+      : ['- （尚無時間軸紀錄）'])
+  ];
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeFile = `Case_${(item.caseNumber || item.title || 'Report').replace(/[\\/:*?"<>|\s]+/g, '_')}.md`;
+  a.href = url;
+  a.download = safeFile;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  showToast(`📄 已匯出案件報告「${safeFile}」`);
+}
+
+// ----------------------------------------------------------------------------
+// 🎨 渲染「案件追蹤」：1. 清單卡片列  2. 表格資料庫列  3. 個案六段式詳細履歷
+// ----------------------------------------------------------------------------
+function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
+  const normStatus = normalizeCaseStatusValue(item.status);
+  const statusBadgeCls = getCaseStatusBadgeClass(normStatus);
+  const statusRowAccentCls =
+    normStatus === '🟢 已結案' ? 'row-status-done' :
+    normStatus === '🟡 處理中' ? 'row-status-progress' :
+    normStatus === '🟠 待料/觀察中' ? 'row-status-waiting' : 'row-status-pending';
+
+  const titleText = (item.title || '').trim() || '（未命名案件）';
+  const symptomPreview = (item.symptomText || '').replace(/\s+/g, ' ').trim();
+  const actionPreview = (item.actionTakenText || '').replace(/\s+/g, ' ').trim();
+  const handlers = Array.isArray(item.handlers) ? item.handlers : [];
+  const tags = Array.isArray(item.tags) ? item.tags : [];
+  const logCount = Array.isArray(item.timelineLogs) ? item.timelineLogs.length : 0;
+  const linkedCount = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds.length : 0;
+
+  const attHtml = (item.symptomAttachmentsHtml || '') + (item.actionAttachmentsHtml || '');
+  const imgMatches = (attHtml.match(/notion-media-collapse/g) || []).length;
+  const fileMatches = (attHtml.match(/notion-file-attachment/g) || []).length;
+  const totalAtt = imgMatches + fileMatches;
+
+  let snippetHtml = '';
+  if (fuzzyRes && fuzzyRes.snippet) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🔍 ${ highlightMatchedTermsHtml(fuzzyRes.snippet.text || String(fuzzyRes.snippet || ""), fuzzyRes.highlightTerms || []) }</span>`;
+  } else if (symptomPreview && actionPreview) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🚨 ${escapeHtml(symptomPreview.slice(0, 44))} ➔ 🛠️ ${escapeHtml(actionPreview.slice(0, 44))}</span>`;
+  } else if (symptomPreview) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🚨 ${escapeHtml(symptomPreview.slice(0, 76))}</span>`;
+  } else if (actionPreview) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🛠️ ${escapeHtml(actionPreview.slice(0, 76))}</span>`;
+  }
+
+  const secondaryBadgesHtml = [
+    item.serialOrWarranty ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0">🔢 ${escapeHtml(item.serialOrWarranty)}</span>` : '',
+    ...handlers.map(h => `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800 shrink-0">👤 ${escapeHtml(h)}</span>`),
+    ...tags.map(t => `<span class="px-1.5 py-0.5 rounded-md text-[10.5px] font-bold border ${getTagPillColorClass(t)} shrink-0">#${escapeHtml(t)}</span>`),
+    logCount > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold shrink-0">🕒 追蹤紀錄 ${logCount}</span>` : '',
+    linkedCount > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold shrink-0">🔗 關聯筆記 ${linkedCount}</span>` : '',
+    totalAtt > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold shrink-0">🖼️ 縮圖/附件 ${totalAtt}</span>` : ''
+  ].filter(Boolean).join('');
+
+  return `
+    <div class="lvi-todo-summary-row lvi-case-summary-row ${statusRowAccentCls} group" data-case-summary-id="${escapeHtml(item.id)}">
+      <div class="lvi-todo-summary-main">
+        <div class="lvi-todo-summary-top-line">
+          <span class="px-2.5 py-0.5 rounded-md text-xs font-extrabold border shrink-0 ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
+          ${item.caseNumber ? `<span class="lvi-case-no-badge shrink-0">📁 ${escapeHtml(item.caseNumber)}</span>` : `<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 shrink-0">未指定案號</span>`}
+          <span class="lvi-todo-summary-title truncate">${escapeHtml(titleText)}</span>
+          ${item.machineModel ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">🚜 ${escapeHtml(item.machineModel)}</span>` : ''}
+          ${item.clientVendor ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">🏢 ${escapeHtml(item.clientVendor)}</span>` : ''}
+        </div>
+        ${(snippetHtml || secondaryBadgesHtml) ? `
+        <div class="lvi-todo-summary-bottom-line">
+          ${snippetHtml}
+          ${secondaryBadgesHtml}
+        </div>` : ''}
+      </div>
+
+      <div class="lvi-todo-summary-right">
+        <span class="lvi-todo-summary-time">🕒 ${escapeHtml(item.createdAt || '')}</span>
+        <button type="button" class="todo-summary-del-btn case-summary-del-btn" data-case-id="${escapeHtml(item.id)}" title="刪除此筆案件">
+          <span>🗑️ 刪除</span>
+        </button>
+        <span class="lvi-todo-summary-open-pill">
+          <span>追蹤詳情</span>
+          <span>➔</span>
+        </span>
+      </div>
+    </div>
+  `;
+}
+
+function renderCasesTableModeHtml(filteredList) {
+  const caseNos = state.caseNumbers || [];
+  const machines = getSharedMachineModelsForTodo();
+  const clients = getSharedClientsVendorsForTodo();
+
+  const rowsHtml = filteredList.map(({ item, fuzzyRes }) => {
+    const normStatus = normalizeCaseStatusValue(item.status);
+    const titleText = (item.title || '').trim() || '（未命名案件）';
+    const logCount = (item.timelineLogs || []).length;
+    const latestLog = logCount > 0 ? item.timelineLogs[0] : null;
+
+    const caseNoOpts = `<option value="" ${!item.caseNumber ? 'selected' : ''}>未選擇</option>` +
+      caseNos.map(cn => `<option value="${escapeHtml(cn)}" ${item.caseNumber === cn ? 'selected' : ''}>📁 ${escapeHtml(cn)}</option>`).join('');
+    const machOpts = `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>` +
+      machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`).join('');
+    const cliOpts = `<option value="" ${!item.clientVendor ? 'selected' : ''}>未選擇</option>` +
+      clients.map(c => `<option value="${escapeHtml(c)}" ${item.clientVendor === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`).join('');
+    const stOpts = FIXED_CASE_STATUSES.map(st => `<option value="${escapeHtml(st)}" ${normStatus === st ? 'selected' : ''}>${escapeHtml(st)}</option>`).join('');
+
+    const handlersHtml = (item.handlers && item.handlers.length)
+      ? item.handlers.map(h => `<span class="px-1.5 py-0.5 rounded text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800">👤 ${escapeHtml(h)}</span>`).join(' ')
+      : '<span class="text-gray-400">無</span>';
+
+    const tagsHtml = (item.tags && item.tags.length)
+      ? item.tags.map(t => `<span class="px-1.5 py-0.5 rounded text-[10.5px] font-bold border ${getTagPillColorClass(t)}">#${escapeHtml(t)}</span>`).join(' ')
+      : '<span class="text-gray-400">無</span>';
+
+    return `
+      <tr class="case-table-row cursor-pointer" data-case-id="${escapeHtml(item.id)}">
+        <td onclick="event.stopPropagation();">
+          <select class="case-inline-table-select" data-case-id="${escapeHtml(item.id)}" data-field="status">
+            ${stOpts}
+          </select>
+        </td>
+        <td onclick="event.stopPropagation();">
+          <select class="case-inline-table-select" data-case-id="${escapeHtml(item.id)}" data-field="caseNumber">
+            ${caseNoOpts}
+          </select>
+        </td>
+        <td>
+          <div class="font-extrabold text-slate-900 dark:text-white">${escapeHtml(titleText)}</div>
+          ${item.serialOrWarranty ? `<div class="text-[11px] text-slate-500 dark:text-slate-400">🔢 ${escapeHtml(item.serialOrWarranty)}</div>` : ''}
+          ${latestLog ? `<div class="text-[11px] text-teal-700 dark:text-teal-300 truncate max-w-[260px]">🕒 最新：${escapeHtml(latestLog.text || '')}</div>` : ''}
+          ${(fuzzyRes && fuzzyRes.snippet) ? `<div class="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">🔍 ${highlightMatchedTermsHtml(fuzzyRes.snippet.text || String(fuzzyRes.snippet || ""), fuzzyRes.highlightTerms || [])}</div>` : ''}
+        </td>
+        <td onclick="event.stopPropagation();">
+          <select class="case-inline-table-select" data-case-id="${escapeHtml(item.id)}" data-field="machineModel">
+            ${machOpts}
+          </select>
+        </td>
+        <td onclick="event.stopPropagation();">
+          <select class="case-inline-table-select" data-case-id="${escapeHtml(item.id)}" data-field="clientVendor">
+            ${cliOpts}
+          </select>
+        </td>
+        <td><div class="flex flex-wrap gap-1">${handlersHtml}</div></td>
+        <td><div class="flex flex-wrap gap-1">${tagsHtml}</div></td>
+        <td class="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">${escapeHtml(item.createdAt || '')}</td>
+        <td class="text-center whitespace-nowrap" onclick="event.stopPropagation();">
+          <button type="button" class="case-table-open-btn px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold cursor-pointer mr-1" data-case-id="${escapeHtml(item.id)}">詳情</button>
+          <button type="button" class="case-summary-del-btn px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold cursor-pointer" data-case-id="${escapeHtml(item.id)}">刪除</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="lvi-case-table-wrap">
+      <table class="lvi-case-table">
+        <thead>
+          <tr>
+            <th>📊 狀態</th>
+            <th>📁 案號</th>
+            <th style="min-width:200px;">📌 案件主旨 / 最新進度</th>
+            <th>🚜 機型</th>
+            <th>🏢 客戶/廠商</th>
+            <th>👥 處理人員</th>
+            <th>🏷️ 標籤</th>
+            <th>🕒 立案時間</th>
+            <th class="text-center">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderSingleCaseDetailHtml(item) {
+  const caseNos = state.caseNumbers || [];
+  const machines = getSharedMachineModelsForTodo();
+  const clients = getSharedClientsVendorsForTodo();
+  const sharedTags = getSharedTagsForTodo();
+  const handlers = state.todoHandlers || DEFAULT_TODO_HANDLERS;
+
+  const itemTags = Array.isArray(item.tags) ? item.tags : [];
+  const itemHandlers = Array.isArray(item.handlers) ? item.handlers : [];
+  const linkedNoteIds = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds : [];
+  const timelineLogs = Array.isArray(item.timelineLogs) ? item.timelineLogs : [];
+  const normStatus = normalizeCaseStatusValue(item.status);
+  const isCompleted = isCaseStatusCompleted(normStatus);
+  const statusBadgeCls = getCaseStatusBadgeClass(normStatus);
+
+  const caseNoOptionsHtml = [
+    `<option value="" ${!item.caseNumber ? 'selected' : ''}>未選擇</option>`,
+    ...caseNos.map(cn => `<option value="${escapeHtml(cn)}" ${item.caseNumber === cn ? 'selected' : ''}>📁 ${escapeHtml(cn)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_case_number__">＋ 新增案號...</option>`,
+    `<option value="__manage_case_numbers__">⚙️ 管理案號...</option>`
+  ].join('');
+
+  const machineOptionsHtml = [
+    `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>`,
+    ...machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_machine__">＋ 新增機型...</option>`,
+    `<option value="__manage_shared_machine__">⚙️ 管理機型...</option>`
+  ].join('');
+
+  const clientOptionsHtml = [
+    `<option value="" ${!item.clientVendor ? 'selected' : ''}>未選擇</option>`,
+    ...clients.map(c => `<option value="${escapeHtml(c)}" ${item.clientVendor === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_client__">＋ 新增客戶/廠商...</option>`,
+    `<option value="__manage_shared_client__">⚙️ 管理客戶/廠商...</option>`
+  ].join('');
+
+  const statusOptionsHtml = FIXED_CASE_STATUSES.map(lbl =>
+    `<option value="${escapeHtml(lbl)}" ${normStatus === lbl ? 'selected' : ''}>${escapeHtml(lbl)}</option>`
+  ).join('');
+
+  const linkedNoteChipsHtml = linkedNoteIds.map(nid => {
+    const n = (state.notes || []).find(x => x.id === nid);
+    const nTitle = resolveLinkedNoteTitle(item, nid);
+    const nIcon = (n && n.meta && n.meta.icon) || '📝';
+    return `
+      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
+        <button type="button" class="case-jump-note-btn inline-flex items-center gap-1 cursor-pointer hover:underline" data-note-id="${escapeHtml(nid)}">
+          <span>${nIcon}</span>
+          <span class="truncate max-w-[200px]">${escapeHtml(nTitle)}</span>
+          <span class="text-[10px] opacity-75">↗</span>
+        </button>
+        <button type="button" class="case-remove-note-btn text-gray-400 hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-note-id="${escapeHtml(nid)}">×</button>
+      </span>
+    `;
+  }).join('');
+
+  const availableNotesOptionsHtml = [
+    `<option value="">＋ 關聯筆記...</option>`,
+    `<option value="__create_new_linked_note__">＋ 新建關聯筆記...</option>`,
+    `<option disabled>── 選擇現有筆記 ──</option>`,
+    ...(state.notes || []).slice(0, 120).map(n => {
+      const nTitle = (n.name || '未命名筆記').replace(/\.md$/i, '');
+      const mach = (n.meta && n.meta.machineModel && n.meta.machineModel !== '未分類') ? `[${n.meta.machineModel}] ` : '';
+      return `<option value="${escapeHtml(n.id)}">📝 ${escapeHtml(mach + nTitle)}</option>`;
+    })
+  ].join('');
+
+  const tagsPillsHtml = itemTags.length > 0
+    ? itemTags.map(tagName => `
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${getTagPillColorClass(tagName)}">
+          <span>#${escapeHtml(tagName)}</span>
+          <button type="button" class="case-remove-tag-btn hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-tag-name="${escapeHtml(tagName)}">×</button>
+        </span>
+      `).join('')
+    : `<span class="text-xs text-gray-400">無</span>`;
+
+  const bottomTagAddOptionsHtml = [
+    `<option value="">＋ 新增標籤...</option>`,
+    ...sharedTags.map(t => {
+      const name = typeof t === 'string' ? t : (t.name || t.id);
+      return `<option value="${escapeHtml(name)}">#${escapeHtml(name)}</option>`;
+    }),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_tag__">＋ 新建標籤...</option>`,
+    `<option value="__manage_shared_tags__">⚙️ 管理標籤庫...</option>`
+  ].join('');
+
+  const handlerPillsHtml = itemHandlers.length > 0
+    ? itemHandlers.map(hName => `
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-cyan-50 text-cyan-900 border border-cyan-300 dark:bg-cyan-950/80 dark:text-cyan-200 dark:border-cyan-700">
+          <span>👤 ${escapeHtml(hName)}</span>
+          <button type="button" class="case-remove-handler-btn hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-handler-name="${escapeHtml(hName)}">×</button>
+        </span>
+      `).join('')
+    : `<span class="text-xs text-gray-400">無</span>`;
+
+  const handlerAddOptionsHtml = [
+    `<option value="">＋ 指派人員...</option>`,
+    ...handlers.map(h => `<option value="${escapeHtml(h)}">👤 ${escapeHtml(h)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_new_handler__">＋ 新增人員...</option>`,
+    `<option value="__manage_handlers__">⚙️ 管理人員...</option>`
+  ].join('');
+
+  const timelineHandlerOptsHtml = [
+    `<option value="">👤 紀錄人員</option>`,
+    ...handlers.map(h => `<option value="${escapeHtml(h)}" ${(itemHandlers[0] === h) ? 'selected' : ''}>👤 ${escapeHtml(h)}</option>`)
+  ].join('');
+
+  const timelineListHtml = timelineLogs.length > 0
+    ? timelineLogs.map(lg => `
+        <div class="lvi-case-timeline-item" data-log-id="${escapeHtml(lg.id)}">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+              <span class="text-[11px] font-mono font-bold text-teal-700 dark:text-teal-300">🕒 ${escapeHtml(lg.time || '')}</span>
+              ${lg.handler ? `<span class="px-2 py-0.2 rounded-full text-[10.5px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800">👤 ${escapeHtml(lg.handler)}</span>` : ''}
+            </div>
+            <div class="text-slate-800 dark:text-slate-100 font-semibold whitespace-pre-wrap break-words">${escapeHtml(lg.text || '')}</div>
+          </div>
+          <div class="flex items-center gap-1 shrink-0">
+            <button type="button" class="case-edit-log-btn px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 cursor-pointer" data-log-id="${escapeHtml(lg.id)}">編輯</button>
+            <button type="button" class="case-del-log-btn px-2 py-1 rounded bg-rose-50 hover:bg-rose-600 hover:text-white dark:bg-rose-950/60 text-[11px] font-bold text-rose-600 dark:text-rose-300 cursor-pointer" data-log-id="${escapeHtml(lg.id)}">刪除</button>
+          </div>
+        </div>
+      `).join('')
+    : `<div class="text-xs text-gray-400 py-2 text-center">尚無售後追蹤紀錄，可由上方輸入新增每次聯繫、寄件或現場維修進度</div>`;
+
+  return `
+    <!-- 頂部返回列表與操作導航列 -->
+    <div class="lvi-todo-detail-navbar">
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <button type="button" id="btn-back-to-case-list" class="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-extrabold text-slate-700 dark:text-slate-200 hover:bg-slate-100 cursor-pointer shadow-2xs">
+          <span>← 返回列表</span>
+        </button>
+        <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold border ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
+        ${item.caseNumber ? `<span class="lvi-case-no-badge">📁 ${escapeHtml(item.caseNumber)}</span>` : ''}
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" class="case-export-md-btn px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-600 text-teal-700 hover:text-white dark:bg-teal-950/70 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-xs font-extrabold transition cursor-pointer" data-case-id="${escapeHtml(item.id)}">
+          <span>📄 匯出報告</span>
+        </button>
+        <button type="button" class="todo-delete-card-btn case-delete-card-btn" data-case-id="${escapeHtml(item.id)}">
+          <span>🗑️ 刪除</span>
+        </button>
+      </div>
+    </div>
+
+    <article class="lvi-todo-card lvi-case-card ${isCompleted ? 'is-completed-card' : ''}" data-case-id="${escapeHtml(item.id)}">
+      <!-- 第 1 列：案件主旨 | 案號 | 機型分類 | 客戶或廠商 | 案件狀態 -->
+      <div class="lvi-case-row-1">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📌 案件主旨</span>
+          </div>
+          <input type="text" class="todo-title-input case-title-input" value="${escapeHtml(item.title || '')}" placeholder="輸入案件主旨或客訴摘要..." />
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📁 案號</span>
+            <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="case_number">⚙️ 管理</button>
+          </div>
+          <select class="todo-box-select case-caseno-select">
+            ${caseNoOptionsHtml}
+          </select>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🚜 機型分類</span>
+            <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="machine">⚙️ 管理</button>
+          </div>
+          <select class="todo-box-select case-machine-select">
+            ${machineOptionsHtml}
+          </select>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🏢 客戶或廠商</span>
+            <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="client">⚙️ 管理</button>
+          </div>
+          <select class="todo-box-select case-client-select">
+            ${clientOptionsHtml}
+          </select>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📊 案件狀態</span>
+          </div>
+          <select class="todo-box-select case-status-select">
+            ${statusOptionsHtml}
+          </select>
+        </div>
+      </div>
+
+      <!-- 第 2 列：機台序號/保固資訊 | 立案時間 | 關聯筆記 -->
+      <div class="lvi-case-row-2">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🔢 機台序號 / 保固與出貨資訊</span>
+          </div>
+          <input type="text" class="todo-title-input case-serial-input" style="font-size:0.82rem;" value="${escapeHtml(item.serialOrWarranty || '')}" placeholder="輸入 S/N 序號、保固期限或出貨單號..." />
+        </div>
+
+        <div class="lvi-todo-created-pill case-edit-created-time-btn cursor-pointer" title="點擊調整立案時間">
+          <span class="text-[10px] font-extrabold text-blue-700 dark:text-blue-300">🕒 立案時間</span>
+          <span class="text-xs font-black text-blue-950 dark:text-blue-100 case-created-time-text">${escapeHtml(item.createdAt || formatTodoTimestamp())}</span>
+        </div>
+
+        <div class="lvi-todo-linked-notes-box">
+          <div class="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
+            <span class="text-xs font-extrabold text-blue-700 dark:text-blue-300 shrink-0">🔗 關聯筆記：</span>
+            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">無</span>`}
+          </div>
+          <select class="todo-link-note-select case-link-note-select">
+            ${availableNotesOptionsHtml}
+          </select>
+        </div>
+      </div>
+
+      <!-- 第 3 列：客訴/異常現象 & 根因分析 (含無邊框並排小圖附件) -->
+      <div class="lvi-todo-issue-box">
+        <div class="lvi-todo-section-header">
+          <div class="lvi-todo-section-title">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+            <span>客訴與異常現象 / 根因分析</span>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="symptom">
+              <span>📷 拍照</span>
+            </button>
+            <button type="button" class="todo-section-upload-btn case-section-upload-btn" data-section="symptom">
+              <span>📎 附件</span>
+            </button>
+          </div>
+        </div>
+        <div class="lvi-case-symptom-grid">
+          <div>
+            <div class="lvi-case-sublabel lvi-case-sublabel-rose">🚨 客訴 / 異常現象描述</div>
+            <textarea class="lvi-todo-textarea case-symptom-textarea" rows="3" placeholder="輸入客戶反映問題、現場異常現象或錯誤碼...">${escapeHtml(item.symptomText || '')}</textarea>
+          </div>
+          <div>
+            <div class="lvi-case-sublabel lvi-case-sublabel-amber">🔍 異常原因 / 根因分析</div>
+            <textarea class="lvi-todo-textarea case-rootcause-textarea" rows="3" placeholder="輸入檢測數據、故障真因或分析結論...">${escapeHtml(item.rootCauseText || '')}</textarea>
+          </div>
+        </div>
+        <div class="todo-attachments-gallery case-symptom-attachments">${item.symptomAttachmentsHtml || ''}</div>
+      </div>
+
+      <!-- 第 4 列：售後處理對策 & 更換零件/耗材紀錄 (含無邊框並排小圖附件) -->
+      <div class="lvi-todo-resolution-box">
+        <div class="lvi-todo-section-header">
+          <div class="lvi-todo-section-title">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
+            <span>售後處理對策與零件更換紀錄</span>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="action">
+              <span>📷 拍照</span>
+            </button>
+            <button type="button" class="todo-section-upload-btn case-section-upload-btn" data-section="action">
+              <span>📎 附件</span>
+            </button>
+          </div>
+        </div>
+        <textarea class="lvi-todo-textarea case-action-textarea" rows="3" placeholder="輸入售後維修步驟、參數調整、改善對策或驗證結果...">${escapeHtml(item.actionTakenText || '')}</textarea>
+        <div class="lvi-case-parts-row">
+          <span class="lvi-case-parts-label">🔩 更換零件 / 耗材：</span>
+          <input type="text" class="case-parts-input" value="${escapeHtml(item.partsReplacedText || '')}" placeholder="輸入更換之料號、零件名稱或耗材數量（無則留空）..." />
+        </div>
+        <div class="todo-attachments-gallery case-action-attachments">${item.actionAttachmentsHtml || ''}</div>
+      </div>
+
+      <!-- 第 5 列：售後追蹤時間軸紀錄 (Chronological Follow-Up Log) -->
+      <div class="lvi-case-timeline-box">
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center gap-2 font-extrabold text-xs sm:text-sm text-teal-900 dark:text-teal-200">
+            <span>🕒 售後追蹤時間軸紀錄</span>
+            <span class="px-2 py-0.2 rounded-full text-[11px] bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300">${timelineLogs.length} 筆</span>
+          </div>
+        </div>
+        <div class="lvi-case-timeline-add-bar">
+          <select class="case-log-handler-select px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200">
+            ${timelineHandlerOptsHtml}
+          </select>
+          <input type="text" class="case-log-text-input flex-1 min-w-[180px] px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-100" placeholder="輸入本次售後聯繫、寄件、到場維修或測試追蹤紀錄 (按 Enter 新增)..." />
+          <button type="button" class="case-add-log-btn px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-extrabold cursor-pointer shrink-0">
+            <span>＋ 新增紀錄</span>
+          </button>
+        </div>
+        <div class="lvi-case-timeline-list">
+          ${timelineListHtml}
+        </div>
+      </div>
+
+      <!-- 第 6 列：標籤 | 處理人員 | 結案時間 -->
+      <div class="lvi-todo-row-5">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🏷️ 標籤</span>
+            <div class="flex items-center gap-1.5">
+              <select class="todo-bottom-tag-add-select case-tag-add-select">
+                ${bottomTagAddOptionsHtml}
+              </select>
+              <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="custom">⚙️ 管理</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap pt-1">
+            ${tagsPillsHtml}
+          </div>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>👥 處理人員</span>
+            <div class="flex items-center gap-1.5">
+              <select class="todo-handler-add-select case-handler-add-select">
+                ${handlerAddOptionsHtml}
+              </select>
+              <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="todo_handler">⚙️ 管理</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap pt-1">
+            ${handlerPillsHtml}
+          </div>
+        </div>
+
+        <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} case-edit-completed-time-btn cursor-pointer" title="結案時自動記錄；點擊可手動調整">
+          <span class="text-[10px] font-extrabold ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'}">🏁 結案時間</span>
+          <span class="text-xs font-black ${isCompleted ? 'text-emerald-950 dark:text-emerald-100' : 'text-blue-950 dark:text-blue-100'} case-completed-time-text">
+            ${item.completedAt ? escapeHtml(item.completedAt) : '無'}
+          </span>
+        </div>
+      </div>
+    </article>
+  `;
+}
+
+let _activeCaseUploadTarget = null;
+
+function bindCaseCardsInteractions(listContainer) {
+  if (!listContainer) return;
+
+  const backBtn = document.getElementById('btn-back-to-case-list');
+  if (backBtn) {
+    backBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      state.activeCaseDetailId = null;
+      renderCasesView();
+    });
+  }
+
+  // 清單列點擊 -> 進入個案詳細介面
+  listContainer.querySelectorAll('.lvi-case-summary-row').forEach(rowEl => {
+    rowEl.addEventListener('click', (e) => {
+      if (e.target.closest('.case-summary-del-btn')) return;
+      const cid = rowEl.getAttribute('data-case-summary-id');
+      if (cid) {
+        state.activeCaseDetailId = cid;
+        renderCasesView();
+      }
+    });
+  });
+
+  // 表格列點擊 / 詳情按鈕 -> 進入個案詳細介面
+  listContainer.querySelectorAll('.case-table-row').forEach(tr => {
+    tr.addEventListener('click', (e) => {
+      if (e.target.closest('select, button')) return;
+      const cid = tr.getAttribute('data-case-id');
+      if (cid) {
+        state.activeCaseDetailId = cid;
+        renderCasesView();
+      }
+    });
+  });
+  listContainer.querySelectorAll('.case-table-open-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const cid = btn.getAttribute('data-case-id');
+      if (cid) {
+        state.activeCaseDetailId = cid;
+        renderCasesView();
+      }
+    });
+  });
+
+  // 表格模式行內下拉選單直接修改屬性
+  listContainer.querySelectorAll('.case-inline-table-select').forEach(sel => {
+    sel.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const cid = sel.getAttribute('data-case-id');
+      const field = sel.getAttribute('data-field');
+      const item = (state.caseItems || []).find(c => c.id === cid);
+      if (!item || !field) return;
+      item[field] = sel.value;
+      if (field === 'status') {
+        if (isCaseStatusCompleted(sel.value)) {
+          if (!item.completedAt) item.completedAt = formatTodoTimestamp();
+        } else {
+          item.completedAt = '';
+        }
+      }
+      item.updatedAt = Date.now();
+      saveCaseItemsState();
+      renderCasesView();
+    });
+  });
+
+  // 刪除按鈕 (清單/表格/詳情)
+  listContainer.querySelectorAll('.case-summary-del-btn, .case-delete-card-btn').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const cid = btn.getAttribute('data-case-id') || state.activeCaseDetailId;
+      if (cid) {
+        await deleteCaseItemById(cid);
+      }
+    });
+  });
+
+  // 匯出報告按鈕
+  listContainer.querySelectorAll('.case-export-md-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const cid = btn.getAttribute('data-case-id') || state.activeCaseDetailId;
+      if (cid) exportSingleCaseReportMarkdown(cid);
+    });
+  });
+
+  // 增強縮圖附件區 (支援點擊開啟全螢幕燈箱、標註、旋轉與頂部圖片備註)
+  listContainer.querySelectorAll('.todo-attachments-gallery').forEach(gallery => {
+    try { enhanceAllEditorBlocks(gallery); } catch (e) {}
+    gallery.querySelectorAll('details.notion-media-collapse').forEach(det => {
+      if (!det.hasAttribute('open')) det.setAttribute('open', '');
+    });
+  });
+
+  // 詳細卡片內部事件綁定
+  listContainer.querySelectorAll('.lvi-case-card').forEach(cardEl => {
+    const caseId = cardEl.getAttribute('data-case-id');
+    const getItem = () => (state.caseItems || []).find(c => c.id === caseId);
+
+    cardEl.querySelectorAll('.case-open-mgr-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tab = btn.getAttribute('data-mgr-tab') || 'case_number';
+        openTagManagerModal(tab);
+      });
+    });
+
+    // 1. 標題
+    const titleInp = cardEl.querySelector('.case-title-input');
+    if (titleInp) {
+      titleInp.addEventListener('input', () => {
+        const item = getItem();
+        if (!item) return;
+        item.title = titleInp.value;
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+      });
+    }
+
+    // 2. 案號選單
+    const caseNoSel = cardEl.querySelector('.case-caseno-select');
+    if (caseNoSel) {
+      caseNoSel.addEventListener('change', () => {
+        const item = getItem();
+        if (!item) return;
+        const val = caseNoSel.value;
+        if (val === '__add_case_number__') {
+          const newNo = prompt('請輸入新案號 (例如：CASE-2026-003)：');
+          if (newNo && newNo.trim()) {
+            addCaseNumber(newNo.trim());
+            item.caseNumber = newNo.trim();
+            item.updatedAt = Date.now();
+            saveCaseItemsState(true);
+            renderCasesView();
+          } else {
+            caseNoSel.value = item.caseNumber || '';
+          }
+          return;
+        }
+        if (val === '__manage_case_numbers__') {
+          caseNoSel.value = item.caseNumber || '';
+          openTagManagerModal('case_number');
+          return;
+        }
+        item.caseNumber = val;
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+        renderCasesView();
+      });
+    }
+
+    // 3. 機型選單 (共用)
+    const machSel = cardEl.querySelector('.case-machine-select');
+    if (machSel) {
+      machSel.addEventListener('change', () => {
+        const item = getItem();
+        if (!item) return;
+        const val = machSel.value;
+        if (val === '__add_shared_machine__') {
+          const newM = prompt('請輸入新機型名稱：');
+          if (newM && newM.trim()) {
+            addMachineModel(newM.trim());
+            item.machineModel = newM.trim();
+            item.updatedAt = Date.now();
+            saveCaseItemsState(true);
+            renderCasesView();
+          } else {
+            machSel.value = item.machineModel || '';
+          }
+          return;
+        }
+        if (val === '__manage_shared_machine__') {
+          machSel.value = item.machineModel || '';
+          openTagManagerModal('machine');
+          return;
+        }
+        item.machineModel = val;
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+      });
+    }
+
+    // 4. 客戶或廠商選單 (共用)
+    const cliSel = cardEl.querySelector('.case-client-select');
+    if (cliSel) {
+      cliSel.addEventListener('change', () => {
+        const item = getItem();
+        if (!item) return;
+        const val = cliSel.value;
+        if (val === '__add_shared_client__') {
+          const newC = prompt('請輸入新客戶或廠商名稱：');
+          if (newC && newC.trim()) {
+            addClientVendor(newC.trim());
+            item.clientVendor = newC.trim();
+            item.updatedAt = Date.now();
+            saveCaseItemsState(true);
+            renderCasesView();
+          } else {
+            cliSel.value = item.clientVendor || '';
+          }
+          return;
+        }
+        if (val === '__manage_shared_client__') {
+          cliSel.value = item.clientVendor || '';
+          openTagManagerModal('client');
+          return;
+        }
+        item.clientVendor = val;
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+      });
+    }
+
+    // 5. 案件狀態選單
+    const statusSel = cardEl.querySelector('.case-status-select');
+    if (statusSel) {
+      statusSel.addEventListener('change', () => {
+        const item = getItem();
+        if (!item) return;
+        item.status = normalizeCaseStatusValue(statusSel.value);
+        if (isCaseStatusCompleted(item.status)) {
+          if (!item.completedAt) item.completedAt = formatTodoTimestamp();
+        } else {
+          item.completedAt = '';
+        }
+        item.updatedAt = Date.now();
+        saveCaseItemsState(true);
+        renderCasesView();
+      });
+    }
+
+    // 6. 機台序號 / 保固資訊
+    const serialInp = cardEl.querySelector('.case-serial-input');
+    if (serialInp) {
+      serialInp.addEventListener('input', () => {
+        const item = getItem();
+        if (!item) return;
+        item.serialOrWarranty = serialInp.value;
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+      });
+    }
+
+    // 7. 立案時間與結案時間點擊調整
+    const createdBtn = cardEl.querySelector('.case-edit-created-time-btn');
+    if (createdBtn) {
+      createdBtn.addEventListener('click', () => {
+        const item = getItem();
+        if (!item) return;
+        const nextVal = prompt('調整立案時間 (YYYY-MM-DD HH:mm)：', item.createdAt || formatTodoTimestamp());
+        if (nextVal && nextVal.trim()) {
+          item.createdAt = nextVal.trim();
+          item.createdEpoch = parseTodoTimestampToEpoch(item.createdAt);
+          item.updatedAt = Date.now();
+          saveCaseItemsState();
+          renderCasesView();
+        }
+      });
+    }
+
+    const completedBtn = cardEl.querySelector('.case-edit-completed-time-btn');
+    if (completedBtn) {
+      completedBtn.addEventListener('click', () => {
+        const item = getItem();
+        if (!item) return;
+        const nextVal = prompt('調整結案時間 (留空代表清除)：', item.completedAt || formatTodoTimestamp());
+        if (nextVal !== null) {
+          item.completedAt = nextVal.trim();
+          item.updatedAt = Date.now();
+          saveCaseItemsState();
+          renderCasesView();
+        }
+      });
+    }
+
+    // 8. 關聯筆記
+    const linkNoteSel = cardEl.querySelector('.case-link-note-select');
+    if (linkNoteSel) {
+      linkNoteSel.addEventListener('change', async () => {
+        const item = getItem();
+        if (!item) return;
+        const val = linkNoteSel.value;
+        if (!val) return;
+        if (val === '__create_new_linked_note__') {
+          linkNoteSel.value = '';
+          const defaultTitle = `${item.caseNumber ? '[' + item.caseNumber + '] ' : ''}${item.title || '售後案件筆記'}`;
+          const noteTitle = prompt('請輸入新關聯筆記標題：', defaultTitle);
+          if (!noteTitle || !noteTitle.trim()) return;
+          const cleanTitle = noteTitle.trim();
+          const newNote = await createQuickNote();
+          if (newNote) {
+            newNote.name = cleanTitle + '.md';
+            newNote.meta = newNote.meta || {};
+            if (item.machineModel) newNote.meta.machineModel = item.machineModel;
+            if (item.clientVendor) newNote.meta.clientVendor = item.clientVendor;
+            if (Array.isArray(item.tags) && item.tags.length) newNote.meta.tags = item.tags.slice();
+            const initHtml = `<h3>🛡️ 關聯案件：${escapeHtml(item.caseNumber ? '[' + item.caseNumber + '] ' : '')}${escapeHtml(item.title || '')}</h3><p><strong>機型：</strong>${escapeHtml(item.machineModel || '未選擇')} ｜ <strong>客戶/廠商：</strong>${escapeHtml(item.clientVendor || '未選擇')} ｜ <strong>序號/保固：</strong>${escapeHtml(item.serialOrWarranty || '無')}</p><p>${escapeHtml(item.symptomText || '')}</p><p><br></p>`;
+            newNote._cachedHtml = initHtml;
+            newNote._cachedBody = initHtml;
+            if (!Array.isArray(item.linkedNoteIds)) item.linkedNoteIds = [];
+            if (!item.linkedNoteIds.includes(newNote.id)) item.linkedNoteIds.push(newNote.id);
+            item.linkedNoteTitles = item.linkedNoteTitles || {};
+            item.linkedNoteTitles[newNote.id] = cleanTitle;
+            saveCaseItemsState(true);
+            selectNote(newNote.id);
+            switchView('editor');
+          }
+          return;
+        }
+        if (!Array.isArray(item.linkedNoteIds)) item.linkedNoteIds = [];
+        if (!item.linkedNoteIds.includes(val)) {
+          item.linkedNoteIds.push(val);
+          const pickedNote = (state.notes || []).find(n => n.id === val);
+          if (pickedNote && pickedNote.name) {
+            item.linkedNoteTitles = item.linkedNoteTitles || {};
+            item.linkedNoteTitles[val] = pickedNote.name.replace(/\.md$/i, '');
+          }
+          item.updatedAt = Date.now();
+          saveCaseItemsState();
+          renderCasesView();
+        } else {
+          linkNoteSel.value = '';
+        }
+      });
+    }
+
+    cardEl.querySelectorAll('.case-jump-note-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const nid = btn.getAttribute('data-note-id');
+        if (nid) {
+          selectNote(nid);
+          switchView('editor');
+        }
+      });
+    });
+
+    cardEl.querySelectorAll('.case-remove-note-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const nid = btn.getAttribute('data-note-id');
+        const item = getItem();
+        if (!item) return;
+        item.linkedNoteIds = (item.linkedNoteIds || []).filter(id => id !== nid);
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+        renderCasesView();
+      });
+    });
+
+    // 9. 客訴現象、根因分析、售後對策、更換零件文字輸入與貼圖支援
+    const bindTextField = (selector, prop) => {
+      const el = cardEl.querySelector(selector);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        const item = getItem();
+        if (!item) return;
+        item[prop] = el.value;
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+      });
+      if (el.tagName === 'TEXTAREA') {
+        const sec = (prop === 'actionTakenText') ? 'action' : 'symptom';
+        el.addEventListener('paste', async (e) => {
+          const clipItems = (e.clipboardData || window.clipboardData || {}).items || [];
+          for (const ci of clipItems) {
+            if (ci.kind === 'file') {
+              const f = ci.getAsFile();
+              if (f) {
+                e.preventDefault();
+                await uploadFileToCaseCardSection(caseId, sec, f);
+              }
+            }
+          }
+        });
+      }
+    };
+    bindTextField('.case-symptom-textarea', 'symptomText');
+    bindTextField('.case-rootcause-textarea', 'rootCauseText');
+    bindTextField('.case-action-textarea', 'actionTakenText');
+    bindTextField('.case-parts-input', 'partsReplacedText');
+
+    // 10. 拍照與上傳附件按鈕
+    cardEl.querySelectorAll('.case-section-camera-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const section = btn.getAttribute('data-section') || 'symptom';
+        window._activeTodoAttachmentTarget = { isCase: true, cardId: caseId, section };
+        openInAppCameraModal();
+      });
+    });
+
+    cardEl.querySelectorAll('.case-section-upload-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const section = btn.getAttribute('data-section') || 'symptom';
+        _activeCaseUploadTarget = { caseId, section };
+        const fileInp = document.getElementById('case-attachment-file-input');
+        if (fileInp) {
+          fileInp.value = '';
+          fileInp.click();
+        }
+      });
+    });
+
+    // 11. 售後追蹤時間軸紀錄 (新增 / 編輯 / 刪除)
+    const logHandlerSel = cardEl.querySelector('.case-log-handler-select');
+    const logTextInp = cardEl.querySelector('.case-log-text-input');
+    const addLogBtn = cardEl.querySelector('.case-add-log-btn');
+    const handleAddTimelineLog = () => {
+      const item = getItem();
+      if (!item || !logTextInp) return;
+      const txt = logTextInp.value.trim();
+      if (!txt) {
+        showToast('請輸入追蹤紀錄內容');
+        return;
+      }
+      if (!Array.isArray(item.timelineLogs)) item.timelineLogs = [];
+      const hdl = logHandlerSel ? logHandlerSel.value : '';
+      item.timelineLogs.unshift({
+        id: 'clog_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
+        time: formatTodoTimestamp(),
+        handler: hdl || (item.handlers && item.handlers[0]) || '',
+        text: txt
+      });
+      logTextInp.value = '';
+      item.updatedAt = Date.now();
+      saveCaseItemsState(true);
+      renderCasesView();
+      showToast('🕒 已新增售後追蹤紀錄');
+    };
+    if (addLogBtn) addLogBtn.addEventListener('click', handleAddTimelineLog);
+    if (logTextInp) {
+      logTextInp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.isComposing) {
+          e.preventDefault();
+          handleAddTimelineLog();
+        }
+      });
+    }
+
+    cardEl.querySelectorAll('.case-edit-log-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const lid = btn.getAttribute('data-log-id');
+        const item = getItem();
+        if (!item || !Array.isArray(item.timelineLogs)) return;
+        const lg = item.timelineLogs.find(x => x.id === lid);
+        if (!lg) return;
+        const nextTxt = prompt('修改追蹤紀錄內容：', lg.text || '');
+        if (nextTxt !== null && nextTxt.trim()) {
+          lg.text = nextTxt.trim();
+          item.updatedAt = Date.now();
+          saveCaseItemsState();
+          renderCasesView();
+        }
+      });
+    });
+
+    cardEl.querySelectorAll('.case-del-log-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const lid = btn.getAttribute('data-log-id');
+        const item = getItem();
+        if (!item || !Array.isArray(item.timelineLogs)) return;
+        item.timelineLogs = item.timelineLogs.filter(x => x.id !== lid);
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+        renderCasesView();
+        showToast('🗑️ 已移除該筆追蹤紀錄');
+      });
+    });
+
+    // 12. 標籤與處理人員多選
+    const tagAddSel = cardEl.querySelector('.case-tag-add-select');
+    if (tagAddSel) {
+      tagAddSel.addEventListener('change', () => {
+        const item = getItem();
+        if (!item) return;
+        const val = tagAddSel.value;
+        if (!val) return;
+        if (val === '__add_shared_tag__') {
+          tagAddSel.value = '';
+          const newT = prompt('請輸入新標籤名稱：');
+          if (newT && newT.trim()) {
+            const cleanT = newT.trim().replace(/^#/, '');
+            addCustomTag(cleanT, 'blue');
+            if (!Array.isArray(item.tags)) item.tags = [];
+            if (!item.tags.includes(cleanT)) item.tags.push(cleanT);
+            item.updatedAt = Date.now();
+            saveCaseItemsState();
+            renderCasesView();
+          }
+          return;
+        }
+        if (val === '__manage_shared_tags__') {
+          tagAddSel.value = '';
+          openTagManagerModal('custom');
+          return;
+        }
+        if (!Array.isArray(item.tags)) item.tags = [];
+        if (!item.tags.includes(val)) {
+          item.tags.push(val);
+          item.updatedAt = Date.now();
+          saveCaseItemsState();
+          renderCasesView();
+        } else {
+          tagAddSel.value = '';
+        }
+      });
+    }
+
+    cardEl.querySelectorAll('.case-remove-tag-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const tName = btn.getAttribute('data-tag-name');
+        const item = getItem();
+        if (!item) return;
+        item.tags = (item.tags || []).filter(t => t !== tName);
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+        renderCasesView();
+      });
+    });
+
+    const hdlAddSel = cardEl.querySelector('.case-handler-add-select');
+    if (hdlAddSel) {
+      hdlAddSel.addEventListener('change', () => {
+        const item = getItem();
+        if (!item) return;
+        const val = hdlAddSel.value;
+        if (!val) return;
+        if (val === '__add_new_handler__') {
+          hdlAddSel.value = '';
+          const newH = prompt('請輸入新處理人員姓名：');
+          if (newH && newH.trim()) {
+            addTodoHandler(newH.trim());
+            if (!Array.isArray(item.handlers)) item.handlers = [];
+            if (!item.handlers.includes(newH.trim())) item.handlers.push(newH.trim());
+            item.updatedAt = Date.now();
+            saveCaseItemsState();
+            renderCasesView();
+          }
+          return;
+        }
+        if (val === '__manage_handlers__') {
+          hdlAddSel.value = '';
+          openTagManagerModal('todo_handler');
+          return;
+        }
+        if (!Array.isArray(item.handlers)) item.handlers = [];
+        if (!item.handlers.includes(val)) {
+          item.handlers.push(val);
+          item.updatedAt = Date.now();
+          saveCaseItemsState();
+          renderCasesView();
+        } else {
+          hdlAddSel.value = '';
+        }
+      });
+    }
+
+    cardEl.querySelectorAll('.case-remove-handler-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const hName = btn.getAttribute('data-handler-name');
+        const item = getItem();
+        if (!item) return;
+        item.handlers = (item.handlers || []).filter(h => h !== hName);
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+        renderCasesView();
+      });
+    });
+  });
+}
+
+function renderCasesView() {
+  ensureCaseItemsInitialized();
+  initCaseViewTopControlsOnce();
+  populateCaseFilterDropdowns();
+  updateCaseSummaryStats();
+
+  const listContainer = document.getElementById('case-cards-list-container');
+  const filterBar = document.getElementById('case-list-filter-bar');
+  const fuzzyBanner = document.getElementById('cases-fuzzy-query-banner');
+  const fuzzyDetails = document.getElementById('cases-fuzzy-query-details');
+  const fuzzyStats = document.getElementById('cases-fuzzy-stats-text');
+  const clearBtn = document.getElementById('cases-search-clear-btn');
+  const layoutSwitchGroup = document.getElementById('case-layout-switch-group');
+  if (!listContainer) return;
+
+  // 若處於單一案件詳細檢視模式
+  if (state.activeCaseDetailId) {
+    const activeItem = (state.caseItems || []).find(c => c.id === state.activeCaseDetailId && !isCaseItemDeletedTombstoned(c));
+    if (activeItem) {
+      if (filterBar) filterBar.classList.add('hidden');
+      if (fuzzyBanner) fuzzyBanner.classList.add('hidden');
+      if (layoutSwitchGroup) layoutSwitchGroup.classList.add('hidden');
+      listContainer.innerHTML = renderSingleCaseDetailHtml(activeItem);
+      initLucide();
+      bindCaseCardsInteractions(listContainer);
+      return;
+    } else {
+      state.activeCaseDetailId = null;
+    }
+  }
+
+  if (filterBar) filterBar.classList.remove('hidden');
+  if (layoutSwitchGroup) layoutSwitchGroup.classList.remove('hidden');
+
+  const rawQ = (state.casesFilterKeyword || '').trim();
+  if (clearBtn) clearBtn.classList.toggle('hidden', !rawQ);
+  const parsedQ = rawQ ? parseFuzzyQuery(rawQ) : null;
+
+  const filteredWithMeta = [];
+  (state.caseItems || []).forEach(item => {
+    if (isCaseItemDeletedTombstoned(item)) return;
+    if (state.caseFilterStatus && normalizeCaseStatusValue(item.status) !== state.caseFilterStatus) return;
+
+    if (state.caseFilterCaseNo) {
+      if (state.caseFilterCaseNo === '__empty__') {
+        if (item.caseNumber) return;
+      } else if (item.caseNumber !== state.caseFilterCaseNo) {
+        return;
+      }
+    }
+    if (state.caseFilterMachine) {
+      if (state.caseFilterMachine === '__empty__') {
+        if (item.machineModel) return;
+      } else if (item.machineModel !== state.caseFilterMachine) {
+        return;
+      }
+    }
+    if (state.caseFilterClient) {
+      if (state.caseFilterClient === '__empty__') {
+        if (item.clientVendor) return;
+      } else if (item.clientVendor !== state.caseFilterClient) {
+        return;
+      }
+    }
+    if (state.caseFilterTag) {
+      if (!Array.isArray(item.tags) || !item.tags.includes(state.caseFilterTag)) return;
+    }
+    if (state.caseFilterHandler) {
+      if (!Array.isArray(item.handlers) || !item.handlers.includes(state.caseFilterHandler)) return;
+    }
+
+    let fuzzyRes = null;
+    if (parsedQ) {
+      fuzzyRes = evaluateFuzzyCaseMatch(item, parsedQ);
+      if (!fuzzyRes.matched) return;
+    }
+    filteredWithMeta.push({ item, fuzzyRes });
+  });
+
+  if (parsedQ) {
+    filteredWithMeta.sort((a, b) => ((b.fuzzyRes ? b.fuzzyRes.score : 0) - (a.fuzzyRes ? a.fuzzyRes.score : 0)) || ((b.item.createdEpoch || 0) - (a.item.createdEpoch || 0)));
+    if (fuzzyBanner && fuzzyDetails && fuzzyStats) {
+      fuzzyBanner.classList.remove('hidden');
+      fuzzyDetails.innerHTML = `<span>🔍 檢索關鍵字：「<strong>${escapeHtml(rawQ)}</strong>」</span>`;
+      fuzzyStats.textContent = `找到 ${filteredWithMeta.length} 筆符合案件`;
+    }
+  } else {
+    filteredWithMeta.sort((a, b) => (b.item.createdEpoch || 0) - (a.item.createdEpoch || 0));
+    if (fuzzyBanner) fuzzyBanner.classList.add('hidden');
+  }
+
+  if (filteredWithMeta.length === 0) {
+    listContainer.innerHTML = `
+      <div class="py-14 text-center bg-white dark:bg-notion-card rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
+        <div class="text-3xl mb-2">🛡️</div>
+        <div class="text-sm font-bold text-gray-700 dark:text-gray-200">${(rawQ || state.caseFilterStatus || state.caseFilterCaseNo || state.caseFilterMachine || state.caseFilterClient || state.caseFilterTag || state.caseFilterHandler) ? '找不到符合篩選條件的案件' : '目前尚無售後追蹤案件'}</div>
+      </div>
+    `;
+    return;
+  }
+
+  if (state.caseViewLayout === 'table') {
+    listContainer.innerHTML = renderCasesTableModeHtml(filteredWithMeta);
+  } else {
+    listContainer.innerHTML = filteredWithMeta.map(({ item, fuzzyRes }) => renderCaseSummaryRowHtml(item, fuzzyRes)).join('');
+  }
+  initLucide();
+  bindCaseCardsInteractions(listContainer);
+}
+
+function initCaseViewTopControlsOnce() {
+  // 綁定分類管理中心「7. 案號管理」分頁按鈕與新增按鈕
+  const tmTabCaseNo = document.getElementById('tm-tab-case-number');
+  if (tmTabCaseNo && !tmTabCaseNo._bound) {
+    tmTabCaseNo._bound = true;
+    tmTabCaseNo.addEventListener('click', () => switchTagManagerTab('case_number'));
+  }
+  const tmAddCaseNoBtn = document.getElementById('tm-add-case-number-btn');
+  const tmNewCaseNoInp = document.getElementById('tm-new-case-number-input');
+  if (tmAddCaseNoBtn && !tmAddCaseNoBtn._bound) {
+    tmAddCaseNoBtn._bound = true;
+    const handleAddCN = () => {
+      if (!tmNewCaseNoInp) return;
+      const val = tmNewCaseNoInp.value.trim();
+      if (val && addCaseNumber(val)) {
+        tmNewCaseNoInp.value = '';
+      }
+    };
+    tmAddCaseNoBtn.addEventListener('click', handleAddCN);
+    if (tmNewCaseNoInp) {
+      tmNewCaseNoInp.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.isComposing) {
+          e.preventDefault();
+          handleAddCN();
+        }
+      });
+    }
+  }
+
+  // 綁定側邊欄與頂部導覽列「案件追蹤」切換按鈕
+  const sidebarCasesBtn = document.getElementById('sidebar-cases-btn');
+  if (sidebarCasesBtn && !sidebarCasesBtn._bound) {
+    sidebarCasesBtn._bound = true;
+    sidebarCasesBtn.addEventListener('click', () => {
+      state.activeCaseDetailId = null;
+      switchView('cases');
+      if (window.innerWidth < 768 && typeof closeSidebar === 'function') closeSidebar();
+    });
+  }
+
+  const viewTabCases = document.getElementById('view-tab-cases');
+  if (viewTabCases && !viewTabCases._bound) {
+    viewTabCases._bound = true;
+    viewTabCases.addEventListener('click', () => {
+      state.activeCaseDetailId = null;
+      switchView('cases');
+    });
+  }
+
+  const container = document.getElementById('view-cases-container');
+  if (!container || container._caseV290ControlsBound) return;
+  container._caseV290ControlsBound = true;
+
+  // 固定 4 種狀態切換膠囊
+  container.querySelectorAll('#case-fixed-category-bar .case-cat-tab-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetCat = btn.getAttribute('data-case-status');
+      state.activeCaseDetailId = null;
+      state.caseFilterStatus = (state.caseFilterStatus === targetCat) ? '' : targetCat;
+      renderCasesView();
+    });
+  });
+
+  // 新增案件按鈕
+  const addBtn = document.getElementById('btn-add-case-card');
+  if (addBtn) {
+    addBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      createNewCaseCardItem();
+    });
+  }
+
+  // 清單 / 表格 檢視模式切換
+  const modeListBtn = document.getElementById('btn-case-mode-list');
+  const modeTableBtn = document.getElementById('btn-case-mode-table');
+  const updateModeBtns = () => {
+    if (modeListBtn) modeListBtn.classList.toggle('active', state.caseViewLayout === 'list');
+    if (modeTableBtn) modeTableBtn.classList.toggle('active', state.caseViewLayout === 'table');
+  };
+  if (modeListBtn) {
+    modeListBtn.addEventListener('click', () => {
+      state.caseViewLayout = 'list';
+      state.activeCaseDetailId = null;
+      updateModeBtns();
+      renderCasesView();
+    });
+  }
+  if (modeTableBtn) {
+    modeTableBtn.addEventListener('click', () => {
+      state.caseViewLayout = 'table';
+      state.activeCaseDetailId = null;
+      updateModeBtns();
+      renderCasesView();
+    });
+  }
+
+  // 管理案號與選單按鈕
+  const manageBtn = document.getElementById('btn-case-manage-options');
+  if (manageBtn) {
+    manageBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      openTagManagerModal('case_number');
+    });
+  }
+
+  // 搜尋框與清除按鈕
+  const searchInp = document.getElementById('cases-search-input');
+  const searchClearBtn = document.getElementById('cases-search-clear-btn');
+  if (searchInp) {
+    searchInp.addEventListener('input', () => {
+      state.casesFilterKeyword = searchInp.value;
+      state.activeCaseDetailId = null;
+      renderCasesView();
+    });
+    searchInp.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && searchInp.value) {
+        e.preventDefault();
+        searchInp.value = '';
+        state.casesFilterKeyword = '';
+        renderCasesView();
+      }
+    });
+  }
+  if (searchClearBtn) {
+    searchClearBtn.addEventListener('click', () => {
+      if (searchInp) searchInp.value = '';
+      state.casesFilterKeyword = '';
+      renderCasesView();
+    });
+  }
+
+  // 5 大下拉篩選器 (案號、機型、客戶、標籤、人員)
+  const bindFilterSelect = (id, stateProp) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', () => {
+      state[stateProp] = el.value;
+      state.activeCaseDetailId = null;
+      renderCasesView();
+    });
+  };
+  bindFilterSelect('cases-filter-caseno', 'caseFilterCaseNo');
+  bindFilterSelect('cases-filter-machine', 'caseFilterMachine');
+  bindFilterSelect('cases-filter-client', 'caseFilterClient');
+  bindFilterSelect('cases-filter-tag', 'caseFilterTag');
+  bindFilterSelect('cases-filter-handler', 'caseFilterHandler');
+
+  // 重設所有篩選
+  const resetBtn = document.getElementById('cases-filter-reset-btn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      state.caseFilterStatus = '';
+      state.caseFilterCaseNo = '';
+      state.caseFilterMachine = '';
+      state.caseFilterClient = '';
+      state.caseFilterTag = '';
+      state.caseFilterHandler = '';
+      state.casesFilterKeyword = '';
+      state.activeCaseDetailId = null;
+      if (searchInp) searchInp.value = '';
+      renderCasesView();
+    });
+  }
+
+  // 專用檔案上傳器
+  const fileInp = document.getElementById('case-attachment-file-input');
+  if (fileInp) {
+    fileInp.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files || []);
+      const target = _activeCaseUploadTarget;
+      _activeCaseUploadTarget = null;
+      fileInp.value = '';
+      if (!target || !target.caseId) return;
+      for (const f of files) {
+        await uploadFileToCaseCardSection(target.caseId, target.section, f);
+      }
+    });
+  }
+}
+
+// 擴充 switchView 與 renderCurrentView 支援 'cases' 視圖
+const _origSwitchViewV289 = switchView;
+switchView = function(viewName) {
+  const casesTab = document.getElementById('view-tab-cases');
+  const casesContainer = document.getElementById('view-cases-container');
+  if (viewName === 'cases') {
+    if (state.currentView === 'editor') {
+      try { commitActiveEditorStateImmediately(); } catch (e) {}
+    }
+    state.currentView = 'cases';
+    ['view-tab-editor', 'view-tab-table', 'view-tab-uncategorized', 'view-tab-tasks', 'view-tab-calendar'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.classList.remove('active');
+    });
+    if (casesTab) casesTab.classList.add('active');
+
+    ['main-scroll-container', 'view-table-container', 'view-uncategorized-container', 'view-tasks-container', 'view-calendar-container'].forEach(id => {
+      const c = document.getElementById(id);
+      if (c) {
+        c.classList.add('hidden');
+        c.classList.remove('view-transition-active');
+      }
+    });
+    if (casesContainer) {
+      casesContainer.classList.remove('hidden');
+      casesContainer.classList.remove('view-transition-active');
+      void casesContainer.offsetWidth;
+      casesContainer.classList.add('view-transition-active');
+      casesContainer.scrollTop = 0;
+    }
+    if (DOM.mobileToolbar) DOM.mobileToolbar.classList.add('hidden');
+    renderCasesView();
+    return;
+  }
+
+  if (casesTab) casesTab.classList.remove('active');
+  if (casesContainer) {
+    casesContainer.classList.add('hidden');
+    casesContainer.classList.remove('view-transition-active');
+  }
+  _origSwitchViewV289(viewName);
+};
+
+const _origRenderCurrentViewV289 = renderCurrentView;
+renderCurrentView = function() {
+  if (state.currentView === 'cases') {
+    renderCasesView();
+    return;
+  }
+  _origRenderCurrentViewV289();
+};
+
+// 讓內建 720P 防閃退相機拍攝完成後，若目標為案件追蹤卡片，自動寫入對應案件附件區
+const _origUploadFileToTodoCardSectionV289 = uploadFileToTodoCardSection;
+uploadFileToTodoCardSection = async function(cardId, section, file) {
+  if (String(cardId || '').startsWith('case_')) {
+    return await uploadFileToCaseCardSection(cardId, section, file);
+  }
+  return await _origUploadFileToTodoCardSectionV289(cardId, section, file);
+};
+
+// 擴充 SWR 快取與 Google Drive 雲端設定檔同步，完整保存 caseNumbers、caseItems 與 deletedCaseIds
+const _origSaveSwrCacheSnapshotV289 = saveSwrCacheSnapshot;
+saveSwrCacheSnapshot = function() {
+  _origSaveSwrCacheSnapshotV289();
+  try {
+    const rawWs = localStorage.getItem(SWR_WORKSPACE_KEY);
+    if (rawWs) {
+      const ws = safeJsonParse(rawWs, {});
+      ws.caseNumbers = filterOutDeletedCategoryItems('case_number', state.caseNumbers || []);
+      ws.caseItems = state.caseItems || [];
+      ws.deletedCaseIds = state.deletedCaseIds || [];
+      safeSetLocalStorageItem(SWR_WORKSPACE_KEY, JSON.stringify(ws));
+    }
+  } catch (e) {}
+};
+
+const _origHydrateFromSwrCacheOnBootV289 = hydrateFromSwrCacheOnBoot;
+hydrateFromSwrCacheOnBoot = function() {
+  _origHydrateFromSwrCacheOnBootV289();
+  try {
+    const rawWs = localStorage.getItem(SWR_WORKSPACE_KEY);
+    if (rawWs) {
+      const ws = safeJsonParse(rawWs, null);
+      if (ws) {
+        if (Array.isArray(ws.deletedCaseIds)) state.deletedCaseIds = ws.deletedCaseIds;
+        if (Array.isArray(ws.caseNumbers)) {
+          state.caseNumbers = filterOutDeletedCategoryItems('case_number', ws.caseNumbers);
+        }
+        if (Array.isArray(ws.caseItems)) {
+          state.caseItems = ws.caseItems.filter(c => !isCaseItemDeletedTombstoned(c));
+        }
+      }
+    }
+  } catch (e) {}
+  updateCaseSummaryStats();
+};
+
+try {
+  ensureCaseItemsInitialized();
+  initCaseViewTopControlsOnce();
+  updateCaseSummaryStats();
+} catch (e) {
+  console.warn('init Case Tracking error:', e);
 }
