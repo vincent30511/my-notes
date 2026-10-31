@@ -5968,7 +5968,7 @@ html.dark .lvi-case-table select {
 
 
 /* ============================================================================
-   🚀 LVI_Note v2.9.1 案件追蹤精煉排版與內嵌處理日誌樣式
+   🚀 LVI_Note v2.9.2 案件追蹤：存入歷史快照、點擊展開詳情與雙向關聯樣式
    ============================================================================ */
 
 /* 第 2 列改為：立案時間 + 結案時間 + 關聯筆記 (移除機台序號/保固欄) */
@@ -5984,7 +5984,7 @@ html.dark .lvi-case-table select {
   }
 }
 
-/* 案號直接輸入框樣式 (高辨識度等寬/半粗體字型) */
+/* 案號直接輸入框樣式 */
 .case-caseno-input {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Microsoft JhengHei", monospace;
   font-size: 0.84rem !important;
@@ -5996,11 +5996,11 @@ html.dark .case-caseno-input {
   color: #5eead4 !important;
 }
 
-
 .lvi-case-table th {
   white-space: nowrap;
 }
-.lvi-case-table th, .lvi-case-table td {
+.lvi-case-table th,
+.lvi-case-table td {
   padding: 8px 8px;
   vertical-align: middle;
 }
@@ -6041,156 +6041,457 @@ html.dark .lvi-case-table .case-inline-table-input:focus {
   background: #0f172a;
 }
 
-/* 📜 整合於「客訴與異常現象/根因分析」及「售後處理對策與零件更換紀錄」內部的【處理日誌】區塊 */
-.lvi-case-integrated-log-box {
-  margin-top: 10px;
-  padding: 10px 12px;
-  border-radius: 11px;
-  background: rgba(255, 255, 255, 0.88);
+/* 💾 存入歷史按鈕 */
+.case-save-history-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 13px;
+  border-radius: 9px;
+  font-size: 0.76rem;
+  font-weight: 800;
+  cursor: pointer;
+  border: none;
+  color: #ffffff;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
+}
+.case-save-history-btn.btn-symptom-save {
+  background: linear-gradient(135deg, #e11d48 0%, #be123c 100%);
+}
+.case-save-history-btn.btn-symptom-save:hover {
+  background: linear-gradient(135deg, #be123c 0%, #9f1239 100%);
+  transform: translateY(-1px);
+}
+.case-save-history-btn.btn-action-save {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+.case-save-history-btn.btn-action-save:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  transform: translateY(-1px);
+}
+
+/* 編輯區內預先選擇關聯對象之小選單 */
+.case-staging-link-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px dashed #cbd5e1;
+  font-size: 0.74rem;
+}
+html.dark .case-staging-link-bar {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: #334155;
+}
+.case-staging-link-select {
+  padding: 3px 8px;
+  border-radius: 7px;
   border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.73rem;
+  font-weight: 700;
+  max-width: 280px;
+}
+html.dark .case-staging-link-select {
+  border-color: #475569;
+  background: #1e293b;
+  color: #f1f5f9;
+}
+
+/* 📜 區塊下方獨立歷史資料列表容器 */
+.lvi-case-history-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1.5px dashed #cbd5e1;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-html.dark .lvi-case-integrated-log-box {
-  background: rgba(15, 23, 42, 0.75);
-  border-color: #334155;
+html.dark .lvi-case-history-section {
+  border-top-color: #334155;
 }
-.lvi-case-integrated-log-header {
+.lvi-case-history-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
   flex-wrap: wrap;
 }
-.lvi-case-integrated-log-title {
+.lvi-case-history-title {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 800;
   color: #1e293b;
 }
-html.dark .lvi-case-integrated-log-title {
-  color: #e2e8f0;
+html.dark .lvi-case-history-title {
+  color: #f1f5f9;
 }
-.lvi-case-integrated-log-count {
+.lvi-case-history-count {
   padding: 1px 8px;
   border-radius: 999px;
   font-size: 0.68rem;
   font-weight: 800;
-  background: #f1f5f9;
-  color: #475569;
-  border: 1px solid #cbd5e1;
+  background: #e2e8f0;
+  color: #334155;
 }
-html.dark .lvi-case-integrated-log-count {
+html.dark .lvi-case-history-count {
   background: #1e293b;
-  color: #94a3b8;
-  border-color: #334155;
+  color: #cbd5e1;
+  border: 1px solid #334155;
 }
-.lvi-case-integrated-log-add-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.lvi-case-integrated-log-add-bar input {
-  flex: 1;
-  min-width: 140px;
-  padding: 5px 10px;
-  border-radius: 8px;
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  color: #0f172a;
-  font-size: 0.75rem;
-  font-weight: 600;
-  outline: none;
-}
-.lvi-case-integrated-log-add-bar input:focus {
-  background: #ffffff;
-  border-color: #0d9488;
-  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
-}
-html.dark .lvi-case-integrated-log-add-bar input {
-  background: #0f172a;
-  border-color: #334155;
-  color: #f1f5f9;
-}
-.lvi-case-integrated-log-add-bar button {
-  padding: 5px 12px;
-  border-radius: 8px;
-  background: #0d9488;
-  color: #ffffff;
-  font-size: 0.73rem;
-  font-weight: 800;
-  border: none;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.14s ease;
-}
-.lvi-case-integrated-log-add-bar button:hover {
-  background: #0f766e;
-}
-.lvi-case-integrated-log-list {
+
+.lvi-case-history-list {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  max-height: 210px;
-  overflow-y: auto;
-  padding-right: 2px;
+  gap: 7px;
 }
-.lvi-case-integrated-log-item {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 9px;
-  border-radius: 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  font-size: 0.74rem;
-  line-height: 1.45;
+
+/* 單筆歷史資料卡片 (預設條列摘要，點擊展開完整詳情與縮圖) */
+.lvi-case-history-card {
+  border-radius: 11px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  overflow: hidden;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
-html.dark .lvi-case-integrated-log-item {
-  background: #161f30;
+html.dark .lvi-case-history-card {
+  background: #111827;
   border-color: #28354c;
-  color: #f1f5f9;
 }
-.case-log-type-badge {
+.lvi-case-history-card.is-expanded {
+  border-color: #0d9488;
+  box-shadow: 0 4px 12px -2px rgba(13, 148, 136, 0.16);
+}
+html.dark .lvi-case-history-card.is-expanded {
+  border-color: #2dd4bf;
+  box-shadow: 0 4px 14px -2px rgba(20, 184, 166, 0.22);
+}
+.lvi-case-history-card.flash-highlight {
+  animation: lviCaseHistoryPulse 1.5s ease;
+}
+@keyframes lviCaseHistoryPulse {
+  0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.75); border-color: #f59e0b; }
+  50% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.25); border-color: #f59e0b; }
+  100% { box-shadow: none; }
+}
+
+/* 歷史資料條列標題列 (點擊查看詳情) */
+.lvi-case-history-summary-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.14s ease;
+}
+.lvi-case-history-summary-bar:hover {
+  background: #f8fafc;
+}
+html.dark .lvi-case-history-summary-bar:hover {
+  background: #1a2436;
+}
+.lvi-case-history-summary-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+  flex-wrap: wrap;
+}
+.case-hist-code-badge {
   display: inline-flex;
   align-items: center;
-  padding: 1px 6px;
-  border-radius: 5px;
-  font-size: 0.66rem;
-  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 900;
   white-space: nowrap;
 }
-.case-log-type-file {
-  background: #fef3c7;
-  color: #92400e;
-  border: 1px solid #fde68a;
+.case-hist-code-symptom {
+  background: #ffe4e6;
+  color: #be123c;
+  border: 1px solid #fda4af;
 }
-html.dark .case-log-type-file {
-  background: rgba(245, 158, 11, 0.2);
+html.dark .case-hist-code-symptom {
+  background: rgba(244, 63, 94, 0.22);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.45);
+}
+.case-hist-code-action {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #93c5fd;
+}
+html.dark .case-hist-code-action {
+  background: rgba(59, 130, 246, 0.22);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.45);
+}
+.case-hist-preview-text {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 420px;
+}
+html.dark .case-hist-preview-text {
+  color: #f1f5f9;
+}
+
+/* 互相關聯跳轉膠囊 */
+.case-hist-link-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.69rem;
+  font-weight: 800;
+  background: #f0fdfa;
+  color: #0f766e;
+  border: 1px solid #99f6e4;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.14s ease;
+}
+.case-hist-link-pill:hover {
+  background: #0d9488;
+  color: #ffffff;
+  border-color: #0f766e;
+}
+html.dark .case-hist-link-pill {
+  background: rgba(13, 148, 136, 0.2);
+  color: #5eead4;
+  border-color: rgba(45, 212, 191, 0.4);
+}
+html.dark .case-hist-link-pill:hover {
+  background: #0d9488;
+  color: #ffffff;
+}
+
+
+.case-hist-time-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #475569;
+  white-space: nowrap;
+}
+html.dark .case-hist-time-text {
+  color: #94a3b8;
+}
+.case-hist-toggle-hint {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #0d9488;
+  white-space: nowrap;
+}
+html.dark .case-hist-toggle-hint {
+  color: #2dd4bf;
+}
+.case-hist-att-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 0.69rem;
+  font-weight: 800;
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  white-space: nowrap;
+}
+html.dark .case-hist-att-badge {
+  background: rgba(245, 158, 11, 0.18);
   color: #fcd34d;
   border-color: rgba(245, 158, 11, 0.4);
 }
-.case-log-type-edit {
-  background: #e0f2fe;
-  color: #075985;
-  border: 1px solid #bae6fd;
+.case-hist-parts-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.69rem;
+  font-weight: 800;
+  background: #eef2ff;
+  color: #3730a3;
+  border: 1px solid #c7d2fe;
+  white-space: nowrap;
 }
-html.dark .case-log-type-edit {
-  background: rgba(14, 165, 233, 0.2);
-  color: #7dd3fc;
-  border-color: rgba(14, 165, 233, 0.4);
+html.dark .case-hist-parts-badge {
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+  border-color: rgba(99, 102, 241, 0.4);
 }
-.case-log-type-manual {
-  background: #ccfbf1;
-  color: #115e59;
-  border: 1px solid #99f6e4;
+.case-hist-detail-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
 }
-html.dark .case-log-type-manual {
-  background: rgba(20, 184, 166, 0.2);
-  color: #5eead4;
-  border-color: rgba(20, 184, 166, 0.4);
+.case-hist-detail-links-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.case-hist-detail-label {
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #334155;
+}
+html.dark .case-hist-detail-label {
+  color: #e2e8f0;
+}
+.case-hist-linked-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+html.dark .case-hist-linked-chip {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+.case-hist-linked-chip.chip-symptom {
+  background: #fff1f2;
+  color: #be123c;
+  border-color: #fecdd3;
+}
+html.dark .case-hist-linked-chip.chip-symptom {
+  background: rgba(244, 63, 94, 0.2);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.4);
+}
+.case-hist-linked-chip button {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+.case-hist-linked-chip .case-unlink-hist-btn {
+  margin-left: 4px;
+  padding: 0 3px;
+  font-weight: 900;
+  opacity: 0.7;
+}
+.case-hist-linked-chip .case-unlink-hist-btn:hover {
+  opacity: 1;
+  color: #e11d48;
+}
+.case-hist-btn-edit,
+.case-hist-btn-del {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 7px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+.case-hist-btn-edit {
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+.case-hist-btn-edit:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+html.dark .case-hist-btn-edit {
+  background: #1e293b;
+  color: #e2e8f0;
+  border-color: #334155;
+}
+html.dark .case-hist-btn-edit:hover {
+  background: #334155;
+}
+.case-hist-btn-del {
+  background: #fff1f2;
+  color: #e11d48;
+  border: 1px solid #fecdd3;
+}
+.case-hist-btn-del:hover {
+  background: #e11d48;
+  color: #ffffff;
+}
+html.dark .case-hist-btn-del {
+  background: rgba(244, 63, 94, 0.18);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.4);
+}
+html.dark .case-hist-btn-del:hover {
+  background: #e11d48;
+  color: #ffffff;
+}
+.case-hist-parts-detail-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #1e1b4b;
+}
+html.dark .case-hist-parts-detail-box {
+  background: rgba(99, 102, 241, 0.16);
+  border-color: rgba(99, 102, 241, 0.38);
+  color: #e0e7ff;
+}
+
+/* 點擊展開後的歷史詳情面板 */
+.lvi-case-history-detail-body {
+  padding: 12px 14px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+html.dark .lvi-case-history-detail-body {
+  border-top-color: #28354c;
+  background: #0f172a;
+}
+.lvi-case-history-fulltext {
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  color: #0f172a;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+html.dark .lvi-case-history-fulltext {
+  background: #161f30;
+  border-color: #2d3b54;
+  color: #f1f5f9;
 }

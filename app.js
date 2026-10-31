@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.9.1'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.9.2'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -1706,7 +1706,7 @@ async function saveWorkspaceConfigToDrive() {
       todoStatuses: state.todoStatuses || DEFAULT_TODO_STATUSES,
       todoHandlers: (state.todoHandlers && state.todoHandlers.length > 0) ? state.todoHandlers : DEFAULT_TODO_HANDLERS,
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.9.1'
+      source: 'Google Drive Cloud Truth v2.9.2'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -1949,7 +1949,7 @@ async function fetchNotesList(silent = false) {
       });
     }
 
-    // 💡 雲端自動採納 (v2.9.1 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
+    // 💡 雲端自動採納 (v2.9.2 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
     let needUpdateCloudConfig = false;
     const delMachines = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('machine') : new Set();
     const delContents = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('content') : new Set();
@@ -4937,7 +4937,7 @@ async function compressImageForUpload(file, maxDimension = 1280, quality = 0.76)
   const t0 = performance.now();
   try {
     const origSize = file.size;
-    // 🍏 v2.9.1 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
+    // 🍏 v2.9.2 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
     if (await isHeicFileOrBlob(file, file.name)) {
       const convertedJpegBlob = await convertHeicBlobToJpegBlob(file, Math.max(0.84, quality));
       if (convertedJpegBlob) {
@@ -7247,7 +7247,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.1', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.2', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -12769,7 +12769,7 @@ function closeTableQuickPeekDrawer() {
 }
 
 // ============================================================================
-// 📋 LVI_Note v2.9.1 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
+// 📋 LVI_Note v2.9.2 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
 // ============================================================================
 
 const TODO_STORAGE_KEY = 'lvi_todo_items_v283';
@@ -13596,7 +13596,7 @@ function evaluateFuzzyTodoMatch(todoItem, parsedQuery) {
 }
 
 // ============================================================================
-// 📋 表格資料庫檢視 (Table Database View - v2.9.1)
+// 📋 表格資料庫檢視 (Table Database View - v2.9.2)
 // ============================================================================
 
 function openTodoQuickPeekDrawer(todoId, fuzzyRes = null) {
@@ -16485,7 +16485,7 @@ function bindEvents() {
   const scrollContainer = document.getElementById('main-scroll-container');
   const canvasWrapper = document.getElementById('canvas-inner-wrapper');
 
-  // Legacy auto-paragraph click listener replaced by v2.9.1 Double-Click Position Memory Engine
+  // Legacy auto-paragraph click listener replaced by v2.9.2 Double-Click Position Memory Engine
 
   // 📷 一鍵展開/收折所有照片與影片
   if (DOM.toggleAllMediaBtn) {
@@ -16966,7 +16966,7 @@ function bindEvents() {
   if (DOM.closeTagManagerBtn) DOM.closeTagManagerBtn.addEventListener('click', closeTagManagerModal);
   if (DOM.tmDoneBtn) DOM.tmDoneBtn.addEventListener('click', closeTagManagerModal);
 
-  // Duplicate DOM.tmAddBtn listener removed in v2.9.1
+  // Duplicate DOM.tmAddBtn listener removed in v2.9.2
 
   // 下拉式標籤面板
   if (DOM.addTagBtn) {
@@ -19753,7 +19753,7 @@ function initInAppCameraListeners() {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.1 圖片四大升級引擎：
+// 🚀 LVI_Note v2.9.2 圖片四大升級引擎：
 // 1. HEIC/HEIF 完整解碼與標註支援 (heic2any + ImageBitmap + Drive 雲端轉檔)
 // 2. 圖片框上方專屬高對比文字註記欄 (.media-top-note-bar，淺/深色皆 >18:1 超高對比)
 // 3. 真實圖片旋轉 (90° 左/右旋轉 + PATCH/POST 重新存回 Google Drive 雲端硬碟)
@@ -20590,7 +20590,7 @@ if (document.readyState !== 'loading') { bootLviAppOnce(); }
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.1 全層級分類與標籤管理中心修復與穩定引擎
+// 🚀 LVI_Note v2.9.2 全層級分類與標籤管理中心修復與穩定引擎
 // 1. 永久刪除墓碑機制 (state.deletedCategoryItems)：確保刪除或更名後的預設/自訂選項絕不因雲端同步或重整而復活
 // 2. 六大分類統一就地編輯列 (.tm-unified-item-row)：支援點擊直接修改、Enter 鍵儲存、✓ 儲存鈕、🗑️ 即時刪除 (附一鍵復原)
 // 3. 消除 input blur/change 與按鈕 click 的競態衝突 (mousedown preventDefault 保護)
@@ -21017,7 +21017,7 @@ saveWorkspaceConfigToDrive = async function() {
       caseItems: Array.isArray(state.caseItems) ? state.caseItems : [],
       deletedCaseIds: Array.isArray(state.deletedCaseIds) ? state.deletedCaseIds : [],
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.9.1'
+      source: 'Google Drive Cloud Truth v2.9.2'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -22450,7 +22450,7 @@ try {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.1 筆記畫布雙擊位置記憶與游標感知檔案插入引擎
+// 🚀 LVI_Note v2.9.2 筆記畫布雙擊位置記憶與游標感知檔案插入引擎
 // 1. 停止自動在區塊前後塞入兩行空白段落 (<p><br></p>)
 // 2. 雙擊無輸入游標處時：先記住該位置 (state.pendingDblClickTarget)，不直接加行；待使用者後續按下 Enter 時才在該位置新增 1 行 (<p><br></p>)
 // 3. 傳入檔案時：若有輸入游標則插入於游標位置；若無輸入游標則預設插入於筆記最底部 (絕不誤插在筆記最上方)
@@ -22947,13 +22947,21 @@ try {
 
 
 // ============================================================================
-// 🛡️ LVI_Note v2.9.1 「案件追蹤」(After-Sales Case Tracking & Service Dossier) 核心模組
-// 1. 「售後追蹤時間軸紀錄」整合進「客訴與異常現象 / 根因分析」與「售後處理對策與零件更換紀錄」兩大區塊內之【📜 處理日誌】
-//    - 免選紀錄人員，自動記錄「什麼時候、做了哪些改動、匯入了哪些檔案」，亦支援手動輸入與搜尋
-// 2. 匯出功能全面統一為 PDF (📄 匯出 PDF)，內建 A4 專業排版渲染引擎 (renderCaseToDirectPdfBlob)
-// 3. 移除「機台序號 / 保固與出貨資訊」欄位
-// 4. 「案號」改為直接文字輸入框 (<input type="text">)，並完整納入模糊與關鍵字搜尋引擎
-// 5. 清單與表格檢視統一按照「結案時間 (completedAt)」由上而下排序
+// 🛡️ LVI_Note v2.9.2 「案件追蹤」(After-Sales Case Tracking & Service Dossier) 核心模組
+// 1. 與「待辦事項」同等級並列之獨立主功能 (側邊欄 + 頂部多重視圖導覽列)
+// 2. 支援共用主系統之「機型」、「客戶/廠商」、「標籤」、「處理人員」選單，並新增獨立「案號 (caseNumbers)」選單
+// 3. 內部配備比照表格資料庫之獨立搜尋與多維篩選系統 (支援同義詞智慧模糊檢索、關鍵字高亮摘要、5 大維度下拉過濾、清單/表格雙模式切換)
+// 4. 專為售後處理追蹤打造的 6 段式個案履歷介面 (含機台序號/保固、客訴與根因分析、售後對策與更換零件、多階段時間軸追蹤紀錄、現場照片/檔案縮圖、關聯筆記與報告匯出)
+// ============================================================================
+// 🛡️ LVI_Note v2.9.2 「案件追蹤」(After-Sales Case Tracking & History System) 核心模組
+// 1. 移除「異常原因 / 根因分析」多餘文字框，簡化為「🚨 客訴 / 異常現象描述」與「🛠️ 售後處理對策與零件更換紀錄」兩大專區
+// 2. 兩大專區皆配備「💾 存入歷史」按鈕與「防忘記儲存自動歸檔機制」：
+//    - 當按下「💾 存入歷史」按鈕，或「有輸入文字或檔案後忘記儲存就關閉網站 / 離開頁面 / 重新整理」時，
+//      系統自動將該筆輸入內容與照片/附件存入該單一案號的歷史資料中並條列於下方，同時清空輸入框供下次紀錄
+// 3. 兩種紀錄的歷史資料條列各自獨立（「📜 客訴與異常現象・歷史資料」與「📜 售後處理對策・歷史資料」）：
+//    - 點擊任一歷史條列項目即可展開查看完整詳情（完整文字、更換零件、高清照片縮圖與附件）
+//    - 支援「🔗 互相關聯」：可將某筆「異常歷史紀錄」與對應的「售後處理對策歷史紀錄」雙向綁定，點擊關聯標籤即可一鍵跳轉查看「什麼狀況要如何處理」
+// 4. 「案號」直接文字輸入 + 全文與歷史關聯搜尋 + 清單/表格依「結案時間」由上而下排序 + 統一 A4 PDF 排版匯出
 // ============================================================================
 
 const CASE_STORAGE_KEY = 'lvi_case_items_v290';
@@ -22985,6 +22993,11 @@ state.caseFilterClient = '';
 state.caseFilterTag = '';
 state.caseFilterHandler = '';
 state.casesFilterKeyword = '';
+// 記錄目前已點擊展開查看詳情的歷史資料 ID 集合
+state.expandedCaseHistoryIds = new Set();
+// 記錄目前在輸入框預選要關聯的對向歷史 ID
+state.stagingSymptomLinkActionIds = [];
+state.stagingActionLinkSymptomIds = [];
 
 const _origEnsureDeletedCategoryItemsLoadedV289 = ensureDeletedCategoryItemsLoaded;
 ensureDeletedCategoryItemsLoaded = function() {
@@ -23049,11 +23062,6 @@ function getCaseStatusBadgeClass(statusStr) {
   return 'bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700';
 }
 
-/**
- * 比較兩個案件的「結案時間 (completedAt)」，由上而下排序：
- * - 有結案時間的案件依結案時間由新到舊 (descending) 排列於前
- * - 尚未結案的案件依立案時間由新到舊排列於後
- */
 function getCaseCompletedTimestampEpoch(item) {
   if (!item || !item.completedAt || !String(item.completedAt).trim()) return 0;
   const ep = parseTodoTimestampToEpoch(String(item.completedAt).trim());
@@ -23073,6 +23081,193 @@ function compareCaseItemsByCompletedAtDesc(itemA, itemB) {
   return (itemB.createdEpoch || 0) - (itemA.createdEpoch || 0);
 }
 
+// ============================================================================
+// 💾 單一案號「歷史資料」存入、雙向關聯與「忘記儲存關閉網站自動存入歷史」核心引擎
+// ============================================================================
+
+/**
+ * 檢查案件的暫存輸入區是否有尚未存入歷史的文字或檔案，若有則自動封裝存入 item.symptomHistory / item.actionHistory
+ */
+function commitCaseSymptomStagingToHistory(item, { autoSaved = false, linkedActionIds = null } = {}) {
+  if (!item) return null;
+  if (!Array.isArray(item.symptomHistory)) item.symptomHistory = [];
+
+  const textVal = String(item.symptomText || '').trim();
+  const attHtml = String(item.symptomAttachmentsHtml || '').trim();
+  if (!textVal && !attHtml) return null;
+
+  const nowStr = formatTodoTimestamp();
+  const nowEpoch = Date.now();
+  const nextSeq = (item._nextSymptomSeq || item.symptomHistory.length) + 1;
+  item._nextSymptomSeq = nextSeq;
+
+  const chosenLinks = Array.isArray(linkedActionIds)
+    ? linkedActionIds.slice()
+    : (Array.isArray(item._stagingSymptomLinkActionIds) ? item._stagingSymptomLinkActionIds.slice() : []);
+
+  const entry = {
+    id: 'sym_hist_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
+    code: `異常 #${nextSeq}`,
+    time: nowStr,
+    epoch: nowEpoch,
+    text: textVal,
+    attachmentsHtml: attHtml,
+    linkedActionIds: Array.from(new Set(chosenLinks.filter(Boolean))),
+    autoSaved: Boolean(autoSaved)
+  };
+
+  item.symptomHistory.unshift(entry);
+
+  // 雙向同步關聯：若指定了 linkedActionIds，同步把此異常 ID 加入對應的 actionHistory 項目中
+  if (Array.isArray(item.actionHistory) && entry.linkedActionIds.length > 0) {
+    item.actionHistory.forEach(act => {
+      if (act && entry.linkedActionIds.includes(act.id)) {
+        if (!Array.isArray(act.linkedSymptomIds)) act.linkedSymptomIds = [];
+        if (!act.linkedSymptomIds.includes(entry.id)) {
+          act.linkedSymptomIds.push(entry.id);
+        }
+      }
+    });
+  }
+
+  // 清空暫存輸入區
+  item.symptomText = '';
+  item.symptomAttachmentsHtml = '';
+  item._stagingSymptomLinkActionIds = [];
+  item.updatedAt = nowEpoch;
+  return entry;
+}
+
+function commitCaseActionStagingToHistory(item, { autoSaved = false, linkedSymptomIds = null } = {}) {
+  if (!item) return null;
+  if (!Array.isArray(item.actionHistory)) item.actionHistory = [];
+
+  const actionVal = String(item.actionTakenText || '').trim();
+  const partsVal = String(item.partsReplacedText || '').trim();
+  const attHtml = String(item.actionAttachmentsHtml || '').trim();
+  if (!actionVal && !partsVal && !attHtml) return null;
+
+  const nowStr = formatTodoTimestamp();
+  const nowEpoch = Date.now();
+  const nextSeq = (item._nextActionSeq || item.actionHistory.length) + 1;
+  item._nextActionSeq = nextSeq;
+
+  let chosenLinks = Array.isArray(linkedSymptomIds)
+    ? linkedSymptomIds.slice()
+    : (Array.isArray(item._stagingActionLinkSymptomIds) ? item._stagingActionLinkSymptomIds.slice() : []);
+
+  // 若使用者未手動選擇要關聯哪筆異常，且目前該案件正好有最新一筆異常紀錄，預設智慧關聯最新一筆異常（亦可隨時修改或解除）
+  if (chosenLinks.length === 0 && Array.isArray(item.symptomHistory) && item.symptomHistory.length === 1) {
+    chosenLinks = [item.symptomHistory[0].id];
+  }
+
+  const entry = {
+    id: 'act_hist_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
+    code: `對策 #${nextSeq}`,
+    time: nowStr,
+    epoch: nowEpoch,
+    actionText: actionVal,
+    partsText: partsVal,
+    attachmentsHtml: attHtml,
+    linkedSymptomIds: Array.from(new Set(chosenLinks.filter(Boolean))),
+    autoSaved: Boolean(autoSaved)
+  };
+
+  item.actionHistory.unshift(entry);
+
+  // 雙向同步關聯：把此對策 ID 同步加入對應的 symptomHistory 項目中
+  if (Array.isArray(item.symptomHistory) && entry.linkedSymptomIds.length > 0) {
+    item.symptomHistory.forEach(sym => {
+      if (sym && entry.linkedSymptomIds.includes(sym.id)) {
+        if (!Array.isArray(sym.linkedActionIds)) sym.linkedActionIds = [];
+        if (!sym.linkedActionIds.includes(entry.id)) {
+          sym.linkedActionIds.push(entry.id);
+        }
+      }
+    });
+  }
+
+  // 清空暫存輸入區
+  item.actionTakenText = '';
+  item.partsReplacedText = '';
+  item.actionAttachmentsHtml = '';
+  item._stagingActionLinkSymptomIds = [];
+  item.updatedAt = nowEpoch;
+  return entry;
+}
+
+/**
+ * 將單一或所有案件中「已輸入文字或匯入檔案、但尚未按下存入歷史」的暫存內容自動存入歷史資料！
+ * 觸發時機：
+ * 1. 使用者關閉網站 / 重新整理 / 切換分頁背景 (beforeunload / pagehide / visibilitychange)
+ * 2. 使用者離開案件詳細頁 (點擊「← 返回列表」或切換主視圖)
+ * 3. 下次重新開啟網站時 (ensureCaseItemsInitialized 檢查到上次未存的暫存文字或檔案)
+ */
+function flushAllUnsavedCaseStagingToHistory(autoSaved = true) {
+  if (!Array.isArray(state.caseItems)) return false;
+  let committedAny = false;
+
+  // 先從當前畫面上的 DOM 同步最新輸入文字與縮圖附件
+  const activeCardEl = document.querySelector('.lvi-case-card[data-case-id]');
+  if (activeCardEl) {
+    const cid = activeCardEl.getAttribute('data-case-id');
+    const activeItem = state.caseItems.find(c => c.id === cid);
+    if (activeItem) {
+      const symInp = activeCardEl.querySelector('.case-symptom-textarea');
+      const actInp = activeCardEl.querySelector('.case-action-textarea');
+      const partsInp = activeCardEl.querySelector('.case-parts-input');
+      const symGal = activeCardEl.querySelector('.case-symptom-attachments');
+      const actGal = activeCardEl.querySelector('.case-action-attachments');
+      if (symInp) activeItem.symptomText = symInp.value;
+      if (actInp) activeItem.actionTakenText = actInp.value;
+      if (partsInp) activeItem.partsReplacedText = partsInp.value;
+      if (symGal) activeItem.symptomAttachmentsHtml = compactTodoAttachmentsHtml(symGal.innerHTML);
+      if (actGal) activeItem.actionAttachmentsHtml = compactTodoAttachmentsHtml(actGal.innerHTML);
+    }
+  }
+
+  state.caseItems.forEach(item => {
+    if (!item || isCaseItemDeletedTombstoned(item)) return;
+    const sEntry = commitCaseSymptomStagingToHistory(item, { autoSaved });
+    const aEntry = commitCaseActionStagingToHistory(item, { autoSaved });
+    if (sEntry || aEntry) {
+      committedAny = true;
+    }
+  });
+
+  if (committedAny) {
+    saveCaseItemsToLocalStorageOnly();
+  }
+  return committedAny;
+}
+
+/**
+ * 雙向建立或解除「客訴與異常歷史 (symId)」與「售後處理對策歷史 (actId)」之間的關聯
+ */
+function toggleCaseHistoryMutualLink(item, symId, actId, forceLink = null) {
+  if (!item || !symId || !actId) return false;
+  const sym = (item.symptomHistory || []).find(s => s.id === symId);
+  const act = (item.actionHistory || []).find(a => a.id === actId);
+  if (!sym || !act) return false;
+
+  if (!Array.isArray(sym.linkedActionIds)) sym.linkedActionIds = [];
+  if (!Array.isArray(act.linkedSymptomIds)) act.linkedSymptomIds = [];
+
+  const currentlyLinked = sym.linkedActionIds.includes(actId) || act.linkedSymptomIds.includes(symId);
+  const shouldLink = forceLink !== null ? Boolean(forceLink) : !currentlyLinked;
+
+  if (shouldLink) {
+    if (!sym.linkedActionIds.includes(actId)) sym.linkedActionIds.push(actId);
+    if (!act.linkedSymptomIds.includes(symId)) act.linkedSymptomIds.push(symId);
+  } else {
+    sym.linkedActionIds = sym.linkedActionIds.filter(id => id !== actId);
+    act.linkedSymptomIds = act.linkedSymptomIds.filter(id => id !== symId);
+  }
+  item.updatedAt = Date.now();
+  saveCaseItemsState();
+  return shouldLink;
+}
+
 function ensureCaseItemsInitialized() {
   ensureDeletedCategoryItemsLoaded();
   getDeletedCaseIdsSet();
@@ -23081,7 +23276,8 @@ function ensureCaseItemsInitialized() {
     state.caseNumbers = DEFAULT_CASE_NUMBERS.slice();
   }
 
-  if (!Array.isArray(state.caseItems)) {
+  const isFirstBootLoad = !Array.isArray(state.caseItems);
+  if (isFirstBootLoad) {
     try {
       const rawC = localStorage.getItem(CASE_STORAGE_KEY);
       const parsedC = rawC ? safeJsonParse(rawC, []) : [];
@@ -23092,40 +23288,44 @@ function ensureCaseItemsInitialized() {
   }
 
   state.caseItems = state.caseItems.filter(item => item && item.id && !isCaseItemDeletedTombstoned(item));
+  let bootAutoCommitted = false;
+
   state.caseItems.forEach(item => {
     item.status = normalizeCaseStatusValue(item.status);
     if (typeof item.caseNumber !== 'string') item.caseNumber = '';
     if (typeof item.machineModel !== 'string') item.machineModel = '';
     if (typeof item.clientVendor !== 'string') item.clientVendor = '';
     if (typeof item.symptomText !== 'string') item.symptomText = '';
-    if (typeof item.rootCauseText !== 'string') item.rootCauseText = '';
     if (typeof item.actionTakenText !== 'string') item.actionTakenText = '';
     if (typeof item.partsReplacedText !== 'string') item.partsReplacedText = '';
     if (typeof item.symptomAttachmentsHtml !== 'string') item.symptomAttachmentsHtml = '';
     if (typeof item.actionAttachmentsHtml !== 'string') item.actionAttachmentsHtml = '';
-    if (!Array.isArray(item.symptomLogs)) item.symptomLogs = [];
-    if (!Array.isArray(item.actionLogs)) item.actionLogs = [];
-    // 若舊版有 timelineLogs，自動無縫遷移合併至 actionLogs (不遺失任何舊紀錄)
-    if (Array.isArray(item.timelineLogs) && item.timelineLogs.length > 0) {
-      const existingIds = new Set(item.actionLogs.map(x => x.id));
-      item.timelineLogs.forEach(lg => {
-        if (lg && lg.id && !existingIds.has(lg.id)) {
-          item.actionLogs.push({
-            id: lg.id,
-            time: lg.time || formatTodoTimestamp(),
-            type: lg.type || 'manual',
-            text: lg.text || ''
-          });
-        }
-      });
-      item.timelineLogs = [];
-    }
+    if (!Array.isArray(item.symptomHistory)) item.symptomHistory = [];
+    if (!Array.isArray(item.actionHistory)) item.actionHistory = [];
     if (!Array.isArray(item.linkedNoteIds)) item.linkedNoteIds = [];
     if (!Array.isArray(item.tags)) item.tags = [];
     if (!Array.isArray(item.handlers)) item.handlers = [];
     if (!item.createdEpoch) item.createdEpoch = parseTodoTimestampToEpoch(item.createdAt);
     item.completedEpoch = getCaseCompletedTimestampEpoch(item);
+
+    // 若啟動時發現上次關閉網站前有輸入文字或檔案忘記按「存入歷史」，自動歸檔入歷史資料！
+    if (isFirstBootLoad) {
+      if ((item.symptomText && item.symptomText.trim()) || (item.symptomAttachmentsHtml && item.symptomAttachmentsHtml.trim())) {
+        commitCaseSymptomStagingToHistory(item, { autoSaved: true });
+        bootAutoCommitted = true;
+      }
+      if ((item.actionTakenText && item.actionTakenText.trim()) || (item.partsReplacedText && item.partsReplacedText.trim()) || (item.actionAttachmentsHtml && item.actionAttachmentsHtml.trim())) {
+        commitCaseActionStagingToHistory(item, { autoSaved: true });
+        bootAutoCommitted = true;
+      }
+    }
   });
+
+  if (bootAutoCommitted) {
+    try {
+      safeSetLocalStorageItem(CASE_STORAGE_KEY, JSON.stringify(state.caseItems));
+    } catch (e) {}
+  }
 }
 
 function mergeCloudAndLocalCaseItems(cloudList = [], localList = []) {
@@ -23198,95 +23398,6 @@ function updateCaseSummaryStats() {
     const cat = btn.getAttribute('data-case-status');
     btn.classList.toggle('active', state.caseFilterStatus === cat);
   });
-}
-
-// ============================================================================
-// 📜 內嵌「處理日誌」自動追蹤與記錄引擎 (免選紀錄人員，自動記錄改動時間、內容與匯入檔案)
-// ============================================================================
-function renderCaseIntegratedLogItemsHtml(logs = [], section = 'symptom') {
-  if (!Array.isArray(logs) || logs.length === 0) {
-    return `<div class="text-xs text-gray-400 py-1.5 text-center">尚無處理日誌（修改上方欄位、匯入照片/檔案或手動輸入時將自動記錄時間與內容）</div>`;
-  }
-  return logs.map(lg => {
-    const logType = lg.type || 'edit';
-    const badgeLabel = logType === 'file' ? '📎 檔案匯入' : (logType === 'manual' ? '📌 處理紀錄' : '✏️ 內容改動');
-    const badgeCls = logType === 'file' ? 'case-log-type-file' : (logType === 'manual' ? 'case-log-type-manual' : 'case-log-type-edit');
-    return `
-      <div class="lvi-case-integrated-log-item" data-log-id="${escapeHtml(lg.id)}" data-log-section="${escapeHtml(section)}">
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-1.5 flex-wrap">
-            <span class="text-[11px] font-mono font-extrabold text-teal-700 dark:text-teal-300">🕒 ${escapeHtml(lg.time || '')}</span>
-            <span class="case-log-type-badge ${badgeCls}">${badgeLabel}</span>
-            <span class="text-slate-800 dark:text-slate-100 font-semibold break-all">${escapeHtml(lg.text || '')}</span>
-          </div>
-        </div>
-        <div class="flex items-center gap-1 shrink-0">
-          <button type="button" class="case-edit-sec-log-btn px-1.5 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10.5px] font-bold text-slate-700 dark:text-slate-300 cursor-pointer" data-log-id="${escapeHtml(lg.id)}" data-log-section="${escapeHtml(section)}">編輯</button>
-          <button type="button" class="case-del-sec-log-btn px-1.5 py-0.5 rounded bg-rose-50 hover:bg-rose-600 hover:text-white dark:bg-rose-950/60 text-[10.5px] font-bold text-rose-600 dark:text-rose-300 cursor-pointer" data-log-id="${escapeHtml(lg.id)}" data-log-section="${escapeHtml(section)}">×</button>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
-function refreshCaseSectionLogDomInPlace(caseId, section) {
-  const cardEl = document.querySelector(`.lvi-case-card[data-case-id="${caseId}"]`);
-  if (!cardEl) return;
-  const item = (state.caseItems || []).find(c => c.id === caseId);
-  if (!item) return;
-  const logs = section === 'action' ? (item.actionLogs || []) : (item.symptomLogs || []);
-  const listEl = cardEl.querySelector(`.lvi-case-integrated-log-list[data-log-section="${section}"]`);
-  const countEl = cardEl.querySelector(`.lvi-case-integrated-log-count[data-log-section="${section}"]`);
-  if (countEl) countEl.textContent = `${logs.length} 筆紀錄`;
-  if (listEl) {
-    listEl.innerHTML = renderCaseIntegratedLogItemsHtml(logs, section);
-    bindCaseSectionLogItemButtons(cardEl, item);
-  }
-}
-
-/**
- * 自動或手動新增/更新區塊「處理日誌」：
- * - 若為欄位連續打字修改 (forceNewEntry = false 且指定 autoFieldKey)，3 分鐘內同一欄位的連續打字會自動合併更新最上方該筆日誌，不洗版且不中斷輸入焦點
- * - 若為匯入檔案、刪除檔案、狀態切換或手動新增日誌 (forceNewEntry = true)，每次皆獨立新增一筆日誌
- */
-function recordCaseSectionLog(item, section, {
-  type = 'edit',
-  autoFieldKey = '',
-  text = '',
-  forceNewEntry = false
-} = {}) {
-  if (!item || !text) return;
-  const targetArr = section === 'action'
-    ? (item.actionLogs = Array.isArray(item.actionLogs) ? item.actionLogs : [])
-    : (item.symptomLogs = Array.isArray(item.symptomLogs) ? item.symptomLogs : []);
-
-  const nowStr = formatTodoTimestamp();
-  const nowEpoch = Date.now();
-
-  if (!forceNewEntry && autoFieldKey && targetArr.length > 0) {
-    const latest = targetArr[0];
-    if (latest && latest.autoFieldKey === autoFieldKey && (nowEpoch - (latest.epoch || 0)) < 180000) {
-      latest.time = nowStr;
-      latest.epoch = nowEpoch;
-      latest.text = text;
-      item.updatedAt = nowEpoch;
-      refreshCaseSectionLogDomInPlace(item.id, section);
-      return latest;
-    }
-  }
-
-  const newEntry = {
-    id: 'clog_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
-    time: nowStr,
-    epoch: nowEpoch,
-    type,
-    autoFieldKey: autoFieldKey || '',
-    text
-  };
-  targetArr.unshift(newEntry);
-  item.updatedAt = nowEpoch;
-  refreshCaseSectionLogDomInPlace(item.id, section);
-  return newEntry;
 }
 
 // 讓共用分類 (機型、客戶、標籤、處理人員) 更名或刪除時，同步更新 state.caseItems
@@ -23426,12 +23537,10 @@ refreshAllViewsAfterCategoryChange = function() {
 };
 
 // ----------------------------------------------------------------------------
-// 🧠 案件追蹤獨立模糊檢索與案號/處理日誌/匯入檔案全維度匹配引擎
+// 🧠 案件追蹤獨立模糊檢索與「異常歷史 ⇄ 售後對策歷史」關聯智慧查詢引擎
 // ----------------------------------------------------------------------------
-function extractCaseAttachmentsSearchableText(caseItem) {
-  if (!caseItem) return '';
-  const rawHtml = (caseItem.symptomAttachmentsHtml || '') + ' ' + (caseItem.actionAttachmentsHtml || '');
-  if (!rawHtml.trim()) return '';
+function extractHtmlAttachmentsSearchText(rawHtml) {
+  if (!rawHtml || !rawHtml.trim()) return '';
   try {
     const tmp = document.createElement('div');
     tmp.innerHTML = rawHtml;
@@ -23454,6 +23563,17 @@ function extractCaseAttachmentsSearchableText(caseItem) {
   }
 }
 
+function extractCaseAttachmentsSearchableText(caseItem) {
+  if (!caseItem) return '';
+  const htmlParts = [
+    caseItem.symptomAttachmentsHtml || '',
+    caseItem.actionAttachmentsHtml || '',
+    ...(caseItem.symptomHistory || []).map(h => h.attachmentsHtml || ''),
+    ...(caseItem.actionHistory || []).map(h => h.attachmentsHtml || '')
+  ];
+  return extractHtmlAttachmentsSearchText(htmlParts.join(' '));
+}
+
 function evaluateFuzzyCaseMatch(caseItem, parsedQuery) {
   if (!parsedQuery || !parsedQuery.rawNormalized) {
     return {
@@ -23463,15 +23583,31 @@ function evaluateFuzzyCaseMatch(caseItem, parsedQuery) {
       matchReasons: [],
       highlightTerms: [],
       snippet: null,
-      isSolutionNote: Boolean(caseItem.actionTakenText)
+      isSolutionNote: Boolean((caseItem.actionHistory && caseItem.actionHistory.length) || caseItem.actionTakenText)
     };
   }
 
   const rawQ = String(parsedQuery.rawNormalized || '').trim().toLowerCase();
   const rawTokens = rawQ.split(/\s+/).filter(Boolean);
   const attSearchText = extractCaseAttachmentsSearchableText(caseItem);
-  const symptomLogText = (caseItem.symptomLogs || []).map(lg => `[${lg.time || ''}] ${lg.text || ''}`).join('\n');
-  const actionLogText = (caseItem.actionLogs || []).map(lg => `[${lg.time || ''}] ${lg.text || ''}`).join('\n');
+
+  const symHistoryLines = (caseItem.symptomHistory || []).map(sh => {
+    const linkedActs = (sh.linkedActionIds || [])
+      .map(aid => (caseItem.actionHistory || []).find(a => a.id === aid))
+      .filter(Boolean)
+      .map(a => `[對應${a.code}：${a.actionText || ''} ${a.partsText ? '(零件:' + a.partsText + ')' : ''}]`)
+      .join(' ');
+    return `【${sh.code || '異常'} (${sh.time || ''})】${sh.text || ''} ${linkedActs}`;
+  }).join('\n');
+
+  const actHistoryLines = (caseItem.actionHistory || []).map(ah => {
+    const linkedSyms = (ah.linkedSymptomIds || [])
+      .map(sid => (caseItem.symptomHistory || []).find(s => s.id === sid))
+      .filter(Boolean)
+      .map(s => `[對應${s.code}：${s.text || ''}]`)
+      .join(' ');
+    return `【${ah.code || '對策'} (${ah.time || ''})】${ah.actionText || ''} ${ah.partsText ? '零件:' + ah.partsText : ''} ${linkedSyms}`;
+  }).join('\n');
 
   const pseudoNote = {
     id: caseItem.id,
@@ -23486,33 +23622,30 @@ function evaluateFuzzyCaseMatch(caseItem, parsedQuery) {
     _cachedBody: [
       `【案號】${caseItem.caseNumber || ''}`,
       `【客訴與異常現象】${caseItem.symptomText || ''}`,
-      `【根因分析】${caseItem.rootCauseText || ''}`,
       `【售後處理對策】${caseItem.actionTakenText || ''}`,
       `【更換零件/耗材】${caseItem.partsReplacedText || ''}`,
-      symptomLogText ? `【客訴處理日誌】${symptomLogText}` : '',
-      actionLogText ? `【對策處理日誌】${actionLogText}` : '',
+      symHistoryLines,
+      actHistoryLines,
       attSearchText ? `【匯入檔案與圖片備註】${attSearchText}` : ''
     ].filter(Boolean).join('\n')
   };
 
   const baseRes = evaluateFuzzyNoteMatch(pseudoNote, parsedQuery);
 
-  // 直接子字串保底檢索：確保任何「案號」(如 CASE-2026-888)、處理日誌時間/內容、匯入檔名 100% 可被搜尋找到！
   const allSearchableCorpus = [
     caseItem.caseNumber || '',
     caseItem.title || '',
     caseItem.machineModel || '',
     caseItem.clientVendor || '',
     caseItem.symptomText || '',
-    caseItem.rootCauseText || '',
     caseItem.actionTakenText || '',
     caseItem.partsReplacedText || '',
     (caseItem.tags || []).join(' '),
     (caseItem.handlers || []).join(' '),
     caseItem.createdAt || '',
     caseItem.completedAt || '',
-    symptomLogText,
-    actionLogText,
+    symHistoryLines,
+    actHistoryLines,
     attSearchText
   ].join('\n');
   const corpusLower = allSearchableCorpus.toLowerCase();
@@ -23520,7 +23653,6 @@ function evaluateFuzzyCaseMatch(caseItem, parsedQuery) {
   const isDirectCaseNoMatch = Boolean(caseItem.caseNumber && caseItem.caseNumber.toLowerCase().includes(rawQ));
   const isAllTokensInCorpus = rawTokens.length > 0 && rawTokens.every(tk => corpusLower.includes(tk));
 
-  // 若搜尋詞包含案號格式、連字號(-)、底線(_)、斜線(/)或數字代碼，強制要求精準子字串命中，避免被模糊拆詞誤配其他案件
   const codeLikeTokens = rawTokens.filter(tk => /[-_/.0-9]/.test(tk));
   if (codeLikeTokens.length > 0) {
     const allCodeTokensMatched = codeLikeTokens.every(tk => corpusLower.includes(tk));
@@ -23536,22 +23668,19 @@ function evaluateFuzzyCaseMatch(caseItem, parsedQuery) {
     } else {
       const lines = allSearchableCorpus.split(/\n+/).map(l => l.trim()).filter(Boolean);
       const hitLine = lines.find(l => rawTokens.some(tk => l.toLowerCase().includes(tk))) || lines[0] || '';
-      snippetText = hitLine.slice(0, 90);
+      snippetText = hitLine.slice(0, 110);
     }
     return {
       matched: true,
       score: isDirectCaseNoMatch ? 180 : 125,
       confidencePct: 98,
-      matchReasons: [isDirectCaseNoMatch ? '案號精準命中' : '處理日誌/內容命中'],
+      matchReasons: [isDirectCaseNoMatch ? '案號精準命中' : '歷史紀錄/內容命中'],
       highlightTerms: Array.from(new Set([...(parsedQuery.coreTokens || []), ...rawTokens])),
       snippet: { text: snippetText },
-      isSolutionNote: Boolean(caseItem.actionTakenText || caseItem.rootCauseText)
+      isSolutionNote: true
     };
   }
 
-  if (baseRes && baseRes.matched && ((caseItem.actionTakenText && caseItem.actionTakenText.trim()) || (caseItem.rootCauseText && caseItem.rootCauseText.trim()))) {
-    baseRes.isSolutionNote = true;
-  }
   return baseRes;
 }
 
@@ -23612,22 +23741,12 @@ function createNewCaseCardItem() {
     clientVendor: (state.caseFilterClient && state.caseFilterClient !== '__empty__') ? state.caseFilterClient : '',
     status: initStatus,
     symptomText: '',
-    rootCauseText: '',
     actionTakenText: '',
     partsReplacedText: '',
     symptomAttachmentsHtml: '',
     actionAttachmentsHtml: '',
-    symptomLogs: [
-      {
-        id: 'clog_init_' + nowEpoch,
-        time: nowStr,
-        epoch: nowEpoch,
-        type: 'manual',
-        autoFieldKey: '',
-        text: '🆕 建立售後追蹤案件檔案'
-      }
-    ],
-    actionLogs: [],
+    symptomHistory: [],
+    actionHistory: [],
     linkedNoteIds: [],
     linkedNoteTitles: {},
     tags: state.caseFilterTag ? [state.caseFilterTag] : [],
@@ -23697,21 +23816,7 @@ async function deleteCaseItemById(caseId) {
   return true;
 }
 
-function extractFileNamesSetFromGalleryHtml(htmlStr) {
-  const out = new Set();
-  if (!htmlStr) return out;
-  try {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = htmlStr;
-    tmp.querySelectorAll('[data-file-name]').forEach(el => {
-      const fn = (el.getAttribute('data-file-name') || '').trim();
-      if (fn) out.add(fn);
-    });
-  } catch (e) {}
-  return out;
-}
-
-// 同步案件卡片內的縮圖與圖片備註，若偵測到移除檔案或修改備註亦自動寫入處理日誌
+// 同步案件卡片內的縮圖與圖片備註（支援暫存輸入區與已展開的歷史詳情區）
 function syncCaseCardAttachmentsFromDom(cardEl) {
   if (!cardEl) return;
   const caseId = cardEl.getAttribute('data-case-id');
@@ -23723,37 +23828,27 @@ function syncCaseCardAttachmentsFromDom(cardEl) {
   const actGallery = cardEl.querySelector('.case-action-attachments');
 
   if (symGallery) {
-    const oldFiles = extractFileNamesSetFromGalleryHtml(item.symptomAttachmentsHtml);
     symGallery.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
-    const newHtml = compactTodoAttachmentsHtml(symGallery.innerHTML);
-    const newFiles = extractFileNamesSetFromGalleryHtml(newHtml);
-    oldFiles.forEach(fn => {
-      if (!newFiles.has(fn)) {
-        recordCaseSectionLog(item, 'symptom', {
-          type: 'file',
-          text: `🗑️ 移除檔案：「${fn}」`,
-          forceNewEntry: true
-        });
-      }
-    });
-    item.symptomAttachmentsHtml = newHtml;
+    item.symptomAttachmentsHtml = compactTodoAttachmentsHtml(symGallery.innerHTML);
   }
   if (actGallery) {
-    const oldFiles = extractFileNamesSetFromGalleryHtml(item.actionAttachmentsHtml);
     actGallery.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
-    const newHtml = compactTodoAttachmentsHtml(actGallery.innerHTML);
-    const newFiles = extractFileNamesSetFromGalleryHtml(newHtml);
-    oldFiles.forEach(fn => {
-      if (!newFiles.has(fn)) {
-        recordCaseSectionLog(item, 'action', {
-          type: 'file',
-          text: `🗑️ 移除檔案：「${fn}」`,
-          forceNewEntry: true
-        });
-      }
-    });
-    item.actionAttachmentsHtml = newHtml;
+    item.actionAttachmentsHtml = compactTodoAttachmentsHtml(actGallery.innerHTML);
   }
+
+  // 若使用者在已展開的歷史紀錄內修改了圖片備註、旋轉或刪除了某張照片，亦同步回該筆歷史紀錄
+  cardEl.querySelectorAll('.case-history-attachments-gallery[data-hist-id]').forEach(histGal => {
+    const hid = histGal.getAttribute('data-hist-id');
+    const hsec = histGal.getAttribute('data-hist-section') || 'symptom';
+    histGal.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
+    const cleaned = compactTodoAttachmentsHtml(histGal.innerHTML);
+    const targetList = hsec === 'action' ? (item.actionHistory || []) : (item.symptomHistory || []);
+    const entry = targetList.find(x => x.id === hid);
+    if (entry) {
+      entry.attachmentsHtml = cleaned;
+    }
+  });
+
   item.updatedAt = Date.now();
   saveCaseItemsState();
 }
@@ -23763,22 +23858,6 @@ syncTodoAttachmentsFromAnyContainer = function(blockOrChild) {
   if (blockOrChild && blockOrChild.closest) {
     const parentCaseCard = blockOrChild.closest('.lvi-case-card');
     if (parentCaseCard) {
-      const caseId = parentCaseCard.getAttribute('data-case-id');
-      const item = (state.caseItems || []).find(c => c.id === caseId);
-      const mediaCard = blockOrChild.closest('details.notion-media-collapse, .notion-file-attachment');
-      if (item && mediaCard) {
-        const fn = mediaCard.getAttribute('data-file-name') || '現場照片';
-        const noteInp = mediaCard.querySelector('.media-top-note-input');
-        const noteTxt = noteInp ? (noteInp.textContent || '').trim() : '';
-        const sec = mediaCard.closest('.case-action-attachments') ? 'action' : 'symptom';
-        if (noteTxt) {
-          recordCaseSectionLog(item, sec, {
-            type: 'edit',
-            autoFieldKey: `img_note_${fn}`,
-            text: `📝 更新圖片備註（「${fn}」）：${noteTxt}`
-          });
-        }
-      }
       syncCaseCardAttachmentsFromDom(parentCaseCard);
       return true;
     }
@@ -23840,14 +23919,6 @@ async function uploadFileToCaseCardSection(caseId, section, file) {
     `;
   }
 
-  // 自動寫入該區塊的【📜 處理日誌】：「匯入了哪些檔案」與時間戳記
-  const sectionLabel = section === 'action' ? '售後處理對策與零件更換' : '客訴與異常現象/根因分析';
-  recordCaseSectionLog(item, section === 'action' ? 'action' : 'symptom', {
-    type: 'file',
-    text: `📎 匯入檔案：「${finalName}」 (${finalSizeDisplay} · ${sectionLabel})`,
-    forceNewEntry: true
-  });
-
   if (galleryEl) {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = cardHtml.trim();
@@ -23873,7 +23944,7 @@ async function uploadFileToCaseCardSection(caseId, section, file) {
     renderCasesView();
   }
 
-  showToast(`✅ 已匯入「${finalName}」並自動記錄於處理日誌`, 1800);
+  showToast(`✅ 已加入附件「${finalName}」（點擊「💾 存入歷史」即可歸檔，若關閉網站亦會自動存入歷史）`, 2200);
 }
 
 // ============================================================================
@@ -23881,6 +23952,11 @@ async function uploadFileToCaseCardSection(caseId, section, file) {
 // ============================================================================
 async function renderCaseToDirectPdfBlob(item) {
   if (!item) throw new Error('找不到案件資料');
+
+  // 匯出前若有未存入歷史的暫存輸入內容，先自動歸檔入歷史資料，確保匯出報告 100% 完整
+  commitCaseSymptomStagingToHistory(item, { autoSaved: true });
+  commitCaseActionStagingToHistory(item, { autoSaved: true });
+  saveCaseItemsState();
 
   const PAGE_W = 1240;
   const PAGE_H = 1754;
@@ -24014,7 +24090,6 @@ async function renderCaseToDirectPdfBlob(item) {
   });
   curY += metaBoxH + 24;
 
-  // 輔助：繪製區塊標題橫幅
   const drawSectionBanner = (titleText, accentColor, bgFill) => {
     ensureSpace(64);
     curCtx.fillStyle = bgFill;
@@ -24033,37 +24108,6 @@ async function renderCaseToDirectPdfBlob(item) {
     curY += 60;
   };
 
-  // 輔助：繪製欄位文字盒
-  const drawLabeledTextBox = (label, content, borderColor = '#cbd5e1', bgFill = '#ffffff') => {
-    curCtx.font = `600 21px ${FONT_FAMILY}`;
-    const lines = wrapTextLines(curCtx, (content || '').trim() || '（無紀錄）', CONTENT_W - 36);
-    const boxH = 44 + lines.length * 32 + 16;
-    ensureSpace(boxH + 16);
-
-    curCtx.fillStyle = bgFill;
-    curCtx.strokeStyle = borderColor;
-    curCtx.lineWidth = 1.5;
-    curCtx.beginPath();
-    if (curCtx.roundRect) curCtx.roundRect(MARGIN_X, curY, CONTENT_W, boxH, 10);
-    else curCtx.rect(MARGIN_X, curY, CONTENT_W, boxH);
-    curCtx.fill();
-    curCtx.stroke();
-
-    curCtx.font = `800 20px ${FONT_FAMILY}`;
-    curCtx.fillStyle = '#334155';
-    curCtx.fillText(label, MARGIN_X + 18, curY + 12);
-
-    curCtx.font = `600 21px ${FONT_FAMILY}`;
-    curCtx.fillStyle = '#0f172a';
-    let ty = curY + 44;
-    for (const ln of lines) {
-      curCtx.fillText(ln, MARGIN_X + 18, ty);
-      ty += 32;
-    }
-    curY += boxH + 14;
-  };
-
-  // 輔助：繪製附件區內的照片與檔案清單
   const drawAttachmentsFromHtml = async (attachmentsHtml) => {
     if (!attachmentsHtml || !attachmentsHtml.trim()) return;
     const tempDiv = document.createElement('div');
@@ -24083,7 +24127,7 @@ async function renderCaseToDirectPdfBlob(item) {
       const noteText = noteInput ? (noteInput.textContent || '').trim() : '';
 
       const maxImgW = CONTENT_W - 40;
-      const maxImgH = 440;
+      const maxImgH = 420;
       const scale = Math.min(maxImgW / natW, maxImgH / natH, 1.0);
       const drawW = Math.max(1, Math.round(natW * scale));
       const drawH = Math.max(1, Math.round(natH * scale));
@@ -24138,61 +24182,105 @@ async function renderCaseToDirectPdfBlob(item) {
     }
   };
 
-  // 輔助：繪製區塊內嵌【📜 處理日誌】表格
-  const drawSectionLogsBlock = (sectionTitle, logs = []) => {
-    ensureSpace(56);
-    curCtx.font = `800 20px ${FONT_FAMILY}`;
-    curCtx.fillStyle = '#0f766e';
-    curCtx.fillText(`📜 ${sectionTitle} (${logs.length} 筆)`, MARGIN_X + 4, curY);
-    curY += 32;
+  // 4. 繪製第一大區塊：客訴與異常現象・歷史資料
+  const symHistList = item.symptomHistory || [];
+  drawSectionBanner(`一、客訴與異常現象・歷史資料 (共 ${symHistList.length} 筆)`, '#e11d48', '#fff1f2');
+  if (symHistList.length === 0) {
+    ensureSpace(48);
+    curCtx.font = `600 20px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#64748b';
+    curCtx.fillText('（尚無客訴與異常現象紀錄）', MARGIN_X + 16, curY);
+    curY += 44;
+  } else {
+    for (const sh of symHistList) {
+      const linkedActCodes = (sh.linkedActionIds || [])
+        .map(aid => (item.actionHistory || []).find(a => a.id === aid))
+        .filter(Boolean)
+        .map(a => a.code)
+        .join('、');
+      const headerLabel = `🚨 ${sh.code || '異常'} ｜ 🕒 ${sh.time || ''}${linkedActCodes ? ' ｜ 🔗 對應處理對策：' + linkedActCodes : ''}`;
+      curCtx.font = `600 21px ${FONT_FAMILY}`;
+      const lines = wrapTextLines(curCtx, (sh.text || '').trim() || '（僅含照片/檔案附件）', CONTENT_W - 36);
+      const boxH = 44 + lines.length * 32 + 16;
+      ensureSpace(boxH + 14);
 
-    if (!logs || logs.length === 0) {
-      ensureSpace(42);
-      curCtx.font = `600 19px ${FONT_FAMILY}`;
-      curCtx.fillStyle = '#64748b';
-      curCtx.fillText('（尚無處理日誌紀錄）', MARGIN_X + 16, curY);
-      curY += 38;
-      return;
-    }
+      curCtx.fillStyle = '#ffffff';
+      curCtx.strokeStyle = '#fecdd3';
+      curCtx.lineWidth = 1.8;
+      curCtx.beginPath();
+      if (curCtx.roundRect) curCtx.roundRect(MARGIN_X, curY, CONTENT_W, boxH, 10);
+      else curCtx.rect(MARGIN_X, curY, CONTENT_W, boxH);
+      curCtx.fill();
+      curCtx.stroke();
 
-    for (const lg of logs) {
-      const lineStr = `[${lg.time || ''}] ${lg.text || ''}`;
-      curCtx.font = `600 19px ${FONT_FAMILY}`;
-      const wrapped = wrapTextLines(curCtx, lineStr, CONTENT_W - 32);
-      const rowH = wrapped.length * 28 + 16;
-      ensureSpace(rowH + 6);
+      curCtx.font = `800 19px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#be123c';
+      curCtx.fillText(headerLabel, MARGIN_X + 18, curY + 12);
 
-      curCtx.fillStyle = '#f8fafc';
-      curCtx.strokeStyle = '#cbd5e1';
-      curCtx.lineWidth = 1;
-      curCtx.fillRect(MARGIN_X, curY, CONTENT_W, rowH);
-      curCtx.strokeRect(MARGIN_X, curY, CONTENT_W, rowH);
-
+      curCtx.font = `600 21px ${FONT_FAMILY}`;
       curCtx.fillStyle = '#0f172a';
-      let ly = curY + 8;
-      for (const wln of wrapped) {
-        curCtx.fillText(wln, MARGIN_X + 14, ly);
-        ly += 28;
+      let ty = curY + 44;
+      for (const ln of lines) {
+        curCtx.fillText(ln, MARGIN_X + 18, ty);
+        ty += 32;
       }
-      curY += rowH + 6;
+      curY += boxH + 12;
+      await drawAttachmentsFromHtml(sh.attachmentsHtml);
     }
-    curY += 12;
-  };
+  }
+  curY += 14;
 
-  // 4. 繪製第一大區塊：客訴與異常現象 / 根因分析 + 附件 + 處理日誌
-  drawSectionBanner('一、客訴與異常現象 / 根因分析', '#e11d48', '#fff1f2');
-  drawLabeledTextBox('🚨 客訴 / 異常現象描述', item.symptomText, '#fecdd3', '#ffffff');
-  drawLabeledTextBox('🔍 異常原因 / 根因分析', item.rootCauseText, '#fde68a', '#ffffff');
-  await drawAttachmentsFromHtml(item.symptomAttachmentsHtml);
-  drawSectionLogsBlock('客訴與根因分析・處理日誌', item.symptomLogs || []);
-  curY += 12;
+  // 5. 繪製第二大區塊：售後處理對策與零件更換紀錄・歷史資料
+  const actHistList = item.actionHistory || [];
+  drawSectionBanner(`二、售後處理對策與零件更換・歷史資料 (共 ${actHistList.length} 筆)`, '#2563eb', '#eff6ff');
+  if (actHistList.length === 0) {
+    ensureSpace(48);
+    curCtx.font = `600 20px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#64748b';
+    curCtx.fillText('（尚無售後處理對策紀錄）', MARGIN_X + 16, curY);
+    curY += 44;
+  } else {
+    for (const ah of actHistList) {
+      const linkedSymCodes = (ah.linkedSymptomIds || [])
+        .map(sid => (item.symptomHistory || []).find(s => s.id === sid))
+        .filter(Boolean)
+        .map(s => s.code)
+        .join('、');
+      const headerLabel = `🛠️ ${ah.code || '對策'} ｜ 🕒 ${ah.time || ''}${linkedSymCodes ? ' ｜ 🔗 對應客訴異常：' + linkedSymCodes : ''}`;
+      const bodyStr = [
+        ah.actionText ? `【處理對策】${ah.actionText}` : '',
+        ah.partsText ? `【更換零件/耗材】${ah.partsText}` : ''
+      ].filter(Boolean).join('\n') || '（僅含照片/檔案附件）';
 
-  // 5. 繪製第二大區塊：售後處理對策與零件更換紀錄 + 附件 + 處理日誌
-  drawSectionBanner('二、售後處理對策與零件更換紀錄', '#2563eb', '#eff6ff');
-  drawLabeledTextBox('🛠️ 售後處理過程與對策', item.actionTakenText, '#bfdbfe', '#ffffff');
-  drawLabeledTextBox('🔩 更換零件 / 耗材紀錄', item.partsReplacedText, '#cbd5e1', '#ffffff');
-  await drawAttachmentsFromHtml(item.actionAttachmentsHtml);
-  drawSectionLogsBlock('售後處理對策與零件更換・處理日誌', item.actionLogs || []);
+      curCtx.font = `600 21px ${FONT_FAMILY}`;
+      const lines = wrapTextLines(curCtx, bodyStr, CONTENT_W - 36);
+      const boxH = 44 + lines.length * 32 + 16;
+      ensureSpace(boxH + 14);
+
+      curCtx.fillStyle = '#ffffff';
+      curCtx.strokeStyle = '#bfdbfe';
+      curCtx.lineWidth = 1.8;
+      curCtx.beginPath();
+      if (curCtx.roundRect) curCtx.roundRect(MARGIN_X, curY, CONTENT_W, boxH, 10);
+      else curCtx.rect(MARGIN_X, curY, CONTENT_W, boxH);
+      curCtx.fill();
+      curCtx.stroke();
+
+      curCtx.font = `800 19px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#1d4ed8';
+      curCtx.fillText(headerLabel, MARGIN_X + 18, curY + 12);
+
+      curCtx.font = `600 21px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#0f172a';
+      let ty = curY + 44;
+      for (const ln of lines) {
+        curCtx.fillText(ln, MARGIN_X + 18, ty);
+        ty += 32;
+      }
+      curY += boxH + 12;
+      await drawAttachmentsFromHtml(ah.attachmentsHtml);
+    }
+  }
 
   // 6. 為每一頁繪製頁尾與頁碼
   const totalPages = pages.length;
@@ -24228,6 +24316,9 @@ async function exportSingleCaseReportPDF(caseId) {
   try {
     const pdfBlob = await renderCaseToDirectPdfBlob(item);
     downloadBlob(pdfBlob, safeFile);
+    if (state.currentView === 'cases' && state.activeCaseDetailId === caseId) {
+      renderCasesView();
+    }
     showToast(`✅ 已匯出案件 PDF 報告「${safeFile}」！`, 2600);
   } catch (err) {
     console.error('匯出案件 PDF 報告失敗:', err);
@@ -24235,10 +24326,8 @@ async function exportSingleCaseReportPDF(caseId) {
   }
 }
 
-// 相容舊函式名稱，統一導向 PDF 匯出
 const exportSingleCaseReportMarkdown = exportSingleCaseReportPDF;
 
-// 統一全站頂部匯出按鈕 (exportPDF / exportMarkdown / exportHTML) 為 PDF 匯出
 const _origExportPdfV290 = exportPDF;
 exportPDF = async function() {
   if (DOM.exportMenu) DOM.exportMenu.classList.add('hidden');
@@ -24256,8 +24345,13 @@ exportMarkdown = exportPDF;
 exportHTML = exportPDF;
 
 // ----------------------------------------------------------------------------
-// 🎨 渲染「案件追蹤」：1. 清單卡片列  2. 表格資料庫列  3. 個案詳細履歷 (含內嵌處理日誌)
+// 🎨 渲染「案件追蹤」：1. 清單卡片列  2. 表格資料庫列  3. 個案詳細履歷 (含雙獨立歷史列表與互相關聯)
 // ----------------------------------------------------------------------------
+function countAttachmentsInHtml(attHtml) {
+  if (!attHtml) return 0;
+  return (attHtml.match(/notion-media-collapse/g) || []).length + (attHtml.match(/notion-file-attachment/g) || []).length;
+}
+
 function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
   const normStatus = normalizeCaseStatusValue(item.status);
   const statusBadgeCls = getCaseStatusBadgeClass(normStatus);
@@ -24267,17 +24361,24 @@ function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
     normStatus === '🟠 待料/觀察中' ? 'row-status-waiting' : 'row-status-pending';
 
   const titleText = (item.title || '').trim() || '（未命名案件）';
-  const symptomPreview = (item.symptomText || '').replace(/\s+/g, ' ').trim();
-  const actionPreview = (item.actionTakenText || '').replace(/\s+/g, ' ').trim();
+  const latestSym = (item.symptomHistory && item.symptomHistory[0] && item.symptomHistory[0].text) || item.symptomText || '';
+  const latestAct = (item.actionHistory && item.actionHistory[0] && item.actionHistory[0].actionText) || item.actionTakenText || '';
+  const symptomPreview = latestSym.replace(/\s+/g, ' ').trim();
+  const actionPreview = latestAct.replace(/\s+/g, ' ').trim();
+
   const handlers = Array.isArray(item.handlers) ? item.handlers : [];
   const tags = Array.isArray(item.tags) ? item.tags : [];
-  const totalLogCount = ((item.symptomLogs || []).length) + ((item.actionLogs || []).length);
+  const symHistCount = (item.symptomHistory || []).length;
+  const actHistCount = (item.actionHistory || []).length;
   const linkedCount = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds.length : 0;
 
-  const attHtml = (item.symptomAttachmentsHtml || '') + (item.actionAttachmentsHtml || '');
-  const imgMatches = (attHtml.match(/notion-media-collapse/g) || []).length;
-  const fileMatches = (attHtml.match(/notion-file-attachment/g) || []).length;
-  const totalAtt = imgMatches + fileMatches;
+  const allAttHtml = [
+    item.symptomAttachmentsHtml || '',
+    item.actionAttachmentsHtml || '',
+    ...(item.symptomHistory || []).map(h => h.attachmentsHtml || ''),
+    ...(item.actionHistory || []).map(h => h.attachmentsHtml || '')
+  ].join('');
+  const totalAtt = countAttachmentsInHtml(allAttHtml);
 
   let snippetHtml = '';
   if (fuzzyRes && fuzzyRes.snippet) {
@@ -24293,7 +24394,7 @@ function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
   const secondaryBadgesHtml = [
     ...handlers.map(h => `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800 shrink-0">👤 ${escapeHtml(h)}</span>`),
     ...tags.map(t => `<span class="px-1.5 py-0.5 rounded-md text-[10.5px] font-bold border ${getTagPillColorClass(t)} shrink-0">#${escapeHtml(t)}</span>`),
-    totalLogCount > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold shrink-0">📜 處理日誌 ${totalLogCount}</span>` : '',
+    (symHistCount > 0 || actHistCount > 0) ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold shrink-0">📜 歷史：異常 ${symHistCount} / 對策 ${actHistCount}</span>` : '',
     linkedCount > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold shrink-0">🔗 關聯筆記 ${linkedCount}</span>` : '',
     totalAtt > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold shrink-0">🖼️ 縮圖/附件 ${totalAtt}</span>` : ''
   ].filter(Boolean).join('');
@@ -24341,8 +24442,8 @@ function renderCasesTableModeHtml(filteredList) {
   const rowsHtml = filteredList.map(({ item, fuzzyRes }) => {
     const normStatus = normalizeCaseStatusValue(item.status);
     const titleText = (item.title || '').trim() || '（未命名案件）';
-    const allLogs = [...(item.actionLogs || []), ...(item.symptomLogs || [])];
-    const latestLog = allLogs.length > 0 ? allLogs[0] : null;
+    const symHistCount = (item.symptomHistory || []).length;
+    const actHistCount = (item.actionHistory || []).length;
 
     const machOpts = `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>` +
       machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`).join('');
@@ -24370,7 +24471,7 @@ function renderCasesTableModeHtml(filteredList) {
         </td>
         <td>
           <div class="font-extrabold text-slate-900 dark:text-white">${escapeHtml(titleText)}</div>
-          ${latestLog ? `<div class="text-[11px] text-teal-700 dark:text-teal-300 truncate max-w-[260px]">📜 日誌：${escapeHtml(latestLog.text || '')}</div>` : ''}
+          <div class="text-[11px] text-teal-700 dark:text-teal-300">📜 歷史紀錄：異常 ${symHistCount} 筆 ／ 對策 ${actHistCount} 筆</div>
           ${(fuzzyRes && fuzzyRes.snippet) ? `<div class="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">🔍 ${highlightMatchedTermsHtml(fuzzyRes.snippet.text || String(fuzzyRes.snippet || ""), fuzzyRes.highlightTerms || [])}</div>` : ''}
         </td>
         <td onclick="event.stopPropagation();">
@@ -24402,7 +24503,7 @@ function renderCasesTableModeHtml(filteredList) {
           <tr>
             <th>📊 狀態</th>
             <th>📁 案號</th>
-            <th style="min-width:200px;">📌 案件主旨 / 最新日誌</th>
+            <th style="min-width:200px;">📌 案件主旨 / 歷史統計</th>
             <th>🚜 機型</th>
             <th>🏢 客戶/廠商</th>
             <th>👥 處理人員</th>
@@ -24420,6 +24521,185 @@ function renderCasesTableModeHtml(filteredList) {
   `;
 }
 
+/**
+ * 渲染「客訴與異常現象」下方獨立歷史資料列表 (點擊任一列即可展開查看詳情 + 關聯售後處理對策)
+ */
+function renderSymptomHistoryListHtml(item) {
+  const symHistory = Array.isArray(item.symptomHistory) ? item.symptomHistory : [];
+  const actHistory = Array.isArray(item.actionHistory) ? item.actionHistory : [];
+
+  if (symHistory.length === 0) {
+    return `<div class="text-xs text-gray-400 py-3 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無客訴與異常現象歷史資料（於上方輸入文字或匯入檔案後，點擊「💾 存入歷史」或直接關閉網站即會自動存入此處）</div>`;
+  }
+
+  return symHistory.map(sh => {
+    const isExpanded = state.expandedCaseHistoryIds.has(sh.id);
+    const attCount = countAttachmentsInHtml(sh.attachmentsHtml);
+    const previewTxt = (sh.text || '').replace(/\s+/g, ' ').trim() || (attCount > 0 ? `（含 ${attCount} 個照片/檔案附件）` : '（無文字內容）');
+    const linkedIds = Array.isArray(sh.linkedActionIds) ? sh.linkedActionIds : [];
+    const linkedActions = linkedIds.map(aid => actHistory.find(a => a.id === aid)).filter(Boolean);
+
+    const linkedPillsHtml = linkedActions.map(act => `
+      <span class="case-hist-link-pill case-jump-linked-hist-btn" data-target-hist-id="${escapeHtml(act.id)}" title="點擊直接跳轉並展開對應的售後處理對策「${escapeHtml(act.code)}」">
+        <span>🔗 對應${escapeHtml(act.code)}：${escapeHtml((act.actionText || act.partsText || '查看詳情').slice(0, 16))}</span>
+        <span>↗</span>
+      </span>
+    `).join('');
+
+    const linkableOptionsHtml = [
+      `<option value="">＋ 關聯售後處理對策...</option>`,
+      ...actHistory.map(act => {
+        const already = linkedIds.includes(act.id);
+        const label = `${already ? '✓ ' : ''}${act.code}｜${(act.actionText || act.partsText || '無標題').replace(/\s+/g, ' ').slice(0, 26)}`;
+        return `<option value="${escapeHtml(act.id)}">${escapeHtml(label)}</option>`;
+      })
+    ].join('');
+
+    return `
+      <div class="lvi-case-history-card ${isExpanded ? 'is-expanded' : ''}" id="case-hist-card-${escapeHtml(sh.id)}" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">
+        <div class="lvi-case-history-summary-bar" data-toggle-hist-id="${escapeHtml(sh.id)}">
+          <div class="lvi-case-history-summary-left">
+            <span class="case-hist-code-badge case-hist-code-symptom">🚨 ${escapeHtml(sh.code || '異常')}</span>
+            <span class="case-hist-time-text">🕒 ${escapeHtml(sh.time || '')}</span>
+            <span class="case-hist-preview-text">${escapeHtml(previewTxt)}</span>
+            ${attCount > 0 ? `<span class="case-hist-att-badge">🖼️ 附件 ${attCount}</span>` : ''}
+            ${linkedPillsHtml}
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合詳情' : '🔽 點擊查看詳情'}</span>
+          </div>
+        </div>
+
+        <div class="lvi-case-history-detail-body ${isExpanded ? '' : 'hidden'}">
+          <div class="case-hist-detail-toolbar">
+            <div class="case-hist-detail-links-wrap">
+              <span class="case-hist-detail-label">🔗 關聯之售後處理對策：</span>
+              ${linkedActions.length > 0 ? linkedActions.map(act => `
+                <span class="case-hist-linked-chip">
+                  <button type="button" class="case-jump-linked-hist-btn" data-target-hist-id="${escapeHtml(act.id)}">🛠️ ${escapeHtml(act.code)}：${escapeHtml((act.actionText || act.partsText || '').slice(0, 22))} ↗</button>
+                  <button type="button" class="case-unlink-hist-btn" data-sym-id="${escapeHtml(sh.id)}" data-act-id="${escapeHtml(act.id)}" title="解除關聯">×</button>
+                </span>
+              `).join('') : `<span class="case-hist-time-text">尚未關聯處理對策</span>`}
+              <select class="case-staging-link-select case-hist-link-select" data-sym-id="${escapeHtml(sh.id)}" data-link-dir="sym-to-act">
+                ${linkableOptionsHtml}
+              </select>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <button type="button" class="case-load-hist-to-edit-btn case-hist-btn-edit" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom" title="將此筆歷史載回上方輸入框重新編輯">✏️ 載回編輯</button>
+              <button type="button" class="case-del-hist-btn case-hist-btn-del" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">🗑️ 刪除</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="case-hist-detail-label" style="margin-bottom:4px;">🚨 客訴 / 異常現象完整內容：</div>
+            <div class="lvi-case-history-fulltext">${escapeHtml(sh.text || '（無文字描述）')}</div>
+          </div>
+
+          ${sh.attachmentsHtml ? `
+          <div>
+            <div class="case-hist-detail-label" style="margin-bottom:4px;">🖼️ 附帶照片與檔案（點擊縮圖可放大檢視或標註）：</div>
+            <div class="todo-attachments-gallery case-history-attachments-gallery" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">${sh.attachmentsHtml}</div>
+          </div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/**
+ * 渲染「售後處理對策與零件更換紀錄」下方獨立歷史資料列表 (點擊任一列即可展開查看詳情 + 關聯客訴異常)
+ */
+function renderActionHistoryListHtml(item) {
+  const symHistory = Array.isArray(item.symptomHistory) ? item.symptomHistory : [];
+  const actHistory = Array.isArray(item.actionHistory) ? item.actionHistory : [];
+
+  if (actHistory.length === 0) {
+    return `<div class="text-xs text-gray-400 py-3 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無售後處理對策歷史資料（於上方輸入對策、零件或匯入檔案後，點擊「💾 存入歷史」或直接關閉網站即會自動存入此處）</div>`;
+  }
+
+  return actHistory.map(ah => {
+    const isExpanded = state.expandedCaseHistoryIds.has(ah.id);
+    const attCount = countAttachmentsInHtml(ah.attachmentsHtml);
+    const previewTxt = (ah.actionText || '').replace(/\s+/g, ' ').trim() || (ah.partsText ? `🔩 ${ah.partsText}` : (attCount > 0 ? `（含 ${attCount} 個照片/檔案附件）` : '（無文字內容）'));
+    const linkedIds = Array.isArray(ah.linkedSymptomIds) ? ah.linkedSymptomIds : [];
+    const linkedSymptoms = linkedIds.map(sid => symHistory.find(s => s.id === sid)).filter(Boolean);
+
+    const linkedPillsHtml = linkedSymptoms.map(sym => `
+      <span class="case-hist-link-pill case-jump-linked-hist-btn" data-target-hist-id="${escapeHtml(sym.id)}" title="點擊直接跳轉並展開對應的客訴異常「${escapeHtml(sym.code)}」">
+        <span>🔗 對應${escapeHtml(sym.code)}：${escapeHtml((sym.text || '查看詳情').slice(0, 16))}</span>
+        <span>↗</span>
+      </span>
+    `).join('');
+
+    const linkableOptionsHtml = [
+      `<option value="">＋ 關聯客訴/異常現象...</option>`,
+      ...symHistory.map(sym => {
+        const already = linkedIds.includes(sym.id);
+        const label = `${already ? '✓ ' : ''}${sym.code}｜${(sym.text || '無標題').replace(/\s+/g, ' ').slice(0, 26)}`;
+        return `<option value="${escapeHtml(sym.id)}">${escapeHtml(label)}</option>`;
+      })
+    ].join('');
+
+    return `
+      <div class="lvi-case-history-card ${isExpanded ? 'is-expanded' : ''}" id="case-hist-card-${escapeHtml(ah.id)}" data-hist-id="${escapeHtml(ah.id)}" data-hist-section="action">
+        <div class="lvi-case-history-summary-bar" data-toggle-hist-id="${escapeHtml(ah.id)}">
+          <div class="lvi-case-history-summary-left">
+            <span class="case-hist-code-badge case-hist-code-action">🛠️ ${escapeHtml(ah.code || '對策')}</span>
+            <span class="case-hist-time-text">🕒 ${escapeHtml(ah.time || '')}</span>
+            <span class="case-hist-preview-text">${escapeHtml(previewTxt)}</span>
+            ${ah.partsText ? `<span class="case-hist-parts-badge">🔩 ${escapeHtml(ah.partsText.slice(0, 24))}</span>` : ''}
+            ${attCount > 0 ? `<span class="case-hist-att-badge">🖼️ 附件 ${attCount}</span>` : ''}
+            ${linkedPillsHtml}
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合詳情' : '🔽 點擊查看詳情'}</span>
+          </div>
+        </div>
+
+        <div class="lvi-case-history-detail-body ${isExpanded ? '' : 'hidden'}">
+          <div class="case-hist-detail-toolbar">
+            <div class="case-hist-detail-links-wrap">
+              <span class="case-hist-detail-label">🔗 對應之客訴與異常現象：</span>
+              ${linkedSymptoms.length > 0 ? linkedSymptoms.map(sym => `
+                <span class="case-hist-linked-chip chip-symptom">
+                  <button type="button" class="case-jump-linked-hist-btn" data-target-hist-id="${escapeHtml(sym.id)}">🚨 ${escapeHtml(sym.code)}：${escapeHtml((sym.text || '').slice(0, 22))} ↗</button>
+                  <button type="button" class="case-unlink-hist-btn" data-sym-id="${escapeHtml(sym.id)}" data-act-id="${escapeHtml(ah.id)}" title="解除關聯">×</button>
+                </span>
+              `).join('') : `<span class="case-hist-time-text">尚未關聯客訴異常</span>`}
+              <select class="case-staging-link-select case-hist-link-select" data-act-id="${escapeHtml(ah.id)}" data-link-dir="act-to-sym">
+                ${linkableOptionsHtml}
+              </select>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <button type="button" class="case-load-hist-to-edit-btn case-hist-btn-edit" data-hist-id="${escapeHtml(ah.id)}" data-hist-section="action" title="將此筆歷史載回上方輸入框重新編輯">✏️ 載回編輯</button>
+              <button type="button" class="case-del-hist-btn case-hist-btn-del" data-hist-id="${escapeHtml(ah.id)}" data-hist-section="action">🗑️ 刪除</button>
+            </div>
+          </div>
+
+          <div>
+            <div class="case-hist-detail-label" style="margin-bottom:4px;">🛠️ 售後處理過程與對策完整內容：</div>
+            <div class="lvi-case-history-fulltext">${escapeHtml(ah.actionText || '（無文字描述）')}</div>
+          </div>
+
+          ${ah.partsText ? `
+          <div class="case-hist-parts-detail-box">
+            <span>🔩 更換零件 / 耗材：</span>
+            <span>${escapeHtml(ah.partsText)}</span>
+          </div>` : ''}
+
+          ${ah.attachmentsHtml ? `
+          <div>
+            <div class="case-hist-detail-label" style="margin-bottom:4px;">🖼️ 附帶照片與檔案（點擊縮圖可放大檢視或標註）：</div>
+            <div class="todo-attachments-gallery case-history-attachments-gallery" data-hist-id="${escapeHtml(ah.id)}" data-hist-section="action">${ah.attachmentsHtml}</div>
+          </div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderSingleCaseDetailHtml(item) {
   const machines = getSharedMachineModelsForTodo();
   const clients = getSharedClientsVendorsForTodo();
@@ -24429,8 +24709,8 @@ function renderSingleCaseDetailHtml(item) {
   const itemTags = Array.isArray(item.tags) ? item.tags : [];
   const itemHandlers = Array.isArray(item.handlers) ? item.handlers : [];
   const linkedNoteIds = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds : [];
-  const symptomLogs = Array.isArray(item.symptomLogs) ? item.symptomLogs : [];
-  const actionLogs = Array.isArray(item.actionLogs) ? item.actionLogs : [];
+  const symHistory = Array.isArray(item.symptomHistory) ? item.symptomHistory : [];
+  const actHistory = Array.isArray(item.actionHistory) ? item.actionHistory : [];
   const normStatus = normalizeCaseStatusValue(item.status);
   const isCompleted = isCaseStatusCompleted(normStatus);
   const statusBadgeCls = getCaseStatusBadgeClass(normStatus);
@@ -24519,6 +24799,12 @@ function renderSingleCaseDetailHtml(item) {
     `<option value="__manage_handlers__">⚙️ 管理人員...</option>`
   ].join('');
 
+  // 售後處理對策輸入區的「預選對應客訴異常」下拉選單
+  const stagingSymLinkOptsHtml = [
+    `<option value="">（選填）選擇此對策對應的客訴/異常紀錄...</option>`,
+    ...symHistory.map((sh, idx) => `<option value="${escapeHtml(sh.id)}" ${idx === 0 ? 'selected' : ''}>🚨 ${escapeHtml(sh.code)}｜${escapeHtml((sh.text || '含附件').replace(/\s+/g, ' ').slice(0, 32))}</option>`)
+  ].join('');
+
   return `
     <!-- 頂部返回列表與操作導航列 -->
     <div class="lvi-todo-detail-navbar">
@@ -24530,7 +24816,7 @@ function renderSingleCaseDetailHtml(item) {
         <span id="case-navbar-caseno-pill" class="lvi-case-no-badge ${item.caseNumber ? '' : 'hidden'}">📁 ${escapeHtml(item.caseNumber || '')}</span>
       </div>
       <div class="flex items-center gap-2">
-        <button type="button" class="case-export-pdf-btn case-export-md-btn px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-600 text-teal-700 hover:text-white dark:bg-teal-950/70 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-xs font-extrabold transition cursor-pointer" data-case-id="${escapeHtml(item.id)}" title="將此案件完整履歷與處理日誌匯出為 A4 PDF 報告">
+        <button type="button" class="case-export-pdf-btn case-export-md-btn px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-600 text-teal-700 hover:text-white dark:bg-teal-950/70 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-xs font-extrabold transition cursor-pointer" data-case-id="${escapeHtml(item.id)}" title="將此案件完整履歷與歷史資料匯出為 A4 PDF 報告">
           <span>📄 匯出 PDF</span>
         </button>
         <button type="button" class="todo-delete-card-btn case-delete-card-btn" data-case-id="${escapeHtml(item.id)}">
@@ -24586,7 +24872,7 @@ function renderSingleCaseDetailHtml(item) {
         </div>
       </div>
 
-      <!-- 第 2 列：立案時間 | 結案時間 | 關聯筆記 (已移除機台序號/保固資訊欄) -->
+      <!-- 第 2 列：立案時間 | 結案時間 | 關聯筆記 -->
       <div class="lvi-case-row-2">
         <div class="lvi-todo-created-pill case-edit-created-time-btn cursor-pointer" title="點擊調整立案時間">
           <span class="text-[10px] font-extrabold text-blue-700 dark:text-blue-300">🕒 立案時間</span>
@@ -24611,12 +24897,12 @@ function renderSingleCaseDetailHtml(item) {
         </div>
       </div>
 
-      <!-- 第 3 列：客訴与異常現象 / 根因分析 (含無邊框並排小圖附件 + 內嵌【📜 處理日誌】) -->
+      <!-- 第 3 列：客訴 / 異常現象描述 (單一全寬文字框 + 附件 + 💾 存入歷史按鈕 + 下方獨立歷史資料條列) -->
       <div class="lvi-todo-issue-box">
         <div class="lvi-todo-section-header">
           <div class="lvi-todo-section-title">
             <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
-            <span>客訴與異常現象 / 根因分析</span>
+            <span>🚨 客訴 / 異常現象描述</span>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="symptom">
@@ -24625,44 +24911,35 @@ function renderSingleCaseDetailHtml(item) {
             <button type="button" class="todo-section-upload-btn case-section-upload-btn" data-section="symptom">
               <span>📎 附件</span>
             </button>
+            <button type="button" class="case-save-history-btn btn-symptom-save case-save-symptom-history-btn" title="將目前輸入的客訴文字與檔案存入此案號的歷史資料中（若忘記按就關閉網站也會自動存入）">
+              <span>💾 存入歷史</span>
+            </button>
           </div>
         </div>
-        <div class="lvi-case-symptom-grid">
-          <div>
-            <div class="lvi-case-sublabel lvi-case-sublabel-rose">🚨 客訴 / 異常現象描述</div>
-            <textarea class="lvi-todo-textarea case-symptom-textarea" rows="3" placeholder="輸入客戶反映問題、現場異常現象或錯誤碼...">${escapeHtml(item.symptomText || '')}</textarea>
-          </div>
-          <div>
-            <div class="lvi-case-sublabel lvi-case-sublabel-amber">🔍 異常原因 / 根因分析</div>
-            <textarea class="lvi-todo-textarea case-rootcause-textarea" rows="3" placeholder="輸入檢測數據、故障真因或分析結論...">${escapeHtml(item.rootCauseText || '')}</textarea>
-          </div>
-        </div>
+
+        <textarea class="lvi-todo-textarea case-symptom-textarea" rows="3" placeholder="輸入本次客戶反映問題、現場異常現象或錯誤碼（輸入後按「💾 存入歷史」，或直接關閉網站亦會自動存入下方歷史資料）...">${escapeHtml(item.symptomText || '')}</textarea>
         <div class="todo-attachments-gallery case-symptom-attachments">${item.symptomAttachmentsHtml || ''}</div>
 
-        <!-- 內嵌處理日誌 (客訴與根因分析) -->
-        <div class="lvi-case-integrated-log-box">
-          <div class="lvi-case-integrated-log-header">
-            <div class="lvi-case-integrated-log-title">
-              <span>📜 處理日誌（客訴與根因改動 / 匯入檔案紀錄）</span>
-              <span class="lvi-case-integrated-log-count" data-log-section="symptom">${symptomLogs.length} 筆紀錄</span>
+        <!-- 客訴與異常現象・獨立歷史資料條列區 -->
+        <div class="lvi-case-history-section">
+          <div class="lvi-case-history-header">
+            <div class="lvi-case-history-title">
+              <span>📜 客訴與異常現象・歷史資料（點擊項目可展開查看詳情與照片）</span>
+              <span class="lvi-case-history-count" data-hist-count="symptom">${symHistory.length} 筆</span>
             </div>
           </div>
-          <div class="lvi-case-integrated-log-add-bar">
-            <input type="text" class="case-section-log-input" data-log-section="symptom" placeholder="新增客訴/根因處理日誌或進度備註 (按 Enter 記錄，修改欄位或匯入檔案亦會自動記錄)..." />
-            <button type="button" class="case-section-add-log-btn" data-log-section="symptom">＋ 記錄日誌</button>
-          </div>
-          <div class="lvi-case-integrated-log-list" data-log-section="symptom">
-            ${renderCaseIntegratedLogItemsHtml(symptomLogs, 'symptom')}
+          <div class="lvi-case-history-list" data-hist-list="symptom">
+            ${renderSymptomHistoryListHtml(item)}
           </div>
         </div>
       </div>
 
-      <!-- 第 4 列：售後處理對策與零件更換紀錄 (含無邊框並排小圖附件 + 內嵌【📜 處理日誌】) -->
+      <!-- 第 4 列：售後處理對策與零件更換紀錄 (對策文字框 + 零件欄 + 附件 + 💾 存入歷史按鈕 + 下方獨立歷史資料條列) -->
       <div class="lvi-todo-resolution-box">
         <div class="lvi-todo-section-header">
           <div class="lvi-todo-section-title">
             <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
-            <span>售後處理對策與零件更換紀錄</span>
+            <span>🛠️ 售後處理對策與零件更換紀錄</span>
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="action">
@@ -24671,29 +24948,37 @@ function renderSingleCaseDetailHtml(item) {
             <button type="button" class="todo-section-upload-btn case-section-upload-btn" data-section="action">
               <span>📎 附件</span>
             </button>
+            <button type="button" class="case-save-history-btn btn-action-save case-save-action-history-btn" title="將目前輸入的售後處理對策、零件與檔案存入此案號的歷史資料中（若忘記按就關閉網站也會自動存入）">
+              <span>💾 存入歷史</span>
+            </button>
           </div>
         </div>
-        <textarea class="lvi-todo-textarea case-action-textarea" rows="3" placeholder="輸入售後維修步驟、參數調整、改善對策或驗證結果...">${escapeHtml(item.actionTakenText || '')}</textarea>
+
+        <textarea class="lvi-todo-textarea case-action-textarea" rows="3" placeholder="輸入本次售後維修步驟、參數調整、改善對策或驗證結果（輸入後按「💾 存入歷史」，或直接關閉網站亦會自動存入下方歷史資料）...">${escapeHtml(item.actionTakenText || '')}</textarea>
         <div class="lvi-case-parts-row">
           <span class="lvi-case-parts-label">🔩 更換零件 / 耗材：</span>
           <input type="text" class="case-parts-input" value="${escapeHtml(item.partsReplacedText || '')}" placeholder="輸入更換之料號、零件名稱或耗材數量（無則留空）..." />
         </div>
+        ${symHistory.length > 0 ? `
+        <div class="case-staging-link-bar">
+          <span class="case-hist-detail-label">🔗 關聯對應之客訴/異常現象：</span>
+          <select class="case-staging-link-select case-staging-action-link-sym-select">
+            ${stagingSymLinkOptsHtml}
+          </select>
+          <span class="case-hist-time-text">（存入歷史後亦可隨時於下方歷史卡片中新增或解除關聯）</span>
+        </div>` : ''}
         <div class="todo-attachments-gallery case-action-attachments">${item.actionAttachmentsHtml || ''}</div>
 
-        <!-- 內嵌處理日誌 (售後處理對策與零件更換) -->
-        <div class="lvi-case-integrated-log-box">
-          <div class="lvi-case-integrated-log-header">
-            <div class="lvi-case-integrated-log-title">
-              <span>📜 處理日誌（售後對策與零件改動 / 匯入檔案紀錄）</span>
-              <span class="lvi-case-integrated-log-count" data-log-section="action">${actionLogs.length} 筆紀錄</span>
+        <!-- 售後處理對策與零件更換・獨立歷史資料條列區 -->
+        <div class="lvi-case-history-section">
+          <div class="lvi-case-history-header">
+            <div class="lvi-case-history-title">
+              <span>📜 售後處理對策與零件更換・歷史資料（點擊項目可展開查看詳情與對應異常）</span>
+              <span class="lvi-case-history-count" data-hist-count="action">${actHistory.length} 筆</span>
             </div>
           </div>
-          <div class="lvi-case-integrated-log-add-bar">
-            <input type="text" class="case-section-log-input" data-log-section="action" placeholder="新增售後對策/維修進度日誌 (按 Enter 記錄，修改欄位或匯入檔案亦會自動記錄)..." />
-            <button type="button" class="case-section-add-log-btn" data-log-section="action">＋ 記錄日誌</button>
-          </div>
-          <div class="lvi-case-integrated-log-list" data-log-section="action">
-            ${renderCaseIntegratedLogItemsHtml(actionLogs, 'action')}
+          <div class="lvi-case-history-list" data-hist-list="action">
+            ${renderActionHistoryListHtml(item)}
           </div>
         </div>
       </div>
@@ -24743,50 +25028,6 @@ function renderSingleCaseDetailHtml(item) {
 
 let _activeCaseUploadTarget = null;
 
-function bindCaseSectionLogItemButtons(cardEl, item) {
-  if (!cardEl || !item) return;
-
-  cardEl.querySelectorAll('.case-edit-sec-log-btn').forEach(btn => {
-    if (btn._bound) return;
-    btn._bound = true;
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const lid = btn.getAttribute('data-log-id');
-      const sec = btn.getAttribute('data-log-section') || 'symptom';
-      const arr = sec === 'action' ? item.actionLogs : item.symptomLogs;
-      if (!Array.isArray(arr)) return;
-      const lg = arr.find(x => x.id === lid);
-      if (!lg) return;
-      const nextTxt = prompt('修改處理日誌內容：', lg.text || '');
-      if (nextTxt !== null && nextTxt.trim()) {
-        lg.text = nextTxt.trim();
-        item.updatedAt = Date.now();
-        saveCaseItemsState();
-        refreshCaseSectionLogDomInPlace(item.id, sec);
-      }
-    });
-  });
-
-  cardEl.querySelectorAll('.case-del-sec-log-btn').forEach(btn => {
-    if (btn._bound) return;
-    btn._bound = true;
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      const lid = btn.getAttribute('data-log-id');
-      const sec = btn.getAttribute('data-log-section') || 'symptom';
-      if (sec === 'action') {
-        item.actionLogs = (item.actionLogs || []).filter(x => x.id !== lid);
-      } else {
-        item.symptomLogs = (item.symptomLogs || []).filter(x => x.id !== lid);
-      }
-      item.updatedAt = Date.now();
-      saveCaseItemsState();
-      refreshCaseSectionLogDomInPlace(item.id, sec);
-      showToast('🗑️ 已移除該筆處理日誌');
-    });
-  });
-}
-
 function bindCaseCardsInteractions(listContainer) {
   if (!listContainer) return;
 
@@ -24794,6 +25035,8 @@ function bindCaseCardsInteractions(listContainer) {
   if (backBtn) {
     backBtn.addEventListener('click', (e) => {
       e.preventDefault();
+      // 離開案件詳情時，若有輸入文字或檔案忘記按「存入歷史」，自動存入該案號歷史資料中！
+      flushAllUnsavedCaseStagingToHistory(true);
       state.activeCaseDetailId = null;
       renderCasesView();
     });
@@ -24842,7 +25085,6 @@ function bindCaseCardsInteractions(listContainer) {
       const field = sel.getAttribute('data-field');
       const item = (state.caseItems || []).find(c => c.id === cid);
       if (!item || !field) return;
-      const oldVal = item[field] || '';
       item[field] = sel.value;
       if (field === 'status') {
         if (isCaseStatusCompleted(sel.value)) {
@@ -24852,11 +25094,6 @@ function bindCaseCardsInteractions(listContainer) {
         }
         item.completedEpoch = getCaseCompletedTimestampEpoch(item);
       }
-      recordCaseSectionLog(item, 'action', {
-        type: 'edit',
-        text: `📊 變更${field === 'status' ? '狀態' : (field === 'machineModel' ? '機型' : '客戶/廠商')}：「${oldVal || '未指定'}」➔「${sel.value || '未指定'}」`,
-        forceNewEntry: true
-      });
       item.updatedAt = Date.now();
       saveCaseItemsState();
       renderCasesView();
@@ -24872,11 +25109,6 @@ function bindCaseCardsInteractions(listContainer) {
       const item = (state.caseItems || []).find(c => c.id === cid);
       if (!item) return;
       item[field] = inp.value.trim();
-      recordCaseSectionLog(item, 'action', {
-        type: 'edit',
-        autoFieldKey: 'caseNumber',
-        text: `📁 設定案號：「${item.caseNumber || '未填'}」`
-      });
       item.updatedAt = Date.now();
       saveCaseItemsState();
     });
@@ -24915,10 +25147,6 @@ function bindCaseCardsInteractions(listContainer) {
   listContainer.querySelectorAll('.lvi-case-card').forEach(cardEl => {
     const caseId = cardEl.getAttribute('data-case-id');
     const getItem = () => (state.caseItems || []).find(c => c.id === caseId);
-    const curItem = getItem();
-    if (curItem) {
-      bindCaseSectionLogItemButtons(cardEl, curItem);
-    }
 
     cardEl.querySelectorAll('.case-open-mgr-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -24935,11 +25163,6 @@ function bindCaseCardsInteractions(listContainer) {
         const item = getItem();
         if (!item) return;
         item.title = titleInp.value;
-        recordCaseSectionLog(item, 'symptom', {
-          type: 'edit',
-          autoFieldKey: 'title',
-          text: `📌 修改案件主旨：「${item.title.trim() || '未命名'}」`
-        });
         item.updatedAt = Date.now();
         saveCaseItemsState();
       });
@@ -24957,11 +25180,6 @@ function bindCaseCardsInteractions(listContainer) {
           navPill.textContent = `📁 ${item.caseNumber}`;
           navPill.classList.toggle('hidden', !item.caseNumber);
         }
-        recordCaseSectionLog(item, 'symptom', {
-          type: 'edit',
-          autoFieldKey: 'caseNumber',
-          text: `📁 設定案號：「${item.caseNumber || '未填'}」`
-        });
         item.updatedAt = Date.now();
         saveCaseItemsState();
       });
@@ -24979,11 +25197,6 @@ function bindCaseCardsInteractions(listContainer) {
           if (newM && newM.trim()) {
             addMachineModel(newM.trim());
             item.machineModel = newM.trim();
-            recordCaseSectionLog(item, 'symptom', {
-              type: 'edit',
-              text: `🚜 變更機型分類為「${item.machineModel}」`,
-              forceNewEntry: true
-            });
             item.updatedAt = Date.now();
             saveCaseItemsState(true);
             renderCasesView();
@@ -24998,11 +25211,6 @@ function bindCaseCardsInteractions(listContainer) {
           return;
         }
         item.machineModel = val;
-        recordCaseSectionLog(item, 'symptom', {
-          type: 'edit',
-          text: `🚜 變更機型分類為「${val || '未選擇'}」`,
-          forceNewEntry: true
-        });
         item.updatedAt = Date.now();
         saveCaseItemsState();
       });
@@ -25020,11 +25228,6 @@ function bindCaseCardsInteractions(listContainer) {
           if (newC && newC.trim()) {
             addClientVendor(newC.trim());
             item.clientVendor = newC.trim();
-            recordCaseSectionLog(item, 'symptom', {
-              type: 'edit',
-              text: `🏢 變更客戶/廠商為「${item.clientVendor}」`,
-              forceNewEntry: true
-            });
             item.updatedAt = Date.now();
             saveCaseItemsState(true);
             renderCasesView();
@@ -25039,11 +25242,6 @@ function bindCaseCardsInteractions(listContainer) {
           return;
         }
         item.clientVendor = val;
-        recordCaseSectionLog(item, 'symptom', {
-          type: 'edit',
-          text: `🏢 變更客戶/廠商為「${val || '未選擇'}」`,
-          forceNewEntry: true
-        });
         item.updatedAt = Date.now();
         saveCaseItemsState();
       });
@@ -25055,7 +25253,6 @@ function bindCaseCardsInteractions(listContainer) {
       statusSel.addEventListener('change', () => {
         const item = getItem();
         if (!item) return;
-        const oldStatus = item.status || '🔴 待處理';
         item.status = normalizeCaseStatusValue(statusSel.value);
         if (isCaseStatusCompleted(item.status)) {
           if (!item.completedAt) item.completedAt = formatTodoTimestamp();
@@ -25063,11 +25260,6 @@ function bindCaseCardsInteractions(listContainer) {
           item.completedAt = '';
         }
         item.completedEpoch = getCaseCompletedTimestampEpoch(item);
-        recordCaseSectionLog(item, 'action', {
-          type: 'edit',
-          text: `📊 案件狀態變更：「${oldStatus}」➔「${item.status}」${item.completedAt ? ' (結案時間：' + item.completedAt + ')' : ''}`,
-          forceNewEntry: true
-        });
         item.updatedAt = Date.now();
         saveCaseItemsState(true);
         renderCasesView();
@@ -25084,11 +25276,6 @@ function bindCaseCardsInteractions(listContainer) {
         if (nextVal && nextVal.trim()) {
           item.createdAt = nextVal.trim();
           item.createdEpoch = parseTodoTimestampToEpoch(item.createdAt);
-          recordCaseSectionLog(item, 'symptom', {
-            type: 'edit',
-            text: `🕒 調整立案時間為「${item.createdAt}」`,
-            forceNewEntry: true
-          });
           item.updatedAt = Date.now();
           saveCaseItemsState();
           renderCasesView();
@@ -25104,11 +25291,6 @@ function bindCaseCardsInteractions(listContainer) {
         if (nextVal !== null) {
           item.completedAt = nextVal.trim();
           item.completedEpoch = getCaseCompletedTimestampEpoch(item);
-          recordCaseSectionLog(item, 'action', {
-            type: 'edit',
-            text: `🏁 調整結案時間為「${item.completedAt || '未結案'}」`,
-            forceNewEntry: true
-          });
           item.updatedAt = Date.now();
           saveCaseItemsState();
           renderCasesView();
@@ -25144,11 +25326,6 @@ function bindCaseCardsInteractions(listContainer) {
             if (!item.linkedNoteIds.includes(newNote.id)) item.linkedNoteIds.push(newNote.id);
             item.linkedNoteTitles = item.linkedNoteTitles || {};
             item.linkedNoteTitles[newNote.id] = cleanTitle;
-            recordCaseSectionLog(item, 'action', {
-              type: 'edit',
-              text: `🔗 新建並關聯筆記：「${cleanTitle}」`,
-              forceNewEntry: true
-            });
             saveCaseItemsState(true);
             selectNote(newNote.id);
             switchView('editor');
@@ -25164,11 +25341,6 @@ function bindCaseCardsInteractions(listContainer) {
             item.linkedNoteTitles = item.linkedNoteTitles || {};
             item.linkedNoteTitles[val] = pickedTitle;
           }
-          recordCaseSectionLog(item, 'action', {
-            type: 'edit',
-            text: `🔗 關聯現有筆記：「${pickedTitle}」`,
-            forceNewEntry: true
-          });
           item.updatedAt = Date.now();
           saveCaseItemsState();
           renderCasesView();
@@ -25183,6 +25355,7 @@ function bindCaseCardsInteractions(listContainer) {
         e.preventDefault();
         const nid = btn.getAttribute('data-note-id');
         if (nid) {
+          flushAllUnsavedCaseStagingToHistory(true);
           selectNote(nid);
           switchView('editor');
         }
@@ -25202,22 +25375,14 @@ function bindCaseCardsInteractions(listContainer) {
       });
     });
 
-    // 8. 客訴現象、根因分析、售後對策、更換零件文字輸入 + 自動寫入對應區塊之【📜 處理日誌】
-    const bindTextFieldWithAutoLog = (selector, prop, section, fieldLabel) => {
+    // 8. 客訴現象、售後對策、更換零件文字輸入即時同步至暫存區 (防關閉遺失)
+    const bindStagingField = (selector, prop, section) => {
       const el = cardEl.querySelector(selector);
       if (!el) return;
       el.addEventListener('input', () => {
         const item = getItem();
         if (!item) return;
         item[prop] = el.value;
-        const cleanVal = el.value.replace(/\s+/g, ' ').trim();
-        if (cleanVal) {
-          recordCaseSectionLog(item, section, {
-            type: 'edit',
-            autoFieldKey: prop,
-            text: `✏️ 修改「${fieldLabel}」：${cleanVal.slice(0, 80)}`
-          });
-        }
         item.updatedAt = Date.now();
         saveCaseItemsState();
       });
@@ -25236,47 +25401,195 @@ function bindCaseCardsInteractions(listContainer) {
         });
       }
     };
-    bindTextFieldWithAutoLog('.case-symptom-textarea', 'symptomText', 'symptom', '客訴/異常現象');
-    bindTextFieldWithAutoLog('.case-rootcause-textarea', 'rootCauseText', 'symptom', '異常原因/根因分析');
-    bindTextFieldWithAutoLog('.case-action-textarea', 'actionTakenText', 'action', '售後處理對策');
-    bindTextFieldWithAutoLog('.case-parts-input', 'partsReplacedText', 'action', '更換零件/耗材');
+    bindStagingField('.case-symptom-textarea', 'symptomText', 'symptom');
+    bindStagingField('.case-action-textarea', 'actionTakenText', 'action');
+    bindStagingField('.case-parts-input', 'partsReplacedText', 'action');
 
-    // 9. 兩大區塊內嵌「📜 處理日誌」手動快速記錄列 (免選紀錄人員)
-    cardEl.querySelectorAll('.case-section-add-log-btn').forEach(btn => {
-      const sec = btn.getAttribute('data-log-section') || 'symptom';
-      const inp = cardEl.querySelector(`.case-section-log-input[data-log-section="${sec}"]`);
-      const handleAddSecLog = () => {
+    // 9. 「💾 存入歷史」按鈕事件綁定 (Section 1: 客訴與異常現象 / Section 2: 售後處理對策與零件更換)
+    const saveSymBtn = cardEl.querySelector('.case-save-symptom-history-btn');
+    if (saveSymBtn) {
+      saveSymBtn.addEventListener('click', (e) => {
+        e.preventDefault();
         const item = getItem();
-        if (!item || !inp) return;
-        const txt = inp.value.trim();
-        if (!txt) {
-          showToast('請輸入處理日誌內容');
+        if (!item) return;
+        syncCaseCardAttachmentsFromDom(cardEl);
+        const symInp = cardEl.querySelector('.case-symptom-textarea');
+        if (symInp) item.symptomText = symInp.value;
+        const entry = commitCaseSymptomStagingToHistory(item, { autoSaved: false });
+        if (!entry) {
+          showToast('⚠️ 請先輸入客訴/異常現象文字或匯入照片/檔案，再點擊「存入歷史」');
           return;
         }
-        recordCaseSectionLog(item, sec, {
-          type: 'manual',
-          text: txt,
-          forceNewEntry: true
-        });
-        inp.value = '';
         saveCaseItemsState(true);
-        showToast('📜 已記錄至處理日誌');
-      };
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        handleAddSecLog();
+        renderCasesView();
+        showToast(`💾 已將「${entry.code}」存入此案號的客訴歷史資料！`);
       });
-      if (inp) {
-        inp.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter' && !e.isComposing) {
-            e.preventDefault();
-            handleAddSecLog();
-          }
+    }
+
+    const saveActBtn = cardEl.querySelector('.case-save-action-history-btn');
+    if (saveActBtn) {
+      saveActBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const item = getItem();
+        if (!item) return;
+        syncCaseCardAttachmentsFromDom(cardEl);
+        const actInp = cardEl.querySelector('.case-action-textarea');
+        const partsInp = cardEl.querySelector('.case-parts-input');
+        const linkSel = cardEl.querySelector('.case-staging-action-link-sym-select');
+        if (actInp) item.actionTakenText = actInp.value;
+        if (partsInp) item.partsReplacedText = partsInp.value;
+        const pickedSymId = linkSel && linkSel.value ? [linkSel.value] : [];
+        const entry = commitCaseActionStagingToHistory(item, {
+          autoSaved: false,
+          linkedSymptomIds: pickedSymId
         });
-      }
+        if (!entry) {
+          showToast('⚠️ 請先輸入售後處理對策、更換零件或匯入照片/檔案，再點擊「存入歷史」');
+          return;
+        }
+        saveCaseItemsState(true);
+        renderCasesView();
+        showToast(`💾 已將「${entry.code}」存入此案號的售後處理對策歷史資料！`);
+      });
+    }
+
+    // 10. 歷史資料條列：點擊展開/收合詳情、雙向關聯設定、點擊關聯標籤一鍵跳轉、載回編輯、刪除
+    cardEl.querySelectorAll('.lvi-case-history-summary-bar[data-toggle-hist-id]').forEach(bar => {
+      bar.addEventListener('click', (e) => {
+        if (e.target.closest('.case-jump-linked-hist-btn, button, select')) return;
+        const hid = bar.getAttribute('data-toggle-hist-id');
+        if (!hid) return;
+        if (state.expandedCaseHistoryIds.has(hid)) {
+          state.expandedCaseHistoryIds.delete(hid);
+        } else {
+          state.expandedCaseHistoryIds.add(hid);
+        }
+        renderCasesView();
+      });
     });
 
-    // 10. 拍照與上傳附件按鈕
+    // 點擊互相關聯膠囊 -> 自動展開對向歷史卡片並平滑捲動高光閃爍
+    cardEl.querySelectorAll('.case-jump-linked-hist-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const targetId = btn.getAttribute('data-target-hist-id');
+        if (!targetId) return;
+        state.expandedCaseHistoryIds.add(targetId);
+        renderCasesView();
+        setTimeout(() => {
+          const targetCard = document.getElementById(`case-hist-card-${targetId}`);
+          if (targetCard) {
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetCard.classList.add('flash-highlight');
+            setTimeout(() => targetCard.classList.remove('flash-highlight'), 1600);
+          }
+        }, 40);
+      });
+    });
+
+    // 在歷史詳情中選擇新增互相關聯
+    cardEl.querySelectorAll('.case-hist-link-select').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const item = getItem();
+        if (!item || !sel.value) return;
+        const dir = sel.getAttribute('data-link-dir');
+        const symId = dir === 'sym-to-act' ? sel.getAttribute('data-sym-id') : sel.value;
+        const actId = dir === 'sym-to-act' ? sel.value : sel.getAttribute('data-act-id');
+        toggleCaseHistoryMutualLink(item, symId, actId, true);
+        renderCasesView();
+        showToast('🔗 已建立「異常現象 ⇄ 售後處理對策」雙向關聯！');
+      });
+    });
+
+    // 解除關聯按鈕
+    cardEl.querySelectorAll('.case-unlink-hist-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const symId = btn.getAttribute('data-sym-id');
+        const actId = btn.getAttribute('data-act-id');
+        toggleCaseHistoryMutualLink(item, symId, actId, false);
+        renderCasesView();
+        showToast('已解除該筆關聯');
+      });
+    });
+
+    // 載回上方輸入框重新編輯
+    cardEl.querySelectorAll('.case-load-hist-to-edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-hist-id');
+        const sec = btn.getAttribute('data-hist-section') || 'symptom';
+        if (sec === 'symptom') {
+          const idx = (item.symptomHistory || []).findIndex(x => x.id === hid);
+          if (idx === -1) return;
+          // 若上方暫存區已有內容，先存入歷史避免覆蓋
+          if ((item.symptomText && item.symptomText.trim()) || (item.symptomAttachmentsHtml && item.symptomAttachmentsHtml.trim())) {
+            commitCaseSymptomStagingToHistory(item, { autoSaved: true });
+          }
+          const target = item.symptomHistory.splice(idx, 1)[0];
+          item.symptomText = target.text || '';
+          item.symptomAttachmentsHtml = target.attachmentsHtml || '';
+          item._stagingSymptomLinkActionIds = target.linkedActionIds || [];
+        } else {
+          const idx = (item.actionHistory || []).findIndex(x => x.id === hid);
+          if (idx === -1) return;
+          if ((item.actionTakenText && item.actionTakenText.trim()) || (item.partsReplacedText && item.partsReplacedText.trim()) || (item.actionAttachmentsHtml && item.actionAttachmentsHtml.trim())) {
+            commitCaseActionStagingToHistory(item, { autoSaved: true });
+          }
+          const target = item.actionHistory.splice(idx, 1)[0];
+          item.actionTakenText = target.actionText || '';
+          item.partsReplacedText = target.partsText || '';
+          item.actionAttachmentsHtml = target.attachmentsHtml || '';
+          item._stagingActionLinkSymptomIds = target.linkedSymptomIds || [];
+        }
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+        renderCasesView();
+        showToast('✏️ 已將該筆歷史載回上方輸入框，修改後再按「💾 存入歷史」即可');
+      });
+    });
+
+    // 刪除單筆歷史紀錄
+    cardEl.querySelectorAll('.case-del-hist-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-hist-id');
+        const sec = btn.getAttribute('data-hist-section') || 'symptom';
+        if (sec === 'symptom') {
+          item.symptomHistory = (item.symptomHistory || []).filter(x => x.id !== hid);
+          (item.actionHistory || []).forEach(a => {
+            if (Array.isArray(a.linkedSymptomIds)) {
+              a.linkedSymptomIds = a.linkedSymptomIds.filter(id => id !== hid);
+            }
+          });
+        } else {
+          item.actionHistory = (item.actionHistory || []).filter(x => x.id !== hid);
+          (item.symptomHistory || []).forEach(s => {
+            if (Array.isArray(s.linkedActionIds)) {
+              s.linkedActionIds = s.linkedActionIds.filter(id => id !== hid);
+            }
+          });
+        }
+        state.expandedCaseHistoryIds.delete(hid);
+        item.updatedAt = Date.now();
+        saveCaseItemsState(true);
+        renderCasesView();
+        showToast('🗑️ 已刪除該筆歷史資料');
+      });
+    });
+
+    // 11. 拍照與上傳附件按鈕
     cardEl.querySelectorAll('.case-section-camera-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -25299,7 +25612,7 @@ function bindCaseCardsInteractions(listContainer) {
       });
     });
 
-    // 11. 標籤與處理人員多選
+    // 12. 標籤與處理人員多選
     const tagAddSel = cardEl.querySelector('.case-tag-add-select');
     if (tagAddSel) {
       tagAddSel.addEventListener('change', () => {
@@ -25315,11 +25628,6 @@ function bindCaseCardsInteractions(listContainer) {
             addCustomTag(cleanT, 'blue');
             if (!Array.isArray(item.tags)) item.tags = [];
             if (!item.tags.includes(cleanT)) item.tags.push(cleanT);
-            recordCaseSectionLog(item, 'action', {
-              type: 'edit',
-              text: `🏷️ 新增標籤「#${cleanT}」`,
-              forceNewEntry: true
-            });
             item.updatedAt = Date.now();
             saveCaseItemsState();
             renderCasesView();
@@ -25334,11 +25642,6 @@ function bindCaseCardsInteractions(listContainer) {
         if (!Array.isArray(item.tags)) item.tags = [];
         if (!item.tags.includes(val)) {
           item.tags.push(val);
-          recordCaseSectionLog(item, 'action', {
-            type: 'edit',
-            text: `🏷️ 套用標籤「#${val}」`,
-            forceNewEntry: true
-          });
           item.updatedAt = Date.now();
           saveCaseItemsState();
           renderCasesView();
@@ -25375,11 +25678,6 @@ function bindCaseCardsInteractions(listContainer) {
             addTodoHandler(newH.trim());
             if (!Array.isArray(item.handlers)) item.handlers = [];
             if (!item.handlers.includes(newH.trim())) item.handlers.push(newH.trim());
-            recordCaseSectionLog(item, 'action', {
-              type: 'edit',
-              text: `👤 指派處理人員「${newH.trim()}」`,
-              forceNewEntry: true
-            });
             item.updatedAt = Date.now();
             saveCaseItemsState();
             renderCasesView();
@@ -25394,11 +25692,6 @@ function bindCaseCardsInteractions(listContainer) {
         if (!Array.isArray(item.handlers)) item.handlers = [];
         if (!item.handlers.includes(val)) {
           item.handlers.push(val);
-          recordCaseSectionLog(item, 'action', {
-            type: 'edit',
-            text: `👤 指派處理人員「${val}」`,
-            forceNewEntry: true
-          });
           item.updatedAt = Date.now();
           saveCaseItemsState();
           renderCasesView();
@@ -25495,7 +25788,7 @@ function renderCasesView() {
     filteredWithMeta.push({ item, fuzzyRes });
   });
 
-  // 清單與表格統一按照「結案時間 (completedAt)」由上而下排序！
+  // 清單與表格統一按照「結案時間 (completedAt)」由上而下排序
   if (parsedQ) {
     filteredWithMeta.sort((a, b) => compareCaseItemsByCompletedAtDesc(a.item, b.item) || ((b.fuzzyRes ? b.fuzzyRes.score : 0) - (a.fuzzyRes ? a.fuzzyRes.score : 0)));
     if (fuzzyBanner && fuzzyDetails && fuzzyStats) {
@@ -25528,11 +25821,28 @@ function renderCasesView() {
 }
 
 function initCaseViewTopControlsOnce() {
+  // 綁定「忘記按存入歷史就直接關閉網站 / 重新整理 / 切換背景」時，100% 自動將未存的文字或檔案歸檔至該案號歷史資料中！
+  if (!window._caseAutoHistoryFlushBound) {
+    window._caseAutoHistoryFlushBound = true;
+    window.addEventListener('beforeunload', () => {
+      flushAllUnsavedCaseStagingToHistory(true);
+    });
+    window.addEventListener('pagehide', () => {
+      flushAllUnsavedCaseStagingToHistory(true);
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        flushAllUnsavedCaseStagingToHistory(true);
+      }
+    });
+  }
+
   // 綁定側邊欄與頂部導覽列「案件追蹤」切換按鈕
   const sidebarCasesBtn = document.getElementById('sidebar-cases-btn');
   if (sidebarCasesBtn && !sidebarCasesBtn._bound) {
     sidebarCasesBtn._bound = true;
     sidebarCasesBtn.addEventListener('click', () => {
+      flushAllUnsavedCaseStagingToHistory(true);
       state.activeCaseDetailId = null;
       switchView('cases');
       if (window.innerWidth < 768 && typeof closeSidebar === 'function') closeSidebar();
@@ -25543,19 +25853,21 @@ function initCaseViewTopControlsOnce() {
   if (viewTabCases && !viewTabCases._bound) {
     viewTabCases._bound = true;
     viewTabCases.addEventListener('click', () => {
+      flushAllUnsavedCaseStagingToHistory(true);
       state.activeCaseDetailId = null;
       switchView('cases');
     });
   }
 
   const container = document.getElementById('view-cases-container');
-  if (!container || container._caseV291ControlsBound) return;
-  container._caseV291ControlsBound = true;
+  if (!container || container._caseV292ControlsBound) return;
+  container._caseV292ControlsBound = true;
 
   // 固定 4 種狀態切換膠囊
   container.querySelectorAll('#case-fixed-category-bar .case-cat-tab-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
+      flushAllUnsavedCaseStagingToHistory(true);
       const targetCat = btn.getAttribute('data-case-status');
       state.activeCaseDetailId = null;
       state.caseFilterStatus = (state.caseFilterStatus === targetCat) ? '' : targetCat;
@@ -25568,6 +25880,7 @@ function initCaseViewTopControlsOnce() {
   if (addBtn) {
     addBtn.addEventListener('click', (e) => {
       e.preventDefault();
+      flushAllUnsavedCaseStagingToHistory(true);
       createNewCaseCardItem();
     });
   }
@@ -25581,6 +25894,7 @@ function initCaseViewTopControlsOnce() {
   };
   if (modeListBtn) {
     modeListBtn.addEventListener('click', () => {
+      flushAllUnsavedCaseStagingToHistory(true);
       state.caseViewLayout = 'list';
       state.activeCaseDetailId = null;
       updateModeBtns();
@@ -25589,6 +25903,7 @@ function initCaseViewTopControlsOnce() {
   }
   if (modeTableBtn) {
     modeTableBtn.addEventListener('click', () => {
+      flushAllUnsavedCaseStagingToHistory(true);
       state.caseViewLayout = 'table';
       state.activeCaseDetailId = null;
       updateModeBtns();
@@ -25605,7 +25920,7 @@ function initCaseViewTopControlsOnce() {
     });
   }
 
-  // 搜尋框與清除按鈕 (支援搜尋案號、標題、客訴、根因、對策、零件、處理日誌、匯入檔名)
+  // 搜尋框與清除按鈕
   const searchInp = document.getElementById('cases-search-input');
   const searchClearBtn = document.getElementById('cases-search-clear-btn');
   if (searchInp) {
@@ -25679,9 +25994,12 @@ function initCaseViewTopControlsOnce() {
   }
 }
 
-// 擴充 switchView 與 renderCurrentView 支援 'cases' 視圖
+// 擴充 switchView 與 renderCurrentView 支援 'cases' 視圖，並在切換離開案件時自動將未存輸入存入歷史
 const _origSwitchViewV289 = switchView;
 switchView = function(viewName) {
+  if (state.currentView === 'cases' && viewName !== 'cases') {
+    try { flushAllUnsavedCaseStagingToHistory(true); } catch (e) {}
+  }
   const casesTab = document.getElementById('view-tab-cases');
   const casesContainer = document.getElementById('view-cases-container');
   if (viewName === 'cases') {
@@ -25776,6 +26094,6 @@ try {
   initCaseViewTopControlsOnce();
   updateCaseSummaryStats();
 } catch (e) {
-  console.warn('init Case Tracking v2.9.1 error:', e);
+  console.warn('init Case Tracking v2.9.2 error:', e);
 }
 
