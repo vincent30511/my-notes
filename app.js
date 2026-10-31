@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.8.7'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.8.8'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -233,7 +233,7 @@ function hydrateFromSwrCacheOnBoot() {
       if (localStorage.getItem('cloudnotes_authorized') === 'true') {
         if (DOM.loginBtn) DOM.loginBtn.classList.add('hidden');
         if (DOM.userProfile) DOM.userProfile.classList.remove('hidden');
-        updateSyncStatus('syncing', '⚡ 快取秒開 (背景同步中...)');
+        updateSyncStatus('syncing', '同步中...');
       }
       renderWorkTagLists();
       renderWorkTagSelects();
@@ -389,7 +389,8 @@ const COLOR_THEMES = {
   purple: { label: '🟣 紫色系 (專案)', class: 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300 border-purple-300' },
   blue: { label: '🔵 藍色系 (追蹤)', class: 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300 border-blue-300' },
   cyan: { label: '🩵 青色系 (檢驗)', class: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-950/60 dark:text-cyan-300 border-cyan-300' },
-  orange: { label: '🟠 橙色系 (次要)', class: 'bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 border-orange-300' }
+  orange: { label: '🟠 橙色系 (次要)', class: 'bg-orange-100 text-orange-800 dark:bg-orange-950/60 dark:text-orange-300 border-orange-300' },
+  pink: { label: '🌸 粉色系 (提醒)', class: 'bg-pink-100 text-pink-800 dark:bg-pink-950/60 dark:text-pink-300 border-pink-300' }
 };
 
 // 全域狀態
@@ -1546,7 +1547,7 @@ let pendingSaveConfig = false;
 async function syncWorkspaceConfigWithDrive(silent = false) {
   if (!state.accessToken || !state.folderId) return;
   if (!silent) {
-    updateSyncStatus('syncing', '正在讀取 Google Drive 雲端設定...');
+    updateSyncStatus('syncing', '讀取中...');
   }
 
   try {
@@ -1694,7 +1695,7 @@ async function saveWorkspaceConfigToDrive() {
       todoStatuses: state.todoStatuses || DEFAULT_TODO_STATUSES,
       todoHandlers: (state.todoHandlers && state.todoHandlers.length > 0) ? state.todoHandlers : DEFAULT_TODO_HANDLERS,
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.8.7'
+      source: 'Google Drive Cloud Truth v2.8.8'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -1937,11 +1938,17 @@ async function fetchNotesList(silent = false) {
       });
     }
 
-    // 💡 雲端自動採納：掃描所有雲端機型資料夾、所有筆記與所有待辦事項，若含有機型/工作內容/客戶廠商/急迫性/標籤，立即採納不遺漏
+    // 💡 雲端自動採納 (v2.8.8 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
     let needUpdateCloudConfig = false;
+    const delMachines = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('machine') : new Set();
+    const delContents = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('content') : new Set();
+    const delClients = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('client') : new Set();
+    const delUrgencies = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('urgency') : new Set();
+    const delTags = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('custom') : new Set();
+
     if (state.categoryFolderMap && typeof state.categoryFolderMap === 'object') {
       Object.keys(state.categoryFolderMap).forEach(folderName => {
-        if (folderName && !folderName.startsWith('_') && !state.machineModels.includes(folderName)) {
+        if (folderName && !folderName.startsWith('_') && !delMachines.has(folderName) && !state.machineModels.includes(folderName)) {
           state.machineModels.push(folderName);
           needUpdateCloudConfig = true;
         }
@@ -1949,19 +1956,19 @@ async function fetchNotesList(silent = false) {
     }
     state.notes.forEach(note => {
       if (note.meta) {
-        if (note.meta.machineModel && !state.machineModels.includes(note.meta.machineModel)) {
+        if (note.meta.machineModel && note.meta.machineModel !== '未分類' && !delMachines.has(note.meta.machineModel) && !state.machineModels.includes(note.meta.machineModel)) {
           state.machineModels.push(note.meta.machineModel);
           needUpdateCloudConfig = true;
         }
-        if (note.meta.workContent && !state.workContents.includes(note.meta.workContent)) {
+        if (note.meta.workContent && note.meta.workContent !== '未分類' && note.meta.workContent !== '隨手速記 ✍️' && !delContents.has(note.meta.workContent) && !state.workContents.includes(note.meta.workContent)) {
           state.workContents.push(note.meta.workContent);
           needUpdateCloudConfig = true;
         }
-        if (note.meta.clientVendor && !LEGACY_PLACEHOLDER_CLIENTS.has(note.meta.clientVendor) && !state.clientsVendors.includes(note.meta.clientVendor)) {
+        if (note.meta.clientVendor && !LEGACY_PLACEHOLDER_CLIENTS.has(note.meta.clientVendor) && !delClients.has(note.meta.clientVendor) && !state.clientsVendors.includes(note.meta.clientVendor)) {
           state.clientsVendors.push(note.meta.clientVendor);
           needUpdateCloudConfig = true;
         }
-        if (note.meta.urgency && !state.urgencies.some(u => u.id === note.meta.urgency || u.label === note.meta.urgency)) {
+        if (note.meta.urgency && note.meta.urgency !== '未分類' && !delUrgencies.has(note.meta.urgency) && !state.urgencies.some(u => u.id === note.meta.urgency || u.label === note.meta.urgency)) {
           state.urgencies.push({
             id: note.meta.urgency,
             label: note.meta.urgency,
@@ -1972,7 +1979,7 @@ async function fetchNotesList(silent = false) {
         }
         if (Array.isArray(note.meta.tags)) {
           note.meta.tags.forEach(tagName => {
-            if (tagName && !state.tags.some(t => t.name.toLowerCase() === tagName.toLowerCase())) {
+            if (tagName && !delTags.has(tagName) && !delTags.has(tagName.toLowerCase()) && !state.tags.some(t => t.name.toLowerCase() === tagName.toLowerCase())) {
               state.tags.push({
                 id: 'tag_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
                 name: tagName,
@@ -1995,7 +2002,7 @@ async function fetchNotesList(silent = false) {
     renderSidebarTags();
     renderNotesList();
     if (!silent && !state.isDirty && !state.isSaving) {
-      updateSyncStatus('synced', '已完全同步 (雲端)');
+      updateSyncStatus('synced', '已同步');
     }
     state.lastSyncTime = Date.now();
 
@@ -2193,10 +2200,9 @@ function applyNoteCanvasSnapshot(noteId, htmlSnapshot, metaSnapshot = null, titl
  * 立即結算尚未寫入歷史佇列的打字輸入快照（在執行任何按鈕動作或 Ctrl+Z 前呼叫，杜絕漏記）
  */
 function flushPendingEditorInputHistory(customTitle = '✍️ 編輯筆記內文') {
-  if (editorInputTimer) {
-    clearTimeout(editorInputTimer);
-    editorInputTimer = null;
-  }
+  if (!editorInputTimer) return;
+  clearTimeout(editorInputTimer);
+  editorInputTimer = null;
   if (state.isUndoingOrRedoing || !DOM.editor || !state.currentNote) return;
 
   const currentNoteId = state.currentNote.id;
@@ -2727,12 +2733,7 @@ function renderWorkTagLists() {
     else DOM.sidebarFilterUncatBadge.classList.add('hidden');
   }
 
-  if (!state.accessToken) {
-    if (DOM.sidebarMachineList) DOM.sidebarMachineList.innerHTML = '<div class="px-2 py-2 text-center text-gray-400 text-[11px]">請登入以載入雲端機型</div>';
-    if (DOM.sidebarContentList) DOM.sidebarContentList.innerHTML = '<div class="px-2 py-2 text-center text-gray-400 text-[11px]">請登入以載入工作內容</div>';
-    if (DOM.sidebarUrgencyList) DOM.sidebarUrgencyList.innerHTML = '<div class="px-2 py-2 text-center text-gray-400 text-[11px]">請登入以載入急迫性</div>';
-    return;
-  }
+  
   // 更新樹根節點總筆記數 Badge
   const treeMachineBadge = document.getElementById('tree-machine-count-badge');
   if (treeMachineBadge) treeMachineBadge.textContent = state.machineModels.length;
@@ -3043,13 +3044,13 @@ function renderWorkTagSelects() {
     const machines = (state.machineModels && state.machineModels.length > 0) ? state.machineModels : DEFAULT_MACHINE_MODELS;
     if (!curVal) curVal = '未分類';
     DOM.noteMachineSelect.innerHTML = `
-      <option value="未分類" ${curVal === '未分類' ? 'selected' : ''}>📥 未分類 (待歸位)</option>
+      <option value="未分類" ${curVal === '未分類' ? 'selected' : ''}>未分類</option>
     ` + machines.map(m => `
       <option value="${escapeHtml(m)}" ${curVal === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>
     `).join('') + `
       <option disabled>──────────</option>
-      <option value="__add_machine__">➕ 新建機型...</option>
-      <option value="__manage_machine__">⚙️ 管理所有機型標籤...</option>
+      <option value="__add_machine__">＋ 新增機型...</option>
+      <option value="__manage_machine__">⚙️ 管理機型...</option>
     `;
     DOM.noteMachineSelect.value = curVal;
   }
@@ -3059,13 +3060,13 @@ function renderWorkTagSelects() {
     const contents = (state.workContents && state.workContents.length > 0) ? state.workContents : DEFAULT_WORK_CONTENTS;
     if (!curVal) curVal = '未分類';
     DOM.noteContentSelect.innerHTML = `
-      <option value="未分類" ${curVal === '未分類' ? 'selected' : ''}>📥 未分類 (待歸位)</option>
-    ` + (curVal === '隨手速記 ✍️' ? `<option value="隨手速記 ✍️" selected>✍️ 隨手速記 (待歸類)</option>` : '') + contents.map(c => `
+      <option value="未分類" ${curVal === '未分類' ? 'selected' : ''}>未分類</option>
+    ` + (curVal === '隨手速記 ✍️' ? `<option value="隨手速記 ✍️" selected>✍️ 隨手速記</option>` : '') + contents.map(c => `
       <option value="${escapeHtml(c)}" ${curVal === c ? 'selected' : ''}>📋 ${escapeHtml(c)}</option>
     `).join('') + `
       <option disabled>──────────</option>
-      <option value="__add_content__">➕ 新建工作內容...</option>
-      <option value="__manage_content__">⚙️ 管理所有內容標籤...</option>
+      <option value="__add_content__">＋ 新增內容...</option>
+      <option value="__manage_content__">⚙️ 管理內容...</option>
     `;
     DOM.noteContentSelect.value = curVal;
   }
@@ -3230,13 +3231,13 @@ function renderWorkTagSelects() {
     }
     
     DOM.noteUrgencySelect.innerHTML = `
-      <option value="未分類" ${curVal === '未分類' ? 'selected' : ''}>📥 未分類 (待歸位)</option>
+      <option value="未分類" ${curVal === '未分類' ? 'selected' : ''}>未分類</option>
     ` + urgList.map(u => `
       <option value="${escapeHtml(u.id)}" ${curVal === u.id ? 'selected' : ''}>${escapeHtml(u.label || u.id)}</option>
     `).join('') + `
       <option disabled>──────────</option>
-      <option value="__add_urgency__">➕ 新建急迫性等級...</option>
-      <option value="__manage_urgency__">⚙️ 管理急迫性標籤...</option>
+      <option value="__add_urgency__">＋ 新增急迫性...</option>
+      <option value="__manage_urgency__">⚙️ 管理急迫性...</option>
     `;
     DOM.noteUrgencySelect.value = curVal;
   }
@@ -3245,13 +3246,13 @@ function renderWorkTagSelects() {
     let curVal = (state.currentNote && state.currentNote.meta && state.currentNote.meta.clientVendor) || DOM.noteClientSelect.value || '';
     const clients = (state.clientsVendors && state.clientsVendors.length > 0) ? state.clientsVendors : DEFAULT_CLIENTS_VENDORS;
     DOM.noteClientSelect.innerHTML = `
-      <option value="" ${(!curVal || curVal === '未指定') ? 'selected' : ''}>🏢 未指定 (非強制)</option>
+      <option value="" ${(!curVal || curVal === '未指定') ? 'selected' : ''}>未指定</option>
     ` + clients.map(c => `
       <option value="${escapeHtml(c)}" ${curVal === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>
     `).join('') + `
       <option disabled>──────────</option>
-      <option value="__add_client__">➕ 新建客戶或廠商...</option>
-      <option value="__manage_client__">⚙️ 管理客戶與廠商標籤...</option>
+      <option value="__add_client__">＋ 新增客戶/廠商...</option>
+      <option value="__manage_client__">⚙️ 管理客戶/廠商...</option>
     `;
     DOM.noteClientSelect.value = curVal;
   }
@@ -4786,7 +4787,7 @@ function renderBreadcrumbs() {
 
   const rootItem = document.createElement('span');
   rootItem.className = 'notion-breadcrumb-item';
-  rootItem.innerHTML = '<i data-lucide="home" class="w-3 h-3"></i> 全部工作筆記';
+  rootItem.innerHTML = '<i data-lucide="home" class="w-3 h-3"></i> 全部筆記';
   rootItem.onclick = () => {
     state.currentMachineFilter = null;
     state.currentContentFilter = null;
@@ -4925,7 +4926,7 @@ async function compressImageForUpload(file, maxDimension = 1280, quality = 0.76)
   const t0 = performance.now();
   try {
     const origSize = file.size;
-    // 🍏 v2.8.7 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
+    // 🍏 v2.8.8 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
     if (await isHeicFileOrBlob(file, file.name)) {
       const convertedJpegBlob = await convertHeicBlobToJpegBlob(file, Math.max(0.84, quality));
       if (convertedJpegBlob) {
@@ -5572,7 +5573,7 @@ function buildMediaCollapseCardHtml({ fileId, fileName, isImage, isVideo, isAudi
       </summary>
       ${isImage ? `
       <div class="media-top-note-bar" contenteditable="false">
-        <span class="media-top-note-label">📝 圖片註記：</span>
+        <span class="media-top-note-label">📝 備註：</span>
         <div class="media-top-note-input" contenteditable="true" data-placeholder="點擊輸入此圖片的文字註記或說明...">${safeTopNote}</div>
       </div>` : ''}
       <div class="p-3 text-center border-t border-gray-200/50 dark:border-notion-borderDark/60 media-collapse-content">
@@ -7238,7 +7239,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.8.7', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.8.8', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -8730,7 +8731,7 @@ function enhanceMediaCollapsiblesAndDraggables(container) {
         topNoteBar.setAttribute('contenteditable', 'false');
         const savedNote = details.getAttribute('data-image-note') || '';
         topNoteBar.innerHTML = `
-          <span class="media-top-note-label">📝 圖片註記：</span>
+          <span class="media-top-note-label">📝 備註：</span>
           <div class="media-top-note-input" contenteditable="true" data-placeholder="點擊輸入此圖片的文字註記或說明...">${savedNote}</div>
         `;
         if (contentBox) {
@@ -11263,8 +11264,8 @@ function renderUncategorizedView() {
       grid.innerHTML = `
         <div class="col-span-full py-14 text-center">
           <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-emerald-50 dark:bg-emerald-950/40 text-emerald-500 flex items-center justify-center text-3xl shadow-sm">✨</div>
-          <h3 class="text-sm font-bold text-gray-800 dark:text-gray-100">所有筆記皆已妥善歸位！</h3>
-          <p class="text-xs text-gray-400 mt-1 max-w-sm mx-auto">目前沒有待分類的隨手筆記。點擊「建立隨手筆記」可隨時捕捉現場靈感或巡檢速記。</p>
+          <h3 class="text-sm font-bold text-gray-800 dark:text-gray-100">目前無未分類筆記</h3>
+          
           <button id="uncat-empty-create-btn" class="mt-4 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold shadow transition active:scale-95 flex items-center gap-1.5 mx-auto">
             <i data-lucide="plus" class="w-4 h-4"></i>
             <span>立即建立隨手筆記</span>
@@ -11313,28 +11314,28 @@ function renderUncategorizedView() {
             </div>
             <span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-200 shrink-0">待歸位</span>
           </div>
-          <p class="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2 mt-1">點選下方下拉選單設定機型與工作內容，即可一鍵將此隨手筆記自動歸檔至對應 Google Drive 資料夾。</p>
+          
         </div>
 
         <div class="space-y-1.5 pt-2 border-t border-gray-100 dark:border-notion-borderDark text-xs">
           <div class="flex items-center gap-1.5">
             <span class="w-12 text-[11px] font-semibold text-gray-500 shrink-0">機型：</span>
             <select class="uncat-select-machine flex-1 px-2 py-1 text-xs rounded border border-gray-200 dark:border-notion-borderDark bg-gray-50 dark:bg-notion-darker font-medium">
-              <option value="未分類" ${!curMachine || curMachine === '未分類' ? 'selected' : ''}>-- 請選擇機型 (未分類) --</option>
+              <option value="未分類" ${!curMachine || curMachine === '未分類' ? 'selected' : ''}>選擇機型...</option>
               ${machineOptions}
             </select>
           </div>
           <div class="flex items-center gap-1.5">
             <span class="w-12 text-[11px] font-semibold text-gray-500 shrink-0">內容：</span>
             <select class="uncat-select-content flex-1 px-2 py-1 text-xs rounded border border-gray-200 dark:border-notion-borderDark bg-gray-50 dark:bg-notion-darker font-medium">
-              <option value="未分類" ${!curContent || curContent === '未分類' || curContent === '隨手速記 ✍️' ? 'selected' : ''}>-- 請選擇內容 (未分類) --</option>
+              <option value="未分類" ${!curContent || curContent === '未分類' || curContent === '隨手速記 ✍️' ? 'selected' : ''}>選擇內容...</option>
               ${contentOptions}
             </select>
           </div>
           <div class="flex items-center gap-1.5">
             <span class="w-12 text-[11px] font-semibold text-gray-500 shrink-0">急迫：</span>
             <select class="uncat-select-urgency flex-1 px-2 py-1 text-xs rounded border border-gray-200 dark:border-notion-borderDark bg-gray-50 dark:bg-notion-darker font-medium">
-              <option value="未分類" ${!curUrgency || curUrgency === '未分類' ? 'selected' : ''}>-- 請選擇急迫性 (未分類) --</option>
+              <option value="未分類" ${!curUrgency || curUrgency === '未分類' ? 'selected' : ''}>選擇急迫性...</option>
               ${urgencyOptions}
             </select>
           </div>
@@ -12760,7 +12761,7 @@ function closeTableQuickPeekDrawer() {
 }
 
 // ============================================================================
-// 📋 LVI_Note v2.8.7 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
+// 📋 LVI_Note v2.8.8 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
 // ============================================================================
 
 const TODO_STORAGE_KEY = 'lvi_todo_items_v283';
@@ -13587,7 +13588,7 @@ function evaluateFuzzyTodoMatch(todoItem, parsedQuery) {
 }
 
 // ============================================================================
-// 📋 表格資料庫檢視 (Table Database View - v2.8.7)
+// 📋 表格資料庫檢視 (Table Database View - v2.8.8)
 // ============================================================================
 
 function openTodoQuickPeekDrawer(todoId, fuzzyRes = null) {
@@ -13850,7 +13851,7 @@ function renderTableView() {
 
       const todoMachineOptsHtml = [`<option value="" ${!todo.machineModel ? 'selected' : ''}>未選擇</option>`]
         .concat(getSharedMachineModelsForTodo().map(m => `<option value="${escapeHtml(m)}" ${todo.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`))
-        .concat([`<option value="__add_machine__">➕ 新建機型...</option>`])
+        .concat([`<option value="__add_machine__">＋ 新增機型...</option>`])
         .join('');
 
       const todoClientOptsHtml = [`<option value="" ${!todo.clientVendor ? 'selected' : ''}>未選擇</option>`]
@@ -13978,7 +13979,7 @@ function renderTableView() {
 
     const machineOptionsHtml = (allMachineOpts.includes(machine) ? allMachineOpts : [machine, ...allMachineOpts])
       .map(m => `<option value="${escapeHtml(m)}" ${m === machine ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`).join('') +
-      `<option value="__add_machine__">➕ 新建機型...</option>`;
+      `<option value="__add_machine__">＋ 新增機型...</option>`;
 
     const contentOptionsHtml = (allContentOpts.includes(content) ? allContentOpts : [content, ...allContentOpts])
       .map(c => `<option value="${escapeHtml(c)}" ${c === content ? 'selected' : ''}>📋 ${escapeHtml(c)}</option>`).join('') +
@@ -14677,7 +14678,7 @@ function renderSingleTodoCardHtml(item) {
     `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>`,
     ...machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`),
     `<option disabled>──────────</option>`,
-    `<option value="__add_shared_machine__">➕ 新建機型...</option>`,
+    `<option value="__add_shared_machine__">＋ 新增機型...</option>`,
     `<option value="__manage_shared_machine__">⚙️ 管理機型...</option>`
   ].join('');
 
@@ -14713,8 +14714,8 @@ function renderSingleTodoCardHtml(item) {
   }).join('');
 
   const availableNotesOptionsHtml = [
-    `<option value="">未選擇 (＋ 新增關聯筆記)</option>`,
-    `<option value="__create_new_linked_note__">✨ 建立新關聯筆記...</option>`,
+    `<option value="">＋ 關聯筆記...</option>`,
+    `<option value="__create_new_linked_note__">＋ 新建關聯筆記...</option>`,
     `<option disabled>── 選擇現有筆記 ──</option>`,
     ...(state.notes || []).slice(0, 120).map(n => {
       const nTitle = (n.name || '未命名筆記').replace(/\.md$/i, '');
@@ -14734,7 +14735,7 @@ function renderSingleTodoCardHtml(item) {
     : `<span class="text-xs text-gray-400">無</span>`;
 
   const bottomTagAddOptionsHtml = [
-    `<option value="">未選擇 (＋ 新增標籤)</option>`,
+    `<option value="">＋ 新增標籤...</option>`,
     ...sharedTags.map(t => {
       const name = typeof t === 'string' ? t : (t.name || t.id);
       return `<option value="${escapeHtml(name)}">#${escapeHtml(name)}</option>`;
@@ -14755,7 +14756,7 @@ function renderSingleTodoCardHtml(item) {
     : `<span class="text-xs text-gray-400">無</span>`;
 
   const handlerAddOptionsHtml = [
-    `<option value="">未選擇 (＋ 指派人員)</option>`,
+    `<option value="">＋ 指派人員...</option>`,
     ...handlers.map(h => `<option value="${escapeHtml(h)}">👤 ${escapeHtml(h)}</option>`),
     `<option disabled>──────────</option>`,
     `<option value="__add_new_handler__">➕ 新增人員...</option>`,
@@ -14768,12 +14769,12 @@ function renderSingleTodoCardHtml(item) {
     <div class="lvi-todo-detail-navbar">
       <div class="flex items-center gap-2.5 flex-wrap">
         <button type="button" id="btn-back-to-todo-list">
-          <span>← 返回待辦列表</span>
+          <span>← 返回列表</span>
         </button>
         <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold border ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
       </div>
       <button type="button" class="todo-delete-card-btn" data-todo-id="${escapeHtml(item.id)}" title="永久刪除此筆待辦事項">
-        <span>🗑️ 刪除此待辦事項</span>
+        <span>🗑️ 刪除</span>
       </button>
     </div>
 
@@ -14783,8 +14784,8 @@ function renderSingleTodoCardHtml(item) {
         <!-- 1. 標題 -->
         <div class="lvi-todo-box">
           <div class="lvi-todo-box-label">
-            <span>📌 待辦事項標題</span>
-            ${item.googleTaskId ? `<span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">☁️ Tasks 已同步</span>` : ''}
+            <span>📌 標題</span>
+            
           </div>
           <input type="text" class="todo-title-input" value="${escapeHtml(item.title || '')}" placeholder="請輸入待辦標題..." />
         </div>
@@ -14826,7 +14827,7 @@ function renderSingleTodoCardHtml(item) {
       <!-- 第 2 列：建立時間 | 關聯筆記 -->
       <div class="lvi-todo-row-2">
         <div class="lvi-todo-created-pill todo-edit-created-time-btn" title="點擊可調整建立時間">
-          <span class="text-[10px] font-extrabold text-blue-700 dark:text-blue-300">🕒 建立時間 (點擊微調)</span>
+          <span class="text-[10px] font-extrabold text-blue-700 dark:text-blue-300">🕒 建立時間</span>
           <span class="text-xs font-black text-blue-950 dark:text-blue-100 todo-created-time-text">${escapeHtml(item.createdAt || formatTodoTimestamp())}</span>
         </div>
 
@@ -14847,18 +14848,18 @@ function renderSingleTodoCardHtml(item) {
           <div class="lvi-todo-section-title">
             <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
             <span>待辦說明</span>
-            <span class="lvi-todo-section-hint hidden sm:inline">（支援 Ctrl+V 貼上截圖或拖放照片）</span>
+            
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <button type="button" class="todo-section-camera-btn" data-section="issue">
               <span>📷 拍照</span>
             </button>
             <button type="button" class="todo-section-upload-btn" data-section="issue">
-              <span>📎 上傳附件</span>
+              <span>📎 附件</span>
             </button>
           </div>
         </div>
-        <textarea class="lvi-todo-textarea todo-issue-textarea" rows="3" placeholder="輸入待辦說明、異常現象或現場狀況...">${escapeHtml(item.issueText || '')}</textarea>
+        <textarea class="lvi-todo-textarea todo-issue-textarea" rows="3" placeholder="輸入待辦說明...">${escapeHtml(item.issueText || '')}</textarea>
         <div class="todo-attachments-gallery todo-issue-attachments">${item.issueAttachmentsHtml || ''}</div>
       </div>
 
@@ -14868,18 +14869,18 @@ function renderSingleTodoCardHtml(item) {
           <div class="lvi-todo-section-title">
             <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
             <span>處理結果</span>
-            <span class="lvi-todo-section-hint hidden sm:inline">（支援 Ctrl+V 貼上截圖或拖放照片）</span>
+            
           </div>
           <div class="flex items-center gap-2 flex-wrap">
             <button type="button" class="todo-section-camera-btn" data-section="resolution">
               <span>📷 拍照</span>
             </button>
             <button type="button" class="todo-section-upload-btn" data-section="resolution">
-              <span>📎 上傳附件</span>
+              <span>📎 附件</span>
             </button>
           </div>
         </div>
-        <textarea class="lvi-todo-textarea todo-resolution-textarea" rows="3" placeholder="輸入處理過程、更換零件或結果數據...">${escapeHtml(item.resolutionText || '')}</textarea>
+        <textarea class="lvi-todo-textarea todo-resolution-textarea" rows="3" placeholder="輸入處理結果...">${escapeHtml(item.resolutionText || '')}</textarea>
         <div class="todo-attachments-gallery todo-resolution-attachments">${item.resolutionAttachmentsHtml || ''}</div>
       </div>
 
@@ -15714,7 +15715,7 @@ function renderTasksView() {
       <div class="p-8 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700 bg-white/80 dark:bg-notion-card text-center">
         <div class="text-2xl mb-1.5">📋</div>
         <div class="text-sm font-extrabold text-gray-700 dark:text-gray-200">${fStatus ? `「${escapeHtml(fStatus)}」分類目前沒有項目` : '目前沒有待辦事項'}</div>
-        <div class="text-xs text-gray-400 mt-1">點擊右上角「＋ 新增待辦事項」即可建立新項目</div>
+        
       </div>
     `;
     return;
@@ -17051,29 +17052,7 @@ function bindEvents() {
   if (DOM.closeTagManagerBtn) DOM.closeTagManagerBtn.addEventListener('click', closeTagManagerModal);
   if (DOM.tmDoneBtn) DOM.tmDoneBtn.addEventListener('click', closeTagManagerModal);
 
-  if (DOM.tmAddBtn) {
-    DOM.tmAddBtn.addEventListener('click', () => {
-      const name = DOM.tmNewName.value.trim();
-      const color = DOM.tmNewColor.value;
-      if (!name) {
-        showToast('請輸入標籤名稱');
-        return;
-      }
-      if (state.tags.some(t => t.name.toLowerCase() === name.toLowerCase())) {
-        showToast('此標籤已存在');
-        return;
-      }
-      state.tags.push({
-        id: 't_' + Date.now(),
-        name,
-        color
-      });
-      DOM.tmNewName.value = '';
-      saveTags();
-      renderTagManagerList();
-      showToast(`已建立新標籤「#${name}」`);
-    });
-  }
+  // Duplicate DOM.tmAddBtn listener removed in v2.8.8
 
   // 下拉式標籤面板
   if (DOM.addTagBtn) {
@@ -19623,8 +19602,8 @@ async function startInAppCameraStream() {
 
     if (statusEl) {
       statusEl.textContent = inAppCameraState.instantUpload
-        ? '⚡ 即拍即傳模式：按下快門立即寫入筆記並上傳雲端（絕不閃退）'
-        : '🔍 預覽確認模式：按下快門後可先檢視畫面，再按「確定使用」';
+        ? '即拍即傳模式'
+        : '預覽確認模式';
     }
   } catch (err) {
     console.warn('無法開啟內建 WebRTC 相機，切換為安全相簿選圖:', err);
@@ -19804,8 +19783,8 @@ function initInAppCameraListeners() {
       const statusEl = document.getElementById('inapp-camera-status');
       if (statusEl) {
         statusEl.textContent = inAppCameraState.instantUpload
-          ? '⚡ 即拍即傳模式：按下快門立即寫入筆記並上傳雲端（絕不閃退）'
-          : '🔍 預覽確認模式：按下快門後可先檢視畫面，再按「確定使用」';
+          ? '即拍即傳模式'
+          : '預覽確認模式';
       }
     });
   }
@@ -19860,7 +19839,7 @@ function initInAppCameraListeners() {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.8.7 圖片四大升級引擎：
+// 🚀 LVI_Note v2.8.8 圖片四大升級引擎：
 // 1. HEIC/HEIF 完整解碼與標註支援 (heic2any + ImageBitmap + Drive 雲端轉檔)
 // 2. 圖片框上方專屬高對比文字註記欄 (.media-top-note-bar，淺/深色皆 >18:1 超高對比)
 // 3. 真實圖片旋轉 (90° 左/右旋轉 + PATCH/POST 重新存回 Google Drive 雲端硬碟)
@@ -20271,7 +20250,7 @@ async function syncBinaryImageBlobToDriveForBlock(block, imageFileOrBlob, target
       if (DOM.editor) state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
       saveLocalDraftImmediately();
       triggerAutoSaveDebounce();
-      updateSyncStatus('synced', '圖片與筆記已同步存回雲端');
+      updateSyncStatus('synced', '已同步');
       showToast(`☁️ ${actionLabel}「${targetFileName}」已重新存回 Google 雲端硬碟！`, 2600);
       return finalFileId;
     }
@@ -20693,3 +20672,1842 @@ if (DOM.noteTitle && !DOM.noteTitle._titleSyncBound) {
 try { ensureTodoItemsInitialized(); initTodoViewTopControlsOnce(); updateTodoSummaryStats(); } catch (e) {}
 
 if (document.readyState !== 'loading') { bootLviAppOnce(); }
+
+
+
+// ============================================================================
+// 🚀 LVI_Note v2.8.8 全層級分類與標籤管理中心修復與穩定引擎
+// 1. 永久刪除墓碑機制 (state.deletedCategoryItems)：確保刪除或更名後的預設/自訂選項絕不因雲端同步或重整而復活
+// 2. 六大分類統一就地編輯列 (.tm-unified-item-row)：支援點擊直接修改、Enter 鍵儲存、✓ 儲存鈕、🗑️ 即時刪除 (附一鍵復原)
+// 3. 消除 input blur/change 與按鈕 click 的競態衝突 (mousedown preventDefault 保護)
+// 4. 修改或刪除分類時，自動於背景同步更新受影響筆記之雲端中繼資料
+// ============================================================================
+
+const DELETED_CATEGORIES_STORAGE_KEY = 'lvi_deleted_category_items_v288';
+
+function ensureDeletedCategoryItemsLoaded() {
+  if (!state.deletedCategoryItems || typeof state.deletedCategoryItems !== 'object') {
+    state.deletedCategoryItems = {
+      machine: [],
+      content: [],
+      urgency: [],
+      client: [],
+      custom: [],
+      todo_handler: []
+    };
+  }
+  if (!state._deletedCatsHydrated) {
+    state._deletedCatsHydrated = true;
+    try {
+      const raw = localStorage.getItem(DELETED_CATEGORIES_STORAGE_KEY);
+      if (raw) {
+        const parsed = safeJsonParse(raw, null);
+        if (parsed && typeof parsed === 'object') {
+          ['machine', 'content', 'urgency', 'client', 'custom', 'todo_handler'].forEach(k => {
+            const existing = Array.isArray(state.deletedCategoryItems[k]) ? state.deletedCategoryItems[k] : [];
+            const incoming = Array.isArray(parsed[k]) ? parsed[k] : [];
+            state.deletedCategoryItems[k] = Array.from(new Set([...existing, ...incoming]));
+          });
+        }
+      }
+    } catch (e) {}
+  }
+  return state.deletedCategoryItems;
+}
+
+function saveDeletedCategoryItemsToStorage() {
+  if (!state.deletedCategoryItems || typeof state.deletedCategoryItems !== 'object') {
+    ensureDeletedCategoryItemsLoaded();
+  }
+  try {
+    safeSetLocalStorageItem(DELETED_CATEGORIES_STORAGE_KEY, JSON.stringify(state.deletedCategoryItems));
+  } catch (e) {}
+}
+
+function mergeDeletedCategoryDictionaries(dictA, dictB) {
+  const out = {
+    machine: [],
+    content: [],
+    urgency: [],
+    client: [],
+    custom: [],
+    todo_handler: []
+  };
+  ['machine', 'content', 'urgency', 'client', 'custom', 'todo_handler'].forEach(k => {
+    const a = (dictA && Array.isArray(dictA[k])) ? dictA[k] : [];
+    const b = (dictB && Array.isArray(dictB[k])) ? dictB[k] : [];
+    out[k] = Array.from(new Set([...a, ...b].map(x => String(x || '').trim()).filter(Boolean)));
+  });
+  return out;
+}
+
+function getDeletedCategorySet(catKey) {
+  ensureDeletedCategoryItemsLoaded();
+  const arr = state.deletedCategoryItems[catKey] || [];
+  const set = new Set();
+  arr.forEach(v => {
+    const s = String(v || '').trim();
+    if (s) {
+      set.add(s);
+      if (catKey === 'custom') set.add(s.toLowerCase());
+    }
+  });
+  return set;
+}
+
+function markCategoryItemDeleted(catKey, itemValue) {
+  const s = String(itemValue || '').trim();
+  if (!s) return;
+  ensureDeletedCategoryItemsLoaded();
+  if (!Array.isArray(state.deletedCategoryItems[catKey])) {
+    state.deletedCategoryItems[catKey] = [];
+  }
+  if (!state.deletedCategoryItems[catKey].includes(s)) {
+    state.deletedCategoryItems[catKey].push(s);
+  }
+  saveDeletedCategoryItemsToStorage();
+}
+
+function unmarkCategoryItemDeleted(catKey, itemValue) {
+  const s = String(itemValue || '').trim();
+  if (!s) return;
+  ensureDeletedCategoryItemsLoaded();
+  if (!Array.isArray(state.deletedCategoryItems[catKey])) return;
+  state.deletedCategoryItems[catKey] = state.deletedCategoryItems[catKey].filter(
+    x => x !== s && (catKey !== 'custom' || String(x).toLowerCase() !== s.toLowerCase())
+  );
+  saveDeletedCategoryItemsToStorage();
+}
+
+function filterOutDeletedCategoryItems(catKey, list) {
+  if (!Array.isArray(list)) return [];
+  const delSet = getDeletedCategorySet(catKey);
+  if (delSet.size === 0) return list;
+  return list.filter(item => {
+    if (!item) return false;
+    if (typeof item === 'string') {
+      const s = item.trim();
+      return s && !delSet.has(s) && (catKey !== 'custom' || !delSet.has(s.toLowerCase()));
+    }
+    const idStr = String(item.id || item.name || item.label || '').trim();
+    const labelStr = String(item.label || item.name || item.id || '').trim();
+    if (delSet.has(idStr) || delSet.has(labelStr)) return false;
+    if (catKey === 'custom' && (delSet.has(idStr.toLowerCase()) || delSet.has(labelStr.toLowerCase()))) return false;
+    return true;
+  });
+}
+
+// 覆寫合併輔助函式，確保預設陣列與雲端陣列合併時自動套用刪除墓碑過濾
+function mergeUniqueUrgencyObjects(primary = [], secondary = [], deletedSet = null) {
+  const delSet = deletedSet || getDeletedCategorySet('urgency');
+  const out = [];
+  const seen = new Set();
+  [...(primary || []), ...(secondary || [])].forEach(u => {
+    if (!u) return;
+    const id = (typeof u === 'string' ? u : (u.id || u.label || '')).trim();
+    const label = (typeof u === 'string' ? u : (u.label || u.id || '')).trim();
+    if (!id || seen.has(id) || delSet.has(id) || delSet.has(label)) return;
+    seen.add(id);
+    if (typeof u === 'object') {
+      out.push({
+        id: label || id,
+        label: label || id,
+        short: u.short || label || id,
+        color: u.color || 'bg-blue-100 text-blue-800'
+      });
+    } else {
+      out.push({ id, label: id, short: id, color: 'bg-blue-100 text-blue-800' });
+    }
+  });
+  return out;
+}
+
+// 覆寫 initWorkTags 與 initTags，嚴格尊重已刪除墓碑
+function initWorkTags() {
+  ensureDeletedCategoryItemsLoaded();
+  const delMach = getDeletedCategorySet('machine');
+  const delCont = getDeletedCategorySet('content');
+  const delUrg = getDeletedCategorySet('urgency');
+  const delCli = getDeletedCategorySet('client');
+  const delTag = getDeletedCategorySet('custom');
+
+  if (!Array.isArray(state.machineModels)) {
+    state.machineModels = filterOutDeletedCategoryItems('machine', DEFAULT_MACHINE_MODELS.slice());
+  } else {
+    state.machineModels = mergeUniqueStringList(state.machineModels, DEFAULT_MACHINE_MODELS, delMach);
+  }
+  if (!Array.isArray(state.workContents)) {
+    state.workContents = filterOutDeletedCategoryItems('content', DEFAULT_WORK_CONTENTS.slice());
+  } else {
+    state.workContents = mergeUniqueStringList(state.workContents, DEFAULT_WORK_CONTENTS, delCont);
+  }
+  if (!Array.isArray(state.urgencies)) {
+    state.urgencies = filterOutDeletedCategoryItems('urgency', DEFAULT_URGENCIES.slice());
+  } else {
+    state.urgencies = mergeUniqueUrgencyObjects(state.urgencies, DEFAULT_URGENCIES, delUrg);
+  }
+  if (!Array.isArray(state.clientsVendors)) {
+    state.clientsVendors = filterOutDeletedCategoryItems('client', DEFAULT_CLIENTS_VENDORS.slice());
+  } else {
+    const cleanedClients = state.clientsVendors.filter(c => !LEGACY_PLACEHOLDER_CLIENTS.has(c));
+    state.clientsVendors = mergeUniqueStringList(cleanedClients, DEFAULT_CLIENTS_VENDORS, delCli);
+  }
+  if (!Array.isArray(state.tags)) {
+    state.tags = filterOutDeletedCategoryItems('custom', DEFAULT_TAGS.slice());
+  } else {
+    state.tags = mergeUniqueTagObjects(state.tags, DEFAULT_TAGS, delTag);
+  }
+  if (!Array.isArray(state.todoHandlers)) {
+    state.todoHandlers = filterOutDeletedCategoryItems('todo_handler', DEFAULT_TODO_HANDLERS.slice());
+  } else {
+    state.todoHandlers = filterOutDeletedCategoryItems('todo_handler', state.todoHandlers);
+  }
+  renderWorkTagLists();
+  renderWorkTagSelects();
+}
+
+function initTags() {
+  ensureDeletedCategoryItemsLoaded();
+  const delTag = getDeletedCategorySet('custom');
+  if (!Array.isArray(state.tags)) {
+    state.tags = filterOutDeletedCategoryItems('custom', DEFAULT_TAGS.slice());
+  } else {
+    state.tags = mergeUniqueTagObjects(state.tags, DEFAULT_TAGS, delTag);
+  }
+  renderSidebarTags();
+}
+
+// 覆寫 saveSwrCacheSnapshot 與 hydrateFromSwrCacheOnBoot 以保存 deletedCategoryItems
+const _origSaveSwrCacheSnapshotV287 = saveSwrCacheSnapshot;
+saveSwrCacheSnapshot = function() {
+  ensureDeletedCategoryItemsLoaded();
+  saveDeletedCategoryItemsToStorage();
+  _origSaveSwrCacheSnapshotV287();
+  try {
+    const rawWs = localStorage.getItem(SWR_WORKSPACE_KEY);
+    if (rawWs) {
+      const ws = safeJsonParse(rawWs, {});
+      ws.deletedCategoryItems = state.deletedCategoryItems;
+      ws.machineModels = filterOutDeletedCategoryItems('machine', state.machineModels || []);
+      ws.workContents = filterOutDeletedCategoryItems('content', state.workContents || []);
+      ws.urgencies = filterOutDeletedCategoryItems('urgency', state.urgencies || []);
+      ws.clientsVendors = filterOutDeletedCategoryItems('client', state.clientsVendors || []);
+      ws.tags = filterOutDeletedCategoryItems('custom', state.tags || []);
+      ws.todoHandlers = filterOutDeletedCategoryItems('todo_handler', state.todoHandlers || []);
+      safeSetLocalStorageItem(SWR_WORKSPACE_KEY, JSON.stringify(ws));
+    }
+  } catch (e) {}
+};
+
+const _origHydrateFromSwrCacheOnBootV287 = hydrateFromSwrCacheOnBoot;
+hydrateFromSwrCacheOnBoot = function() {
+  ensureDeletedCategoryItemsLoaded();
+  try {
+    const rawWs = localStorage.getItem(SWR_WORKSPACE_KEY);
+    if (rawWs) {
+      const ws = safeJsonParse(rawWs, null);
+      if (ws && ws.deletedCategoryItems) {
+        state.deletedCategoryItems = mergeDeletedCategoryDictionaries(state.deletedCategoryItems, ws.deletedCategoryItems);
+        saveDeletedCategoryItemsToStorage();
+      }
+    }
+  } catch (e) {}
+  _origHydrateFromSwrCacheOnBootV287();
+  state.machineModels = filterOutDeletedCategoryItems('machine', state.machineModels || []);
+  state.workContents = filterOutDeletedCategoryItems('content', state.workContents || []);
+  state.urgencies = filterOutDeletedCategoryItems('urgency', state.urgencies || []);
+  state.clientsVendors = filterOutDeletedCategoryItems('client', state.clientsVendors || []);
+  state.tags = filterOutDeletedCategoryItems('custom', state.tags || []);
+  state.todoHandlers = filterOutDeletedCategoryItems('todo_handler', state.todoHandlers || []);
+};
+
+// 覆寫雲端設定同步 (syncWorkspaceConfigWithDrive & saveWorkspaceConfigToDrive)，加入 deletedCategoryItems 永久保護
+syncWorkspaceConfigWithDrive = async function(silent = false) {
+  if (!state.accessToken || !state.folderId) return;
+  if (!silent) {
+    updateSyncStatus('syncing', '讀取中...');
+  }
+  ensureDeletedCategoryItemsLoaded();
+
+  try {
+    const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc`, {
+      headers: { Authorization: `Bearer ${state.accessToken}` }
+    });
+    const data = await res.json();
+
+    if (data.files && data.files.length > 0) {
+      const allConfigs = [];
+      for (const fMeta of data.files.slice(0, 5)) {
+        try {
+          const getRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fMeta.id}?alt=media`, {
+            headers: { Authorization: `Bearer ${state.accessToken}` }
+          });
+          if (getRes.ok) {
+            const parsed = await getRes.json();
+            if (parsed && typeof parsed === 'object') {
+              allConfigs.push(parsed);
+            }
+          }
+        } catch (err) {}
+      }
+
+      let mergedDeletedTodoIds = Array.isArray(state.deletedTodoIds) ? state.deletedTodoIds.slice() : [];
+      let mergedDeletedCats = state.deletedCategoryItems;
+
+      allConfigs.forEach(cfg => {
+        if (Array.isArray(cfg.deletedTodoIds)) {
+          mergedDeletedTodoIds = Array.from(new Set([...mergedDeletedTodoIds, ...cfg.deletedTodoIds]));
+        }
+        if (cfg.deletedCategoryItems && typeof cfg.deletedCategoryItems === 'object') {
+          mergedDeletedCats = mergeDeletedCategoryDictionaries(mergedDeletedCats, cfg.deletedCategoryItems);
+        }
+      });
+      state.deletedTodoIds = mergedDeletedTodoIds;
+      state.deletedCategoryItems = mergedDeletedCats;
+      saveDeletedCategoryItemsToStorage();
+
+      const delMach = getDeletedCategorySet('machine');
+      const delCont = getDeletedCategorySet('content');
+      const delUrg = getDeletedCategorySet('urgency');
+      const delCli = getDeletedCategorySet('client');
+      const delTag = getDeletedCategorySet('custom');
+      const delHdl = getDeletedCategorySet('todo_handler');
+
+      let mergedMachines = [];
+      let mergedContents = [];
+      let mergedUrgencies = [];
+      let mergedClients = [];
+      let mergedTags = [];
+      let mergedHandlers = [];
+      let mergedTodoItems = Array.isArray(state.todoItems) ? state.todoItems.slice() : [];
+
+      allConfigs.forEach(cfg => {
+        if (Array.isArray(cfg.machineModels)) {
+          mergedMachines = mergeUniqueStringList(mergedMachines, cfg.machineModels, delMach);
+        }
+        if (Array.isArray(cfg.workContents)) {
+          mergedContents = mergeUniqueStringList(mergedContents, cfg.workContents, delCont);
+        }
+        if (Array.isArray(cfg.urgencies)) {
+          mergedUrgencies = mergeUniqueUrgencyObjects(mergedUrgencies, cfg.urgencies, delUrg);
+        }
+        if (Array.isArray(cfg.clientsVendors)) {
+          const realClients = cfg.clientsVendors.filter(c => !LEGACY_PLACEHOLDER_CLIENTS.has(c));
+          mergedClients = mergeUniqueStringList(mergedClients, realClients, delCli);
+        }
+        if (Array.isArray(cfg.tags)) {
+          mergedTags = mergeUniqueTagObjects(mergedTags, cfg.tags, delTag);
+        }
+        if (Array.isArray(cfg.todoHandlers)) {
+          const realHandlers = cfg.todoHandlers.filter(h => !['Vincent', '值班工程師', '設備保養組', '駐廠廠商'].includes(h));
+          mergedHandlers = mergeUniqueStringList(mergedHandlers, realHandlers, delHdl);
+        }
+        if (Array.isArray(cfg.todoItems)) {
+          mergedTodoItems = mergeCloudAndLocalTodoItems(cfg.todoItems, mergedTodoItems);
+        }
+      });
+
+      state.machineModels = mergeUniqueStringList(mergedMachines, DEFAULT_MACHINE_MODELS, delMach);
+      state.workContents = mergeUniqueStringList(mergedContents, DEFAULT_WORK_CONTENTS, delCont);
+      state.urgencies = mergeUniqueUrgencyObjects(mergedUrgencies, DEFAULT_URGENCIES, delUrg);
+      state.clientsVendors = mergeUniqueStringList(mergedClients, DEFAULT_CLIENTS_VENDORS, delCli);
+      state.tags = mergeUniqueTagObjects(mergedTags, DEFAULT_TAGS, delTag);
+      state.todoHandlers = mergeUniqueStringList(mergedHandlers, DEFAULT_TODO_HANDLERS, delHdl);
+      state.todoItems = mergedTodoItems;
+      state.hasLoadedCloudWorkspaceConfig = true;
+
+      saveTodoItemsToLocalStorageOnly();
+      saveSwrCacheSnapshot();
+
+      renderWorkTagLists();
+      renderWorkTagSelects();
+      renderFolderSelect();
+      renderSidebarTags();
+      await saveWorkspaceConfigToDrive();
+    } else {
+      const delMach = getDeletedCategorySet('machine');
+      const delCont = getDeletedCategorySet('content');
+      const delUrg = getDeletedCategorySet('urgency');
+      const delCli = getDeletedCategorySet('client');
+      const delTag = getDeletedCategorySet('custom');
+      const delHdl = getDeletedCategorySet('todo_handler');
+
+      state.machineModels = mergeUniqueStringList(state.machineModels, DEFAULT_MACHINE_MODELS, delMach);
+      state.workContents = mergeUniqueStringList(state.workContents, DEFAULT_WORK_CONTENTS, delCont);
+      state.urgencies = mergeUniqueUrgencyObjects(state.urgencies, DEFAULT_URGENCIES, delUrg);
+      state.clientsVendors = mergeUniqueStringList(state.clientsVendors, DEFAULT_CLIENTS_VENDORS, delCli);
+      state.tags = mergeUniqueTagObjects(state.tags, DEFAULT_TAGS, delTag);
+      state.todoHandlers = mergeUniqueStringList(state.todoHandlers, DEFAULT_TODO_HANDLERS, delHdl);
+      state.folders = DEFAULT_FOLDERS.slice();
+      state.hasLoadedCloudWorkspaceConfig = true;
+      await saveWorkspaceConfigToDrive();
+      renderWorkTagLists();
+      renderWorkTagSelects();
+      renderFolderSelect();
+      renderSidebarTags();
+    }
+  } catch (e) {
+    console.error('載入工作區設定失敗:', e);
+    state.hasLoadedCloudWorkspaceConfig = true;
+    updateSyncStatus('error', '同步失敗');
+  }
+};
+
+saveWorkspaceConfigToDrive = async function() {
+  if (!state.accessToken || !state.folderId) return;
+  if (!state.hasLoadedCloudWorkspaceConfig) {
+    pendingSaveConfig = true;
+    return;
+  }
+  if (isSavingConfig) {
+    pendingSaveConfig = true;
+    return;
+  }
+  isSavingConfig = true;
+  ensureDeletedCategoryItemsLoaded();
+
+  try {
+    const configData = JSON.stringify({
+      machineModels: Array.isArray(state.machineModels) ? state.machineModels : DEFAULT_MACHINE_MODELS,
+      workContents: Array.isArray(state.workContents) ? state.workContents : DEFAULT_WORK_CONTENTS,
+      urgencies: (Array.isArray(state.urgencies) && state.urgencies.length > 0) ? state.urgencies : DEFAULT_URGENCIES,
+      clientsVendors: Array.isArray(state.clientsVendors) ? state.clientsVendors : DEFAULT_CLIENTS_VENDORS,
+      tags: Array.isArray(state.tags) ? state.tags : DEFAULT_TAGS,
+      folders: state.folders || DEFAULT_FOLDERS,
+      tasks: state.googleTasks || [],
+      todoItems: state.todoItems || [],
+      deletedTodoIds: state.deletedTodoIds || [],
+      deletedCategoryItems: state.deletedCategoryItems || {},
+      todoStatuses: state.todoStatuses || DEFAULT_TODO_STATUSES,
+      todoHandlers: Array.isArray(state.todoHandlers) ? state.todoHandlers : DEFAULT_TODO_HANDLERS,
+      updatedAt: new Date().toISOString(),
+      source: 'Google Drive Cloud Truth v2.8.8'
+    }, null, 2);
+
+    const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&orderBy=modifiedTime desc`, {
+      headers: { Authorization: `Bearer ${state.accessToken}` }
+    });
+    const data = await res.json();
+
+    const boundary = '-------CloudNotesConfigBoundary7788';
+    const delimiter = '\r\n--' + boundary + '\r\n';
+    const closeDelimiter = '\r\n--' + boundary + '--';
+    const metadata = { name: 'cloudnotes_workspace_config.json', mimeType: 'application/json' };
+    const multipartRequestBody = [
+      delimiter,
+      'Content-Type: application/json; charset=UTF-8\r\n\r\n',
+      JSON.stringify(metadata),
+      delimiter,
+      'Content-Type: application/json\r\n\r\n',
+      configData,
+      closeDelimiter
+    ].join('');
+
+    if (data.files && data.files.length > 0) {
+      for (const fMeta of data.files) {
+        await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fMeta.id}?uploadType=multipart`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${state.accessToken}`,
+            'Content-Type': `multipart/related; boundary=${boundary}`
+          },
+          body: multipartRequestBody
+        });
+      }
+    } else {
+      const postMeta = { name: 'cloudnotes_workspace_config.json', mimeType: 'application/json', parents: [state.folderId] };
+      const postBody = [
+        delimiter,
+        'Content-Type: application/json; charset=UTF-8\r\n\r\n',
+        JSON.stringify(postMeta),
+        delimiter,
+        'Content-Type: application/json\r\n\r\n',
+        configData,
+        closeDelimiter
+      ].join('');
+      await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          'Content-Type': `multipart/related; boundary=${boundary}`
+        },
+        body: postBody
+      });
+    }
+  } catch (e) {
+    console.warn('雲端設定寫入略過:', e);
+  } finally {
+    isSavingConfig = false;
+    if (pendingSaveConfig) {
+      pendingSaveConfig = false;
+      saveWorkspaceConfigToDrive();
+    }
+  }
+};
+
+// 背景同步受分類更名或刪除影響的筆記中繼資料至 Google Drive
+async function syncAffectedNotesMetadataToDrive(notesList) {
+  if (!Array.isArray(notesList) || notesList.length === 0) return;
+  saveSwrCacheSnapshot();
+  if (!state.accessToken) return;
+  for (const n of notesList.slice(0, 25)) {
+    if (!n || !n.id || isLocalOrTempNoteId(n.id)) continue;
+    try {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${n.id}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          'Content-Type': 'application/json; charset=UTF-8'
+        },
+        body: JSON.stringify({ description: JSON.stringify(n.meta || {}) })
+      });
+    } catch (e) {}
+  }
+}
+
+function refreshAllViewsAfterCategoryChange() {
+  saveSwrCacheSnapshot();
+  saveWorkspaceConfigToDrive();
+  try { populateTodoFilterDropdowns(); } catch (e) {}
+  try { renderWorkTagSelects(); } catch (e) {}
+  try { renderWorkTagLists(); } catch (e) {}
+  try { renderSidebarTags(); } catch (e) {}
+  try { renderNoteActiveTags(); } catch (e) {}
+  try { renderBreadcrumbs(); } catch (e) {}
+  try { renderCurrentView(); } catch (e) {}
+}
+
+// 建立統一的分類/標籤列 DOM 元件（消除 blur 與 click 衝突，支援點擊 ✓ 或按 Enter 儲存，🗑️ 立即刪除）
+function createUnifiedTagManagerRow({
+  iconHtml,
+  inputValue,
+  inputPlaceholder = '輸入名稱...',
+  colorSelectHtml = '',
+  countText = '0 筆',
+  badgeClass = 'bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border-blue-200 dark:border-blue-800',
+  disableDelete = false,
+  onSave,
+  onColorChange,
+  onDelete
+}) {
+  const row = document.createElement('div');
+  row.className = 'tm-unified-item-row';
+  row.innerHTML = `
+    <div class="tm-row-left">
+      ${iconHtml || ''}
+      <input type="text" class="tm-inline-input" value="${escapeHtml(inputValue)}" placeholder="${escapeHtml(inputPlaceholder)}" />
+    </div>
+    <div class="tm-row-right">
+      ${colorSelectHtml || ''}
+      <span class="tm-usage-badge border ${badgeClass}">${escapeHtml(countText)}</span>
+      <button type="button" class="tm-action-btn tm-save-btn" title="儲存修改">
+        <span>✓ 儲存</span>
+      </button>
+      <button type="button" class="tm-action-btn tm-del-btn" title="刪除此項目" ${disableDelete ? 'disabled style="opacity:0.35;cursor:not-allowed;"' : ''}>
+        <span>🗑️ 刪除</span>
+      </button>
+    </div>
+  `;
+
+  const inputEl = row.querySelector('.tm-inline-input');
+  const colorSel = row.querySelector('select');
+  const saveBtn = row.querySelector('.tm-save-btn');
+  const delBtn = row.querySelector('.tm-del-btn');
+
+  let isDeletingOrSaving = false;
+
+  const triggerSave = (fromExplicitBtn = false) => {
+    if (isDeletingOrSaving) return;
+    const newVal = (inputEl ? inputEl.value : '').trim();
+    const curColor = colorSel ? colorSel.value : null;
+    if (!newVal) {
+      showToast('名稱不能為空');
+      if (inputEl) inputEl.value = inputValue;
+      return;
+    }
+    if (newVal === inputValue && !fromExplicitBtn) {
+      return;
+    }
+    isDeletingOrSaving = true;
+    try {
+      onSave(newVal, curColor, fromExplicitBtn);
+    } finally {
+      isDeletingOrSaving = false;
+    }
+  };
+
+  // 防止點擊「儲存」或「刪除」按鈕時先觸發 input blur 導致整個列表重繪吞掉點擊事件
+  if (saveBtn) {
+    saveBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+    });
+    saveBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      triggerSave(true);
+    });
+  }
+
+  if (delBtn && !disableDelete) {
+    delBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+    });
+    delBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (isDeletingOrSaving) return;
+      isDeletingOrSaving = true;
+      try {
+        onDelete();
+      } finally {
+        isDeletingOrSaving = false;
+      }
+    });
+  }
+
+  if (inputEl) {
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.isComposing) {
+        e.preventDefault();
+        triggerSave(true);
+      } else if (e.key === 'Escape') {
+        inputEl.value = inputValue;
+        inputEl.blur();
+      }
+    });
+    inputEl.addEventListener('blur', () => {
+      if (!isDeletingOrSaving && inputEl.value.trim() && inputEl.value.trim() !== inputValue) {
+        triggerSave(false);
+      }
+    });
+  }
+
+  if (colorSel) {
+    colorSel.addEventListener('change', () => {
+      if (typeof onColorChange === 'function') {
+        onColorChange(colorSel.value, (inputEl ? inputEl.value.trim() : inputValue) || inputValue);
+      } else {
+        triggerSave(true);
+      }
+    });
+  }
+
+  return row;
+}
+
+// ----------------------------------------------------------------------------
+// 1. 機型分類 (Machine Models) CRUD & 渲染
+// ----------------------------------------------------------------------------
+renderTagManagerMachineList = function() {
+  const listEl = DOM.tmMachineList || document.getElementById('tm-machine-list');
+  const countEl = DOM.tmMachineTotalCount || document.getElementById('tm-machine-total-count');
+  if (!listEl) return;
+
+  state.machineModels = filterOutDeletedCategoryItems('machine', state.machineModels || []);
+  listEl.innerHTML = '';
+  if (countEl) countEl.textContent = `共 ${state.machineModels.length} 項`;
+
+  if (state.machineModels.length === 0) {
+    listEl.innerHTML = '<div class="text-center py-6 text-gray-400 text-xs">尚無機型，請由上方新增</div>';
+    return;
+  }
+
+  state.machineModels.forEach(m => {
+    const noteCount = (state.notes || []).filter(n => n.meta && n.meta.machineModel === m).length;
+    const todoCount = (state.todoItems || []).filter(t => !isTodoItemDeletedTombstoned(t) && t.machineModel === m).length;
+    const totalUsed = noteCount + todoCount;
+
+    const row = createUnifiedTagManagerRow({
+      iconHtml: '<span class="text-sm shrink-0">🚜</span>',
+      inputValue: m,
+      inputPlaceholder: '機型名稱...',
+      countText: `${totalUsed} 筆`,
+      badgeClass: totalUsed > 0
+        ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border-blue-200 dark:border-blue-800'
+        : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 border-gray-200 dark:border-gray-700',
+      onSave: (newName, _color, explicit) => {
+        if (newName === m) {
+          if (explicit) showToast(`✅ 已儲存機型「${m}」`);
+          return;
+        }
+        renameMachineModel(m, newName);
+      },
+      onDelete: () => {
+        deleteMachineModel(m);
+      }
+    });
+    listEl.appendChild(row);
+  });
+  initLucide();
+};
+
+addMachineModel = function(name, shouldRecord = true) {
+  name = (name || '').trim();
+  if (!name) {
+    showToast('請輸入機型名稱');
+    return false;
+  }
+  unmarkCategoryItemDeleted('machine', name);
+  if (!Array.isArray(state.machineModels)) state.machineModels = [];
+  if (state.machineModels.includes(name)) {
+    showToast(`機型「${name}」已存在`);
+    return false;
+  }
+
+  state.machineModels.push(name);
+  if (DOM.tmNewMachineInput) DOM.tmNewMachineInput.value = '';
+  renderTagManagerMachineList();
+  refreshAllViewsAfterCategoryChange();
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'add_machine',
+      title: `🚜 新增機型「${name}」`,
+      subtitle: '已加入機型分類清單',
+      undo: () => { deleteMachineModel(name, false); },
+      redo: () => { addMachineModel(name, false); }
+    });
+  }
+  showToast(`✅ 已新增機型「${name}」`);
+  return true;
+};
+
+renameMachineModel = async function(oldName, newName, shouldRecord = true) {
+  newName = (newName || '').trim();
+  if (!newName) {
+    showToast('機型名稱不能為空');
+    renderTagManagerMachineList();
+    return false;
+  }
+  if (newName === oldName) {
+    showToast(`✅ 已儲存機型「${newName}」`);
+    return true;
+  }
+  if (!Array.isArray(state.machineModels)) state.machineModels = [];
+  if (state.machineModels.includes(newName)) {
+    showToast(`機型「${newName}」已存在`);
+    renderTagManagerMachineList();
+    return false;
+  }
+
+  const idx = state.machineModels.findIndex(x => x === oldName || x.trim() === oldName.trim());
+  if (idx === -1) return false;
+
+  markCategoryItemDeleted('machine', oldName);
+  unmarkCategoryItemDeleted('machine', newName);
+  state.machineModels[idx] = newName;
+
+  const affectedNotes = (state.notes || []).filter(n => n.meta && (n.meta.machineModel === oldName || (n.meta.machineModel || '').trim() === oldName.trim()));
+  affectedNotes.forEach(n => { n.meta.machineModel = newName; });
+
+  if (state.currentMachineFilter === oldName) state.currentMachineFilter = newName;
+  if (state.todoFilterMachine === oldName) state.todoFilterMachine = newName;
+  if (state.currentNote && state.currentNote.meta && state.currentNote.meta.machineModel === oldName) {
+    state.currentNote.meta.machineModel = newName;
+  }
+
+  if (Array.isArray(state.todoItems)) {
+    state.todoItems.forEach(item => {
+      if (item.machineModel === oldName || (item.machineModel || '').trim() === oldName.trim()) {
+        item.machineModel = newName;
+      }
+    });
+    saveTodoItemsToLocalStorageOnly();
+  }
+
+  // 先立即更新本地畫面與快取 (0 毫秒無延遲)
+  renderTagManagerMachineList();
+  refreshAllViewsAfterCategoryChange();
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'rename_machine',
+      title: `🚜 更名機型「${oldName}」➔「${newName}」`,
+      subtitle: `同步更新 ${affectedNotes.length} 篇筆記`,
+      undo: () => { renameMachineModel(newName, oldName, false); },
+      redo: () => { renameMachineModel(oldName, newName, false); }
+    });
+  }
+  showToast(`✅ 機型已更名為「${newName}」`);
+
+  // 背景非阻塞同步 Google Drive 資料夾名稱與筆記中繼資料
+  if (state.accessToken && state.folderId) {
+    try {
+      const folderId = state.categoryFolderMap && state.categoryFolderMap[oldName];
+      if (folderId) {
+        delete state.categoryFolderMap[oldName];
+        state.categoryFolderMap[newName] = folderId;
+        fetch(`https://www.googleapis.com/drive/v3/files/${folderId}`, {
+          method: 'PATCH',
+          headers: {
+            Authorization: `Bearer ${state.accessToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name: newName })
+        }).catch(() => {});
+      }
+    } catch (e) {}
+  }
+  syncAffectedNotesMetadataToDrive(affectedNotes);
+  return true;
+};
+
+deleteMachineModel = function(name, shouldRecord = true) {
+  if (!Array.isArray(state.machineModels)) return false;
+  const idx = state.machineModels.findIndex(x => x === name || x.trim() === String(name || '').trim());
+  if (idx === -1) return false;
+
+  const targetName = state.machineModels[idx];
+  markCategoryItemDeleted('machine', targetName);
+  state.machineModels.splice(idx, 1);
+
+  if (state.categoryFolderMap && state.categoryFolderMap[targetName]) {
+    delete state.categoryFolderMap[targetName];
+  }
+
+  const affectedNotes = (state.notes || []).filter(n => n.meta && (n.meta.machineModel === targetName || (n.meta.machineModel || '').trim() === targetName.trim()));
+  affectedNotes.forEach(n => { n.meta.machineModel = '未分類'; });
+
+  const affectedTodos = (state.todoItems || []).filter(t => t.machineModel === targetName || (t.machineModel || '').trim() === targetName.trim());
+  affectedTodos.forEach(t => { t.machineModel = ''; });
+  if (affectedTodos.length > 0) saveTodoItemsToLocalStorageOnly();
+
+  if (state.currentMachineFilter === targetName) state.currentMachineFilter = null;
+  if (state.todoFilterMachine === targetName) state.todoFilterMachine = '';
+  if (state.currentNote && state.currentNote.meta && state.currentNote.meta.machineModel === targetName) {
+    state.currentNote.meta.machineModel = '未分類';
+  }
+
+  renderTagManagerMachineList();
+  refreshAllViewsAfterCategoryChange();
+  syncAffectedNotesMetadataToDrive(affectedNotes);
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'delete_machine',
+      title: `🚜 刪除機型「${targetName}」`,
+      subtitle: '可按復原 (Ctrl+Z) 救回',
+      undo: () => {
+        unmarkCategoryItemDeleted('machine', targetName);
+        if (!state.machineModels.includes(targetName)) {
+          state.machineModels.splice(Math.min(idx, state.machineModels.length), 0, targetName);
+        }
+        affectedNotes.forEach(n => { if (n.meta) n.meta.machineModel = targetName; });
+        affectedTodos.forEach(t => { t.machineModel = targetName; });
+        saveTodoItemsToLocalStorageOnly();
+        if (state.activeTagManagerTab === 'machine') renderTagManagerMachineList();
+        refreshAllViewsAfterCategoryChange();
+        syncAffectedNotesMetadataToDrive(affectedNotes);
+      },
+      redo: () => { deleteMachineModel(targetName, false); }
+    });
+  }
+
+  showToast(`🗑️ 已刪除機型「${targetName}」`);
+  return true;
+};
+
+// ----------------------------------------------------------------------------
+// 2. 工作內容 (Work Contents) CRUD & 渲染
+// ----------------------------------------------------------------------------
+renderTagManagerContentList = function() {
+  const listEl = DOM.tmContentList || document.getElementById('tm-content-list');
+  const countEl = DOM.tmContentTotalCount || document.getElementById('tm-content-total-count');
+  if (!listEl) return;
+
+  state.workContents = filterOutDeletedCategoryItems('content', state.workContents || []);
+  listEl.innerHTML = '';
+  if (countEl) countEl.textContent = `共 ${state.workContents.length} 項`;
+
+  if (state.workContents.length === 0) {
+    listEl.innerHTML = '<div class="text-center py-6 text-gray-400 text-xs">尚無工作內容，請由上方新增</div>';
+    return;
+  }
+
+  state.workContents.forEach(c => {
+    const noteCount = (state.notes || []).filter(n => n.meta && n.meta.workContent === c).length;
+    const row = createUnifiedTagManagerRow({
+      iconHtml: '<span class="text-sm shrink-0">📋</span>',
+      inputValue: c,
+      inputPlaceholder: '工作內容名稱...',
+      countText: `${noteCount} 筆`,
+      badgeClass: noteCount > 0
+        ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/70 dark:text-amber-300 border-amber-200 dark:border-amber-800'
+        : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 border-gray-200 dark:border-gray-700',
+      onSave: (newName, _color, explicit) => {
+        if (newName === c) {
+          if (explicit) showToast(`✅ 已儲存工作內容「${c}」`);
+          return;
+        }
+        renameWorkContent(c, newName);
+      },
+      onDelete: () => {
+        deleteWorkContent(c);
+      }
+    });
+    listEl.appendChild(row);
+  });
+  initLucide();
+};
+
+addWorkContent = function(name, shouldRecord = true) {
+  name = (name || '').trim();
+  if (!name) {
+    showToast('請輸入工作內容名稱');
+    return false;
+  }
+  unmarkCategoryItemDeleted('content', name);
+  if (!Array.isArray(state.workContents)) state.workContents = [];
+  if (state.workContents.includes(name)) {
+    showToast(`工作內容「${name}」已存在`);
+    return false;
+  }
+
+  state.workContents.push(name);
+  if (DOM.tmNewContentInput) DOM.tmNewContentInput.value = '';
+  renderTagManagerContentList();
+  refreshAllViewsAfterCategoryChange();
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'add_content',
+      title: `📋 新增工作內容「${name}」`,
+      subtitle: '已加入工作內容清單',
+      undo: () => { deleteWorkContent(name, false); },
+      redo: () => { addWorkContent(name, false); }
+    });
+  }
+  showToast(`✅ 已新增工作內容「${name}」`);
+  return true;
+};
+
+renameWorkContent = async function(oldName, newName, shouldRecord = true) {
+  newName = (newName || '').trim();
+  if (!newName) {
+    showToast('工作內容名稱不能為空');
+    renderTagManagerContentList();
+    return false;
+  }
+  if (newName === oldName) {
+    showToast(`✅ 已儲存工作內容「${newName}」`);
+    return true;
+  }
+  if (!Array.isArray(state.workContents)) state.workContents = [];
+  if (state.workContents.includes(newName)) {
+    showToast(`工作內容「${newName}」已存在`);
+    renderTagManagerContentList();
+    return false;
+  }
+
+  const idx = state.workContents.findIndex(x => x === oldName || x.trim() === oldName.trim());
+  if (idx === -1) return false;
+
+  markCategoryItemDeleted('content', oldName);
+  unmarkCategoryItemDeleted('content', newName);
+  state.workContents[idx] = newName;
+
+  const affectedNotes = (state.notes || []).filter(n => n.meta && (n.meta.workContent === oldName || (n.meta.workContent || '').trim() === oldName.trim()));
+  affectedNotes.forEach(n => { n.meta.workContent = newName; });
+
+  if (state.currentContentFilter === oldName) state.currentContentFilter = newName;
+  if (state.currentNote && state.currentNote.meta && state.currentNote.meta.workContent === oldName) {
+    state.currentNote.meta.workContent = newName;
+  }
+
+  renderTagManagerContentList();
+  refreshAllViewsAfterCategoryChange();
+  syncAffectedNotesMetadataToDrive(affectedNotes);
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'rename_content',
+      title: `📋 更名工作內容「${oldName}」➔「${newName}」`,
+      subtitle: `同步更新 ${affectedNotes.length} 篇筆記`,
+      undo: () => { renameWorkContent(newName, oldName, false); },
+      redo: () => { renameWorkContent(oldName, newName, false); }
+    });
+  }
+  showToast(`✅ 工作內容已更名為「${newName}」`);
+  return true;
+};
+
+deleteWorkContent = function(name, shouldRecord = true) {
+  if (!Array.isArray(state.workContents)) return false;
+  const idx = state.workContents.findIndex(x => x === name || x.trim() === String(name || '').trim());
+  if (idx === -1) return false;
+
+  const targetName = state.workContents[idx];
+  markCategoryItemDeleted('content', targetName);
+  state.workContents.splice(idx, 1);
+
+  const affectedNotes = (state.notes || []).filter(n => n.meta && (n.meta.workContent === targetName || (n.meta.workContent || '').trim() === targetName.trim()));
+  affectedNotes.forEach(n => { n.meta.workContent = '未分類'; });
+
+  if (state.currentContentFilter === targetName) state.currentContentFilter = null;
+  if (state.currentNote && state.currentNote.meta && state.currentNote.meta.workContent === targetName) {
+    state.currentNote.meta.workContent = '未分類';
+  }
+
+  renderTagManagerContentList();
+  refreshAllViewsAfterCategoryChange();
+  syncAffectedNotesMetadataToDrive(affectedNotes);
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'delete_content',
+      title: `📋 刪除工作內容「${targetName}」`,
+      subtitle: '可按復原 (Ctrl+Z) 救回',
+      undo: () => {
+        unmarkCategoryItemDeleted('content', targetName);
+        if (!state.workContents.includes(targetName)) {
+          state.workContents.splice(Math.min(idx, state.workContents.length), 0, targetName);
+        }
+        affectedNotes.forEach(n => { if (n.meta) n.meta.workContent = targetName; });
+        if (state.activeTagManagerTab === 'content') renderTagManagerContentList();
+        refreshAllViewsAfterCategoryChange();
+        syncAffectedNotesMetadataToDrive(affectedNotes);
+      },
+      redo: () => { deleteWorkContent(targetName, false); }
+    });
+  }
+  showToast(`🗑️ 已刪除工作內容「${targetName}」`);
+  return true;
+};
+
+// ----------------------------------------------------------------------------
+// 3. 急迫性等級 (Urgency Levels) CRUD & 渲染
+// ----------------------------------------------------------------------------
+renderTagManagerUrgencyList = function() {
+  const listEl = DOM.tmUrgencyList || document.getElementById('tm-urgency-list');
+  const countEl = DOM.tmUrgencyTotalCount || document.getElementById('tm-urgency-total-count');
+  if (!listEl) return;
+
+  state.urgencies = filterOutDeletedCategoryItems('urgency', state.urgencies || []);
+  listEl.innerHTML = '';
+  if (countEl) countEl.textContent = `共 ${state.urgencies.length} 項`;
+
+  if (state.urgencies.length === 0) {
+    listEl.innerHTML = '<div class="text-center py-6 text-gray-400 text-xs">尚無急迫性選項，請由上方新增</div>';
+    return;
+  }
+
+  state.urgencies.forEach(u => {
+    const uid = u.id || u.label;
+    const uLabel = u.label || u.id;
+    const noteCount = (state.notes || []).filter(n => n.meta && (n.meta.urgency === uid || n.meta.urgency === uLabel)).length;
+
+    let curTheme = 'rose';
+    const cStr = u.color || '';
+    if (cStr.includes('amber')) curTheme = 'amber';
+    else if (cStr.includes('emerald') || cStr.includes('green')) curTheme = 'emerald';
+    else if (cStr.includes('gray')) curTheme = 'gray';
+    else if (cStr.includes('purple')) curTheme = 'purple';
+    else if (cStr.includes('blue')) curTheme = 'blue';
+    else if (cStr.includes('cyan')) curTheme = 'cyan';
+    else if (cStr.includes('pink')) curTheme = 'pink';
+    else if (cStr.includes('orange')) curTheme = 'orange';
+
+    const colorSelectHtml = `
+      <select class="tm-inline-select urgency-color-select">
+        <option value="rose" ${curTheme === 'rose' ? 'selected' : ''}>🔴 紅</option>
+        <option value="amber" ${curTheme === 'amber' ? 'selected' : ''}>🟡 黃</option>
+        <option value="emerald" ${curTheme === 'emerald' ? 'selected' : ''}>🟢 綠</option>
+        <option value="gray" ${curTheme === 'gray' ? 'selected' : ''}>⚪ 灰</option>
+        <option value="purple" ${curTheme === 'purple' ? 'selected' : ''}>🟣 紫</option>
+        <option value="blue" ${curTheme === 'blue' ? 'selected' : ''}>🔵 藍</option>
+        <option value="cyan" ${curTheme === 'cyan' ? 'selected' : ''}>🩵 青</option>
+        <option value="orange" ${curTheme === 'orange' ? 'selected' : ''}>🟠 橙</option>
+        <option value="pink" ${curTheme === 'pink' ? 'selected' : ''}>🌸 粉</option>
+      </select>
+    `;
+
+    const row = createUnifiedTagManagerRow({
+      iconHtml: '<span class="text-sm shrink-0">🚨</span>',
+      inputValue: uLabel,
+      inputPlaceholder: '急迫性名稱...',
+      colorSelectHtml,
+      countText: `${noteCount} 筆`,
+      badgeClass: noteCount > 0
+        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300 border-rose-200 dark:border-rose-800'
+        : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 border-gray-200 dark:border-gray-700',
+      disableDelete: state.urgencies.length <= 1,
+      onSave: (newLabel, newColor) => {
+        updateUrgencyLevel(uid, newLabel, newColor);
+      },
+      onColorChange: (newColor, currentLabel) => {
+        updateUrgencyLevel(uid, currentLabel, newColor);
+      },
+      onDelete: () => {
+        deleteUrgencyLevel(uid);
+      }
+    });
+    listEl.appendChild(row);
+  });
+  initLucide();
+};
+
+addUrgencyLevel = function(name, colorTheme, shouldRecord = true) {
+  name = (name || '').trim();
+  if (!name) {
+    showToast('請輸入急迫性名稱');
+    return false;
+  }
+  unmarkCategoryItemDeleted('urgency', name);
+  if (!Array.isArray(state.urgencies)) state.urgencies = [];
+  if (state.urgencies.some(u => u.id === name || u.label === name)) {
+    showToast(`急迫性「${name}」已存在`);
+    return false;
+  }
+
+  const theme = COLOR_THEMES[colorTheme] || COLOR_THEMES.rose;
+  const newUrgency = {
+    id: name,
+    label: name,
+    short: name,
+    color: theme.class
+  };
+
+  state.urgencies.push(newUrgency);
+  if (DOM.tmNewUrgencyName) DOM.tmNewUrgencyName.value = '';
+  renderTagManagerUrgencyList();
+  refreshAllViewsAfterCategoryChange();
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'add_urgency',
+      title: `🚨 新增急迫性「${name}」`,
+      subtitle: theme.label,
+      undo: () => { deleteUrgencyLevel(name, false); },
+      redo: () => { addUrgencyLevel(name, colorTheme, false); }
+    });
+  }
+  showToast(`✅ 已新增急迫性「${name}」`);
+  return true;
+};
+
+updateUrgencyLevel = async function(urgencyId, newLabel, colorKey, shouldRecord = true) {
+  newLabel = (newLabel || '').trim();
+  if (!newLabel) {
+    showToast('急迫性名稱不能為空');
+    renderTagManagerUrgencyList();
+    return false;
+  }
+  if (!Array.isArray(state.urgencies)) return false;
+
+  const u = state.urgencies.find(item => item.id === urgencyId || item.label === urgencyId || (item.id || '').trim() === String(urgencyId || '').trim());
+  if (!u) return false;
+
+  const oldId = u.id || u.label;
+  const oldLabel = u.label || u.id;
+  if (newLabel !== oldId && newLabel !== oldLabel) {
+    if (state.urgencies.some(item => item !== u && (item.id === newLabel || item.label === newLabel))) {
+      showToast(`急迫性「${newLabel}」已存在`);
+      renderTagManagerUrgencyList();
+      return false;
+    }
+    markCategoryItemDeleted('urgency', oldId);
+    markCategoryItemDeleted('urgency', oldLabel);
+    unmarkCategoryItemDeleted('urgency', newLabel);
+  }
+
+  const themeObj = colorKey && COLOR_THEMES[colorKey];
+  if (themeObj && themeObj.class) {
+    u.color = themeObj.class;
+  }
+
+  u.id = newLabel;
+  u.label = newLabel;
+  u.short = newLabel;
+
+  const affectedNotes = (state.notes || []).filter(n => n.meta && (n.meta.urgency === oldId || n.meta.urgency === oldLabel));
+  affectedNotes.forEach(n => { n.meta.urgency = newLabel; });
+
+  if (state.currentUrgencyFilter === oldId || state.currentUrgencyFilter === oldLabel) {
+    state.currentUrgencyFilter = newLabel;
+  }
+  if (state.currentNote && state.currentNote.meta && (state.currentNote.meta.urgency === oldId || state.currentNote.meta.urgency === oldLabel)) {
+    state.currentNote.meta.urgency = newLabel;
+  }
+
+  renderTagManagerUrgencyList();
+  refreshAllViewsAfterCategoryChange();
+  syncAffectedNotesMetadataToDrive(affectedNotes);
+
+  showToast(`✅ 已更新急迫性「${newLabel}」`);
+  return true;
+};
+
+deleteUrgencyLevel = function(id, shouldRecord = true) {
+  if (!Array.isArray(state.urgencies) || state.urgencies.length <= 1) {
+    showToast('至少需保留一個急迫性選項');
+    return false;
+  }
+
+  const idx = state.urgencies.findIndex(u => u.id === id || u.label === id || (u.id || '').trim() === String(id || '').trim());
+  if (idx === -1) return false;
+  const deletedUrgency = { ...state.urgencies[idx] };
+  const targetId = deletedUrgency.id || deletedUrgency.label;
+
+  markCategoryItemDeleted('urgency', deletedUrgency.id);
+  markCategoryItemDeleted('urgency', deletedUrgency.label);
+  state.urgencies.splice(idx, 1);
+
+  const fallback = (state.urgencies[0] && state.urgencies[0].id) || '🟢 常規';
+  const affectedNotes = (state.notes || []).filter(n => n.meta && (n.meta.urgency === deletedUrgency.id || n.meta.urgency === deletedUrgency.label));
+  affectedNotes.forEach(n => { n.meta.urgency = fallback; });
+
+  if (state.currentUrgencyFilter === targetId) state.currentUrgencyFilter = null;
+  if (state.currentNote && state.currentNote.meta && (state.currentNote.meta.urgency === deletedUrgency.id || state.currentNote.meta.urgency === deletedUrgency.label)) {
+    state.currentNote.meta.urgency = fallback;
+  }
+
+  renderTagManagerUrgencyList();
+  refreshAllViewsAfterCategoryChange();
+  syncAffectedNotesMetadataToDrive(affectedNotes);
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'delete_urgency',
+      title: `🚨 刪除急迫性「${targetId}」`,
+      subtitle: '可按復原 (Ctrl+Z) 救回',
+      undo: () => {
+        unmarkCategoryItemDeleted('urgency', deletedUrgency.id);
+        unmarkCategoryItemDeleted('urgency', deletedUrgency.label);
+        if (!state.urgencies.some(u => u.id === targetId)) {
+          state.urgencies.splice(Math.min(idx, state.urgencies.length), 0, deletedUrgency);
+        }
+        affectedNotes.forEach(n => { if (n.meta) n.meta.urgency = targetId; });
+        if (state.activeTagManagerTab === 'urgency') renderTagManagerUrgencyList();
+        refreshAllViewsAfterCategoryChange();
+        syncAffectedNotesMetadataToDrive(affectedNotes);
+      },
+      redo: () => { deleteUrgencyLevel(targetId, false); }
+    });
+  }
+
+  showToast(`🗑️ 已刪除急迫性「${targetId}」`);
+  return true;
+};
+
+// ----------------------------------------------------------------------------
+// 4. 客戶或廠商 (Clients / Vendors) CRUD & 渲染 — 升級為與其他分頁一致的就地編輯列
+// ----------------------------------------------------------------------------
+renderTagManagerClientList = function() {
+  const listEl = DOM.tmClientList || document.getElementById('tm-client-list');
+  const countEl = DOM.tmClientTotalCount || document.getElementById('tm-client-total-count');
+  if (!listEl) return;
+
+  if (!Array.isArray(state.clientsVendors)) {
+    state.clientsVendors = filterOutDeletedCategoryItems('client', DEFAULT_CLIENTS_VENDORS.slice());
+  } else {
+    state.clientsVendors = filterOutDeletedCategoryItems('client', state.clientsVendors);
+  }
+
+  listEl.innerHTML = '';
+  if (countEl) countEl.textContent = `共 ${state.clientsVendors.length} 項`;
+
+  if (state.clientsVendors.length === 0) {
+    listEl.innerHTML = '<div class="text-center py-6 text-gray-400 text-xs">尚無客戶或廠商，請由上方新增</div>';
+    return;
+  }
+
+  state.clientsVendors.forEach(c => {
+    const noteCount = (state.notes || []).filter(n => n.meta && n.meta.clientVendor === c).length;
+    const todoCount = (state.todoItems || []).filter(t => !isTodoItemDeletedTombstoned(t) && t.clientVendor === c).length;
+    const totalUsed = noteCount + todoCount;
+
+    const row = createUnifiedTagManagerRow({
+      iconHtml: '<span class="text-sm shrink-0">🏢</span>',
+      inputValue: c,
+      inputPlaceholder: '客戶或廠商名稱...',
+      countText: `${totalUsed} 筆`,
+      badgeClass: totalUsed > 0
+        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800'
+        : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 border-gray-200 dark:border-gray-700',
+      onSave: (newName, _color, explicit) => {
+        if (newName === c) {
+          if (explicit) showToast(`✅ 已儲存客戶/廠商「${c}」`);
+          return;
+        }
+        renameClientVendor(c, newName);
+      },
+      onDelete: () => {
+        deleteClientVendor(c);
+      }
+    });
+    listEl.appendChild(row);
+  });
+  initLucide();
+};
+
+addClientVendor = async function(name, shouldRecord = true) {
+  name = (name || '').trim();
+  if (!name) {
+    showToast('請輸入客戶或廠商名稱');
+    return false;
+  }
+  unmarkCategoryItemDeleted('client', name);
+  if (!Array.isArray(state.clientsVendors)) state.clientsVendors = [];
+  if (state.clientsVendors.includes(name)) {
+    showToast(`客戶/廠商「${name}」已存在`);
+    return false;
+  }
+
+  state.clientsVendors.push(name);
+  if (DOM.tmNewClientInput) DOM.tmNewClientInput.value = '';
+  renderTagManagerClientList();
+  refreshAllViewsAfterCategoryChange();
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'add_client',
+      title: `🏢 新增客戶/廠商「${name}」`,
+      subtitle: '已加入客戶/廠商清單',
+      undo: () => { deleteClientVendor(name, false); },
+      redo: () => { addClientVendor(name, false); }
+    });
+  }
+  showToast(`✅ 已新增客戶/廠商「${name}」`);
+  return true;
+};
+
+renameClientVendor = async function(oldName, newName, shouldRecord = true) {
+  newName = (newName || '').trim();
+  if (!newName) {
+    showToast('名稱不能為空');
+    renderTagManagerClientList();
+    return false;
+  }
+  if (newName === oldName) {
+    showToast(`✅ 已儲存客戶/廠商「${newName}」`);
+    return true;
+  }
+  if (!Array.isArray(state.clientsVendors)) state.clientsVendors = [];
+  if (state.clientsVendors.includes(newName)) {
+    showToast(`客戶/廠商「${newName}」已存在`);
+    renderTagManagerClientList();
+    return false;
+  }
+
+  const idx = state.clientsVendors.findIndex(x => x === oldName || x.trim() === oldName.trim());
+  if (idx === -1) return false;
+
+  markCategoryItemDeleted('client', oldName);
+  unmarkCategoryItemDeleted('client', newName);
+  state.clientsVendors[idx] = newName;
+
+  const affectedNotes = (state.notes || []).filter(n => n.meta && (n.meta.clientVendor === oldName || (n.meta.clientVendor || '').trim() === oldName.trim()));
+  affectedNotes.forEach(n => { n.meta.clientVendor = newName; });
+
+  if (state.currentClientVendorFilter === oldName) state.currentClientVendorFilter = newName;
+  if (state.todoFilterClient === oldName) state.todoFilterClient = newName;
+  if (state.currentNote && state.currentNote.meta && state.currentNote.meta.clientVendor === oldName) {
+    state.currentNote.meta.clientVendor = newName;
+  }
+  if (Array.isArray(state.todoItems)) {
+    state.todoItems.forEach(item => {
+      if (item.clientVendor === oldName || (item.clientVendor || '').trim() === oldName.trim()) {
+        item.clientVendor = newName;
+      }
+    });
+    saveTodoItemsToLocalStorageOnly();
+  }
+
+  renderTagManagerClientList();
+  refreshAllViewsAfterCategoryChange();
+  syncAffectedNotesMetadataToDrive(affectedNotes);
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'rename_client',
+      title: `🏢 更名客戶/廠商「${oldName}」➔「${newName}」`,
+      subtitle: `同步更新 ${affectedNotes.length} 篇筆記`,
+      undo: () => { renameClientVendor(newName, oldName, false); },
+      redo: () => { renameClientVendor(oldName, newName, false); }
+    });
+  }
+  showToast(`✅ 客戶/廠商已更名為「${newName}」`);
+  return true;
+};
+
+deleteClientVendor = async function(name, shouldRecord = true) {
+  if (!Array.isArray(state.clientsVendors)) return false;
+  const idx = state.clientsVendors.findIndex(x => x === name || x.trim() === String(name || '').trim());
+  if (idx === -1) return false;
+
+  const targetName = state.clientsVendors[idx];
+  markCategoryItemDeleted('client', targetName);
+  state.clientsVendors.splice(idx, 1);
+
+  const affectedNotes = (state.notes || []).filter(n => n.meta && (n.meta.clientVendor === targetName || (n.meta.clientVendor || '').trim() === targetName.trim()));
+  affectedNotes.forEach(n => { n.meta.clientVendor = ''; });
+
+  const affectedTodos = (state.todoItems || []).filter(t => t.clientVendor === targetName || (t.clientVendor || '').trim() === targetName.trim());
+  affectedTodos.forEach(t => { t.clientVendor = ''; });
+  if (affectedTodos.length > 0) saveTodoItemsToLocalStorageOnly();
+
+  if (state.currentClientVendorFilter === targetName) state.currentClientVendorFilter = null;
+  if (state.todoFilterClient === targetName) state.todoFilterClient = '';
+  if (state.currentNote && state.currentNote.meta && state.currentNote.meta.clientVendor === targetName) {
+    state.currentNote.meta.clientVendor = '';
+  }
+
+  renderTagManagerClientList();
+  refreshAllViewsAfterCategoryChange();
+  syncAffectedNotesMetadataToDrive(affectedNotes);
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'delete_client',
+      title: `🏢 刪除客戶/廠商「${targetName}」`,
+      subtitle: '可按復原 (Ctrl+Z) 救回',
+      undo: () => {
+        unmarkCategoryItemDeleted('client', targetName);
+        if (!state.clientsVendors.includes(targetName)) {
+          state.clientsVendors.splice(Math.min(idx, state.clientsVendors.length), 0, targetName);
+        }
+        affectedNotes.forEach(n => { if (n.meta) n.meta.clientVendor = targetName; });
+        affectedTodos.forEach(t => { t.clientVendor = targetName; });
+        saveTodoItemsToLocalStorageOnly();
+        if (state.activeTagManagerTab === 'client') renderTagManagerClientList();
+        refreshAllViewsAfterCategoryChange();
+        syncAffectedNotesMetadataToDrive(affectedNotes);
+      },
+      redo: () => { deleteClientVendor(targetName, false); }
+    });
+  }
+
+  showToast(`🗑️ 已刪除客戶/廠商「${targetName}」`);
+  return true;
+};
+
+// ----------------------------------------------------------------------------
+// 5. 通用標籤 (Custom Shared Tags) CRUD & 渲染 — 補齊 ✓ 儲存按鈕、Enter 鍵與墓碑保護
+// ----------------------------------------------------------------------------
+renderTagManagerCustomTagsList = function() {
+  const listEl = DOM.tmTagsList || document.getElementById('tm-tags-list');
+  const countEl = DOM.tmCustomTotalCount || document.getElementById('tm-custom-total-count');
+  if (!listEl) return;
+
+  state.tags = filterOutDeletedCategoryItems('custom', state.tags || []);
+  listEl.innerHTML = '';
+  if (countEl) countEl.textContent = `共 ${state.tags.length} 項`;
+
+  if (state.tags.length === 0) {
+    listEl.innerHTML = '<div class="text-center py-6 text-gray-400 text-xs">尚無通用標籤，請由上方新增</div>';
+    return;
+  }
+
+  state.tags.forEach(tag => {
+    const tagName = tag.name || tag.id || '';
+    const tagColor = tag.color || 'blue';
+    const noteCount = (state.notes || []).filter(n => n.meta && Array.isArray(n.meta.tags) && n.meta.tags.includes(tagName)).length;
+    const todoCount = (state.todoItems || []).filter(t => !isTodoItemDeletedTombstoned(t) && Array.isArray(t.tags) && t.tags.includes(tagName)).length;
+    const totalUsed = noteCount + todoCount;
+
+    const colorSelectHtml = `
+      <select class="tm-inline-select tag-color-select">
+        <option value="blue" ${tagColor === 'blue' ? 'selected' : ''}>🔵 藍</option>
+        <option value="green" ${tagColor === 'green' ? 'selected' : ''}>🟢 綠</option>
+        <option value="purple" ${tagColor === 'purple' ? 'selected' : ''}>🟣 紫</option>
+        <option value="orange" ${tagColor === 'orange' ? 'selected' : ''}>🟠 橙</option>
+        <option value="yellow" ${tagColor === 'yellow' ? 'selected' : ''}>🟡 黃</option>
+        <option value="pink" ${tagColor === 'pink' ? 'selected' : ''}>🌸 粉</option>
+        <option value="red" ${tagColor === 'red' ? 'selected' : ''}>🔴 紅</option>
+        <option value="brown" ${tagColor === 'brown' ? 'selected' : ''}>🟤 棕</option>
+        <option value="gray" ${tagColor === 'gray' ? 'selected' : ''}>⚪ 灰</option>
+      </select>
+    `;
+
+    const row = createUnifiedTagManagerRow({
+      iconHtml: `<span class="notion-tag notion-tag-${escapeHtml(tagColor)} shrink-0">#${escapeHtml(tagName)}</span>`,
+      inputValue: tagName,
+      inputPlaceholder: '標籤名稱...',
+      colorSelectHtml,
+      countText: `${totalUsed} 筆`,
+      badgeClass: totalUsed > 0
+        ? 'bg-purple-50 text-purple-700 dark:bg-purple-950/70 dark:text-purple-300 border-purple-200 dark:border-purple-800'
+        : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 border-gray-200 dark:border-gray-700',
+      onSave: (newName, newColor, explicit) => {
+        const cleanNew = newName.replace(/^#/, '').trim();
+        if (cleanNew === tagName && (!newColor || newColor === tagColor)) {
+          if (explicit) showToast(`✅ 已儲存標籤「#${tagName}」`);
+          return;
+        }
+        renameCustomTag(tagName, cleanNew, newColor || tagColor);
+      },
+      onColorChange: (newColor, curInputVal) => {
+        const cleanNew = (curInputVal || tagName).replace(/^#/, '').trim() || tagName;
+        renameCustomTag(tagName, cleanNew, newColor);
+      },
+      onDelete: () => {
+        deleteCustomTag(tagName);
+      }
+    });
+    listEl.appendChild(row);
+  });
+  initLucide();
+};
+
+addCustomTag = function(name, color = 'blue', shouldRecord = true) {
+  name = (name || '').trim().replace(/^#/, '').trim();
+  if (!name) {
+    showToast('請輸入標籤名稱');
+    return false;
+  }
+  unmarkCategoryItemDeleted('custom', name);
+  if (!Array.isArray(state.tags)) state.tags = [];
+  if (state.tags.some(t => (t.name || '').toLowerCase() === name.toLowerCase())) {
+    showToast(`標籤「#${name}」已存在`);
+    return false;
+  }
+
+  const newTag = {
+    id: 'tag_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    name,
+    color: color || 'blue'
+  };
+
+  state.tags.push(newTag);
+  if (DOM.tmNewName) DOM.tmNewName.value = '';
+  renderTagManagerCustomTagsList();
+  refreshAllViewsAfterCategoryChange();
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'add_custom_tag',
+      title: `🏷️ 新增標籤「#${name}」`,
+      subtitle: `色彩：${color}`,
+      undo: () => { deleteCustomTag(name, false); },
+      redo: () => { addCustomTag(name, color, false); }
+    });
+  }
+  showToast(`✅ 已新增標籤「#${name}」`);
+  return true;
+};
+
+function renameCustomTag(oldName, newName, newColor = null, shouldRecord = true) {
+  newName = (newName || '').trim().replace(/^#/, '').trim();
+  if (!newName) {
+    showToast('標籤名稱不能為空');
+    renderTagManagerCustomTagsList();
+    return false;
+  }
+  if (!Array.isArray(state.tags)) state.tags = [];
+  const tagObj = state.tags.find(t => (t.name || '') === oldName || (t.name || '').toLowerCase() === String(oldName || '').toLowerCase());
+  if (!tagObj) return false;
+
+  if (newName.toLowerCase() !== oldName.toLowerCase() && state.tags.some(t => t !== tagObj && (t.name || '').toLowerCase() === newName.toLowerCase())) {
+    showToast(`標籤「#${newName}」已存在`);
+    renderTagManagerCustomTagsList();
+    return false;
+  }
+
+  if (newName !== oldName) {
+    markCategoryItemDeleted('custom', oldName);
+    unmarkCategoryItemDeleted('custom', newName);
+  }
+
+  tagObj.name = newName;
+  if (newColor) tagObj.color = newColor;
+
+  const affectedNotes = [];
+  (state.notes || []).forEach(note => {
+    if (note.meta && Array.isArray(note.meta.tags) && note.meta.tags.includes(oldName)) {
+      note.meta.tags = Array.from(new Set(note.meta.tags.map(t => t === oldName ? newName : t)));
+      affectedNotes.push(note);
+    }
+  });
+
+  if (Array.isArray(state.todoItems)) {
+    state.todoItems.forEach(item => {
+      if (Array.isArray(item.tags) && item.tags.includes(oldName)) {
+        item.tags = Array.from(new Set(item.tags.map(t => t === oldName ? newName : t)));
+      }
+    });
+    saveTodoItemsToLocalStorageOnly();
+  }
+
+  if (state.currentTagFilter === oldName) state.currentTagFilter = newName;
+  if (state.todoFilterTag === oldName) state.todoFilterTag = newName;
+
+  renderTagManagerCustomTagsList();
+  refreshAllViewsAfterCategoryChange();
+  syncAffectedNotesMetadataToDrive(affectedNotes);
+
+  if (shouldRecord && newName !== oldName) {
+    recordAction({
+      type: 'rename_custom_tag',
+      title: `🏷️ 更名標籤「#${oldName}」➔「#${newName}」`,
+      subtitle: `同步更新 ${affectedNotes.length} 篇筆記`,
+      undo: () => { renameCustomTag(newName, oldName, tagObj.color, false); },
+      redo: () => { renameCustomTag(oldName, newName, newColor, false); }
+    });
+  }
+  showToast(`✅ 已更新標籤「#${newName}」`);
+  return true;
+}
+
+function deleteCustomTag(tagName, shouldRecord = true) {
+  if (!Array.isArray(state.tags)) return false;
+  const idx = state.tags.findIndex(t => (t.name || '') === tagName || (t.name || '').toLowerCase() === String(tagName || '').toLowerCase());
+  if (idx === -1) return false;
+
+  const deletedTag = { ...state.tags[idx] };
+  const targetName = deletedTag.name;
+
+  markCategoryItemDeleted('custom', targetName);
+  state.tags.splice(idx, 1);
+
+  const affectedNotes = [];
+  (state.notes || []).forEach(note => {
+    if (note.meta && Array.isArray(note.meta.tags) && note.meta.tags.includes(targetName)) {
+      note.meta.tags = note.meta.tags.filter(t => t !== targetName);
+      affectedNotes.push(note);
+    }
+  });
+
+  const affectedTodos = [];
+  if (Array.isArray(state.todoItems)) {
+    state.todoItems.forEach(item => {
+      if (Array.isArray(item.tags) && item.tags.includes(targetName)) {
+        item.tags = item.tags.filter(t => t !== targetName);
+        affectedTodos.push(item);
+      }
+    });
+    if (affectedTodos.length > 0) saveTodoItemsToLocalStorageOnly();
+  }
+
+  if (state.currentTagFilter === targetName) state.currentTagFilter = null;
+  if (state.todoFilterTag === targetName) state.todoFilterTag = '';
+
+  renderTagManagerCustomTagsList();
+  refreshAllViewsAfterCategoryChange();
+  syncAffectedNotesMetadataToDrive(affectedNotes);
+
+  if (shouldRecord) {
+    recordAction({
+      type: 'delete_custom_tag',
+      title: `🏷️ 刪除標籤「#${targetName}」`,
+      subtitle: '可按復原 (Ctrl+Z) 救回',
+      undo: () => {
+        unmarkCategoryItemDeleted('custom', targetName);
+        if (!state.tags.some(t => (t.name || '').toLowerCase() === targetName.toLowerCase())) {
+          state.tags.splice(Math.min(idx, state.tags.length), 0, deletedTag);
+        }
+        affectedNotes.forEach(n => {
+          if (n.meta && Array.isArray(n.meta.tags) && !n.meta.tags.includes(targetName)) {
+            n.meta.tags.push(targetName);
+          }
+        });
+        affectedTodos.forEach(t => {
+          if (Array.isArray(t.tags) && !t.tags.includes(targetName)) {
+            t.tags.push(targetName);
+          }
+        });
+        saveTodoItemsToLocalStorageOnly();
+        if (state.activeTagManagerTab === 'custom') renderTagManagerCustomTagsList();
+        refreshAllViewsAfterCategoryChange();
+        syncAffectedNotesMetadataToDrive(affectedNotes);
+      },
+      redo: () => { deleteCustomTag(targetName, false); }
+    });
+  }
+
+  showToast(`🗑️ 已刪除標籤「#${targetName}」`);
+  return true;
+}
+
+// ----------------------------------------------------------------------------
+// 6. 處理人員 (Todo Handlers) CRUD & 渲染 — 支援墓碑保護與統一就地編輯列
+// ----------------------------------------------------------------------------
+renderTagManagerTodoHandlerList = function() {
+  ensureTodoItemsInitialized();
+  const listEl = document.getElementById('tm-todo-handler-list');
+  const countEl = document.getElementById('tm-todo-handler-total-count');
+  if (!listEl) return;
+
+  state.todoHandlers = filterOutDeletedCategoryItems('todo_handler', state.todoHandlers || DEFAULT_TODO_HANDLERS);
+  listEl.innerHTML = '';
+  if (countEl) countEl.textContent = `共 ${state.todoHandlers.length} 項`;
+
+  if (state.todoHandlers.length === 0) {
+    listEl.innerHTML = '<div class="text-center py-6 text-gray-400 text-xs">尚無處理人員，請由上方新增</div>';
+    return;
+  }
+
+  state.todoHandlers.forEach(hName => {
+    const usedCount = (state.todoItems || []).filter(t => !isTodoItemDeletedTombstoned(t) && Array.isArray(t.handlers) && t.handlers.includes(hName)).length;
+    const row = createUnifiedTagManagerRow({
+      iconHtml: '<span class="text-sm shrink-0">👤</span>',
+      inputValue: hName,
+      inputPlaceholder: '處理人員姓名...',
+      countText: `${usedCount} 筆`,
+      badgeClass: usedCount > 0
+        ? 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/70 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800'
+        : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 border-gray-200 dark:border-gray-700',
+      onSave: (newName, _color, explicit) => {
+        if (newName === hName) {
+          if (explicit) showToast(`✅ 已儲存處理人員「${hName}」`);
+          return;
+        }
+        renameTodoHandler(hName, newName);
+      },
+      onDelete: () => {
+        deleteTodoHandler(hName, true);
+      }
+    });
+    listEl.appendChild(row);
+  });
+  initLucide();
+};
+
+addTodoHandler = function(name) {
+  ensureTodoItemsInitialized();
+  name = (name || '').trim();
+  if (!name) {
+    showToast('請輸入處理人員名稱');
+    return false;
+  }
+  unmarkCategoryItemDeleted('todo_handler', name);
+  if (!Array.isArray(state.todoHandlers)) state.todoHandlers = [];
+  if (state.todoHandlers.includes(name)) {
+    showToast(`處理人員「${name}」已存在`);
+    return false;
+  }
+  state.todoHandlers.push(name);
+  const inp = document.getElementById('tm-new-todo-handler-input');
+  if (inp) inp.value = '';
+  saveTodoItemsState(true);
+  renderTagManagerTodoHandlerList();
+  refreshAllViewsAfterCategoryChange();
+  showToast(`✅ 已新增處理人員「${name}」`);
+  return true;
+};
+
+renameTodoHandler = function(oldName, newName) {
+  ensureTodoItemsInitialized();
+  newName = (newName || '').trim();
+  if (!newName) {
+    showToast('處理人員名稱不能為空');
+    renderTagManagerTodoHandlerList();
+    return false;
+  }
+  if (newName === oldName) {
+    showToast(`✅ 已儲存處理人員「${newName}」`);
+    return true;
+  }
+  if (!Array.isArray(state.todoHandlers)) state.todoHandlers = [];
+  if (state.todoHandlers.includes(newName)) {
+    showToast(`處理人員「${newName}」已存在`);
+    renderTagManagerTodoHandlerList();
+    return false;
+  }
+  const idx = state.todoHandlers.findIndex(x => x === oldName || x.trim() === String(oldName || '').trim());
+  if (idx === -1) return false;
+
+  markCategoryItemDeleted('todo_handler', oldName);
+  unmarkCategoryItemDeleted('todo_handler', newName);
+  state.todoHandlers[idx] = newName;
+
+  (state.todoItems || []).forEach(item => {
+    if (Array.isArray(item.handlers)) {
+      item.handlers = item.handlers.map(h => h === oldName ? newName : h);
+    }
+  });
+  if (state.todoFilterHandler === oldName) state.todoFilterHandler = newName;
+
+  saveTodoItemsState(true);
+  renderTagManagerTodoHandlerList();
+  refreshAllViewsAfterCategoryChange();
+  showToast(`✅ 處理人員已更名為「${newName}」`);
+  return true;
+};
+
+deleteTodoHandler = function(name) {
+  ensureTodoItemsInitialized();
+  if (!Array.isArray(state.todoHandlers)) return false;
+  const idx = state.todoHandlers.findIndex(x => x === name || x.trim() === String(name || '').trim());
+  if (idx === -1) return false;
+
+  const targetName = state.todoHandlers[idx];
+  markCategoryItemDeleted('todo_handler', targetName);
+  state.todoHandlers.splice(idx, 1);
+
+  const affected = (state.todoItems || []).filter(t => Array.isArray(t.handlers) && t.handlers.includes(targetName));
+  affected.forEach(item => {
+    item.handlers = (item.handlers || []).filter(h => h !== targetName);
+  });
+  if (state.todoFilterHandler === targetName) state.todoFilterHandler = '';
+
+  saveTodoItemsState(true);
+  renderTagManagerTodoHandlerList();
+  refreshAllViewsAfterCategoryChange();
+
+  recordAction({
+    type: 'delete_todo_handler',
+    title: `👥 刪除處理人員「${targetName}」`,
+    subtitle: '可按復原 (Ctrl+Z) 救回',
+    undo: () => {
+      unmarkCategoryItemDeleted('todo_handler', targetName);
+      if (!state.todoHandlers.includes(targetName)) {
+        state.todoHandlers.splice(Math.min(idx, state.todoHandlers.length), 0, targetName);
+      }
+      affected.forEach(item => {
+        if (Array.isArray(item.handlers) && !item.handlers.includes(targetName)) {
+          item.handlers.push(targetName);
+        }
+      });
+      saveTodoItemsState(true);
+      if (state.activeTagManagerTab === 'todo_handler') renderTagManagerTodoHandlerList();
+      refreshAllViewsAfterCategoryChange();
+    },
+    redo: () => { deleteTodoHandler(targetName); }
+  });
+
+  showToast(`🗑️ 已刪除處理人員「${targetName}」`);
+  return true;
+};
+
+// 覆寫 switchTagManagerTab，使選中態樣式與 6 大分類膠囊設計一致
+switchTagManagerTab = function(tab) {
+  if (tab === 'todo_status') tab = 'todo_handler';
+  state.activeTagManagerTab = tab;
+
+  const tabBtns = [
+    { id: 'machine', btn: document.getElementById('tm-tab-machine'), pane: document.getElementById('tm-pane-machine') },
+    { id: 'content', btn: document.getElementById('tm-tab-content'), pane: document.getElementById('tm-pane-content') },
+    { id: 'urgency', btn: document.getElementById('tm-tab-urgency'), pane: document.getElementById('tm-pane-urgency') },
+    { id: 'client', btn: document.getElementById('tm-tab-client'), pane: document.getElementById('tm-pane-client') },
+    { id: 'custom', btn: document.getElementById('tm-tab-custom'), pane: document.getElementById('tm-pane-custom') },
+    { id: 'todo_handler', btn: document.getElementById('tm-tab-todo-handler'), pane: document.getElementById('tm-pane-todo-handler') },
+    { id: 'todo_status', btn: document.getElementById('tm-tab-todo-status'), pane: document.getElementById('tm-pane-todo-status') }
+  ];
+
+  tabBtns.forEach(t => {
+    if (t.btn && t.id !== 'todo_status') {
+      t.btn.classList.toggle('active', t.id === tab);
+    }
+    if (t.pane) {
+      t.pane.classList.toggle('hidden', t.id !== tab);
+    }
+  });
+
+  if (tab === 'machine') renderTagManagerMachineList();
+  else if (tab === 'content') renderTagManagerContentList();
+  else if (tab === 'urgency') renderTagManagerUrgencyList();
+  else if (tab === 'client') renderTagManagerClientList();
+  else if (tab === 'custom') renderTagManagerCustomTagsList();
+  else if (tab === 'todo_handler') renderTagManagerTodoHandlerList();
+
+  initLucide();
+};
+
+// 確保啟動時立即載入墓碑並執行一次過濾
+try {
+  ensureDeletedCategoryItemsLoaded();
+  initWorkTags();
+  initTags();
+} catch (e) {}

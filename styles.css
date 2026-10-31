@@ -4950,3 +4950,497 @@ html.dark .lvi-todo-summary-row .bg-amber-50 {
     color: #fde68a !important;
     border-color: rgba(245, 158, 11, 0.4) !important;
 }
+
+
+/* ==========================================================================
+   🎨 LVI_Note v2.8.8 全站統一視覺設計語言與分類管理中心美化
+   ========================================================================== */
+
+/* 1. 頂部多重視圖切換列 (#view-mode-bar) 膠囊分段化 */
+#view-mode-bar {
+  height: 44px;
+  padding: 0 12px;
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+html.dark #view-mode-bar {
+  background: linear-gradient(180deg, #161b26 0%, #11151f 100%);
+  border-bottom-color: #262f40;
+}
+#view-mode-bar .view-tab-btn {
+  border-radius: 8px;
+  padding: 5px 11px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #64748b;
+  border: 1px solid transparent;
+  transition: all 0.16s ease;
+}
+html.dark #view-mode-bar .view-tab-btn {
+  color: #94a3b8;
+}
+#view-mode-bar .view-tab-btn:hover {
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.7);
+}
+html.dark #view-mode-bar .view-tab-btn:hover {
+  color: #f1f5f9;
+  background: rgba(30, 41, 59, 0.65);
+}
+#view-mode-bar .view-tab-btn.active {
+  background: #ffffff;
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.22);
+  box-shadow: 0 1px 4px rgba(15, 23, 42, 0.06);
+}
+html.dark #view-mode-bar .view-tab-btn.active {
+  background: #1e293b;
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.35);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* 2. 筆記分類屬性面板 (#note-properties-container) 卡片與表單統一 */
+#note-properties-container {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px !important;
+  padding: 10px 12px !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+html.dark #note-properties-container {
+  background: linear-gradient(180deg, #1a202c 0%, #151a24 100%) !important;
+  border-color: #2d3748 !important;
+}
+#note-properties-container select,
+#note-properties-container input[type="date"] {
+  border-radius: 8px !important;
+  border: 1px solid #cbd5e1 !important;
+  font-weight: 600;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+html.dark #note-properties-container select,
+html.dark #note-properties-container input[type="date"] {
+  border-color: #334155 !important;
+  background-color: #0f172a !important;
+  color: #f1f5f9 !important;
+}
+
+
+/* 3.0 彈跳視窗與分類管理中心獨立排版保障 (離線與線上 100% 視覺一致) */
+#tag-manager-modal:not(.hidden),
+#action-history-modal:not(.hidden),
+#settings-modal:not(.hidden),
+#cover-modal:not(.hidden),
+#folder-modal:not(.hidden),
+#cal-event-modal:not(.hidden) {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9990 !important;
+  background: rgba(15, 23, 42, 0.58) !important;
+  backdrop-filter: blur(4px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+}
+#tag-manager-modal .lvi-modal-card {
+  width: 100% !important;
+  max-width: 600px !important;
+  max-height: 86vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  padding: 20px !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.28) !important;
+  color: #0f172a !important;
+}
+html.dark #tag-manager-modal .lvi-modal-card {
+  background: #181f2c !important;
+  border-color: #2d3748 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.7) !important;
+}
+#tag-manager-modal .tm-tab-grid {
+  display: grid !important;
+  grid-template-columns: repeat(6, minmax(0, 1fr)) !important;
+  gap: 6px !important;
+  padding: 5px !important;
+  border-radius: 12px !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+}
+@media (max-width: 640px) {
+  #tag-manager-modal .tm-tab-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+}
+html.dark #tag-manager-modal .tm-tab-grid {
+  background: #0f141d !important;
+  border-color: #262f40 !important;
+}
+#tag-manager-modal .tm-pane:not(.hidden) {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  padding-right: 4px !important;
+}
+#tag-manager-modal #tm-machine-list,
+#tag-manager-modal #tm-content-list,
+#tag-manager-modal #tm-urgency-list,
+#tag-manager-modal #tm-client-list,
+#tag-manager-modal #tm-tags-list,
+#tag-manager-modal #tm-todo-handler-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 7px !important;
+}
+
+
+#tag-manager-modal .lvi-modal-header,
+#tag-manager-modal .lvi-modal-footer {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+}
+#tag-manager-modal .lvi-modal-header {
+  padding-bottom: 10px !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+html.dark #tag-manager-modal .lvi-modal-header {
+  border-bottom-color: #2d3748 !important;
+}
+#tag-manager-modal .lvi-modal-header > div {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+#tag-manager-modal .lvi-modal-header h3 {
+  margin: 0 !important;
+  font-size: 1rem !important;
+  font-weight: 800 !important;
+}
+#tag-manager-modal #close-tag-manager-btn {
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 8px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+  color: #64748b !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 0.85rem !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+}
+html.dark #tag-manager-modal #close-tag-manager-btn {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #cbd5e1 !important;
+}
+#tag-manager-modal #close-tag-manager-btn:hover {
+  background: #fee2e2 !important;
+  color: #e11d48 !important;
+  border-color: #fecdd3 !important;
+}
+#tag-manager-modal .lvi-modal-footer {
+  padding-top: 10px !important;
+  border-top: 1px solid #e2e8f0 !important;
+  font-size: 0.75rem !important;
+  color: #64748b !important;
+}
+html.dark #tag-manager-modal .lvi-modal-footer {
+  border-top-color: #2d3748 !important;
+  color: #94a3b8 !important;
+}
+#tag-manager-modal #tm-done-btn {
+  padding: 6px 18px !important;
+  border-radius: 8px !important;
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+}
+#tag-manager-modal #tm-done-btn:hover {
+  background: #1d4ed8 !important;
+}
+.tm-add-submit-btn {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+}
+
+/* 3. 分類與標籤管理中心 (#tag-manager-modal) 統一高質感介面 */
+.tm-tab-grid .tm-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 7px 6px;
+  border-radius: 9px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+html.dark .tm-tab-grid .tm-tab-btn {
+  color: #94a3b8;
+}
+.tm-tab-grid .tm-tab-btn:hover {
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.65);
+}
+html.dark .tm-tab-grid .tm-tab-btn:hover {
+  color: #f8fafc;
+  background: rgba(30, 41, 59, 0.65);
+}
+.tm-tab-grid .tm-tab-btn.active {
+  background: #ffffff;
+  color: #2563eb;
+  border-color: rgba(37, 99, 235, 0.25);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.07);
+}
+html.dark .tm-tab-grid .tm-tab-btn.active {
+  background: #1e293b;
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.tm-add-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+html.dark .tm-add-bar {
+  background: #141923;
+  border-color: #2d3748;
+}
+.tm-add-input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #cbd5e1;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+html.dark .tm-add-input {
+  background: #0f172a;
+  color: #f8fafc;
+  border-color: #334155;
+}
+.tm-add-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+}
+.tm-add-select {
+  padding: 6px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+}
+html.dark .tm-add-select {
+  background: #0f172a;
+  color: #f1f5f9;
+  border-color: #334155;
+}
+.tm-add-submit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.12s ease, filter 0.15s ease;
+}
+.tm-add-submit-btn:active {
+  transform: scale(0.97);
+}
+.tm-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #64748b;
+  padding: 0 4px;
+}
+html.dark .tm-list-header {
+  color: #94a3b8;
+}
+
+/* 統一就地編輯列 (.tm-unified-item-row) */
+.tm-unified-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+html.dark .tm-unified-item-row {
+  background: #161c28;
+  border-color: #283246;
+}
+.tm-unified-item-row:hover {
+  border-color: #cbd5e1;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+html.dark .tm-unified-item-row:hover {
+  border-color: #3b4b66;
+  background: #1b2333;
+}
+.tm-row-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+.tm-inline-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+html.dark .tm-inline-input {
+  color: #f8fafc;
+  background: #0f172a;
+  border-color: #334155;
+}
+.tm-inline-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+}
+.tm-row-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.tm-inline-select {
+  padding: 3px 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+}
+html.dark .tm-inline-select {
+  background: #0f172a;
+  color: #f1f5f9;
+  border-color: #334155;
+}
+.tm-usage-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.tm-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.14s ease;
+}
+.tm-save-btn {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+html.dark .tm-save-btn {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+.tm-save-btn:hover {
+  background: #10b981;
+  color: #ffffff;
+  border-color: #059669;
+}
+.tm-del-btn {
+  background: #fff1f2;
+  color: #e11d48;
+  border-color: #fecdd3;
+}
+html.dark .tm-del-btn {
+  background: rgba(244, 63, 94, 0.15);
+  color: #fda4af;
+  border-color: rgba(244, 63, 94, 0.35);
+}
+.tm-del-btn:hover:not(:disabled) {
+  background: #e11d48;
+  color: #ffffff;
+  border-color: #be123c;
+}
+
+/* 4. 表格資料庫與未分類卡片統一視覺優化 */
+#view-table-container select,
+#view-table-container input[type="text"] {
+  border-radius: 8px;
+  font-weight: 600;
+}
+.uncat-card {
+  border-radius: 14px !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 2px 8px -2px rgba(15, 23, 42, 0.05) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
+}
+html.dark .uncat-card {
+  border-color: #2d3748 !important;
+  background: #181f2c !important;
+}
+.uncat-card:hover {
+  transform: translateY(-1px);
+  border-color: #93c5fd !important;
+  box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.1) !important;
+}
