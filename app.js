@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.9.2'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.9.3'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -1706,7 +1706,7 @@ async function saveWorkspaceConfigToDrive() {
       todoStatuses: state.todoStatuses || DEFAULT_TODO_STATUSES,
       todoHandlers: (state.todoHandlers && state.todoHandlers.length > 0) ? state.todoHandlers : DEFAULT_TODO_HANDLERS,
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.9.2'
+      source: 'Google Drive Cloud Truth v2.9.3'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -1949,7 +1949,7 @@ async function fetchNotesList(silent = false) {
       });
     }
 
-    // 💡 雲端自動採納 (v2.9.2 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
+    // 💡 雲端自動採納 (v2.9.3 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
     let needUpdateCloudConfig = false;
     const delMachines = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('machine') : new Set();
     const delContents = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('content') : new Set();
@@ -4937,7 +4937,7 @@ async function compressImageForUpload(file, maxDimension = 1280, quality = 0.76)
   const t0 = performance.now();
   try {
     const origSize = file.size;
-    // 🍏 v2.9.2 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
+    // 🍏 v2.9.3 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
     if (await isHeicFileOrBlob(file, file.name)) {
       const convertedJpegBlob = await convertHeicBlobToJpegBlob(file, Math.max(0.84, quality));
       if (convertedJpegBlob) {
@@ -7247,7 +7247,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.2', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.3', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -12769,7 +12769,7 @@ function closeTableQuickPeekDrawer() {
 }
 
 // ============================================================================
-// 📋 LVI_Note v2.9.2 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
+// 📋 LVI_Note v2.9.3 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
 // ============================================================================
 
 const TODO_STORAGE_KEY = 'lvi_todo_items_v283';
@@ -13596,7 +13596,7 @@ function evaluateFuzzyTodoMatch(todoItem, parsedQuery) {
 }
 
 // ============================================================================
-// 📋 表格資料庫檢視 (Table Database View - v2.9.2)
+// 📋 表格資料庫檢視 (Table Database View - v2.9.3)
 // ============================================================================
 
 function openTodoQuickPeekDrawer(todoId, fuzzyRes = null) {
@@ -16485,7 +16485,7 @@ function bindEvents() {
   const scrollContainer = document.getElementById('main-scroll-container');
   const canvasWrapper = document.getElementById('canvas-inner-wrapper');
 
-  // Legacy auto-paragraph click listener replaced by v2.9.2 Double-Click Position Memory Engine
+  // Legacy auto-paragraph click listener replaced by v2.9.3 Double-Click Position Memory Engine
 
   // 📷 一鍵展開/收折所有照片與影片
   if (DOM.toggleAllMediaBtn) {
@@ -16966,7 +16966,7 @@ function bindEvents() {
   if (DOM.closeTagManagerBtn) DOM.closeTagManagerBtn.addEventListener('click', closeTagManagerModal);
   if (DOM.tmDoneBtn) DOM.tmDoneBtn.addEventListener('click', closeTagManagerModal);
 
-  // Duplicate DOM.tmAddBtn listener removed in v2.9.2
+  // Duplicate DOM.tmAddBtn listener removed in v2.9.3
 
   // 下拉式標籤面板
   if (DOM.addTagBtn) {
@@ -19753,7 +19753,7 @@ function initInAppCameraListeners() {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.2 圖片四大升級引擎：
+// 🚀 LVI_Note v2.9.3 圖片四大升級引擎：
 // 1. HEIC/HEIF 完整解碼與標註支援 (heic2any + ImageBitmap + Drive 雲端轉檔)
 // 2. 圖片框上方專屬高對比文字註記欄 (.media-top-note-bar，淺/深色皆 >18:1 超高對比)
 // 3. 真實圖片旋轉 (90° 左/右旋轉 + PATCH/POST 重新存回 Google Drive 雲端硬碟)
@@ -20590,7 +20590,7 @@ if (document.readyState !== 'loading') { bootLviAppOnce(); }
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.2 全層級分類與標籤管理中心修復與穩定引擎
+// 🚀 LVI_Note v2.9.3 全層級分類與標籤管理中心修復與穩定引擎
 // 1. 永久刪除墓碑機制 (state.deletedCategoryItems)：確保刪除或更名後的預設/自訂選項絕不因雲端同步或重整而復活
 // 2. 六大分類統一就地編輯列 (.tm-unified-item-row)：支援點擊直接修改、Enter 鍵儲存、✓ 儲存鈕、🗑️ 即時刪除 (附一鍵復原)
 // 3. 消除 input blur/change 與按鈕 click 的競態衝突 (mousedown preventDefault 保護)
@@ -21017,7 +21017,7 @@ saveWorkspaceConfigToDrive = async function() {
       caseItems: Array.isArray(state.caseItems) ? state.caseItems : [],
       deletedCaseIds: Array.isArray(state.deletedCaseIds) ? state.deletedCaseIds : [],
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.9.2'
+      source: 'Google Drive Cloud Truth v2.9.3'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -22450,7 +22450,7 @@ try {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.2 筆記畫布雙擊位置記憶與游標感知檔案插入引擎
+// 🚀 LVI_Note v2.9.3 筆記畫布雙擊位置記憶與游標感知檔案插入引擎
 // 1. 停止自動在區塊前後塞入兩行空白段落 (<p><br></p>)
 // 2. 雙擊無輸入游標處時：先記住該位置 (state.pendingDblClickTarget)，不直接加行；待使用者後續按下 Enter 時才在該位置新增 1 行 (<p><br></p>)
 // 3. 傳入檔案時：若有輸入游標則插入於游標位置；若無輸入游標則預設插入於筆記最底部 (絕不誤插在筆記最上方)
@@ -22947,13 +22947,13 @@ try {
 
 
 // ============================================================================
-// 🛡️ LVI_Note v2.9.2 「案件追蹤」(After-Sales Case Tracking & Service Dossier) 核心模組
+// 🛡️ LVI_Note v2.9.3 「案件追蹤」(After-Sales Case Tracking & Service Dossier) 核心模組
 // 1. 與「待辦事項」同等級並列之獨立主功能 (側邊欄 + 頂部多重視圖導覽列)
 // 2. 支援共用主系統之「機型」、「客戶/廠商」、「標籤」、「處理人員」選單，並新增獨立「案號 (caseNumbers)」選單
 // 3. 內部配備比照表格資料庫之獨立搜尋與多維篩選系統 (支援同義詞智慧模糊檢索、關鍵字高亮摘要、5 大維度下拉過濾、清單/表格雙模式切換)
 // 4. 專為售後處理追蹤打造的 6 段式個案履歷介面 (含機台序號/保固、客訴與根因分析、售後對策與更換零件、多階段時間軸追蹤紀錄、現場照片/檔案縮圖、關聯筆記與報告匯出)
 // ============================================================================
-// 🛡️ LVI_Note v2.9.2 「案件追蹤」(After-Sales Case Tracking & History System) 核心模組
+// 🛡️ LVI_Note v2.9.3 「案件追蹤」(After-Sales Case Tracking & History System) 核心模組
 // 1. 移除「異常原因 / 根因分析」多餘文字框，簡化為「🚨 客訴 / 異常現象描述」與「🛠️ 售後處理對策與零件更換紀錄」兩大專區
 // 2. 兩大專區皆配備「💾 存入歷史」按鈕與「防忘記儲存自動歸檔機制」：
 //    - 當按下「💾 存入歷史」按鈕，或「有輸入文字或檔案後忘記儲存就關閉網站 / 離開頁面 / 重新整理」時，
@@ -26094,6 +26094,704 @@ try {
   initCaseViewTopControlsOnce();
   updateCaseSummaryStats();
 } catch (e) {
-  console.warn('init Case Tracking v2.9.2 error:', e);
+  console.warn('init Case Tracking v2.9.3 error:', e);
 }
 
+
+
+
+// ============================================================================
+// 🔗 LVI_Note v2.9.3 模組 1：雙向連結（Backlinks）與知識關聯索引引擎
+// 1. 支援 [[筆記標題]]、[[#筆記ID]] 與 [[目標|顯示名稱]] 語法
+// 2. 記憶體反向索引映射表 state.backlinksIndexMap (Map<targetNoteId, Array<BacklinkRecord>>)
+// 3. 渲染單篇筆記或於編輯器輸入 `]]` 時，自動將 `[[...]]` 轉換為可點擊跳轉的內部連結 (.lvi-wikilink)
+// 4. 於筆記畫面底部 (#note-backlinks-panel) 自動列出所有引用當前筆記的其他筆記清單，點擊可直接跳轉
+// ============================================================================
+
+state.backlinksIndexMap = new Map();
+state.forwardLinksMap = new Map();
+
+/**
+ * 取得筆記的不含 .md 乾淨標題
+ */
+function getCleanNoteTitle(note) {
+  if (!note) return '未命名筆記';
+  return String(note.name || '未命名筆記').replace(/\.md$/i, '').trim() || '未命名筆記';
+}
+
+/**
+ * 依據雙向連結語法內容 (例如 "真空壓合機SOP" 或 "#note_123" 或 "真空壓合機SOP|壓合參數") 解析目標筆記
+ */
+function parseAndResolveWikiLinkToken(rawToken) {
+  const cleanRaw = String(rawToken || '').trim();
+  if (!cleanRaw) return null;
+
+  let targetSpec = cleanRaw;
+  let customLabel = '';
+  const pipeIdx = cleanRaw.indexOf('|');
+  if (pipeIdx !== -1) {
+    targetSpec = cleanRaw.slice(0, pipeIdx).trim();
+    customLabel = cleanRaw.slice(pipeIdx + 1).trim();
+  }
+  if (!targetSpec) return null;
+
+  const isIdRef = targetSpec.startsWith('#');
+  const idOrTitle = isIdRef ? targetSpec.slice(1).trim() : targetSpec.trim();
+  if (!idOrTitle) return null;
+
+  const notes = Array.isArray(state.notes) ? state.notes : [];
+  let matchedNote = null;
+
+  if (isIdRef) {
+    matchedNote = notes.find(n => n && (String(n.id) === idOrTitle || String(n._tempId || '') === idOrTitle));
+  } else {
+    const targetLower = idOrTitle.toLowerCase();
+    matchedNote = notes.find(n => n && getCleanNoteTitle(n).toLowerCase() === targetLower);
+    // 若標題精準比對未果，亦檢查是否直接傳入了筆記 ID
+    if (!matchedNote) {
+      matchedNote = notes.find(n => n && (String(n.id) === idOrTitle || String(n._tempId || '') === idOrTitle));
+    }
+  }
+
+  const resolvedTitle = matchedNote ? getCleanNoteTitle(matchedNote) : idOrTitle;
+  const displayLabel = customLabel || (isIdRef && matchedNote ? `${resolvedTitle} (#${idOrTitle.slice(0, 8)})` : resolvedTitle);
+
+  return {
+    rawToken: cleanRaw,
+    targetSpec,
+    isIdRef,
+    idOrTitle,
+    matchedNote,
+    targetNoteId: matchedNote ? matchedNote.id : '',
+    targetTitle: resolvedTitle,
+    targetIcon: (matchedNote && matchedNote.meta && matchedNote.meta.icon) ? matchedNote.meta.icon : '📝',
+    displayLabel
+  };
+}
+
+/**
+ * 建立雙向連結 HTML 晶片字串
+ */
+function buildWikiLinkAnchorHtml(resolved) {
+  if (!resolved) return '';
+  const isResolved = Boolean(resolved.matchedNote);
+  const noteIdAttr = resolved.targetNoteId ? escapeHtml(resolved.targetNoteId) : '';
+  const rawAttr = escapeHtml(resolved.rawToken);
+  const specAttr = escapeHtml(resolved.targetSpec);
+  const titleAttr = isResolved
+    ? `點擊跳轉至關聯筆記：「${escapeHtml(resolved.targetTitle)}」`
+    : `點擊建立並跳轉至新筆記：「${escapeHtml(resolved.targetTitle)}」`;
+
+  return `<a href="#" class="lvi-wikilink notion-page-link ${isResolved ? '' : 'is-unresolved'}" contenteditable="false" data-note-id="${noteIdAttr}" data-wikilink-raw="${rawAttr}" data-wikilink-spec="${specAttr}" title="${titleAttr}"><span class="lvi-wikilink-bracket">[[</span><span class="lvi-wikilink-icon">${escapeHtml(resolved.targetIcon)}</span><span class="lvi-wikilink-text">${escapeHtml(resolved.displayLabel)}</span><span class="lvi-wikilink-bracket">]]</span></a>`;
+}
+
+/**
+ * 將指定 DOM 容器（如 #editor 或 #peek-note-body）內的 `[[筆記標題]]` / `[[#筆記ID]]` 轉換為可點擊跳轉的內部連結，
+ * 同時更新既有 `<a class="lvi-wikilink">` 的解析狀態與最新標題！
+ */
+function enhanceWikiLinksInContainer(container = DOM.editor) {
+  if (!container) return false;
+  let mutated = false;
+
+  // 1. 先更新容器內已存在的 a.lvi-wikilink 標籤（例如目標筆記後來被建立或更名）
+  container.querySelectorAll('a.lvi-wikilink').forEach(anchor => {
+    const rawToken = anchor.getAttribute('data-wikilink-raw') || anchor.getAttribute('data-wikilink-spec') || '';
+    const existingId = anchor.getAttribute('data-note-id') || '';
+    const resolved = parseAndResolveWikiLinkToken(rawToken || (existingId ? `#${existingId}` : ''));
+    if (!resolved) return;
+
+    if (resolved.targetNoteId && anchor.getAttribute('data-note-id') !== resolved.targetNoteId) {
+      anchor.setAttribute('data-note-id', resolved.targetNoteId);
+      mutated = true;
+    }
+    anchor.classList.toggle('is-unresolved', !resolved.matchedNote);
+    const txtEl = anchor.querySelector('.lvi-wikilink-text');
+    const iconEl = anchor.querySelector('.lvi-wikilink-icon');
+    if (txtEl && txtEl.textContent !== resolved.displayLabel) {
+      txtEl.textContent = resolved.displayLabel;
+    }
+    if (iconEl && iconEl.textContent !== resolved.targetIcon) {
+      iconEl.textContent = resolved.targetIcon;
+    }
+  });
+
+  // 2. 掃描容器內的一般文字節點，將 `[[...]]` 即時轉換為 `<a class="lvi-wikilink">`
+  const walker = document.createTreeWalker(
+    container,
+    NodeFilter.SHOW_TEXT,
+    {
+      acceptNode(node) {
+        if (!node.nodeValue || !node.nodeValue.includes('[[')) return NodeFilter.FILTER_REJECT;
+        const parent = node.parentElement;
+        if (!parent) return NodeFilter.FILTER_REJECT;
+        if (parent.closest('a.lvi-wikilink, a.notion-page-link, code, pre, script, style, textarea, .media-top-note-input')) {
+          return NodeFilter.FILTER_REJECT;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    }
+  );
+
+  const textNodesToProcess = [];
+  let curNode;
+  while ((curNode = walker.nextNode())) {
+    textNodesToProcess.push(curNode);
+  }
+
+  const wikiRegex = /\[\[([^[\]\n]+?)\]\]/g;
+  textNodesToProcess.forEach(textNode => {
+    const text = textNode.nodeValue || '';
+    wikiRegex.lastIndex = 0;
+    if (!wikiRegex.test(text)) return;
+
+    wikiRegex.lastIndex = 0;
+    const frag = document.createDocumentFragment();
+    let lastIdx = 0;
+    let match;
+    let lastInsertedAnchor = null;
+
+    while ((match = wikiRegex.exec(text)) !== null) {
+      const beforeText = text.slice(lastIdx, match.index);
+      if (beforeText) {
+        frag.appendChild(document.createTextNode(beforeText));
+      }
+      const rawInner = (match[1] || '').trim();
+      const resolved = parseAndResolveWikiLinkToken(rawInner);
+      if (resolved) {
+        const tempWrap = document.createElement('span');
+        tempWrap.innerHTML = buildWikiLinkAnchorHtml(resolved);
+        const anchorNode = tempWrap.firstElementChild;
+        if (anchorNode) {
+          frag.appendChild(anchorNode);
+          lastInsertedAnchor = anchorNode;
+          mutated = true;
+        } else {
+          frag.appendChild(document.createTextNode(match[0]));
+        }
+      } else {
+        frag.appendChild(document.createTextNode(match[0]));
+      }
+      lastIdx = wikiRegex.lastIndex;
+    }
+
+    const afterText = text.slice(lastIdx);
+    const trailingTextNode = document.createTextNode(afterText || '\u00A0');
+    frag.appendChild(trailingTextNode);
+
+    const isFocusedInEditor = (container === DOM.editor && document.activeElement === DOM.editor);
+    textNode.replaceWith(frag);
+
+    if (isFocusedInEditor && lastInsertedAnchor) {
+      try {
+        const sel = window.getSelection();
+        if (sel) {
+          const r = document.createRange();
+          r.setStart(trailingTextNode, afterText ? 0 : 1);
+          r.collapse(true);
+          sel.removeAllRanges();
+          sel.addRange(r);
+        }
+      } catch (e) {}
+    }
+  });
+
+  return mutated;
+}
+
+/**
+ * 從單篇筆記中擷取所有對外引用的目標筆記與上下文摘要
+ */
+function extractOutboundWikiLinksFromNote(note) {
+  if (!note || !note.id) return [];
+
+  let rawHtmlOrBody = '';
+  if (state.currentNote && state.currentNote.id === note.id && DOM.editor && !state.isLoadingNote) {
+    rawHtmlOrBody = DOM.editor.innerHTML || '';
+  } else {
+    const localDraft = (typeof getLocalDraft === 'function') ? getLocalDraft(note.id) : null;
+    rawHtmlOrBody = (localDraft && localDraft.html) || note._cachedHtml || note._cachedBody || '';
+  }
+  if (!rawHtmlOrBody) return [];
+
+  const results = [];
+  const seenTargetKeys = new Set();
+
+  // 建立臨時 DOM 以精準解析 <a class="lvi-wikilink">、<a class="notion-page-link"> 以及純文字 [[...]]
+  const temp = document.createElement('div');
+  temp.innerHTML = rawHtmlOrBody;
+
+  // (A) 解析已渲染的 .lvi-wikilink 與 .notion-page-link
+  temp.querySelectorAll('a.lvi-wikilink, a.notion-page-link[data-note-id]').forEach(a => {
+    const rawToken = a.getAttribute('data-wikilink-raw') || a.getAttribute('data-wikilink-spec') || '';
+    const dataNoteId = a.getAttribute('data-note-id') || '';
+    const resolved = parseAndResolveWikiLinkToken(rawToken || (dataNoteId ? `#${dataNoteId}` : (a.textContent || '')));
+    if (!resolved) return;
+
+    const targetId = resolved.targetNoteId || dataNoteId;
+    if (!targetId || targetId === note.id) return;
+
+    const blockEl = a.closest('p, li, h1, h2, h3, h4, td, blockquote, div') || temp;
+    const snippet = (blockEl.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 110);
+    const key = `${targetId}`;
+    if (!seenTargetKeys.has(key)) {
+      seenTargetKeys.add(key);
+      results.push({
+        targetNoteId: targetId,
+        matchSyntax: rawToken ? `[[${rawToken}]]` : `[[${resolved.targetTitle}]]`,
+        snippet
+      });
+    }
+  });
+
+  // (B) 解析尚未轉為 DOM 標籤的純文字 [[...]] (例如在 _cachedBody Markdown 原文中)
+  const plainText = (temp.textContent || '').trim() || (note._cachedBody || '').trim();
+  const wikiRegex = /\[\[([^[\]\n]+?)\]\]/g;
+  let m;
+  while ((m = wikiRegex.exec(plainText)) !== null) {
+    const rawInner = (m[1] || '').trim();
+    const resolved = parseAndResolveWikiLinkToken(rawInner);
+    if (!resolved || !resolved.targetNoteId || resolved.targetNoteId === note.id) continue;
+
+    const key = `${resolved.targetNoteId}`;
+    if (!seenTargetKeys.has(key)) {
+      seenTargetKeys.add(key);
+      const start = Math.max(0, m.index - 28);
+      const end = Math.min(plainText.length, m.index + m[0].length + 48);
+      const snippet = plainText.slice(start, end).replace(/\s+/g, ' ').trim();
+      results.push({
+        targetNoteId: resolved.targetNoteId,
+        matchSyntax: `[[${rawInner}]]`,
+        snippet
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * 重建全域記憶體反向連結索引映射表 `state.backlinksIndexMap`
+ * Key: 被引用的筆記 ID (targetNoteId)
+ * Value: 引用該筆記的所有來源筆記陣列 [{ sourceNoteId, sourceTitle, sourceIcon, sourceMachine, matchSyntax, snippet, updatedAt }]
+ */
+function rebuildBacklinksIndexMap() {
+  const backlinksMap = new Map();
+  const forwardMap = new Map();
+  const notes = Array.isArray(state.notes) ? state.notes : [];
+
+  notes.forEach(n => {
+    if (n && n.id) {
+      backlinksMap.set(n.id, []);
+    }
+  });
+
+  notes.forEach(sourceNote => {
+    if (!sourceNote || !sourceNote.id) return;
+    const outbound = extractOutboundWikiLinksFromNote(sourceNote);
+    forwardMap.set(sourceNote.id, outbound);
+
+    const sourceTitle = getCleanNoteTitle(sourceNote);
+    const sourceIcon = (sourceNote.meta && sourceNote.meta.icon) || '📝';
+    const sourceMachine = (sourceNote.meta && sourceNote.meta.machineModel && sourceNote.meta.machineModel !== '未分類')
+      ? sourceNote.meta.machineModel
+      : '';
+
+    outbound.forEach(link => {
+      if (!backlinksMap.has(link.targetNoteId)) {
+        backlinksMap.set(link.targetNoteId, []);
+      }
+      const arr = backlinksMap.get(link.targetNoteId);
+      if (!arr.some(item => item.sourceNoteId === sourceNote.id)) {
+        arr.push({
+          sourceNoteId: sourceNote.id,
+          sourceTitle,
+          sourceIcon,
+          sourceMachine,
+          matchSyntax: link.matchSyntax,
+          snippet: link.snippet,
+          updatedAt: sourceNote.modifiedTime || ''
+        });
+      }
+    });
+  });
+
+  state.backlinksIndexMap = backlinksMap;
+  state.forwardLinksMap = forwardMap;
+  return backlinksMap;
+}
+
+/**
+ * 渲染當前筆記畫面底部的「🔗 反向連結（Backlinks）」區塊
+ */
+function renderCurrentNoteBacklinks() {
+  const panelEl = document.getElementById('note-backlinks-panel');
+  const countEl = document.getElementById('note-backlinks-count');
+  const listEl = document.getElementById('note-backlinks-list');
+  if (!panelEl || !listEl) return;
+
+  if (!state.currentNote || !state.currentNote.id) {
+    panelEl.classList.add('hidden');
+    return;
+  }
+  panelEl.classList.remove('hidden');
+
+  rebuildBacklinksIndexMap();
+  const curId = state.currentNote.id;
+  const curTitle = (DOM.noteTitle && DOM.noteTitle.value ? DOM.noteTitle.value.trim() : '') || getCleanNoteTitle(state.currentNote);
+  const backlinks = state.backlinksIndexMap.get(curId) || [];
+
+  if (countEl) {
+    countEl.textContent = String(backlinks.length);
+  }
+
+  if (backlinks.length === 0) {
+    listEl.innerHTML = `
+      <div class="lvi-backlinks-empty">
+        <span>目前尚無其他筆記引用此篇筆記。您可在任意筆記中輸入 <code>[[${escapeHtml(curTitle)}]]</code> 或 <code>[[#${escapeHtml(curId)}]]</code> 建立雙向連結。</span>
+      </div>
+    `;
+    return;
+  }
+
+  listEl.innerHTML = backlinks.map(bl => `
+    <div class="lvi-backlink-card" data-source-note-id="${escapeHtml(bl.sourceNoteId)}" title="點擊直接跳轉至「${escapeHtml(bl.sourceTitle)}」">
+      <div class="lvi-backlink-card-main">
+        <div class="lvi-backlink-card-top">
+          <span class="text-sm shrink-0">${escapeHtml(bl.sourceIcon)}</span>
+          <span class="lvi-backlink-source-title">${escapeHtml(bl.sourceTitle)}</span>
+          ${bl.sourceMachine ? `<span class="lvi-backlink-machine-tag">🚜 ${escapeHtml(bl.sourceMachine)}</span>` : ''}
+          <span class="lvi-backlink-syntax-tag">${escapeHtml(bl.matchSyntax)}</span>
+        </div>
+        ${bl.snippet ? `<div class="lvi-backlink-snippet">「${escapeHtml(bl.snippet)}」</div>` : ''}
+      </div>
+      <div class="lvi-backlink-jump-pill">
+        <span>跳轉筆記</span>
+        <span>➔</span>
+      </div>
+    </div>
+  `).join('');
+
+  listEl.querySelectorAll('.lvi-backlink-card[data-source-note-id]').forEach(card => {
+    card.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = card.getAttribute('data-source-note-id');
+      if (targetId) {
+        selectNote(targetId);
+        switchView('editor');
+        const mainScroll = document.getElementById('main-scroll-container');
+        if (mainScroll) mainScroll.scrollTop = 0;
+        showToast('🔗 已由反向連結跳轉至引用筆記');
+      }
+    });
+  });
+}
+
+/**
+ * 處理點擊筆記內文中的 `.lvi-wikilink` 內部連結跳轉（若目標筆記尚未存在，支援一鍵自動建立並跳轉）
+ */
+async function handleWikiLinkClickNavigation(anchorEl, evt) {
+  if (!anchorEl) return;
+  if (evt) {
+    evt.preventDefault();
+    evt.stopPropagation();
+  }
+
+  const rawToken = anchorEl.getAttribute('data-wikilink-raw') || anchorEl.getAttribute('data-wikilink-spec') || '';
+  const dataNoteId = anchorEl.getAttribute('data-note-id') || '';
+  const resolved = parseAndResolveWikiLinkToken(rawToken || (dataNoteId ? `#${dataNoteId}` : ''));
+
+  if (resolved && resolved.matchedNote) {
+    closeTableQuickPeekDrawer();
+    await selectNote(resolved.matchedNote.id);
+    switchView('editor');
+    const mainScroll = document.getElementById('main-scroll-container');
+    if (mainScroll) mainScroll.scrollTop = 0;
+    showToast(`🔗 已跳轉至關聯筆記「${resolved.targetTitle}」`);
+    return;
+  }
+
+  if (dataNoteId) {
+    const byId = (state.notes || []).find(n => n.id === dataNoteId || n._tempId === dataNoteId);
+    if (byId) {
+      closeTableQuickPeekDrawer();
+      await selectNote(byId.id);
+      switchView('editor');
+      return;
+    }
+  }
+
+  // 若目標筆記尚未建立（例如使用者輸入 [[新機台調機指南]]），自動為其建立該標題的新筆記並跳轉！
+  const newTitle = (resolved && !resolved.isIdRef && resolved.idOrTitle) ? resolved.idOrTitle : '';
+  if (newTitle) {
+    const newNote = await createQuickNote();
+    if (newNote) {
+      newNote.name = newTitle + '.md';
+      const initHtml = `<p><br></p>`;
+      newNote._cachedHtml = initHtml;
+      newNote._cachedBody = initHtml;
+      rebuildBacklinksIndexMap();
+      await selectNote(newNote.id);
+      switchView('editor');
+      showToast(`✨ 已自動建立並跳轉至新關聯筆記「${newTitle}」`);
+    }
+  } else {
+    showToast('⚠️ 找不到對應 ID 的筆記');
+  }
+}
+
+// ----------------------------------------------------------------------------
+// ✨ 編輯器內輸入 `[[` 自動彈出筆記關聯選單 (#wikilink-autocomplete-menu)
+// ----------------------------------------------------------------------------
+function closeWikiLinkAutocompleteMenu() {
+  const menu = document.getElementById('wikilink-autocomplete-menu');
+  if (menu) menu.classList.add('hidden');
+}
+
+function handleWikiLinkAutocompleteTrigger() {
+  const menu = document.getElementById('wikilink-autocomplete-menu');
+  const listEl = document.getElementById('wikilink-autocomplete-list');
+  if (!menu || !listEl || !DOM.editor) return;
+
+  const sel = window.getSelection();
+  if (!sel || sel.rangeCount === 0) {
+    closeWikiLinkAutocompleteMenu();
+    return;
+  }
+  const range = sel.getRangeAt(0);
+  if (range.startContainer.nodeType !== Node.TEXT_NODE) {
+    closeWikiLinkAutocompleteMenu();
+    return;
+  }
+
+  const textBefore = (range.startContainer.nodeValue || '').slice(0, range.startOffset);
+  const openBracketMatch = textBefore.match(/\[\[([^[\]]{0,36})$/);
+  if (!openBracketMatch) {
+    closeWikiLinkAutocompleteMenu();
+    return;
+  }
+
+  const queryStr = (openBracketMatch[1] || '').trim().toLowerCase();
+  const isIdMode = queryStr.startsWith('#');
+  const cleanQ = isIdMode ? queryStr.slice(1) : queryStr;
+
+  const candidates = (state.notes || []).filter(n => {
+    if (!n || (state.currentNote && n.id === state.currentNote.id)) return false;
+    const title = getCleanNoteTitle(n).toLowerCase();
+    const idStr = String(n.id || '').toLowerCase();
+    if (!cleanQ) return true;
+    return title.includes(cleanQ) || idStr.includes(cleanQ);
+  }).slice(0, 8);
+
+  if (candidates.length === 0) {
+    closeWikiLinkAutocompleteMenu();
+    return;
+  }
+
+  const rect = range.getBoundingClientRect();
+  menu.style.left = `${Math.max(12, Math.min(rect.left, window.innerWidth - 320))}px`;
+  menu.style.top = `${Math.min(rect.bottom + 6, window.innerHeight - 290)}px`;
+
+  listEl.innerHTML = candidates.map((n, idx) => {
+    const title = getCleanNoteTitle(n);
+    const icon = (n.meta && n.meta.icon) || '📝';
+    const shortId = String(n.id || '').slice(0, 10);
+    return `
+      <div class="lvi-wikilink-menu-item ${idx === 0 ? 'active' : ''}" data-pick-title="${escapeHtml(title)}" data-pick-id="${escapeHtml(n.id)}">
+        <span class="truncate">${escapeHtml(icon)} ${escapeHtml(title)}</span>
+        <span class="text-[10px] font-mono opacity-60 shrink-0">#${escapeHtml(shortId)}</span>
+      </div>
+    `;
+  }).join('');
+
+  const textNode = range.startContainer;
+  const matchStartOffset = range.startOffset - openBracketMatch[0].length;
+  const matchEndOffset = range.startOffset;
+
+  listEl.querySelectorAll('.lvi-wikilink-menu-item').forEach(itemEl => {
+    itemEl.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const pickTitle = itemEl.getAttribute('data-pick-title') || '';
+      const pickId = itemEl.getAttribute('data-pick-id') || '';
+      const tokenToInsert = isIdMode ? `#${pickId}` : pickTitle;
+
+      try {
+        const curVal = textNode.nodeValue || '';
+        textNode.nodeValue = curVal.slice(0, matchStartOffset) + `[[${tokenToInsert}]]` + curVal.slice(matchEndOffset);
+        enhanceWikiLinksInContainer(DOM.editor);
+        rebuildBacklinksIndexMap();
+        renderCurrentNoteBacklinks();
+        saveLocalDraftImmediately();
+        triggerAutoSaveDebounce();
+      } catch (err) {}
+      closeWikiLinkAutocompleteMenu();
+    });
+  });
+
+  menu.classList.remove('hidden');
+}
+
+// ----------------------------------------------------------------------------
+// 🔌 將模組 1 無縫掛載至現有核心流程 (enhanceAllEditorBlocks / selectNote / Turndown / 標題更新)
+// ----------------------------------------------------------------------------
+const _origEnhanceAllEditorBlocksV292 = enhanceAllEditorBlocks;
+enhanceAllEditorBlocks = function(container = DOM.editor) {
+  _origEnhanceAllEditorBlocksV292(container);
+  try {
+    enhanceWikiLinksInContainer(container);
+  } catch (e) {
+    console.warn('enhanceWikiLinksInContainer warning:', e);
+  }
+};
+
+const _origSelectNoteV292 = selectNote;
+selectNote = async function(noteId) {
+  const res = await _origSelectNoteV292(noteId);
+  try {
+    if (DOM.editor && !state.isLoadingNote) {
+      enhanceWikiLinksInContainer(DOM.editor);
+    }
+    renderCurrentNoteBacklinks();
+  } catch (e) {
+    console.warn('selectNote backlinks update warning:', e);
+  }
+  return res;
+};
+
+// 當 Turndown 將編輯器 HTML 轉為 Markdown 時，確保 a.lvi-wikilink 還原為標準 [[...]] 語法
+const _origConvertHtmlToMarkdownV292 = typeof convertHtmlToMarkdown === 'function' ? convertHtmlToMarkdown : null;
+if (_origConvertHtmlToMarkdownV292) {
+  convertHtmlToMarkdown = function(html) {
+    if (!html) return '';
+    try {
+      const temp = document.createElement('div');
+      temp.innerHTML = html;
+      temp.querySelectorAll('a.lvi-wikilink').forEach(a => {
+        const raw = a.getAttribute('data-wikilink-raw') || a.getAttribute('data-wikilink-spec') || (a.textContent || '').replace(/^\[\[|\]\]$/g, '').trim();
+        a.replaceWith(document.createTextNode(`[[${raw}]]`));
+      });
+      return _origConvertHtmlToMarkdownV292(temp.innerHTML);
+    } catch (e) {
+      return _origConvertHtmlToMarkdownV292(html);
+    }
+  };
+}
+
+function initModule1BacklinksAndWikiLinks() {
+  // 1. 綁定編輯器輸入事件：當使用者輸入 `]]` 時自動轉換為內部連結並更新反向連結索引；當輸入 `[[` 時彈出自動完成選單
+  if (DOM.editor && !DOM.editor._v293WikiLinksBound) {
+    DOM.editor._v293WikiLinksBound = true;
+
+    let backlinkDebounceTimer = null;
+    DOM.editor.addEventListener('input', () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0) {
+        const r = sel.getRangeAt(0);
+        const txt = r.startContainer && r.startContainer.nodeValue ? r.startContainer.nodeValue : '';
+        if (txt.includes(']]')) {
+          const changed = enhanceWikiLinksInContainer(DOM.editor);
+          if (changed) {
+            closeWikiLinkAutocompleteMenu();
+            rebuildBacklinksIndexMap();
+            renderCurrentNoteBacklinks();
+            saveLocalDraftImmediately();
+            triggerAutoSaveDebounce();
+            return;
+          }
+        }
+      }
+
+      handleWikiLinkAutocompleteTrigger();
+
+      clearTimeout(backlinkDebounceTimer);
+      backlinkDebounceTimer = setTimeout(() => {
+        rebuildBacklinksIndexMap();
+        renderCurrentNoteBacklinks();
+      }, 450);
+    });
+
+    // 點擊編輯器內的 .lvi-wikilink 直接跳轉
+    DOM.editor.addEventListener('click', (e) => {
+      const wikiLink = e.target.closest('a.lvi-wikilink');
+      if (wikiLink) {
+        handleWikiLinkClickNavigation(wikiLink, e);
+      }
+    }, true);
+  }
+
+  // 2. 支援在表格快速預覽抽屜 (#peek-note-body) 內點擊 .lvi-wikilink 跳轉
+  const peekBody = document.getElementById('peek-note-body');
+  if (peekBody && !peekBody._v293WikiLinksBound) {
+    peekBody._v293WikiLinksBound = true;
+    peekBody.addEventListener('click', (e) => {
+      const wikiLink = e.target.closest('a.lvi-wikilink');
+      if (wikiLink) {
+        handleWikiLinkClickNavigation(wikiLink, e);
+      }
+    });
+  }
+
+  // 3. 當修改當前筆記標題時，即時更新反向連結面板
+  if (DOM.noteTitle && !DOM.noteTitle._v293BacklinksTitleBound) {
+    DOM.noteTitle._v293BacklinksTitleBound = true;
+    DOM.noteTitle.addEventListener('input', () => {
+      if (state.currentNote) {
+        const cleanT = DOM.noteTitle.value.trim() || '未命名筆記';
+        state.currentNote.name = cleanT + '.md';
+        const nInList = (state.notes || []).find(n => n.id === state.currentNote.id);
+        if (nInList) nInList.name = cleanT + '.md';
+      }
+      renderCurrentNoteBacklinks();
+    });
+  }
+
+  // 4. 綁定底部反向連結面板的「📋 複製 [[標題]]」與「#️⃣ 複製 [[#ID]]」快捷按鈕
+  const copyTitleBtn = document.getElementById('btn-copy-wikilink-title');
+  if (copyTitleBtn && !copyTitleBtn._bound) {
+    copyTitleBtn._bound = true;
+    copyTitleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!state.currentNote) return;
+      const curTitle = (DOM.noteTitle && DOM.noteTitle.value ? DOM.noteTitle.value.trim() : '') || getCleanNoteTitle(state.currentNote);
+      const syntax = `[[${curTitle}]]`;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(syntax).catch(() => {});
+      }
+      state.lastCopiedWikiLinkSyntax = syntax;
+      showToast(`📋 已複製雙向連結語法：${syntax}`);
+    });
+  }
+
+  const copyIdBtn = document.getElementById('btn-copy-wikilink-id');
+  if (copyIdBtn && !copyIdBtn._bound) {
+    copyIdBtn._bound = true;
+    copyIdBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!state.currentNote) return;
+      const syntax = `[[#${state.currentNote.id}]]`;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(syntax).catch(() => {});
+      }
+      state.lastCopiedWikiLinkSyntax = syntax;
+      showToast(`#️⃣ 已複製 ID 雙向連結語法：${syntax}`);
+    });
+  }
+
+  // 點擊外部關閉 [[ 自動完成選單
+  document.addEventListener('click', (e) => {
+    const menu = document.getElementById('wikilink-autocomplete-menu');
+    if (menu && !menu.classList.contains('hidden') && !menu.contains(e.target)) {
+      closeWikiLinkAutocompleteMenu();
+    }
+  });
+
+  // 啟動時立即建立一次全域反向索引並渲染當前筆記的反向連結
+  rebuildBacklinksIndexMap();
+  renderCurrentNoteBacklinks();
+}
+
+try {
+  initModule1BacklinksAndWikiLinks();
+} catch (e) {
+  console.warn('initModule1BacklinksAndWikiLinks error:', e);
+}

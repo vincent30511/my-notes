@@ -6495,3 +6495,363 @@ html.dark .lvi-case-history-fulltext {
   border-color: #2d3b54;
   color: #f1f5f9;
 }
+
+
+/* ============================================================================
+   🔗 LVI_Note v2.9.3 模組 1：雙向連結（Backlinks）與知識關聯索引樣式
+   ============================================================================ */
+
+/* 筆記內文中的 [[...]] 內部雙向連結晶片 (.lvi-wikilink) */
+a.lvi-wikilink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  margin: 0 2px;
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8 !important;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  font-size: 0.88em;
+  font-weight: 700;
+  text-decoration: none !important;
+  cursor: pointer;
+  vertical-align: baseline;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+a.lvi-wikilink:hover {
+  background: #2563eb;
+  color: #ffffff !important;
+  border-color: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.25);
+}
+html.dark a.lvi-wikilink {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd !important;
+  border-color: rgba(96, 165, 250, 0.42);
+}
+html.dark a.lvi-wikilink:hover {
+  background: #2563eb;
+  color: #ffffff !important;
+  border-color: #3b82f6;
+}
+a.lvi-wikilink.is-unresolved {
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309 !important;
+  border: 1px dashed rgba(245, 158, 11, 0.55);
+}
+html.dark a.lvi-wikilink.is-unresolved {
+  background: rgba(245, 158, 11, 0.18);
+  color: #fcd34d !important;
+  border-color: rgba(251, 191, 36, 0.5);
+}
+.lvi-wikilink-bracket {
+  opacity: 0.55;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85em;
+}
+
+/* 底部「反向連結（Backlinks）」面板 */
+.lvi-backlinks-panel {
+  border-radius: 14px;
+  padding: 16px 18px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+html.dark .lvi-backlinks-panel {
+  background: #141b28;
+  border-color: #263248;
+}
+.lvi-backlinks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.lvi-backlinks-title-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.lvi-backlinks-icon {
+  font-size: 1rem;
+}
+.lvi-backlinks-title {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: 0.01em;
+}
+html.dark .lvi-backlinks-title {
+  color: #f1f5f9;
+}
+.lvi-backlinks-count-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+html.dark .lvi-backlinks-count-badge {
+  background: rgba(59, 130, 246, 0.22);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.45);
+}
+.lvi-backlinks-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.lvi-backlinks-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.14s ease;
+}
+.lvi-backlinks-copy-btn:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+}
+html.dark .lvi-backlinks-copy-btn {
+  background: #1e293b;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+html.dark .lvi-backlinks-copy-btn:hover {
+  border-color: #60a5fa;
+  color: #93c5fd;
+  background: rgba(37, 99, 235, 0.18);
+}
+
+.lvi-backlinks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.lvi-backlinks-empty {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.65);
+  border: 1px dashed #cbd5e1;
+  font-size: 0.76rem;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+html.dark .lvi-backlinks-empty {
+  background: rgba(15, 23, 42, 0.45);
+  border-color: #334155;
+  color: #94a3b8;
+}
+.lvi-backlinks-empty code {
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 700;
+}
+html.dark .lvi-backlinks-empty code {
+  background: #1e293b;
+  color: #93c5fd;
+}
+
+/* 單張反向連結卡片 */
+.lvi-backlink-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.lvi-backlink-card:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px -2px rgba(37, 99, 235, 0.15);
+}
+html.dark .lvi-backlink-card {
+  background: #1a2333;
+  border-color: #2d3b54;
+}
+html.dark .lvi-backlink-card:hover {
+  border-color: #3b82f6;
+  background: #1e2b42;
+}
+.lvi-backlink-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1;
+}
+.lvi-backlink-card-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.lvi-backlink-source-title {
+  font-size: 0.84rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+html.dark .lvi-backlink-source-title {
+  color: #f8fafc;
+}
+.lvi-backlink-machine-tag {
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-size: 0.69rem;
+  font-weight: 800;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+html.dark .lvi-backlink-machine-tag {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+.lvi-backlink-syntax-tag {
+  padding: 1px 7px;
+  border-radius: 5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.68rem;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+html.dark .lvi-backlink-syntax-tag {
+  background: #0f172a;
+  color: #93c5fd;
+  border-color: #334155;
+}
+.lvi-backlink-snippet {
+  font-size: 0.75rem;
+  color: #475569;
+  line-height: 1.45;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+html.dark .lvi-backlink-snippet {
+  color: #94a3b8;
+}
+.lvi-backlink-jump-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: #eff6ff;
+  color: #2563eb;
+  border: 1px solid #bfdbfe;
+  white-space: nowrap;
+  align-self: center;
+}
+html.dark .lvi-backlink-jump-pill {
+  background: rgba(37, 99, 235, 0.2);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+/* [[ 自動完成選單 */
+.lvi-wikilink-menu {
+  position: fixed;
+  z-index: 95;
+  width: 300px;
+  max-height: 280px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  box-shadow: 0 12px 28px -6px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+}
+html.dark .lvi-wikilink-menu {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 12px 28px -6px rgba(0, 0, 0, 0.6);
+}
+.lvi-wikilink-menu-header {
+  padding: 7px 12px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #475569;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+html.dark .lvi-wikilink-menu-header {
+  color: #94a3b8;
+  background: #0f172a;
+  border-bottom-color: #334155;
+}
+.lvi-wikilink-menu-list {
+  overflow-y: auto;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lvi-wikilink-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #0f172a;
+  cursor: pointer;
+}
+.lvi-wikilink-menu-item:hover,
+.lvi-wikilink-menu-item.active {
+  background: #eff6ff;
+  color: #2563eb;
+}
+html.dark .lvi-wikilink-menu-item {
+  color: #f1f5f9;
+}
+html.dark .lvi-wikilink-menu-item:hover,
+html.dark .lvi-wikilink-menu-item.active {
+  background: rgba(37, 99, 235, 0.25);
+  color: #93c5fd;
+}
