@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.9.0'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.9.1'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -1706,7 +1706,7 @@ async function saveWorkspaceConfigToDrive() {
       todoStatuses: state.todoStatuses || DEFAULT_TODO_STATUSES,
       todoHandlers: (state.todoHandlers && state.todoHandlers.length > 0) ? state.todoHandlers : DEFAULT_TODO_HANDLERS,
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.9.0'
+      source: 'Google Drive Cloud Truth v2.9.1'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -1949,7 +1949,7 @@ async function fetchNotesList(silent = false) {
       });
     }
 
-    // 💡 雲端自動採納 (v2.9.0 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
+    // 💡 雲端自動採納 (v2.9.1 支援已刪除分類 Tombstone 過濾，絕不復活使用者已刪除或已改名的選項)
     let needUpdateCloudConfig = false;
     const delMachines = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('machine') : new Set();
     const delContents = typeof getDeletedCategorySet === 'function' ? getDeletedCategorySet('content') : new Set();
@@ -4937,7 +4937,7 @@ async function compressImageForUpload(file, maxDimension = 1280, quality = 0.76)
   const t0 = performance.now();
   try {
     const origSize = file.size;
-    // 🍏 v2.9.0 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
+    // 🍏 v2.9.1 HEIC/HEIF 自動解碼轉為標準 JPEG Blob，讓 iPhone 照片能直接顯示、旋轉與標註
     if (await isHeicFileOrBlob(file, file.name)) {
       const convertedJpegBlob = await convertHeicBlobToJpegBlob(file, Math.max(0.84, quality));
       if (convertedJpegBlob) {
@@ -7247,7 +7247,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.0', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.1', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -12769,7 +12769,7 @@ function closeTableQuickPeekDrawer() {
 }
 
 // ============================================================================
-// 📋 LVI_Note v2.9.0 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
+// 📋 LVI_Note v2.9.1 待辦事項 (固定 4 分類 + 簡略清單 + 詳細介面 + 永久刪除防復活 + 無預設空值)
 // ============================================================================
 
 const TODO_STORAGE_KEY = 'lvi_todo_items_v283';
@@ -13596,7 +13596,7 @@ function evaluateFuzzyTodoMatch(todoItem, parsedQuery) {
 }
 
 // ============================================================================
-// 📋 表格資料庫檢視 (Table Database View - v2.9.0)
+// 📋 表格資料庫檢視 (Table Database View - v2.9.1)
 // ============================================================================
 
 function openTodoQuickPeekDrawer(todoId, fuzzyRes = null) {
@@ -16485,7 +16485,7 @@ function bindEvents() {
   const scrollContainer = document.getElementById('main-scroll-container');
   const canvasWrapper = document.getElementById('canvas-inner-wrapper');
 
-  // Legacy auto-paragraph click listener replaced by v2.9.0 Double-Click Position Memory Engine
+  // Legacy auto-paragraph click listener replaced by v2.9.1 Double-Click Position Memory Engine
 
   // 📷 一鍵展開/收折所有照片與影片
   if (DOM.toggleAllMediaBtn) {
@@ -16966,7 +16966,7 @@ function bindEvents() {
   if (DOM.closeTagManagerBtn) DOM.closeTagManagerBtn.addEventListener('click', closeTagManagerModal);
   if (DOM.tmDoneBtn) DOM.tmDoneBtn.addEventListener('click', closeTagManagerModal);
 
-  // Duplicate DOM.tmAddBtn listener removed in v2.9.0
+  // Duplicate DOM.tmAddBtn listener removed in v2.9.1
 
   // 下拉式標籤面板
   if (DOM.addTagBtn) {
@@ -19753,7 +19753,7 @@ function initInAppCameraListeners() {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.0 圖片四大升級引擎：
+// 🚀 LVI_Note v2.9.1 圖片四大升級引擎：
 // 1. HEIC/HEIF 完整解碼與標註支援 (heic2any + ImageBitmap + Drive 雲端轉檔)
 // 2. 圖片框上方專屬高對比文字註記欄 (.media-top-note-bar，淺/深色皆 >18:1 超高對比)
 // 3. 真實圖片旋轉 (90° 左/右旋轉 + PATCH/POST 重新存回 Google Drive 雲端硬碟)
@@ -20590,7 +20590,7 @@ if (document.readyState !== 'loading') { bootLviAppOnce(); }
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.0 全層級分類與標籤管理中心修復與穩定引擎
+// 🚀 LVI_Note v2.9.1 全層級分類與標籤管理中心修復與穩定引擎
 // 1. 永久刪除墓碑機制 (state.deletedCategoryItems)：確保刪除或更名後的預設/自訂選項絕不因雲端同步或重整而復活
 // 2. 六大分類統一就地編輯列 (.tm-unified-item-row)：支援點擊直接修改、Enter 鍵儲存、✓ 儲存鈕、🗑️ 即時刪除 (附一鍵復原)
 // 3. 消除 input blur/change 與按鈕 click 的競態衝突 (mousedown preventDefault 保護)
@@ -21017,7 +21017,7 @@ saveWorkspaceConfigToDrive = async function() {
       caseItems: Array.isArray(state.caseItems) ? state.caseItems : [],
       deletedCaseIds: Array.isArray(state.deletedCaseIds) ? state.deletedCaseIds : [],
       updatedAt: new Date().toISOString(),
-      source: 'Google Drive Cloud Truth v2.9.0'
+      source: 'Google Drive Cloud Truth v2.9.1'
     }, null, 2);
 
     const q = `'${state.folderId}' in parents and name = 'cloudnotes_workspace_config.json' and trashed = false`;
@@ -22450,7 +22450,7 @@ try {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.0 筆記畫布雙擊位置記憶與游標感知檔案插入引擎
+// 🚀 LVI_Note v2.9.1 筆記畫布雙擊位置記憶與游標感知檔案插入引擎
 // 1. 停止自動在區塊前後塞入兩行空白段落 (<p><br></p>)
 // 2. 雙擊無輸入游標處時：先記住該位置 (state.pendingDblClickTarget)，不直接加行；待使用者後續按下 Enter 時才在該位置新增 1 行 (<p><br></p>)
 // 3. 傳入檔案時：若有輸入游標則插入於游標位置；若無輸入游標則預設插入於筆記最底部 (絕不誤插在筆記最上方)
@@ -22947,11 +22947,13 @@ try {
 
 
 // ============================================================================
-// 🛡️ LVI_Note v2.9.0 「案件追蹤」(After-Sales Case Tracking & Service Dossier) 核心模組
-// 1. 與「待辦事項」同等級並列之獨立主功能 (側邊欄 + 頂部多重視圖導覽列)
-// 2. 支援共用主系統之「機型」、「客戶/廠商」、「標籤」、「處理人員」選單，並新增獨立「案號 (caseNumbers)」選單
-// 3. 內部配備比照表格資料庫之獨立搜尋與多維篩選系統 (支援同義詞智慧模糊檢索、關鍵字高亮摘要、5 大維度下拉過濾、清單/表格雙模式切換)
-// 4. 專為售後處理追蹤打造的 6 段式個案履歷介面 (含機台序號/保固、客訴與根因分析、售後對策與更換零件、多階段時間軸追蹤紀錄、現場照片/檔案縮圖、關聯筆記與報告匯出)
+// 🛡️ LVI_Note v2.9.1 「案件追蹤」(After-Sales Case Tracking & Service Dossier) 核心模組
+// 1. 「售後追蹤時間軸紀錄」整合進「客訴與異常現象 / 根因分析」與「售後處理對策與零件更換紀錄」兩大區塊內之【📜 處理日誌】
+//    - 免選紀錄人員，自動記錄「什麼時候、做了哪些改動、匯入了哪些檔案」，亦支援手動輸入與搜尋
+// 2. 匯出功能全面統一為 PDF (📄 匯出 PDF)，內建 A4 專業排版渲染引擎 (renderCaseToDirectPdfBlob)
+// 3. 移除「機台序號 / 保固與出貨資訊」欄位
+// 4. 「案號」改為直接文字輸入框 (<input type="text">)，並完整納入模糊與關鍵字搜尋引擎
+// 5. 清單與表格檢視統一按照「結案時間 (completedAt)」由上而下排序
 // ============================================================================
 
 const CASE_STORAGE_KEY = 'lvi_case_items_v290';
@@ -22984,21 +22986,11 @@ state.caseFilterTag = '';
 state.caseFilterHandler = '';
 state.casesFilterKeyword = '';
 
-// 擴充 deletedCategoryItems 支援 'case_number'
 const _origEnsureDeletedCategoryItemsLoadedV289 = ensureDeletedCategoryItemsLoaded;
 ensureDeletedCategoryItemsLoaded = function() {
   const dict = _origEnsureDeletedCategoryItemsLoadedV289();
   if (!Array.isArray(dict.case_number)) {
     dict.case_number = [];
-    try {
-      const raw = localStorage.getItem(DELETED_CATEGORIES_STORAGE_KEY);
-      if (raw) {
-        const parsed = safeJsonParse(raw, null);
-        if (parsed && Array.isArray(parsed.case_number)) {
-          dict.case_number = Array.from(new Set(parsed.case_number));
-        }
-      }
-    } catch (e) {}
   }
   return dict;
 };
@@ -23057,21 +23049,36 @@ function getCaseStatusBadgeClass(statusStr) {
   return 'bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700';
 }
 
+/**
+ * 比較兩個案件的「結案時間 (completedAt)」，由上而下排序：
+ * - 有結案時間的案件依結案時間由新到舊 (descending) 排列於前
+ * - 尚未結案的案件依立案時間由新到舊排列於後
+ */
+function getCaseCompletedTimestampEpoch(item) {
+  if (!item || !item.completedAt || !String(item.completedAt).trim()) return 0;
+  const ep = parseTodoTimestampToEpoch(String(item.completedAt).trim());
+  return ep > 0 ? ep : 1;
+}
+
+function compareCaseItemsByCompletedAtDesc(itemA, itemB) {
+  const compA = getCaseCompletedTimestampEpoch(itemA);
+  const compB = getCaseCompletedTimestampEpoch(itemB);
+  if (compA > 0 && compB > 0) {
+    if (compB !== compA) return compB - compA;
+  } else if (compA > 0 && compB === 0) {
+    return -1;
+  } else if (compA === 0 && compB > 0) {
+    return 1;
+  }
+  return (itemB.createdEpoch || 0) - (itemA.createdEpoch || 0);
+}
+
 function ensureCaseItemsInitialized() {
   ensureDeletedCategoryItemsLoaded();
   getDeletedCaseIdsSet();
 
   if (!Array.isArray(state.caseNumbers)) {
-    try {
-      const rawCN = localStorage.getItem(CASE_NUMBERS_STORAGE_KEY);
-      const parsedCN = rawCN ? safeJsonParse(rawCN, null) : null;
-      const baseCN = (Array.isArray(parsedCN) && parsedCN.length > 0) ? parsedCN : DEFAULT_CASE_NUMBERS.slice();
-      state.caseNumbers = filterOutDeletedCategoryItems('case_number', baseCN);
-    } catch (e) {
-      state.caseNumbers = filterOutDeletedCategoryItems('case_number', DEFAULT_CASE_NUMBERS.slice());
-    }
-  } else {
-    state.caseNumbers = filterOutDeletedCategoryItems('case_number', state.caseNumbers);
+    state.caseNumbers = DEFAULT_CASE_NUMBERS.slice();
   }
 
   if (!Array.isArray(state.caseItems)) {
@@ -23090,18 +23097,34 @@ function ensureCaseItemsInitialized() {
     if (typeof item.caseNumber !== 'string') item.caseNumber = '';
     if (typeof item.machineModel !== 'string') item.machineModel = '';
     if (typeof item.clientVendor !== 'string') item.clientVendor = '';
-    if (typeof item.serialOrWarranty !== 'string') item.serialOrWarranty = '';
     if (typeof item.symptomText !== 'string') item.symptomText = '';
     if (typeof item.rootCauseText !== 'string') item.rootCauseText = '';
     if (typeof item.actionTakenText !== 'string') item.actionTakenText = '';
     if (typeof item.partsReplacedText !== 'string') item.partsReplacedText = '';
     if (typeof item.symptomAttachmentsHtml !== 'string') item.symptomAttachmentsHtml = '';
     if (typeof item.actionAttachmentsHtml !== 'string') item.actionAttachmentsHtml = '';
-    if (!Array.isArray(item.timelineLogs)) item.timelineLogs = [];
+    if (!Array.isArray(item.symptomLogs)) item.symptomLogs = [];
+    if (!Array.isArray(item.actionLogs)) item.actionLogs = [];
+    // 若舊版有 timelineLogs，自動無縫遷移合併至 actionLogs (不遺失任何舊紀錄)
+    if (Array.isArray(item.timelineLogs) && item.timelineLogs.length > 0) {
+      const existingIds = new Set(item.actionLogs.map(x => x.id));
+      item.timelineLogs.forEach(lg => {
+        if (lg && lg.id && !existingIds.has(lg.id)) {
+          item.actionLogs.push({
+            id: lg.id,
+            time: lg.time || formatTodoTimestamp(),
+            type: lg.type || 'manual',
+            text: lg.text || ''
+          });
+        }
+      });
+      item.timelineLogs = [];
+    }
     if (!Array.isArray(item.linkedNoteIds)) item.linkedNoteIds = [];
     if (!Array.isArray(item.tags)) item.tags = [];
     if (!Array.isArray(item.handlers)) item.handlers = [];
     if (!item.createdEpoch) item.createdEpoch = parseTodoTimestampToEpoch(item.createdAt);
+    item.completedEpoch = getCaseCompletedTimestampEpoch(item);
   });
 }
 
@@ -23115,7 +23138,7 @@ function mergeCloudAndLocalCaseItems(cloudList = [], localList = []) {
       map.set(item.id, item);
     }
   });
-  return Array.from(map.values()).sort((a, b) => (b.createdEpoch || 0) - (a.createdEpoch || 0));
+  return Array.from(map.values()).sort(compareCaseItemsByCompletedAtDesc);
 }
 
 function saveCaseItemsToLocalStorageOnly() {
@@ -23125,7 +23148,6 @@ function saveCaseItemsToLocalStorageOnly() {
     state.caseItems = cleanItems;
     safeSetLocalStorageItem(CASE_STORAGE_KEY, JSON.stringify(cleanItems));
     safeSetLocalStorageItem(DELETED_CASE_IDS_STORAGE_KEY, JSON.stringify(state.deletedCaseIds || []));
-    safeSetLocalStorageItem(CASE_NUMBERS_STORAGE_KEY, JSON.stringify(state.caseNumbers || []));
     saveSwrCacheSnapshot();
   } catch (e) {
     console.warn('儲存案件追蹤至本機快取略過:', e);
@@ -23178,179 +23200,96 @@ function updateCaseSummaryStats() {
   });
 }
 
-// ----------------------------------------------------------------------------
-// 📁 獨立「案號 (Case Numbers)」CRUD 與管理中心分頁渲染
-// ----------------------------------------------------------------------------
-function renderTagManagerCaseNumberList() {
-  ensureCaseItemsInitialized();
-  const listEl = document.getElementById('tm-case-number-list');
-  const countEl = document.getElementById('tm-case-number-total-count');
-  if (!listEl) return;
-
-  state.caseNumbers = filterOutDeletedCategoryItems('case_number', state.caseNumbers || []);
-  listEl.innerHTML = '';
-  if (countEl) countEl.textContent = `共 ${state.caseNumbers.length} 項`;
-
-  if (state.caseNumbers.length === 0) {
-    listEl.innerHTML = '<div class="text-center py-6 text-gray-400 text-xs">尚無案號，請由上方新增</div>';
-    return;
+// ============================================================================
+// 📜 內嵌「處理日誌」自動追蹤與記錄引擎 (免選紀錄人員，自動記錄改動時間、內容與匯入檔案)
+// ============================================================================
+function renderCaseIntegratedLogItemsHtml(logs = [], section = 'symptom') {
+  if (!Array.isArray(logs) || logs.length === 0) {
+    return `<div class="text-xs text-gray-400 py-1.5 text-center">尚無處理日誌（修改上方欄位、匯入照片/檔案或手動輸入時將自動記錄時間與內容）</div>`;
   }
-
-  state.caseNumbers.forEach(cNo => {
-    const usedCount = (state.caseItems || []).filter(c => !isCaseItemDeletedTombstoned(c) && c.caseNumber === cNo).length;
-    const row = createUnifiedTagManagerRow({
-      iconHtml: '<span class="text-sm shrink-0">📁</span>',
-      inputValue: cNo,
-      inputPlaceholder: '案號名稱...',
-      countText: `${usedCount} 筆`,
-      badgeClass: usedCount > 0
-        ? 'bg-teal-50 text-teal-700 dark:bg-teal-950/70 dark:text-teal-300 border-teal-200 dark:border-teal-800'
-        : 'bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 border-gray-200 dark:border-gray-700',
-      onSave: (newName, _color, explicit) => {
-        if (newName === cNo) {
-          if (explicit) showToast(`✅ 已儲存案號「${cNo}」`);
-          return;
-        }
-        renameCaseNumber(cNo, newName);
-      },
-      onDelete: () => {
-        deleteCaseNumber(cNo);
-      }
-    });
-    listEl.appendChild(row);
-  });
-  initLucide();
+  return logs.map(lg => {
+    const logType = lg.type || 'edit';
+    const badgeLabel = logType === 'file' ? '📎 檔案匯入' : (logType === 'manual' ? '📌 處理紀錄' : '✏️ 內容改動');
+    const badgeCls = logType === 'file' ? 'case-log-type-file' : (logType === 'manual' ? 'case-log-type-manual' : 'case-log-type-edit');
+    return `
+      <div class="lvi-case-integrated-log-item" data-log-id="${escapeHtml(lg.id)}" data-log-section="${escapeHtml(section)}">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-[11px] font-mono font-extrabold text-teal-700 dark:text-teal-300">🕒 ${escapeHtml(lg.time || '')}</span>
+            <span class="case-log-type-badge ${badgeCls}">${badgeLabel}</span>
+            <span class="text-slate-800 dark:text-slate-100 font-semibold break-all">${escapeHtml(lg.text || '')}</span>
+          </div>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <button type="button" class="case-edit-sec-log-btn px-1.5 py-0.5 rounded bg-slate-200/70 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-[10.5px] font-bold text-slate-700 dark:text-slate-300 cursor-pointer" data-log-id="${escapeHtml(lg.id)}" data-log-section="${escapeHtml(section)}">編輯</button>
+          <button type="button" class="case-del-sec-log-btn px-1.5 py-0.5 rounded bg-rose-50 hover:bg-rose-600 hover:text-white dark:bg-rose-950/60 text-[10.5px] font-bold text-rose-600 dark:text-rose-300 cursor-pointer" data-log-id="${escapeHtml(lg.id)}" data-log-section="${escapeHtml(section)}">×</button>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
-function addCaseNumber(name, shouldRecord = true) {
-  ensureCaseItemsInitialized();
-  name = (name || '').trim();
-  if (!name) {
-    showToast('請輸入案號');
-    return false;
+function refreshCaseSectionLogDomInPlace(caseId, section) {
+  const cardEl = document.querySelector(`.lvi-case-card[data-case-id="${caseId}"]`);
+  if (!cardEl) return;
+  const item = (state.caseItems || []).find(c => c.id === caseId);
+  if (!item) return;
+  const logs = section === 'action' ? (item.actionLogs || []) : (item.symptomLogs || []);
+  const listEl = cardEl.querySelector(`.lvi-case-integrated-log-list[data-log-section="${section}"]`);
+  const countEl = cardEl.querySelector(`.lvi-case-integrated-log-count[data-log-section="${section}"]`);
+  if (countEl) countEl.textContent = `${logs.length} 筆紀錄`;
+  if (listEl) {
+    listEl.innerHTML = renderCaseIntegratedLogItemsHtml(logs, section);
+    bindCaseSectionLogItemButtons(cardEl, item);
   }
-  unmarkCategoryItemDeleted('case_number', name);
-  if (!Array.isArray(state.caseNumbers)) state.caseNumbers = [];
-  if (state.caseNumbers.includes(name)) {
-    showToast(`案號「${name}」已存在`);
-    return false;
-  }
-
-  state.caseNumbers.push(name);
-  const inp = document.getElementById('tm-new-case-number-input');
-  if (inp) inp.value = '';
-  saveCaseItemsState(true);
-  populateCaseFilterDropdowns();
-  renderTagManagerCaseNumberList();
-  if (state.currentView === 'cases') renderCasesView();
-
-  if (shouldRecord) {
-    recordAction({
-      type: 'add_case_number',
-      title: `📁 新增案號「${name}」`,
-      subtitle: '已加入案號清單',
-      undo: () => { deleteCaseNumber(name, false); },
-      redo: () => { addCaseNumber(name, false); }
-    });
-  }
-  showToast(`✅ 已新增案號「${name}」`);
-  return true;
 }
 
-function renameCaseNumber(oldName, newName, shouldRecord = true) {
-  ensureCaseItemsInitialized();
-  newName = (newName || '').trim();
-  if (!newName) {
-    showToast('案號不能為空');
-    renderTagManagerCaseNumberList();
-    return false;
-  }
-  if (newName === oldName) {
-    showToast(`✅ 已儲存案號「${newName}」`);
-    return true;
-  }
-  if (!Array.isArray(state.caseNumbers)) state.caseNumbers = [];
-  if (state.caseNumbers.includes(newName)) {
-    showToast(`案號「${newName}」已存在`);
-    renderTagManagerCaseNumberList();
-    return false;
-  }
+/**
+ * 自動或手動新增/更新區塊「處理日誌」：
+ * - 若為欄位連續打字修改 (forceNewEntry = false 且指定 autoFieldKey)，3 分鐘內同一欄位的連續打字會自動合併更新最上方該筆日誌，不洗版且不中斷輸入焦點
+ * - 若為匯入檔案、刪除檔案、狀態切換或手動新增日誌 (forceNewEntry = true)，每次皆獨立新增一筆日誌
+ */
+function recordCaseSectionLog(item, section, {
+  type = 'edit',
+  autoFieldKey = '',
+  text = '',
+  forceNewEntry = false
+} = {}) {
+  if (!item || !text) return;
+  const targetArr = section === 'action'
+    ? (item.actionLogs = Array.isArray(item.actionLogs) ? item.actionLogs : [])
+    : (item.symptomLogs = Array.isArray(item.symptomLogs) ? item.symptomLogs : []);
 
-  const idx = state.caseNumbers.findIndex(x => x === oldName || x.trim() === String(oldName || '').trim());
-  if (idx === -1) return false;
+  const nowStr = formatTodoTimestamp();
+  const nowEpoch = Date.now();
 
-  markCategoryItemDeleted('case_number', oldName);
-  unmarkCategoryItemDeleted('case_number', newName);
-  state.caseNumbers[idx] = newName;
-
-  (state.caseItems || []).forEach(item => {
-    if (item.caseNumber === oldName || (item.caseNumber || '').trim() === oldName.trim()) {
-      item.caseNumber = newName;
+  if (!forceNewEntry && autoFieldKey && targetArr.length > 0) {
+    const latest = targetArr[0];
+    if (latest && latest.autoFieldKey === autoFieldKey && (nowEpoch - (latest.epoch || 0)) < 180000) {
+      latest.time = nowStr;
+      latest.epoch = nowEpoch;
+      latest.text = text;
+      item.updatedAt = nowEpoch;
+      refreshCaseSectionLogDomInPlace(item.id, section);
+      return latest;
     }
-  });
-  if (state.caseFilterCaseNo === oldName) state.caseFilterCaseNo = newName;
-
-  saveCaseItemsState(true);
-  populateCaseFilterDropdowns();
-  renderTagManagerCaseNumberList();
-  if (state.currentView === 'cases') renderCasesView();
-
-  if (shouldRecord) {
-    recordAction({
-      type: 'rename_case_number',
-      title: `📁 更名案號「${oldName}」➔「${newName}」`,
-      subtitle: '已同步更新關聯案件',
-      undo: () => { renameCaseNumber(newName, oldName, false); },
-      redo: () => { renameCaseNumber(oldName, newName, false); }
-    });
   }
-  showToast(`✅ 案號已更名為「${newName}」`);
-  return true;
+
+  const newEntry = {
+    id: 'clog_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
+    time: nowStr,
+    epoch: nowEpoch,
+    type,
+    autoFieldKey: autoFieldKey || '',
+    text
+  };
+  targetArr.unshift(newEntry);
+  item.updatedAt = nowEpoch;
+  refreshCaseSectionLogDomInPlace(item.id, section);
+  return newEntry;
 }
 
-function deleteCaseNumber(name, shouldRecord = true) {
-  ensureCaseItemsInitialized();
-  if (!Array.isArray(state.caseNumbers)) return false;
-  const idx = state.caseNumbers.findIndex(x => x === name || x.trim() === String(name || '').trim());
-  if (idx === -1) return false;
-
-  const targetName = state.caseNumbers[idx];
-  markCategoryItemDeleted('case_number', targetName);
-  state.caseNumbers.splice(idx, 1);
-
-  const affectedCases = (state.caseItems || []).filter(c => c.caseNumber === targetName || (c.caseNumber || '').trim() === targetName.trim());
-  affectedCases.forEach(c => { c.caseNumber = ''; });
-  if (state.caseFilterCaseNo === targetName) state.caseFilterCaseNo = '';
-
-  saveCaseItemsState(true);
-  populateCaseFilterDropdowns();
-  renderTagManagerCaseNumberList();
-  if (state.currentView === 'cases') renderCasesView();
-
-  if (shouldRecord) {
-    recordAction({
-      type: 'delete_case_number',
-      title: `📁 刪除案號「${targetName}」`,
-      subtitle: '可按復原 (Ctrl+Z) 救回',
-      undo: () => {
-        unmarkCategoryItemDeleted('case_number', targetName);
-        if (!state.caseNumbers.includes(targetName)) {
-          state.caseNumbers.splice(Math.min(idx, state.caseNumbers.length), 0, targetName);
-        }
-        affectedCases.forEach(c => { c.caseNumber = targetName; });
-        saveCaseItemsState(true);
-        populateCaseFilterDropdowns();
-        if (state.activeTagManagerTab === 'case_number') renderTagManagerCaseNumberList();
-        if (state.currentView === 'cases') renderCasesView();
-      },
-      redo: () => { deleteCaseNumber(targetName, false); }
-    });
-  }
-  showToast(`🗑️ 已刪除案號「${targetName}」`);
-  return true;
-}
-
-// 讓共用分類 (機型、客戶、標籤、處理人員) 更名或刪除時，同步更新 state.caseItems！
+// 讓共用分類 (機型、客戶、標籤、處理人員) 更名或刪除時，同步更新 state.caseItems
 const _origRenameMachineModelV289 = renameMachineModel;
 renameMachineModel = async function(oldName, newName, shouldRecord = true) {
   const ok = await _origRenameMachineModelV289(oldName, newName, shouldRecord);
@@ -23453,11 +23392,6 @@ renameTodoHandler = function(oldName, newName) {
       if (Array.isArray(c.handlers)) {
         c.handlers = c.handlers.map(h => h === oldName ? newName : h);
       }
-      if (Array.isArray(c.timelineLogs)) {
-        c.timelineLogs.forEach(lg => {
-          if (lg.handler === oldName) lg.handler = newName;
-        });
-      }
     });
     if (state.caseFilterHandler === oldName) state.caseFilterHandler = newName;
     saveCaseItemsToLocalStorageOnly();
@@ -23491,39 +23425,8 @@ refreshAllViewsAfterCategoryChange = function() {
   try { if (state.currentView === 'cases') renderCasesView(); } catch (e) {}
 };
 
-// 擴充 switchTagManagerTab 支援第 7 分頁 case_number
-const _origSwitchTagManagerTabV289 = switchTagManagerTab;
-switchTagManagerTab = function(tab) {
-  if (tab === 'case_number') {
-    state.activeTagManagerTab = 'case_number';
-    const allTabs = ['machine', 'content', 'urgency', 'client', 'custom', 'todo_handler', 'case_number', 'todo_status'];
-    allTabs.forEach(tid => {
-      const btn = document.getElementById(
-        tid === 'todo_handler' ? 'tm-tab-todo-handler' :
-        tid === 'case_number' ? 'tm-tab-case-number' :
-        tid === 'todo_status' ? 'tm-tab-todo-status' : `tm-tab-${tid}`
-      );
-      const pane = document.getElementById(
-        tid === 'todo_handler' ? 'tm-pane-todo-handler' :
-        tid === 'case_number' ? 'tm-pane-case-number' :
-        tid === 'todo_status' ? 'tm-pane-todo-status' : `tm-pane-${tid}`
-      );
-      if (btn && tid !== 'todo_status') btn.classList.toggle('active', tid === 'case_number');
-      if (pane) pane.classList.toggle('hidden', tid !== 'case_number');
-    });
-    renderTagManagerCaseNumberList();
-    initLucide();
-    return;
-  }
-  const caseBtn = document.getElementById('tm-tab-case-number');
-  const casePane = document.getElementById('tm-pane-case-number');
-  if (caseBtn) caseBtn.classList.remove('active');
-  if (casePane) casePane.classList.add('hidden');
-  _origSwitchTagManagerTabV289(tab);
-};
-
 // ----------------------------------------------------------------------------
-// 🧠 案件追蹤獨立模糊檢索與同義詞匹配引擎 (比照表格資料庫)
+// 🧠 案件追蹤獨立模糊檢索與案號/處理日誌/匯入檔案全維度匹配引擎
 // ----------------------------------------------------------------------------
 function extractCaseAttachmentsSearchableText(caseItem) {
   if (!caseItem) return '';
@@ -23564,32 +23467,88 @@ function evaluateFuzzyCaseMatch(caseItem, parsedQuery) {
     };
   }
 
+  const rawQ = String(parsedQuery.rawNormalized || '').trim().toLowerCase();
+  const rawTokens = rawQ.split(/\s+/).filter(Boolean);
   const attSearchText = extractCaseAttachmentsSearchableText(caseItem);
-  const timelineText = (caseItem.timelineLogs || []).map(lg => `[${lg.time || ''} ${lg.handler || ''}] ${lg.text || ''}`).join('\n');
+  const symptomLogText = (caseItem.symptomLogs || []).map(lg => `[${lg.time || ''}] ${lg.text || ''}`).join('\n');
+  const actionLogText = (caseItem.actionLogs || []).map(lg => `[${lg.time || ''}] ${lg.text || ''}`).join('\n');
 
   const pseudoNote = {
     id: caseItem.id,
     name: `${caseItem.caseNumber ? '[' + caseItem.caseNumber + '] ' : ''}${caseItem.title || '未命名案件'}`,
     meta: {
       machineModel: caseItem.machineModel || '',
-      workContent: `${caseItem.caseNumber || ''} ${caseItem.serialOrWarranty || ''} ${(caseItem.tags || []).join(' ')}`,
+      workContent: `${caseItem.caseNumber || ''} ${(caseItem.tags || []).join(' ')}`,
       clientVendor: caseItem.clientVendor || '',
       status: `${caseItem.status || ''} ${(caseItem.handlers || []).join(' ')}`,
       tags: [...(caseItem.tags || []), ...(caseItem.handlers || []), caseItem.caseNumber || '', caseItem.status || ''].filter(Boolean)
     },
     _cachedBody: [
       `【案號】${caseItem.caseNumber || ''}`,
-      `【序號/保固】${caseItem.serialOrWarranty || ''}`,
       `【客訴與異常現象】${caseItem.symptomText || ''}`,
       `【根因分析】${caseItem.rootCauseText || ''}`,
       `【售後處理對策】${caseItem.actionTakenText || ''}`,
       `【更換零件/耗材】${caseItem.partsReplacedText || ''}`,
-      timelineText ? `【追蹤時間軸】${timelineText}` : '',
-      attSearchText ? `【圖片備註與附件】${attSearchText}` : ''
+      symptomLogText ? `【客訴處理日誌】${symptomLogText}` : '',
+      actionLogText ? `【對策處理日誌】${actionLogText}` : '',
+      attSearchText ? `【匯入檔案與圖片備註】${attSearchText}` : ''
     ].filter(Boolean).join('\n')
   };
 
   const baseRes = evaluateFuzzyNoteMatch(pseudoNote, parsedQuery);
+
+  // 直接子字串保底檢索：確保任何「案號」(如 CASE-2026-888)、處理日誌時間/內容、匯入檔名 100% 可被搜尋找到！
+  const allSearchableCorpus = [
+    caseItem.caseNumber || '',
+    caseItem.title || '',
+    caseItem.machineModel || '',
+    caseItem.clientVendor || '',
+    caseItem.symptomText || '',
+    caseItem.rootCauseText || '',
+    caseItem.actionTakenText || '',
+    caseItem.partsReplacedText || '',
+    (caseItem.tags || []).join(' '),
+    (caseItem.handlers || []).join(' '),
+    caseItem.createdAt || '',
+    caseItem.completedAt || '',
+    symptomLogText,
+    actionLogText,
+    attSearchText
+  ].join('\n');
+  const corpusLower = allSearchableCorpus.toLowerCase();
+
+  const isDirectCaseNoMatch = Boolean(caseItem.caseNumber && caseItem.caseNumber.toLowerCase().includes(rawQ));
+  const isAllTokensInCorpus = rawTokens.length > 0 && rawTokens.every(tk => corpusLower.includes(tk));
+
+  // 若搜尋詞包含案號格式、連字號(-)、底線(_)、斜線(/)或數字代碼，強制要求精準子字串命中，避免被模糊拆詞誤配其他案件
+  const codeLikeTokens = rawTokens.filter(tk => /[-_/.0-9]/.test(tk));
+  if (codeLikeTokens.length > 0) {
+    const allCodeTokensMatched = codeLikeTokens.every(tk => corpusLower.includes(tk));
+    if (!allCodeTokensMatched) {
+      return { matched: false, score: 0, confidencePct: 0, matchReasons: [], highlightTerms: [], snippet: null };
+    }
+  }
+
+  if (isDirectCaseNoMatch || isAllTokensInCorpus) {
+    let snippetText = '';
+    if (isDirectCaseNoMatch) {
+      snippetText = `📁 案號：${caseItem.caseNumber} ｜ ${caseItem.title || ''}`;
+    } else {
+      const lines = allSearchableCorpus.split(/\n+/).map(l => l.trim()).filter(Boolean);
+      const hitLine = lines.find(l => rawTokens.some(tk => l.toLowerCase().includes(tk))) || lines[0] || '';
+      snippetText = hitLine.slice(0, 90);
+    }
+    return {
+      matched: true,
+      score: isDirectCaseNoMatch ? 180 : 125,
+      confidencePct: 98,
+      matchReasons: [isDirectCaseNoMatch ? '案號精準命中' : '處理日誌/內容命中'],
+      highlightTerms: Array.from(new Set([...(parsedQuery.coreTokens || []), ...rawTokens])),
+      snippet: { text: snippetText },
+      isSolutionNote: Boolean(caseItem.actionTakenText || caseItem.rootCauseText)
+    };
+  }
+
   if (baseRes && baseRes.matched && ((caseItem.actionTakenText && caseItem.actionTakenText.trim()) || (caseItem.rootCauseText && caseItem.rootCauseText.trim()))) {
     baseRes.isSolutionNote = true;
   }
@@ -23601,18 +23560,10 @@ function evaluateFuzzyCaseMatch(caseItem, parsedQuery) {
 // ----------------------------------------------------------------------------
 function populateCaseFilterDropdowns() {
   ensureCaseItemsInitialized();
-  const caseNos = state.caseNumbers || [];
   const machines = getSharedMachineModelsForTodo();
   const clients = getSharedClientsVendorsForTodo();
   const tags = getSharedTagsForTodo();
   const handlers = state.todoHandlers || DEFAULT_TODO_HANDLERS;
-
-  const caseNoSelect = document.getElementById('cases-filter-caseno');
-  if (caseNoSelect) {
-    const cur = state.caseFilterCaseNo || '';
-    caseNoSelect.innerHTML = `<option value="">📁 全部案號</option><option value="__empty__" ${cur === '__empty__' ? 'selected' : ''}>未指定案號</option>` +
-      caseNos.map(cn => `<option value="${escapeHtml(cn)}" ${cur === cn ? 'selected' : ''}>📁 ${escapeHtml(cn)}</option>`).join('');
-  }
 
   const machSelect = document.getElementById('cases-filter-machine');
   if (machSelect) {
@@ -23649,29 +23600,43 @@ function populateCaseFilterDropdowns() {
 function createNewCaseCardItem() {
   ensureCaseItemsInitialized();
   const nowStr = formatTodoTimestamp();
+  const nowEpoch = Date.now();
+  const initStatus = state.caseFilterStatus || '🔴 待處理';
+  const initCompletedAt = isCaseStatusCompleted(initStatus) ? nowStr : '';
+
   const newItem = {
-    id: 'case_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    id: 'case_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
     title: '',
-    caseNumber: (state.caseFilterCaseNo && state.caseFilterCaseNo !== '__empty__') ? state.caseFilterCaseNo : '',
+    caseNumber: '',
     machineModel: (state.caseFilterMachine && state.caseFilterMachine !== '__empty__') ? state.caseFilterMachine : '',
     clientVendor: (state.caseFilterClient && state.caseFilterClient !== '__empty__') ? state.caseFilterClient : '',
-    status: state.caseFilterStatus || '🔴 待處理',
-    serialOrWarranty: '',
+    status: initStatus,
     symptomText: '',
     rootCauseText: '',
     actionTakenText: '',
     partsReplacedText: '',
     symptomAttachmentsHtml: '',
     actionAttachmentsHtml: '',
-    timelineLogs: [],
+    symptomLogs: [
+      {
+        id: 'clog_init_' + nowEpoch,
+        time: nowStr,
+        epoch: nowEpoch,
+        type: 'manual',
+        autoFieldKey: '',
+        text: '🆕 建立售後追蹤案件檔案'
+      }
+    ],
+    actionLogs: [],
     linkedNoteIds: [],
     linkedNoteTitles: {},
     tags: state.caseFilterTag ? [state.caseFilterTag] : [],
     handlers: state.caseFilterHandler ? [state.caseFilterHandler] : [],
     createdAt: nowStr,
-    createdEpoch: Date.now(),
-    completedAt: '',
-    updatedAt: Date.now()
+    createdEpoch: nowEpoch,
+    completedAt: initCompletedAt,
+    completedEpoch: initCompletedAt ? nowEpoch : 0,
+    updatedAt: nowEpoch
   };
 
   state.caseItems.unshift(newItem);
@@ -23686,7 +23651,7 @@ function createNewCaseCardItem() {
       if (titleInp) titleInp.focus();
     }
   }, 50);
-  showToast('🛡️ 已建立新案件，請輸入案件資訊');
+  showToast('🛡️ 已建立新案件，請輸入案號與案件資訊');
   return newItem;
 }
 
@@ -23732,7 +23697,21 @@ async function deleteCaseItemById(caseId) {
   return true;
 }
 
-// 同步案件卡片內的縮圖與圖片備註
+function extractFileNamesSetFromGalleryHtml(htmlStr) {
+  const out = new Set();
+  if (!htmlStr) return out;
+  try {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = htmlStr;
+    tmp.querySelectorAll('[data-file-name]').forEach(el => {
+      const fn = (el.getAttribute('data-file-name') || '').trim();
+      if (fn) out.add(fn);
+    });
+  } catch (e) {}
+  return out;
+}
+
+// 同步案件卡片內的縮圖與圖片備註，若偵測到移除檔案或修改備註亦自動寫入處理日誌
 function syncCaseCardAttachmentsFromDom(cardEl) {
   if (!cardEl) return;
   const caseId = cardEl.getAttribute('data-case-id');
@@ -23744,23 +23723,62 @@ function syncCaseCardAttachmentsFromDom(cardEl) {
   const actGallery = cardEl.querySelector('.case-action-attachments');
 
   if (symGallery) {
+    const oldFiles = extractFileNamesSetFromGalleryHtml(item.symptomAttachmentsHtml);
     symGallery.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
-    item.symptomAttachmentsHtml = compactTodoAttachmentsHtml(symGallery.innerHTML);
+    const newHtml = compactTodoAttachmentsHtml(symGallery.innerHTML);
+    const newFiles = extractFileNamesSetFromGalleryHtml(newHtml);
+    oldFiles.forEach(fn => {
+      if (!newFiles.has(fn)) {
+        recordCaseSectionLog(item, 'symptom', {
+          type: 'file',
+          text: `🗑️ 移除檔案：「${fn}」`,
+          forceNewEntry: true
+        });
+      }
+    });
+    item.symptomAttachmentsHtml = newHtml;
   }
   if (actGallery) {
+    const oldFiles = extractFileNamesSetFromGalleryHtml(item.actionAttachmentsHtml);
     actGallery.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
-    item.actionAttachmentsHtml = compactTodoAttachmentsHtml(actGallery.innerHTML);
+    const newHtml = compactTodoAttachmentsHtml(actGallery.innerHTML);
+    const newFiles = extractFileNamesSetFromGalleryHtml(newHtml);
+    oldFiles.forEach(fn => {
+      if (!newFiles.has(fn)) {
+        recordCaseSectionLog(item, 'action', {
+          type: 'file',
+          text: `🗑️ 移除檔案：「${fn}」`,
+          forceNewEntry: true
+        });
+      }
+    });
+    item.actionAttachmentsHtml = newHtml;
   }
   item.updatedAt = Date.now();
   saveCaseItemsState();
 }
 
-// 讓圖片上方備註與旋轉/刪除也能自動同步回 lvi-case-card
 const _origSyncTodoAttachmentsFromAnyContainerV289 = syncTodoAttachmentsFromAnyContainer;
 syncTodoAttachmentsFromAnyContainer = function(blockOrChild) {
   if (blockOrChild && blockOrChild.closest) {
     const parentCaseCard = blockOrChild.closest('.lvi-case-card');
     if (parentCaseCard) {
+      const caseId = parentCaseCard.getAttribute('data-case-id');
+      const item = (state.caseItems || []).find(c => c.id === caseId);
+      const mediaCard = blockOrChild.closest('details.notion-media-collapse, .notion-file-attachment');
+      if (item && mediaCard) {
+        const fn = mediaCard.getAttribute('data-file-name') || '現場照片';
+        const noteInp = mediaCard.querySelector('.media-top-note-input');
+        const noteTxt = noteInp ? (noteInp.textContent || '').trim() : '';
+        const sec = mediaCard.closest('.case-action-attachments') ? 'action' : 'symptom';
+        if (noteTxt) {
+          recordCaseSectionLog(item, sec, {
+            type: 'edit',
+            autoFieldKey: `img_note_${fn}`,
+            text: `📝 更新圖片備註（「${fn}」）：${noteTxt}`
+          });
+        }
+      }
       syncCaseCardAttachmentsFromDom(parentCaseCard);
       return true;
     }
@@ -23822,6 +23840,14 @@ async function uploadFileToCaseCardSection(caseId, section, file) {
     `;
   }
 
+  // 自動寫入該區塊的【📜 處理日誌】：「匯入了哪些檔案」與時間戳記
+  const sectionLabel = section === 'action' ? '售後處理對策與零件更換' : '客訴與異常現象/根因分析';
+  recordCaseSectionLog(item, section === 'action' ? 'action' : 'symptom', {
+    type: 'file',
+    text: `📎 匯入檔案：「${finalName}」 (${finalSizeDisplay} · ${sectionLabel})`,
+    forceNewEntry: true
+  });
+
   if (galleryEl) {
     const wrapper = document.createElement('div');
     wrapper.innerHTML = cardHtml.trim();
@@ -23847,61 +23873,390 @@ async function uploadFileToCaseCardSection(caseId, section, file) {
     renderCasesView();
   }
 
-  showToast(`✅ 已加入案件附件「${finalName}」`, 1800);
+  showToast(`✅ 已匯入「${finalName}」並自動記錄於處理日誌`, 1800);
 }
 
-// 匯出單一個案售後追蹤報告 (.md)
-function exportSingleCaseReportMarkdown(caseId) {
-  ensureCaseItemsInitialized();
-  const item = (state.caseItems || []).find(c => c.id === caseId);
-  if (!item) return;
+// ============================================================================
+// 📄 案件追蹤專屬 A4 專業排版 PDF 報告匯出引擎 (renderCaseToDirectPdfBlob)
+// ============================================================================
+async function renderCaseToDirectPdfBlob(item) {
+  if (!item) throw new Error('找不到案件資料');
 
-  const lines = [
-    `# 🛡️ 售後案件追蹤報告：${item.title || '未命名案件'}`,
-    ``,
-    `- **案號**：${item.caseNumber || '未指定'}`,
-    `- **案件狀態**：${item.status || '🔴 待處理'}`,
-    `- **機型分類**：${item.machineModel || '未選擇'}`,
-    `- **客戶或廠商**：${item.clientVendor || '未選擇'}`,
-    `- **機台序號 / 保固**：${item.serialOrWarranty || '無'}`,
-    `- **處理人員**：${(item.handlers && item.handlers.length) ? item.handlers.join('、') : '無'}`,
-    `- **標籤**：${(item.tags && item.tags.length) ? item.tags.map(t => '#' + t).join(' ') : '無'}`,
-    `- **立案時間**：${item.createdAt || ''}`,
-    `- **結案時間**：${item.completedAt || '無'}`,
-    ``,
-    `## 🚨 客訴與異常現象`,
-    item.symptomText || '（無紀錄）',
-    ``,
-    `## 🔍 異常原因 / 根因分析`,
-    item.rootCauseText || '（無紀錄）',
-    ``,
-    `## 🛠️ 售後處理過程與對策`,
-    item.actionTakenText || '（無紀錄）',
-    ``,
-    `## 🔩 更換零件 / 耗材紀錄`,
-    item.partsReplacedText || '（無紀錄）',
-    ``,
-    `## 🕒 售後追蹤時間軸紀錄`,
-    ...((item.timelineLogs && item.timelineLogs.length > 0)
-      ? item.timelineLogs.map(lg => `- **[${lg.time || ''}] (${lg.handler || '未指定'})**：${lg.text || ''}`)
-      : ['- （尚無時間軸紀錄）'])
+  const PAGE_W = 1240;
+  const PAGE_H = 1754;
+  const MARGIN_X = 72;
+  const TOP_Y = 74;
+  const BOTTOM_LIMIT = PAGE_H - 96;
+  const CONTENT_W = PAGE_W - MARGIN_X * 2;
+  const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif';
+
+  const now = new Date();
+  const exportTime = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  const pages = [];
+  let curCanvas = null;
+  let curCtx = null;
+  let curY = TOP_Y;
+
+  const startNewPage = () => {
+    curCanvas = document.createElement('canvas');
+    curCanvas.width = PAGE_W;
+    curCanvas.height = PAGE_H;
+    curCtx = curCanvas.getContext('2d', { alpha: false });
+    curCtx.fillStyle = '#ffffff';
+    curCtx.fillRect(0, 0, PAGE_W, PAGE_H);
+    curCtx.textBaseline = 'top';
+    pages.push(curCanvas);
+    curY = TOP_Y;
+  };
+
+  const ensureSpace = (neededH) => {
+    if (curY + neededH > BOTTOM_LIMIT && curY > TOP_Y + 30) {
+      startNewPage();
+    }
+  };
+
+  const wrapTextLines = (ctx, text, maxWidth) => {
+    const rawLines = String(text || '').split(/\r?\n/);
+    const out = [];
+    for (const line of rawLines) {
+      if (!line) {
+        out.push('');
+        continue;
+      }
+      let cur = '';
+      for (const ch of line) {
+        const test = cur + ch;
+        if (ctx.measureText(test).width > maxWidth && cur.length > 0) {
+          out.push(cur);
+          cur = ch;
+        } else {
+          cur = test;
+        }
+      }
+      if (cur) out.push(cur);
+    }
+    return out.length > 0 ? out : [''];
+  };
+
+  startNewPage();
+
+  // 1. 報告頂部品牌標頭
+  curCtx.font = `800 20px ${FONT_FAMILY}`;
+  curCtx.fillStyle = '#0f766e';
+  curCtx.fillText('LVI_Note 售後案件追蹤與技術履歷報告 (Case Tracking Report)', MARGIN_X, curY);
+  const timeText = `匯出時間：${exportTime}`;
+  curCtx.fillStyle = '#475569';
+  const timeW = curCtx.measureText(timeText).width;
+  curCtx.fillText(timeText, PAGE_W - MARGIN_X - timeW, curY);
+  curY += 32;
+
+  curCtx.fillStyle = '#0d9488';
+  curCtx.fillRect(MARGIN_X, curY, CONTENT_W, 3);
+  curY += 20;
+
+  // 2. 案件大標題 + 案號標章
+  const titleDisplay = `${item.caseNumber ? '[' + item.caseNumber + '] ' : ''}${item.title || '未命名案件'}`;
+  curCtx.font = `800 36px ${FONT_FAMILY}`;
+  curCtx.fillStyle = '#0f172a';
+  const titleLines = wrapTextLines(curCtx, titleDisplay, CONTENT_W);
+  for (const tl of titleLines) {
+    ensureSpace(48);
+    curCtx.fillText(tl, MARGIN_X, curY);
+    curY += 46;
+  }
+  curY += 10;
+
+  // 3. 案件基本屬性表格 (4 列 × 2 欄)
+  const metaRows = [
+    [
+      ['案號：', item.caseNumber || '未指定'],
+      ['案件狀態：', normalizeCaseStatusValue(item.status)]
+    ],
+    [
+      ['機型分類：', item.machineModel || '未選擇'],
+      ['客戶或廠商：', item.clientVendor || '未選擇']
+    ],
+    [
+      ['立案時間：', item.createdAt || '—'],
+      ['結案時間：', item.completedAt || '未結案']
+    ],
+    [
+      ['處理人員：', (item.handlers && item.handlers.length) ? item.handlers.join('、') : '未指派'],
+      ['專案標籤：', (item.tags && item.tags.length) ? item.tags.map(t => '#' + t).join(' ') : '無']
+    ]
   ];
 
-  const blob = new Blob([lines.join('\n')], { type: 'text/markdown;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  const safeFile = `Case_${(item.caseNumber || item.title || 'Report').replace(/[\\/:*?"<>|\s]+/g, '_')}.md`;
-  a.href = url;
-  a.download = safeFile;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
-  showToast(`📄 已匯出案件報告「${safeFile}」`);
+  const metaBoxH = metaRows.length * 38 + 24;
+  ensureSpace(metaBoxH + 20);
+  curCtx.fillStyle = '#f8fafc';
+  curCtx.strokeStyle = '#cbd5e1';
+  curCtx.lineWidth = 2;
+  curCtx.beginPath();
+  if (curCtx.roundRect) curCtx.roundRect(MARGIN_X, curY, CONTENT_W, metaBoxH, 12);
+  else curCtx.rect(MARGIN_X, curY, CONTENT_W, metaBoxH);
+  curCtx.fill();
+  curCtx.stroke();
+
+  const colW = Math.floor((CONTENT_W - 36) / 2);
+  metaRows.forEach((rowPairs, rIdx) => {
+    rowPairs.forEach((pair, cIdx) => {
+      const ix = MARGIN_X + 18 + cIdx * colW;
+      const iy = curY + 14 + rIdx * 38;
+      curCtx.font = `700 20px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#475569';
+      curCtx.fillText(pair[0], ix, iy);
+      const lw = curCtx.measureText(pair[0]).width;
+      curCtx.font = `800 20px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#0f172a';
+      curCtx.fillText(String(pair[1] || '').slice(0, 28), ix + lw, iy);
+    });
+  });
+  curY += metaBoxH + 24;
+
+  // 輔助：繪製區塊標題橫幅
+  const drawSectionBanner = (titleText, accentColor, bgFill) => {
+    ensureSpace(64);
+    curCtx.fillStyle = bgFill;
+    curCtx.strokeStyle = accentColor;
+    curCtx.lineWidth = 2;
+    curCtx.beginPath();
+    if (curCtx.roundRect) curCtx.roundRect(MARGIN_X, curY, CONTENT_W, 48, 10);
+    else curCtx.rect(MARGIN_X, curY, CONTENT_W, 48);
+    curCtx.fill();
+    curCtx.stroke();
+    curCtx.fillStyle = accentColor;
+    curCtx.fillRect(MARGIN_X, curY, 10, 48);
+    curCtx.font = `800 24px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#0f172a';
+    curCtx.fillText(titleText, MARGIN_X + 22, curY + 11);
+    curY += 60;
+  };
+
+  // 輔助：繪製欄位文字盒
+  const drawLabeledTextBox = (label, content, borderColor = '#cbd5e1', bgFill = '#ffffff') => {
+    curCtx.font = `600 21px ${FONT_FAMILY}`;
+    const lines = wrapTextLines(curCtx, (content || '').trim() || '（無紀錄）', CONTENT_W - 36);
+    const boxH = 44 + lines.length * 32 + 16;
+    ensureSpace(boxH + 16);
+
+    curCtx.fillStyle = bgFill;
+    curCtx.strokeStyle = borderColor;
+    curCtx.lineWidth = 1.5;
+    curCtx.beginPath();
+    if (curCtx.roundRect) curCtx.roundRect(MARGIN_X, curY, CONTENT_W, boxH, 10);
+    else curCtx.rect(MARGIN_X, curY, CONTENT_W, boxH);
+    curCtx.fill();
+    curCtx.stroke();
+
+    curCtx.font = `800 20px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#334155';
+    curCtx.fillText(label, MARGIN_X + 18, curY + 12);
+
+    curCtx.font = `600 21px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#0f172a';
+    let ty = curY + 44;
+    for (const ln of lines) {
+      curCtx.fillText(ln, MARGIN_X + 18, ty);
+      ty += 32;
+    }
+    curY += boxH + 14;
+  };
+
+  // 輔助：繪製附件區內的照片與檔案清單
+  const drawAttachmentsFromHtml = async (attachmentsHtml) => {
+    if (!attachmentsHtml || !attachmentsHtml.trim()) return;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = attachmentsHtml;
+
+    const mediaCards = Array.from(tempDiv.querySelectorAll('details.notion-media-collapse'));
+    for (const cardEl of mediaCards) {
+      const imgEl = cardEl.querySelector('img');
+      if (!imgEl) continue;
+      const verifiedCanvas = await loadVerifiedUntaintedCanvasForPdf(imgEl, cardEl);
+      if (!verifiedCanvas) continue;
+
+      const natW = verifiedCanvas.width || 640;
+      const natH = verifiedCanvas.height || 480;
+      const fileName = cardEl.getAttribute('data-file-name') || imgEl.getAttribute('alt') || '現場照片';
+      const noteInput = cardEl.querySelector('.media-top-note-input');
+      const noteText = noteInput ? (noteInput.textContent || '').trim() : '';
+
+      const maxImgW = CONTENT_W - 40;
+      const maxImgH = 440;
+      const scale = Math.min(maxImgW / natW, maxImgH / natH, 1.0);
+      const drawW = Math.max(1, Math.round(natW * scale));
+      const drawH = Math.max(1, Math.round(natH * scale));
+
+      const noteH = noteText ? 38 : 0;
+      const cardTotalH = 42 + noteH + drawH + 28;
+      ensureSpace(cardTotalH + 14);
+
+      curCtx.fillStyle = '#ffffff';
+      curCtx.strokeStyle = '#94a3b8';
+      curCtx.lineWidth = 1.5;
+      curCtx.beginPath();
+      if (curCtx.roundRect) curCtx.roundRect(MARGIN_X, curY, CONTENT_W, cardTotalH, 10);
+      else curCtx.rect(MARGIN_X, curY, CONTENT_W, cardTotalH);
+      curCtx.fill();
+      curCtx.stroke();
+
+      curCtx.fillStyle = '#f1f5f9';
+      curCtx.fillRect(MARGIN_X + 2, curY + 2, CONTENT_W - 4, 38);
+      curCtx.font = `800 19px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#0f172a';
+      curCtx.fillText(`📷 附件照片：${fileName}`, MARGIN_X + 16, curY + 10);
+
+      let innerY = curY + 42;
+      if (noteText) {
+        curCtx.fillStyle = '#fffbeb';
+        curCtx.fillRect(MARGIN_X + 2, innerY, CONTENT_W - 4, 36);
+        curCtx.font = `700 19px ${FONT_FAMILY}`;
+        curCtx.fillStyle = '#92400e';
+        curCtx.fillText(`📝 圖片備註：${noteText.slice(0, 48)}`, MARGIN_X + 16, innerY + 8);
+        innerY += 38;
+      }
+
+      const imgX = MARGIN_X + Math.round((CONTENT_W - drawW) / 2);
+      curCtx.drawImage(verifiedCanvas, imgX, innerY + 12, drawW, drawH);
+      curY += cardTotalH + 14;
+    }
+
+    const fileCards = Array.from(tempDiv.querySelectorAll('.notion-file-attachment'));
+    for (const fCard of fileCards) {
+      const fName = fCard.getAttribute('data-file-name') || '附件檔案';
+      const fSize = fCard.getAttribute('data-file-size') || '';
+      ensureSpace(44);
+      curCtx.fillStyle = '#f8fafc';
+      curCtx.strokeStyle = '#cbd5e1';
+      curCtx.lineWidth = 1.5;
+      curCtx.strokeRect(MARGIN_X, curY, CONTENT_W, 38);
+      curCtx.font = `700 19px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#0f172a';
+      curCtx.fillText(`📎 匯入檔案：${fName} ${fSize ? '(' + fSize + ')' : ''}`, MARGIN_X + 14, curY + 9);
+      curY += 46;
+    }
+  };
+
+  // 輔助：繪製區塊內嵌【📜 處理日誌】表格
+  const drawSectionLogsBlock = (sectionTitle, logs = []) => {
+    ensureSpace(56);
+    curCtx.font = `800 20px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#0f766e';
+    curCtx.fillText(`📜 ${sectionTitle} (${logs.length} 筆)`, MARGIN_X + 4, curY);
+    curY += 32;
+
+    if (!logs || logs.length === 0) {
+      ensureSpace(42);
+      curCtx.font = `600 19px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#64748b';
+      curCtx.fillText('（尚無處理日誌紀錄）', MARGIN_X + 16, curY);
+      curY += 38;
+      return;
+    }
+
+    for (const lg of logs) {
+      const lineStr = `[${lg.time || ''}] ${lg.text || ''}`;
+      curCtx.font = `600 19px ${FONT_FAMILY}`;
+      const wrapped = wrapTextLines(curCtx, lineStr, CONTENT_W - 32);
+      const rowH = wrapped.length * 28 + 16;
+      ensureSpace(rowH + 6);
+
+      curCtx.fillStyle = '#f8fafc';
+      curCtx.strokeStyle = '#cbd5e1';
+      curCtx.lineWidth = 1;
+      curCtx.fillRect(MARGIN_X, curY, CONTENT_W, rowH);
+      curCtx.strokeRect(MARGIN_X, curY, CONTENT_W, rowH);
+
+      curCtx.fillStyle = '#0f172a';
+      let ly = curY + 8;
+      for (const wln of wrapped) {
+        curCtx.fillText(wln, MARGIN_X + 14, ly);
+        ly += 28;
+      }
+      curY += rowH + 6;
+    }
+    curY += 12;
+  };
+
+  // 4. 繪製第一大區塊：客訴與異常現象 / 根因分析 + 附件 + 處理日誌
+  drawSectionBanner('一、客訴與異常現象 / 根因分析', '#e11d48', '#fff1f2');
+  drawLabeledTextBox('🚨 客訴 / 異常現象描述', item.symptomText, '#fecdd3', '#ffffff');
+  drawLabeledTextBox('🔍 異常原因 / 根因分析', item.rootCauseText, '#fde68a', '#ffffff');
+  await drawAttachmentsFromHtml(item.symptomAttachmentsHtml);
+  drawSectionLogsBlock('客訴與根因分析・處理日誌', item.symptomLogs || []);
+  curY += 12;
+
+  // 5. 繪製第二大區塊：售後處理對策與零件更換紀錄 + 附件 + 處理日誌
+  drawSectionBanner('二、售後處理對策與零件更換紀錄', '#2563eb', '#eff6ff');
+  drawLabeledTextBox('🛠️ 售後處理過程與對策', item.actionTakenText, '#bfdbfe', '#ffffff');
+  drawLabeledTextBox('🔩 更換零件 / 耗材紀錄', item.partsReplacedText, '#cbd5e1', '#ffffff');
+  await drawAttachmentsFromHtml(item.actionAttachmentsHtml);
+  drawSectionLogsBlock('售後處理對策與零件更換・處理日誌', item.actionLogs || []);
+
+  // 6. 為每一頁繪製頁尾與頁碼
+  const totalPages = pages.length;
+  pages.forEach((canvasPage, idx) => {
+    const pCtx = canvasPage.getContext('2d');
+    const footerY = PAGE_H - 54;
+    pCtx.fillStyle = '#e2e8f0';
+    pCtx.fillRect(MARGIN_X, footerY - 12, CONTENT_W, 1.5);
+    pCtx.font = `700 18px ${FONT_FAMILY}`;
+    pCtx.fillStyle = '#64748b';
+    pCtx.fillText(`LVI_Note 雲端工作筆記與案件追蹤系統 ｜ 案號：${item.caseNumber || '未指定'}`, MARGIN_X, footerY);
+    const pageNumStr = `第 ${idx + 1} 頁 / 共 ${totalPages} 頁`;
+    const pw = pCtx.measureText(pageNumStr).width;
+    pCtx.fillText(pageNumStr, PAGE_W - MARGIN_X - pw, footerY);
+  });
+
+  const pageDataUrls = pages.map(c => c.toDataURL('image/jpeg', 0.88));
+  return buildPdf14BlobFromJpegDataUrls(pageDataUrls);
 }
 
+async function exportSingleCaseReportPDF(caseId) {
+  ensureCaseItemsInitialized();
+  const item = (state.caseItems || []).find(c => c.id === caseId);
+  if (!item) {
+    showToast('⚠️ 找不到要匯出的案件');
+    return;
+  }
+  const cleanCaseNo = (item.caseNumber || '').replace(/[\\/:*?"<>|\s]+/g, '_');
+  const cleanTitle = (item.title || '售後案件報告').replace(/[\\/:*?"<>|\s]+/g, '_');
+  const safeFile = `LVI-Case_${cleanCaseNo ? cleanCaseNo + '_' : ''}${cleanTitle}.pdf`;
+
+  showToast(`📄 正在排版並匯出 PDF 報告「${safeFile}」...`, 2000);
+  try {
+    const pdfBlob = await renderCaseToDirectPdfBlob(item);
+    downloadBlob(pdfBlob, safeFile);
+    showToast(`✅ 已匯出案件 PDF 報告「${safeFile}」！`, 2600);
+  } catch (err) {
+    console.error('匯出案件 PDF 報告失敗:', err);
+    showToast(`⚠️ 匯出 PDF 失敗：${err.message || '請稍後再試'}`);
+  }
+}
+
+// 相容舊函式名稱，統一導向 PDF 匯出
+const exportSingleCaseReportMarkdown = exportSingleCaseReportPDF;
+
+// 統一全站頂部匯出按鈕 (exportPDF / exportMarkdown / exportHTML) 為 PDF 匯出
+const _origExportPdfV290 = exportPDF;
+exportPDF = async function() {
+  if (DOM.exportMenu) DOM.exportMenu.classList.add('hidden');
+  if (state.currentView === 'cases') {
+    ensureCaseItemsInitialized();
+    const targetId = state.activeCaseDetailId || (state.caseItems && state.caseItems[0] && state.caseItems[0].id);
+    if (targetId) {
+      await exportSingleCaseReportPDF(targetId);
+      return;
+    }
+  }
+  return await _origExportPdfV290();
+};
+exportMarkdown = exportPDF;
+exportHTML = exportPDF;
+
 // ----------------------------------------------------------------------------
-// 🎨 渲染「案件追蹤」：1. 清單卡片列  2. 表格資料庫列  3. 個案六段式詳細履歷
+// 🎨 渲染「案件追蹤」：1. 清單卡片列  2. 表格資料庫列  3. 個案詳細履歷 (含內嵌處理日誌)
 // ----------------------------------------------------------------------------
 function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
   const normStatus = normalizeCaseStatusValue(item.status);
@@ -23916,7 +24271,7 @@ function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
   const actionPreview = (item.actionTakenText || '').replace(/\s+/g, ' ').trim();
   const handlers = Array.isArray(item.handlers) ? item.handlers : [];
   const tags = Array.isArray(item.tags) ? item.tags : [];
-  const logCount = Array.isArray(item.timelineLogs) ? item.timelineLogs.length : 0;
+  const totalLogCount = ((item.symptomLogs || []).length) + ((item.actionLogs || []).length);
   const linkedCount = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds.length : 0;
 
   const attHtml = (item.symptomAttachmentsHtml || '') + (item.actionAttachmentsHtml || '');
@@ -23936,20 +24291,23 @@ function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
   }
 
   const secondaryBadgesHtml = [
-    item.serialOrWarranty ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shrink-0">🔢 ${escapeHtml(item.serialOrWarranty)}</span>` : '',
     ...handlers.map(h => `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800 shrink-0">👤 ${escapeHtml(h)}</span>`),
     ...tags.map(t => `<span class="px-1.5 py-0.5 rounded-md text-[10.5px] font-bold border ${getTagPillColorClass(t)} shrink-0">#${escapeHtml(t)}</span>`),
-    logCount > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold shrink-0">🕒 追蹤紀錄 ${logCount}</span>` : '',
+    totalLogCount > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold shrink-0">📜 處理日誌 ${totalLogCount}</span>` : '',
     linkedCount > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold shrink-0">🔗 關聯筆記 ${linkedCount}</span>` : '',
     totalAtt > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold shrink-0">🖼️ 縮圖/附件 ${totalAtt}</span>` : ''
   ].filter(Boolean).join('');
+
+  const completedBadgeHtml = item.completedAt
+    ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">🏁 結案：${escapeHtml(item.completedAt)}</span>`
+    : `<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 shrink-0">🏁 結案：未結案</span>`;
 
   return `
     <div class="lvi-todo-summary-row lvi-case-summary-row ${statusRowAccentCls} group" data-case-summary-id="${escapeHtml(item.id)}">
       <div class="lvi-todo-summary-main">
         <div class="lvi-todo-summary-top-line">
           <span class="px-2.5 py-0.5 rounded-md text-xs font-extrabold border shrink-0 ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
-          ${item.caseNumber ? `<span class="lvi-case-no-badge shrink-0">📁 ${escapeHtml(item.caseNumber)}</span>` : `<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 shrink-0">未指定案號</span>`}
+          ${item.caseNumber ? `<span class="lvi-case-no-badge shrink-0">📁 ${escapeHtml(item.caseNumber)}</span>` : `<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 shrink-0">未填案號</span>`}
           <span class="lvi-todo-summary-title truncate">${escapeHtml(titleText)}</span>
           ${item.machineModel ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">🚜 ${escapeHtml(item.machineModel)}</span>` : ''}
           ${item.clientVendor ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">🏢 ${escapeHtml(item.clientVendor)}</span>` : ''}
@@ -23962,7 +24320,8 @@ function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
       </div>
 
       <div class="lvi-todo-summary-right">
-        <span class="lvi-todo-summary-time">🕒 ${escapeHtml(item.createdAt || '')}</span>
+        ${completedBadgeHtml}
+        <span class="lvi-todo-summary-time">🕒 立案：${escapeHtml(item.createdAt || '')}</span>
         <button type="button" class="todo-summary-del-btn case-summary-del-btn" data-case-id="${escapeHtml(item.id)}" title="刪除此筆案件">
           <span>🗑️ 刪除</span>
         </button>
@@ -23976,18 +24335,15 @@ function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
 }
 
 function renderCasesTableModeHtml(filteredList) {
-  const caseNos = state.caseNumbers || [];
   const machines = getSharedMachineModelsForTodo();
   const clients = getSharedClientsVendorsForTodo();
 
   const rowsHtml = filteredList.map(({ item, fuzzyRes }) => {
     const normStatus = normalizeCaseStatusValue(item.status);
     const titleText = (item.title || '').trim() || '（未命名案件）';
-    const logCount = (item.timelineLogs || []).length;
-    const latestLog = logCount > 0 ? item.timelineLogs[0] : null;
+    const allLogs = [...(item.actionLogs || []), ...(item.symptomLogs || [])];
+    const latestLog = allLogs.length > 0 ? allLogs[0] : null;
 
-    const caseNoOpts = `<option value="" ${!item.caseNumber ? 'selected' : ''}>未選擇</option>` +
-      caseNos.map(cn => `<option value="${escapeHtml(cn)}" ${item.caseNumber === cn ? 'selected' : ''}>📁 ${escapeHtml(cn)}</option>`).join('');
     const machOpts = `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>` +
       machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`).join('');
     const cliOpts = `<option value="" ${!item.clientVendor ? 'selected' : ''}>未選擇</option>` +
@@ -24010,14 +24366,11 @@ function renderCasesTableModeHtml(filteredList) {
           </select>
         </td>
         <td onclick="event.stopPropagation();">
-          <select class="case-inline-table-select" data-case-id="${escapeHtml(item.id)}" data-field="caseNumber">
-            ${caseNoOpts}
-          </select>
+          <input type="text" class="case-inline-table-input" data-case-id="${escapeHtml(item.id)}" data-field="caseNumber" value="${escapeHtml(item.caseNumber || '')}" placeholder="直接輸入案號..." />
         </td>
         <td>
           <div class="font-extrabold text-slate-900 dark:text-white">${escapeHtml(titleText)}</div>
-          ${item.serialOrWarranty ? `<div class="text-[11px] text-slate-500 dark:text-slate-400">🔢 ${escapeHtml(item.serialOrWarranty)}</div>` : ''}
-          ${latestLog ? `<div class="text-[11px] text-teal-700 dark:text-teal-300 truncate max-w-[260px]">🕒 最新：${escapeHtml(latestLog.text || '')}</div>` : ''}
+          ${latestLog ? `<div class="text-[11px] text-teal-700 dark:text-teal-300 truncate max-w-[260px]">📜 日誌：${escapeHtml(latestLog.text || '')}</div>` : ''}
           ${(fuzzyRes && fuzzyRes.snippet) ? `<div class="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">🔍 ${highlightMatchedTermsHtml(fuzzyRes.snippet.text || String(fuzzyRes.snippet || ""), fuzzyRes.highlightTerms || [])}</div>` : ''}
         </td>
         <td onclick="event.stopPropagation();">
@@ -24032,6 +24385,7 @@ function renderCasesTableModeHtml(filteredList) {
         </td>
         <td><div class="flex flex-wrap gap-1">${handlersHtml}</div></td>
         <td><div class="flex flex-wrap gap-1">${tagsHtml}</div></td>
+        <td class="text-[11px] font-extrabold ${item.completedAt ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-400'} whitespace-nowrap">${escapeHtml(item.completedAt || '未結案')}</td>
         <td class="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">${escapeHtml(item.createdAt || '')}</td>
         <td class="text-center whitespace-nowrap" onclick="event.stopPropagation();">
           <button type="button" class="case-table-open-btn px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold cursor-pointer mr-1" data-case-id="${escapeHtml(item.id)}">詳情</button>
@@ -24048,11 +24402,12 @@ function renderCasesTableModeHtml(filteredList) {
           <tr>
             <th>📊 狀態</th>
             <th>📁 案號</th>
-            <th style="min-width:200px;">📌 案件主旨 / 最新進度</th>
+            <th style="min-width:200px;">📌 案件主旨 / 最新日誌</th>
             <th>🚜 機型</th>
             <th>🏢 客戶/廠商</th>
             <th>👥 處理人員</th>
             <th>🏷️ 標籤</th>
+            <th>🏁 結案時間 ↓</th>
             <th>🕒 立案時間</th>
             <th class="text-center">操作</th>
           </tr>
@@ -24066,7 +24421,6 @@ function renderCasesTableModeHtml(filteredList) {
 }
 
 function renderSingleCaseDetailHtml(item) {
-  const caseNos = state.caseNumbers || [];
   const machines = getSharedMachineModelsForTodo();
   const clients = getSharedClientsVendorsForTodo();
   const sharedTags = getSharedTagsForTodo();
@@ -24075,18 +24429,11 @@ function renderSingleCaseDetailHtml(item) {
   const itemTags = Array.isArray(item.tags) ? item.tags : [];
   const itemHandlers = Array.isArray(item.handlers) ? item.handlers : [];
   const linkedNoteIds = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds : [];
-  const timelineLogs = Array.isArray(item.timelineLogs) ? item.timelineLogs : [];
+  const symptomLogs = Array.isArray(item.symptomLogs) ? item.symptomLogs : [];
+  const actionLogs = Array.isArray(item.actionLogs) ? item.actionLogs : [];
   const normStatus = normalizeCaseStatusValue(item.status);
   const isCompleted = isCaseStatusCompleted(normStatus);
   const statusBadgeCls = getCaseStatusBadgeClass(normStatus);
-
-  const caseNoOptionsHtml = [
-    `<option value="" ${!item.caseNumber ? 'selected' : ''}>未選擇</option>`,
-    ...caseNos.map(cn => `<option value="${escapeHtml(cn)}" ${item.caseNumber === cn ? 'selected' : ''}>📁 ${escapeHtml(cn)}</option>`),
-    `<option disabled>──────────</option>`,
-    `<option value="__add_case_number__">＋ 新增案號...</option>`,
-    `<option value="__manage_case_numbers__">⚙️ 管理案號...</option>`
-  ].join('');
 
   const machineOptionsHtml = [
     `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>`,
@@ -24172,29 +24519,6 @@ function renderSingleCaseDetailHtml(item) {
     `<option value="__manage_handlers__">⚙️ 管理人員...</option>`
   ].join('');
 
-  const timelineHandlerOptsHtml = [
-    `<option value="">👤 紀錄人員</option>`,
-    ...handlers.map(h => `<option value="${escapeHtml(h)}" ${(itemHandlers[0] === h) ? 'selected' : ''}>👤 ${escapeHtml(h)}</option>`)
-  ].join('');
-
-  const timelineListHtml = timelineLogs.length > 0
-    ? timelineLogs.map(lg => `
-        <div class="lvi-case-timeline-item" data-log-id="${escapeHtml(lg.id)}">
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center gap-2 flex-wrap mb-1">
-              <span class="text-[11px] font-mono font-bold text-teal-700 dark:text-teal-300">🕒 ${escapeHtml(lg.time || '')}</span>
-              ${lg.handler ? `<span class="px-2 py-0.2 rounded-full text-[10.5px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800">👤 ${escapeHtml(lg.handler)}</span>` : ''}
-            </div>
-            <div class="text-slate-800 dark:text-slate-100 font-semibold whitespace-pre-wrap break-words">${escapeHtml(lg.text || '')}</div>
-          </div>
-          <div class="flex items-center gap-1 shrink-0">
-            <button type="button" class="case-edit-log-btn px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-[11px] font-bold text-slate-600 dark:text-slate-300 cursor-pointer" data-log-id="${escapeHtml(lg.id)}">編輯</button>
-            <button type="button" class="case-del-log-btn px-2 py-1 rounded bg-rose-50 hover:bg-rose-600 hover:text-white dark:bg-rose-950/60 text-[11px] font-bold text-rose-600 dark:text-rose-300 cursor-pointer" data-log-id="${escapeHtml(lg.id)}">刪除</button>
-          </div>
-        </div>
-      `).join('')
-    : `<div class="text-xs text-gray-400 py-2 text-center">尚無售後追蹤紀錄，可由上方輸入新增每次聯繫、寄件或現場維修進度</div>`;
-
   return `
     <!-- 頂部返回列表與操作導航列 -->
     <div class="lvi-todo-detail-navbar">
@@ -24203,11 +24527,11 @@ function renderSingleCaseDetailHtml(item) {
           <span>← 返回列表</span>
         </button>
         <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold border ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
-        ${item.caseNumber ? `<span class="lvi-case-no-badge">📁 ${escapeHtml(item.caseNumber)}</span>` : ''}
+        <span id="case-navbar-caseno-pill" class="lvi-case-no-badge ${item.caseNumber ? '' : 'hidden'}">📁 ${escapeHtml(item.caseNumber || '')}</span>
       </div>
       <div class="flex items-center gap-2">
-        <button type="button" class="case-export-md-btn px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-600 text-teal-700 hover:text-white dark:bg-teal-950/70 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-xs font-extrabold transition cursor-pointer" data-case-id="${escapeHtml(item.id)}">
-          <span>📄 匯出報告</span>
+        <button type="button" class="case-export-pdf-btn case-export-md-btn px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-600 text-teal-700 hover:text-white dark:bg-teal-950/70 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-xs font-extrabold transition cursor-pointer" data-case-id="${escapeHtml(item.id)}" title="將此案件完整履歷與處理日誌匯出為 A4 PDF 報告">
+          <span>📄 匯出 PDF</span>
         </button>
         <button type="button" class="todo-delete-card-btn case-delete-card-btn" data-case-id="${escapeHtml(item.id)}">
           <span>🗑️ 刪除</span>
@@ -24216,7 +24540,7 @@ function renderSingleCaseDetailHtml(item) {
     </div>
 
     <article class="lvi-todo-card lvi-case-card ${isCompleted ? 'is-completed-card' : ''}" data-case-id="${escapeHtml(item.id)}">
-      <!-- 第 1 列：案件主旨 | 案號 | 機型分類 | 客戶或廠商 | 案件狀態 -->
+      <!-- 第 1 列：案件主旨 | 案號 (直接輸入) | 機型分類 | 客戶或廠商 | 案件狀態 -->
       <div class="lvi-case-row-1">
         <div class="lvi-todo-box">
           <div class="lvi-todo-box-label">
@@ -24228,11 +24552,8 @@ function renderSingleCaseDetailHtml(item) {
         <div class="lvi-todo-box">
           <div class="lvi-todo-box-label">
             <span>📁 案號</span>
-            <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="case_number">⚙️ 管理</button>
           </div>
-          <select class="todo-box-select case-caseno-select">
-            ${caseNoOptionsHtml}
-          </select>
+          <input type="text" class="todo-title-input case-caseno-input" value="${escapeHtml(item.caseNumber || '')}" placeholder="直接輸入案號..." />
         </div>
 
         <div class="lvi-todo-box">
@@ -24265,18 +24586,18 @@ function renderSingleCaseDetailHtml(item) {
         </div>
       </div>
 
-      <!-- 第 2 列：機台序號/保固資訊 | 立案時間 | 關聯筆記 -->
+      <!-- 第 2 列：立案時間 | 結案時間 | 關聯筆記 (已移除機台序號/保固資訊欄) -->
       <div class="lvi-case-row-2">
-        <div class="lvi-todo-box">
-          <div class="lvi-todo-box-label">
-            <span>🔢 機台序號 / 保固與出貨資訊</span>
-          </div>
-          <input type="text" class="todo-title-input case-serial-input" style="font-size:0.82rem;" value="${escapeHtml(item.serialOrWarranty || '')}" placeholder="輸入 S/N 序號、保固期限或出貨單號..." />
-        </div>
-
         <div class="lvi-todo-created-pill case-edit-created-time-btn cursor-pointer" title="點擊調整立案時間">
           <span class="text-[10px] font-extrabold text-blue-700 dark:text-blue-300">🕒 立案時間</span>
           <span class="text-xs font-black text-blue-950 dark:text-blue-100 case-created-time-text">${escapeHtml(item.createdAt || formatTodoTimestamp())}</span>
+        </div>
+
+        <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} case-edit-completed-time-btn cursor-pointer" title="結案時自動記錄；點擊可手動調整">
+          <span class="text-[10px] font-extrabold ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'}">🏁 結案時間</span>
+          <span class="text-xs font-black ${isCompleted ? 'text-emerald-950 dark:text-emerald-100' : 'text-blue-950 dark:text-blue-100'} case-completed-time-text">
+            ${item.completedAt ? escapeHtml(item.completedAt) : '未結案'}
+          </span>
         </div>
 
         <div class="lvi-todo-linked-notes-box">
@@ -24290,7 +24611,7 @@ function renderSingleCaseDetailHtml(item) {
         </div>
       </div>
 
-      <!-- 第 3 列：客訴/異常現象 & 根因分析 (含無邊框並排小圖附件) -->
+      <!-- 第 3 列：客訴与異常現象 / 根因分析 (含無邊框並排小圖附件 + 內嵌【📜 處理日誌】) -->
       <div class="lvi-todo-issue-box">
         <div class="lvi-todo-section-header">
           <div class="lvi-todo-section-title">
@@ -24317,9 +24638,26 @@ function renderSingleCaseDetailHtml(item) {
           </div>
         </div>
         <div class="todo-attachments-gallery case-symptom-attachments">${item.symptomAttachmentsHtml || ''}</div>
+
+        <!-- 內嵌處理日誌 (客訴與根因分析) -->
+        <div class="lvi-case-integrated-log-box">
+          <div class="lvi-case-integrated-log-header">
+            <div class="lvi-case-integrated-log-title">
+              <span>📜 處理日誌（客訴與根因改動 / 匯入檔案紀錄）</span>
+              <span class="lvi-case-integrated-log-count" data-log-section="symptom">${symptomLogs.length} 筆紀錄</span>
+            </div>
+          </div>
+          <div class="lvi-case-integrated-log-add-bar">
+            <input type="text" class="case-section-log-input" data-log-section="symptom" placeholder="新增客訴/根因處理日誌或進度備註 (按 Enter 記錄，修改欄位或匯入檔案亦會自動記錄)..." />
+            <button type="button" class="case-section-add-log-btn" data-log-section="symptom">＋ 記錄日誌</button>
+          </div>
+          <div class="lvi-case-integrated-log-list" data-log-section="symptom">
+            ${renderCaseIntegratedLogItemsHtml(symptomLogs, 'symptom')}
+          </div>
+        </div>
       </div>
 
-      <!-- 第 4 列：售後處理對策 & 更換零件/耗材紀錄 (含無邊框並排小圖附件) -->
+      <!-- 第 4 列：售後處理對策與零件更換紀錄 (含無邊框並排小圖附件 + 內嵌【📜 處理日誌】) -->
       <div class="lvi-todo-resolution-box">
         <div class="lvi-todo-section-header">
           <div class="lvi-todo-section-title">
@@ -24341,31 +24679,26 @@ function renderSingleCaseDetailHtml(item) {
           <input type="text" class="case-parts-input" value="${escapeHtml(item.partsReplacedText || '')}" placeholder="輸入更換之料號、零件名稱或耗材數量（無則留空）..." />
         </div>
         <div class="todo-attachments-gallery case-action-attachments">${item.actionAttachmentsHtml || ''}</div>
-      </div>
 
-      <!-- 第 5 列：售後追蹤時間軸紀錄 (Chronological Follow-Up Log) -->
-      <div class="lvi-case-timeline-box">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2 font-extrabold text-xs sm:text-sm text-teal-900 dark:text-teal-200">
-            <span>🕒 售後追蹤時間軸紀錄</span>
-            <span class="px-2 py-0.2 rounded-full text-[11px] bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300">${timelineLogs.length} 筆</span>
+        <!-- 內嵌處理日誌 (售後處理對策與零件更換) -->
+        <div class="lvi-case-integrated-log-box">
+          <div class="lvi-case-integrated-log-header">
+            <div class="lvi-case-integrated-log-title">
+              <span>📜 處理日誌（售後對策與零件改動 / 匯入檔案紀錄）</span>
+              <span class="lvi-case-integrated-log-count" data-log-section="action">${actionLogs.length} 筆紀錄</span>
+            </div>
+          </div>
+          <div class="lvi-case-integrated-log-add-bar">
+            <input type="text" class="case-section-log-input" data-log-section="action" placeholder="新增售後對策/維修進度日誌 (按 Enter 記錄，修改欄位或匯入檔案亦會自動記錄)..." />
+            <button type="button" class="case-section-add-log-btn" data-log-section="action">＋ 記錄日誌</button>
+          </div>
+          <div class="lvi-case-integrated-log-list" data-log-section="action">
+            ${renderCaseIntegratedLogItemsHtml(actionLogs, 'action')}
           </div>
         </div>
-        <div class="lvi-case-timeline-add-bar">
-          <select class="case-log-handler-select px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-200">
-            ${timelineHandlerOptsHtml}
-          </select>
-          <input type="text" class="case-log-text-input flex-1 min-w-[180px] px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-800 dark:text-slate-100" placeholder="輸入本次售後聯繫、寄件、到場維修或測試追蹤紀錄 (按 Enter 新增)..." />
-          <button type="button" class="case-add-log-btn px-3 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-extrabold cursor-pointer shrink-0">
-            <span>＋ 新增紀錄</span>
-          </button>
-        </div>
-        <div class="lvi-case-timeline-list">
-          ${timelineListHtml}
-        </div>
       </div>
 
-      <!-- 第 6 列：標籤 | 處理人員 | 結案時間 -->
+      <!-- 第 5 列：標籤 | 處理人員 | 結案時間 -->
       <div class="lvi-todo-row-5">
         <div class="lvi-todo-box">
           <div class="lvi-todo-box-label">
@@ -24400,7 +24733,7 @@ function renderSingleCaseDetailHtml(item) {
         <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} case-edit-completed-time-btn cursor-pointer" title="結案時自動記錄；點擊可手動調整">
           <span class="text-[10px] font-extrabold ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'}">🏁 結案時間</span>
           <span class="text-xs font-black ${isCompleted ? 'text-emerald-950 dark:text-emerald-100' : 'text-blue-950 dark:text-blue-100'} case-completed-time-text">
-            ${item.completedAt ? escapeHtml(item.completedAt) : '無'}
+            ${item.completedAt ? escapeHtml(item.completedAt) : '未結案'}
           </span>
         </div>
       </div>
@@ -24409,6 +24742,50 @@ function renderSingleCaseDetailHtml(item) {
 }
 
 let _activeCaseUploadTarget = null;
+
+function bindCaseSectionLogItemButtons(cardEl, item) {
+  if (!cardEl || !item) return;
+
+  cardEl.querySelectorAll('.case-edit-sec-log-btn').forEach(btn => {
+    if (btn._bound) return;
+    btn._bound = true;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const lid = btn.getAttribute('data-log-id');
+      const sec = btn.getAttribute('data-log-section') || 'symptom';
+      const arr = sec === 'action' ? item.actionLogs : item.symptomLogs;
+      if (!Array.isArray(arr)) return;
+      const lg = arr.find(x => x.id === lid);
+      if (!lg) return;
+      const nextTxt = prompt('修改處理日誌內容：', lg.text || '');
+      if (nextTxt !== null && nextTxt.trim()) {
+        lg.text = nextTxt.trim();
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+        refreshCaseSectionLogDomInPlace(item.id, sec);
+      }
+    });
+  });
+
+  cardEl.querySelectorAll('.case-del-sec-log-btn').forEach(btn => {
+    if (btn._bound) return;
+    btn._bound = true;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const lid = btn.getAttribute('data-log-id');
+      const sec = btn.getAttribute('data-log-section') || 'symptom';
+      if (sec === 'action') {
+        item.actionLogs = (item.actionLogs || []).filter(x => x.id !== lid);
+      } else {
+        item.symptomLogs = (item.symptomLogs || []).filter(x => x.id !== lid);
+      }
+      item.updatedAt = Date.now();
+      saveCaseItemsState();
+      refreshCaseSectionLogDomInPlace(item.id, sec);
+      showToast('🗑️ 已移除該筆處理日誌');
+    });
+  });
+}
 
 function bindCaseCardsInteractions(listContainer) {
   if (!listContainer) return;
@@ -24437,7 +24814,7 @@ function bindCaseCardsInteractions(listContainer) {
   // 表格列點擊 / 詳情按鈕 -> 進入個案詳細介面
   listContainer.querySelectorAll('.case-table-row').forEach(tr => {
     tr.addEventListener('click', (e) => {
-      if (e.target.closest('select, button')) return;
+      if (e.target.closest('select, input, button')) return;
       const cid = tr.getAttribute('data-case-id');
       if (cid) {
         state.activeCaseDetailId = cid;
@@ -24465,6 +24842,7 @@ function bindCaseCardsInteractions(listContainer) {
       const field = sel.getAttribute('data-field');
       const item = (state.caseItems || []).find(c => c.id === cid);
       if (!item || !field) return;
+      const oldVal = item[field] || '';
       item[field] = sel.value;
       if (field === 'status') {
         if (isCaseStatusCompleted(sel.value)) {
@@ -24472,10 +24850,35 @@ function bindCaseCardsInteractions(listContainer) {
         } else {
           item.completedAt = '';
         }
+        item.completedEpoch = getCaseCompletedTimestampEpoch(item);
       }
+      recordCaseSectionLog(item, 'action', {
+        type: 'edit',
+        text: `📊 變更${field === 'status' ? '狀態' : (field === 'machineModel' ? '機型' : '客戶/廠商')}：「${oldVal || '未指定'}」➔「${sel.value || '未指定'}」`,
+        forceNewEntry: true
+      });
       item.updatedAt = Date.now();
       saveCaseItemsState();
       renderCasesView();
+    });
+  });
+
+  // 表格模式行內直接輸入「案號」
+  listContainer.querySelectorAll('.case-inline-table-input').forEach(inp => {
+    inp.addEventListener('input', (e) => {
+      e.stopPropagation();
+      const cid = inp.getAttribute('data-case-id');
+      const field = inp.getAttribute('data-field') || 'caseNumber';
+      const item = (state.caseItems || []).find(c => c.id === cid);
+      if (!item) return;
+      item[field] = inp.value.trim();
+      recordCaseSectionLog(item, 'action', {
+        type: 'edit',
+        autoFieldKey: 'caseNumber',
+        text: `📁 設定案號：「${item.caseNumber || '未填'}」`
+      });
+      item.updatedAt = Date.now();
+      saveCaseItemsState();
     });
   });
 
@@ -24491,12 +24894,12 @@ function bindCaseCardsInteractions(listContainer) {
     });
   });
 
-  // 匯出報告按鈕
-  listContainer.querySelectorAll('.case-export-md-btn').forEach(btn => {
+  // 匯出 PDF 報告按鈕
+  listContainer.querySelectorAll('.case-export-pdf-btn, .case-export-md-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       const cid = btn.getAttribute('data-case-id') || state.activeCaseDetailId;
-      if (cid) exportSingleCaseReportMarkdown(cid);
+      if (cid) exportSingleCaseReportPDF(cid);
     });
   });
 
@@ -24512,11 +24915,15 @@ function bindCaseCardsInteractions(listContainer) {
   listContainer.querySelectorAll('.lvi-case-card').forEach(cardEl => {
     const caseId = cardEl.getAttribute('data-case-id');
     const getItem = () => (state.caseItems || []).find(c => c.id === caseId);
+    const curItem = getItem();
+    if (curItem) {
+      bindCaseSectionLogItemButtons(cardEl, curItem);
+    }
 
     cardEl.querySelectorAll('.case-open-mgr-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
-        const tab = btn.getAttribute('data-mgr-tab') || 'case_number';
+        const tab = btn.getAttribute('data-mgr-tab') || 'machine';
         openTagManagerModal(tab);
       });
     });
@@ -24528,40 +24935,35 @@ function bindCaseCardsInteractions(listContainer) {
         const item = getItem();
         if (!item) return;
         item.title = titleInp.value;
+        recordCaseSectionLog(item, 'symptom', {
+          type: 'edit',
+          autoFieldKey: 'title',
+          text: `📌 修改案件主旨：「${item.title.trim() || '未命名'}」`
+        });
         item.updatedAt = Date.now();
         saveCaseItemsState();
       });
     }
 
-    // 2. 案號選單
-    const caseNoSel = cardEl.querySelector('.case-caseno-select');
-    if (caseNoSel) {
-      caseNoSel.addEventListener('change', () => {
+    // 2. 案號直接輸入框 (<input type="text" class="case-caseno-input">)
+    const caseNoInp = cardEl.querySelector('.case-caseno-input');
+    if (caseNoInp) {
+      caseNoInp.addEventListener('input', () => {
         const item = getItem();
         if (!item) return;
-        const val = caseNoSel.value;
-        if (val === '__add_case_number__') {
-          const newNo = prompt('請輸入新案號 (例如：CASE-2026-003)：');
-          if (newNo && newNo.trim()) {
-            addCaseNumber(newNo.trim());
-            item.caseNumber = newNo.trim();
-            item.updatedAt = Date.now();
-            saveCaseItemsState(true);
-            renderCasesView();
-          } else {
-            caseNoSel.value = item.caseNumber || '';
-          }
-          return;
+        item.caseNumber = caseNoInp.value.trim();
+        const navPill = document.getElementById('case-navbar-caseno-pill');
+        if (navPill) {
+          navPill.textContent = `📁 ${item.caseNumber}`;
+          navPill.classList.toggle('hidden', !item.caseNumber);
         }
-        if (val === '__manage_case_numbers__') {
-          caseNoSel.value = item.caseNumber || '';
-          openTagManagerModal('case_number');
-          return;
-        }
-        item.caseNumber = val;
+        recordCaseSectionLog(item, 'symptom', {
+          type: 'edit',
+          autoFieldKey: 'caseNumber',
+          text: `📁 設定案號：「${item.caseNumber || '未填'}」`
+        });
         item.updatedAt = Date.now();
         saveCaseItemsState();
-        renderCasesView();
       });
     }
 
@@ -24577,6 +24979,11 @@ function bindCaseCardsInteractions(listContainer) {
           if (newM && newM.trim()) {
             addMachineModel(newM.trim());
             item.machineModel = newM.trim();
+            recordCaseSectionLog(item, 'symptom', {
+              type: 'edit',
+              text: `🚜 變更機型分類為「${item.machineModel}」`,
+              forceNewEntry: true
+            });
             item.updatedAt = Date.now();
             saveCaseItemsState(true);
             renderCasesView();
@@ -24591,6 +24998,11 @@ function bindCaseCardsInteractions(listContainer) {
           return;
         }
         item.machineModel = val;
+        recordCaseSectionLog(item, 'symptom', {
+          type: 'edit',
+          text: `🚜 變更機型分類為「${val || '未選擇'}」`,
+          forceNewEntry: true
+        });
         item.updatedAt = Date.now();
         saveCaseItemsState();
       });
@@ -24608,6 +25020,11 @@ function bindCaseCardsInteractions(listContainer) {
           if (newC && newC.trim()) {
             addClientVendor(newC.trim());
             item.clientVendor = newC.trim();
+            recordCaseSectionLog(item, 'symptom', {
+              type: 'edit',
+              text: `🏢 變更客戶/廠商為「${item.clientVendor}」`,
+              forceNewEntry: true
+            });
             item.updatedAt = Date.now();
             saveCaseItemsState(true);
             renderCasesView();
@@ -24622,6 +25039,11 @@ function bindCaseCardsInteractions(listContainer) {
           return;
         }
         item.clientVendor = val;
+        recordCaseSectionLog(item, 'symptom', {
+          type: 'edit',
+          text: `🏢 變更客戶/廠商為「${val || '未選擇'}」`,
+          forceNewEntry: true
+        });
         item.updatedAt = Date.now();
         saveCaseItemsState();
       });
@@ -24633,40 +25055,40 @@ function bindCaseCardsInteractions(listContainer) {
       statusSel.addEventListener('change', () => {
         const item = getItem();
         if (!item) return;
+        const oldStatus = item.status || '🔴 待處理';
         item.status = normalizeCaseStatusValue(statusSel.value);
         if (isCaseStatusCompleted(item.status)) {
           if (!item.completedAt) item.completedAt = formatTodoTimestamp();
         } else {
           item.completedAt = '';
         }
+        item.completedEpoch = getCaseCompletedTimestampEpoch(item);
+        recordCaseSectionLog(item, 'action', {
+          type: 'edit',
+          text: `📊 案件狀態變更：「${oldStatus}」➔「${item.status}」${item.completedAt ? ' (結案時間：' + item.completedAt + ')' : ''}`,
+          forceNewEntry: true
+        });
         item.updatedAt = Date.now();
         saveCaseItemsState(true);
         renderCasesView();
       });
     }
 
-    // 6. 機台序號 / 保固資訊
-    const serialInp = cardEl.querySelector('.case-serial-input');
-    if (serialInp) {
-      serialInp.addEventListener('input', () => {
-        const item = getItem();
-        if (!item) return;
-        item.serialOrWarranty = serialInp.value;
-        item.updatedAt = Date.now();
-        saveCaseItemsState();
-      });
-    }
-
-    // 7. 立案時間與結案時間點擊調整
+    // 6. 立案時間與結案時間點擊調整
     const createdBtn = cardEl.querySelector('.case-edit-created-time-btn');
     if (createdBtn) {
       createdBtn.addEventListener('click', () => {
         const item = getItem();
         if (!item) return;
-        const nextVal = prompt('調整立案時間 (YYYY-MM-DD HH:mm)：', item.createdAt || formatTodoTimestamp());
+        const nextVal = prompt('調整立案時間 (YYYY/MM/DD HH:mm)：', item.createdAt || formatTodoTimestamp());
         if (nextVal && nextVal.trim()) {
           item.createdAt = nextVal.trim();
           item.createdEpoch = parseTodoTimestampToEpoch(item.createdAt);
+          recordCaseSectionLog(item, 'symptom', {
+            type: 'edit',
+            text: `🕒 調整立案時間為「${item.createdAt}」`,
+            forceNewEntry: true
+          });
           item.updatedAt = Date.now();
           saveCaseItemsState();
           renderCasesView();
@@ -24674,22 +25096,27 @@ function bindCaseCardsInteractions(listContainer) {
       });
     }
 
-    const completedBtn = cardEl.querySelector('.case-edit-completed-time-btn');
-    if (completedBtn) {
+    cardEl.querySelectorAll('.case-edit-completed-time-btn').forEach(completedBtn => {
       completedBtn.addEventListener('click', () => {
         const item = getItem();
         if (!item) return;
-        const nextVal = prompt('調整結案時間 (留空代表清除)：', item.completedAt || formatTodoTimestamp());
+        const nextVal = prompt('調整結案時間 (留空代表未結案)：', item.completedAt || formatTodoTimestamp());
         if (nextVal !== null) {
           item.completedAt = nextVal.trim();
+          item.completedEpoch = getCaseCompletedTimestampEpoch(item);
+          recordCaseSectionLog(item, 'action', {
+            type: 'edit',
+            text: `🏁 調整結案時間為「${item.completedAt || '未結案'}」`,
+            forceNewEntry: true
+          });
           item.updatedAt = Date.now();
           saveCaseItemsState();
           renderCasesView();
         }
       });
-    }
+    });
 
-    // 8. 關聯筆記
+    // 7. 關聯筆記
     const linkNoteSel = cardEl.querySelector('.case-link-note-select');
     if (linkNoteSel) {
       linkNoteSel.addEventListener('change', async () => {
@@ -24710,13 +25137,18 @@ function bindCaseCardsInteractions(listContainer) {
             if (item.machineModel) newNote.meta.machineModel = item.machineModel;
             if (item.clientVendor) newNote.meta.clientVendor = item.clientVendor;
             if (Array.isArray(item.tags) && item.tags.length) newNote.meta.tags = item.tags.slice();
-            const initHtml = `<h3>🛡️ 關聯案件：${escapeHtml(item.caseNumber ? '[' + item.caseNumber + '] ' : '')}${escapeHtml(item.title || '')}</h3><p><strong>機型：</strong>${escapeHtml(item.machineModel || '未選擇')} ｜ <strong>客戶/廠商：</strong>${escapeHtml(item.clientVendor || '未選擇')} ｜ <strong>序號/保固：</strong>${escapeHtml(item.serialOrWarranty || '無')}</p><p>${escapeHtml(item.symptomText || '')}</p><p><br></p>`;
+            const initHtml = `<h3>🛡️ 關聯案件：${escapeHtml(item.caseNumber ? '[' + item.caseNumber + '] ' : '')}${escapeHtml(item.title || '')}</h3><p><strong>機型：</strong>${escapeHtml(item.machineModel || '未選擇')} ｜ <strong>客戶/廠商：</strong>${escapeHtml(item.clientVendor || '未選擇')}</p><p>${escapeHtml(item.symptomText || '')}</p><p><br></p>`;
             newNote._cachedHtml = initHtml;
             newNote._cachedBody = initHtml;
             if (!Array.isArray(item.linkedNoteIds)) item.linkedNoteIds = [];
             if (!item.linkedNoteIds.includes(newNote.id)) item.linkedNoteIds.push(newNote.id);
             item.linkedNoteTitles = item.linkedNoteTitles || {};
             item.linkedNoteTitles[newNote.id] = cleanTitle;
+            recordCaseSectionLog(item, 'action', {
+              type: 'edit',
+              text: `🔗 新建並關聯筆記：「${cleanTitle}」`,
+              forceNewEntry: true
+            });
             saveCaseItemsState(true);
             selectNote(newNote.id);
             switchView('editor');
@@ -24727,10 +25159,16 @@ function bindCaseCardsInteractions(listContainer) {
         if (!item.linkedNoteIds.includes(val)) {
           item.linkedNoteIds.push(val);
           const pickedNote = (state.notes || []).find(n => n.id === val);
+          const pickedTitle = (pickedNote && pickedNote.name) ? pickedNote.name.replace(/\.md$/i, '') : val;
           if (pickedNote && pickedNote.name) {
             item.linkedNoteTitles = item.linkedNoteTitles || {};
-            item.linkedNoteTitles[val] = pickedNote.name.replace(/\.md$/i, '');
+            item.linkedNoteTitles[val] = pickedTitle;
           }
+          recordCaseSectionLog(item, 'action', {
+            type: 'edit',
+            text: `🔗 關聯現有筆記：「${pickedTitle}」`,
+            forceNewEntry: true
+          });
           item.updatedAt = Date.now();
           saveCaseItemsState();
           renderCasesView();
@@ -24764,19 +25202,26 @@ function bindCaseCardsInteractions(listContainer) {
       });
     });
 
-    // 9. 客訴現象、根因分析、售後對策、更換零件文字輸入與貼圖支援
-    const bindTextField = (selector, prop) => {
+    // 8. 客訴現象、根因分析、售後對策、更換零件文字輸入 + 自動寫入對應區塊之【📜 處理日誌】
+    const bindTextFieldWithAutoLog = (selector, prop, section, fieldLabel) => {
       const el = cardEl.querySelector(selector);
       if (!el) return;
       el.addEventListener('input', () => {
         const item = getItem();
         if (!item) return;
         item[prop] = el.value;
+        const cleanVal = el.value.replace(/\s+/g, ' ').trim();
+        if (cleanVal) {
+          recordCaseSectionLog(item, section, {
+            type: 'edit',
+            autoFieldKey: prop,
+            text: `✏️ 修改「${fieldLabel}」：${cleanVal.slice(0, 80)}`
+          });
+        }
         item.updatedAt = Date.now();
         saveCaseItemsState();
       });
       if (el.tagName === 'TEXTAREA') {
-        const sec = (prop === 'actionTakenText') ? 'action' : 'symptom';
         el.addEventListener('paste', async (e) => {
           const clipItems = (e.clipboardData || window.clipboardData || {}).items || [];
           for (const ci of clipItems) {
@@ -24784,17 +25229,52 @@ function bindCaseCardsInteractions(listContainer) {
               const f = ci.getAsFile();
               if (f) {
                 e.preventDefault();
-                await uploadFileToCaseCardSection(caseId, sec, f);
+                await uploadFileToCaseCardSection(caseId, section, f);
               }
             }
           }
         });
       }
     };
-    bindTextField('.case-symptom-textarea', 'symptomText');
-    bindTextField('.case-rootcause-textarea', 'rootCauseText');
-    bindTextField('.case-action-textarea', 'actionTakenText');
-    bindTextField('.case-parts-input', 'partsReplacedText');
+    bindTextFieldWithAutoLog('.case-symptom-textarea', 'symptomText', 'symptom', '客訴/異常現象');
+    bindTextFieldWithAutoLog('.case-rootcause-textarea', 'rootCauseText', 'symptom', '異常原因/根因分析');
+    bindTextFieldWithAutoLog('.case-action-textarea', 'actionTakenText', 'action', '售後處理對策');
+    bindTextFieldWithAutoLog('.case-parts-input', 'partsReplacedText', 'action', '更換零件/耗材');
+
+    // 9. 兩大區塊內嵌「📜 處理日誌」手動快速記錄列 (免選紀錄人員)
+    cardEl.querySelectorAll('.case-section-add-log-btn').forEach(btn => {
+      const sec = btn.getAttribute('data-log-section') || 'symptom';
+      const inp = cardEl.querySelector(`.case-section-log-input[data-log-section="${sec}"]`);
+      const handleAddSecLog = () => {
+        const item = getItem();
+        if (!item || !inp) return;
+        const txt = inp.value.trim();
+        if (!txt) {
+          showToast('請輸入處理日誌內容');
+          return;
+        }
+        recordCaseSectionLog(item, sec, {
+          type: 'manual',
+          text: txt,
+          forceNewEntry: true
+        });
+        inp.value = '';
+        saveCaseItemsState(true);
+        showToast('📜 已記錄至處理日誌');
+      };
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleAddSecLog();
+      });
+      if (inp) {
+        inp.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.isComposing) {
+            e.preventDefault();
+            handleAddSecLog();
+          }
+        });
+      }
+    });
 
     // 10. 拍照與上傳附件按鈕
     cardEl.querySelectorAll('.case-section-camera-btn').forEach(btn => {
@@ -24819,75 +25299,7 @@ function bindCaseCardsInteractions(listContainer) {
       });
     });
 
-    // 11. 售後追蹤時間軸紀錄 (新增 / 編輯 / 刪除)
-    const logHandlerSel = cardEl.querySelector('.case-log-handler-select');
-    const logTextInp = cardEl.querySelector('.case-log-text-input');
-    const addLogBtn = cardEl.querySelector('.case-add-log-btn');
-    const handleAddTimelineLog = () => {
-      const item = getItem();
-      if (!item || !logTextInp) return;
-      const txt = logTextInp.value.trim();
-      if (!txt) {
-        showToast('請輸入追蹤紀錄內容');
-        return;
-      }
-      if (!Array.isArray(item.timelineLogs)) item.timelineLogs = [];
-      const hdl = logHandlerSel ? logHandlerSel.value : '';
-      item.timelineLogs.unshift({
-        id: 'clog_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
-        time: formatTodoTimestamp(),
-        handler: hdl || (item.handlers && item.handlers[0]) || '',
-        text: txt
-      });
-      logTextInp.value = '';
-      item.updatedAt = Date.now();
-      saveCaseItemsState(true);
-      renderCasesView();
-      showToast('🕒 已新增售後追蹤紀錄');
-    };
-    if (addLogBtn) addLogBtn.addEventListener('click', handleAddTimelineLog);
-    if (logTextInp) {
-      logTextInp.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.isComposing) {
-          e.preventDefault();
-          handleAddTimelineLog();
-        }
-      });
-    }
-
-    cardEl.querySelectorAll('.case-edit-log-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const lid = btn.getAttribute('data-log-id');
-        const item = getItem();
-        if (!item || !Array.isArray(item.timelineLogs)) return;
-        const lg = item.timelineLogs.find(x => x.id === lid);
-        if (!lg) return;
-        const nextTxt = prompt('修改追蹤紀錄內容：', lg.text || '');
-        if (nextTxt !== null && nextTxt.trim()) {
-          lg.text = nextTxt.trim();
-          item.updatedAt = Date.now();
-          saveCaseItemsState();
-          renderCasesView();
-        }
-      });
-    });
-
-    cardEl.querySelectorAll('.case-del-log-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const lid = btn.getAttribute('data-log-id');
-        const item = getItem();
-        if (!item || !Array.isArray(item.timelineLogs)) return;
-        item.timelineLogs = item.timelineLogs.filter(x => x.id !== lid);
-        item.updatedAt = Date.now();
-        saveCaseItemsState();
-        renderCasesView();
-        showToast('🗑️ 已移除該筆追蹤紀錄');
-      });
-    });
-
-    // 12. 標籤與處理人員多選
+    // 11. 標籤與處理人員多選
     const tagAddSel = cardEl.querySelector('.case-tag-add-select');
     if (tagAddSel) {
       tagAddSel.addEventListener('change', () => {
@@ -24903,6 +25315,11 @@ function bindCaseCardsInteractions(listContainer) {
             addCustomTag(cleanT, 'blue');
             if (!Array.isArray(item.tags)) item.tags = [];
             if (!item.tags.includes(cleanT)) item.tags.push(cleanT);
+            recordCaseSectionLog(item, 'action', {
+              type: 'edit',
+              text: `🏷️ 新增標籤「#${cleanT}」`,
+              forceNewEntry: true
+            });
             item.updatedAt = Date.now();
             saveCaseItemsState();
             renderCasesView();
@@ -24917,6 +25334,11 @@ function bindCaseCardsInteractions(listContainer) {
         if (!Array.isArray(item.tags)) item.tags = [];
         if (!item.tags.includes(val)) {
           item.tags.push(val);
+          recordCaseSectionLog(item, 'action', {
+            type: 'edit',
+            text: `🏷️ 套用標籤「#${val}」`,
+            forceNewEntry: true
+          });
           item.updatedAt = Date.now();
           saveCaseItemsState();
           renderCasesView();
@@ -24953,6 +25375,11 @@ function bindCaseCardsInteractions(listContainer) {
             addTodoHandler(newH.trim());
             if (!Array.isArray(item.handlers)) item.handlers = [];
             if (!item.handlers.includes(newH.trim())) item.handlers.push(newH.trim());
+            recordCaseSectionLog(item, 'action', {
+              type: 'edit',
+              text: `👤 指派處理人員「${newH.trim()}」`,
+              forceNewEntry: true
+            });
             item.updatedAt = Date.now();
             saveCaseItemsState();
             renderCasesView();
@@ -24967,6 +25394,11 @@ function bindCaseCardsInteractions(listContainer) {
         if (!Array.isArray(item.handlers)) item.handlers = [];
         if (!item.handlers.includes(val)) {
           item.handlers.push(val);
+          recordCaseSectionLog(item, 'action', {
+            type: 'edit',
+            text: `👤 指派處理人員「${val}」`,
+            forceNewEntry: true
+          });
           item.updatedAt = Date.now();
           saveCaseItemsState();
           renderCasesView();
@@ -25034,13 +25466,6 @@ function renderCasesView() {
     if (isCaseItemDeletedTombstoned(item)) return;
     if (state.caseFilterStatus && normalizeCaseStatusValue(item.status) !== state.caseFilterStatus) return;
 
-    if (state.caseFilterCaseNo) {
-      if (state.caseFilterCaseNo === '__empty__') {
-        if (item.caseNumber) return;
-      } else if (item.caseNumber !== state.caseFilterCaseNo) {
-        return;
-      }
-    }
     if (state.caseFilterMachine) {
       if (state.caseFilterMachine === '__empty__') {
         if (item.machineModel) return;
@@ -25070,15 +25495,16 @@ function renderCasesView() {
     filteredWithMeta.push({ item, fuzzyRes });
   });
 
+  // 清單與表格統一按照「結案時間 (completedAt)」由上而下排序！
   if (parsedQ) {
-    filteredWithMeta.sort((a, b) => ((b.fuzzyRes ? b.fuzzyRes.score : 0) - (a.fuzzyRes ? a.fuzzyRes.score : 0)) || ((b.item.createdEpoch || 0) - (a.item.createdEpoch || 0)));
+    filteredWithMeta.sort((a, b) => compareCaseItemsByCompletedAtDesc(a.item, b.item) || ((b.fuzzyRes ? b.fuzzyRes.score : 0) - (a.fuzzyRes ? a.fuzzyRes.score : 0)));
     if (fuzzyBanner && fuzzyDetails && fuzzyStats) {
       fuzzyBanner.classList.remove('hidden');
       fuzzyDetails.innerHTML = `<span>🔍 檢索關鍵字：「<strong>${escapeHtml(rawQ)}</strong>」</span>`;
-      fuzzyStats.textContent = `找到 ${filteredWithMeta.length} 筆符合案件`;
+      fuzzyStats.textContent = `找到 ${filteredWithMeta.length} 筆符合案件（已依結案時間由上而下排序）`;
     }
   } else {
-    filteredWithMeta.sort((a, b) => (b.item.createdEpoch || 0) - (a.item.createdEpoch || 0));
+    filteredWithMeta.sort((a, b) => compareCaseItemsByCompletedAtDesc(a.item, b.item));
     if (fuzzyBanner) fuzzyBanner.classList.add('hidden');
   }
 
@@ -25086,7 +25512,7 @@ function renderCasesView() {
     listContainer.innerHTML = `
       <div class="py-14 text-center bg-white dark:bg-notion-card rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
         <div class="text-3xl mb-2">🛡️</div>
-        <div class="text-sm font-bold text-gray-700 dark:text-gray-200">${(rawQ || state.caseFilterStatus || state.caseFilterCaseNo || state.caseFilterMachine || state.caseFilterClient || state.caseFilterTag || state.caseFilterHandler) ? '找不到符合篩選條件的案件' : '目前尚無售後追蹤案件'}</div>
+        <div class="text-sm font-bold text-gray-700 dark:text-gray-200">${(rawQ || state.caseFilterStatus || state.caseFilterMachine || state.caseFilterClient || state.caseFilterTag || state.caseFilterHandler) ? '找不到符合篩選條件的案件' : '目前尚無售後追蹤案件'}</div>
       </div>
     `;
     return;
@@ -25102,34 +25528,6 @@ function renderCasesView() {
 }
 
 function initCaseViewTopControlsOnce() {
-  // 綁定分類管理中心「7. 案號管理」分頁按鈕與新增按鈕
-  const tmTabCaseNo = document.getElementById('tm-tab-case-number');
-  if (tmTabCaseNo && !tmTabCaseNo._bound) {
-    tmTabCaseNo._bound = true;
-    tmTabCaseNo.addEventListener('click', () => switchTagManagerTab('case_number'));
-  }
-  const tmAddCaseNoBtn = document.getElementById('tm-add-case-number-btn');
-  const tmNewCaseNoInp = document.getElementById('tm-new-case-number-input');
-  if (tmAddCaseNoBtn && !tmAddCaseNoBtn._bound) {
-    tmAddCaseNoBtn._bound = true;
-    const handleAddCN = () => {
-      if (!tmNewCaseNoInp) return;
-      const val = tmNewCaseNoInp.value.trim();
-      if (val && addCaseNumber(val)) {
-        tmNewCaseNoInp.value = '';
-      }
-    };
-    tmAddCaseNoBtn.addEventListener('click', handleAddCN);
-    if (tmNewCaseNoInp) {
-      tmNewCaseNoInp.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !e.isComposing) {
-          e.preventDefault();
-          handleAddCN();
-        }
-      });
-    }
-  }
-
   // 綁定側邊欄與頂部導覽列「案件追蹤」切換按鈕
   const sidebarCasesBtn = document.getElementById('sidebar-cases-btn');
   if (sidebarCasesBtn && !sidebarCasesBtn._bound) {
@@ -25151,8 +25549,8 @@ function initCaseViewTopControlsOnce() {
   }
 
   const container = document.getElementById('view-cases-container');
-  if (!container || container._caseV290ControlsBound) return;
-  container._caseV290ControlsBound = true;
+  if (!container || container._caseV291ControlsBound) return;
+  container._caseV291ControlsBound = true;
 
   // 固定 4 種狀態切換膠囊
   container.querySelectorAll('#case-fixed-category-bar .case-cat-tab-btn').forEach(btn => {
@@ -25198,16 +25596,16 @@ function initCaseViewTopControlsOnce() {
     });
   }
 
-  // 管理案號與選單按鈕
+  // 管理分類與選單按鈕
   const manageBtn = document.getElementById('btn-case-manage-options');
   if (manageBtn) {
     manageBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      openTagManagerModal('case_number');
+      openTagManagerModal('machine');
     });
   }
 
-  // 搜尋框與清除按鈕
+  // 搜尋框與清除按鈕 (支援搜尋案號、標題、客訴、根因、對策、零件、處理日誌、匯入檔名)
   const searchInp = document.getElementById('cases-search-input');
   const searchClearBtn = document.getElementById('cases-search-clear-btn');
   if (searchInp) {
@@ -25233,7 +25631,7 @@ function initCaseViewTopControlsOnce() {
     });
   }
 
-  // 5 大下拉篩選器 (案號、機型、客戶、標籤、人員)
+  // 4 大共用下拉篩選器 (機型、客戶、標籤、人員)
   const bindFilterSelect = (id, stateProp) => {
     const el = document.getElementById(id);
     if (!el) return;
@@ -25243,7 +25641,6 @@ function initCaseViewTopControlsOnce() {
       renderCasesView();
     });
   };
-  bindFilterSelect('cases-filter-caseno', 'caseFilterCaseNo');
   bindFilterSelect('cases-filter-machine', 'caseFilterMachine');
   bindFilterSelect('cases-filter-client', 'caseFilterClient');
   bindFilterSelect('cases-filter-tag', 'caseFilterTag');
@@ -25334,7 +25731,6 @@ renderCurrentView = function() {
   _origRenderCurrentViewV289();
 };
 
-// 讓內建 720P 防閃退相機拍攝完成後，若目標為案件追蹤卡片，自動寫入對應案件附件區
 const _origUploadFileToTodoCardSectionV289 = uploadFileToTodoCardSection;
 uploadFileToTodoCardSection = async function(cardId, section, file) {
   if (String(cardId || '').startsWith('case_')) {
@@ -25343,7 +25739,6 @@ uploadFileToTodoCardSection = async function(cardId, section, file) {
   return await _origUploadFileToTodoCardSectionV289(cardId, section, file);
 };
 
-// 擴充 SWR 快取與 Google Drive 雲端設定檔同步，完整保存 caseNumbers、caseItems 與 deletedCaseIds
 const _origSaveSwrCacheSnapshotV289 = saveSwrCacheSnapshot;
 saveSwrCacheSnapshot = function() {
   _origSaveSwrCacheSnapshotV289();
@@ -25351,7 +25746,6 @@ saveSwrCacheSnapshot = function() {
     const rawWs = localStorage.getItem(SWR_WORKSPACE_KEY);
     if (rawWs) {
       const ws = safeJsonParse(rawWs, {});
-      ws.caseNumbers = filterOutDeletedCategoryItems('case_number', state.caseNumbers || []);
       ws.caseItems = state.caseItems || [];
       ws.deletedCaseIds = state.deletedCaseIds || [];
       safeSetLocalStorageItem(SWR_WORKSPACE_KEY, JSON.stringify(ws));
@@ -25368,9 +25762,6 @@ hydrateFromSwrCacheOnBoot = function() {
       const ws = safeJsonParse(rawWs, null);
       if (ws) {
         if (Array.isArray(ws.deletedCaseIds)) state.deletedCaseIds = ws.deletedCaseIds;
-        if (Array.isArray(ws.caseNumbers)) {
-          state.caseNumbers = filterOutDeletedCategoryItems('case_number', ws.caseNumbers);
-        }
         if (Array.isArray(ws.caseItems)) {
           state.caseItems = ws.caseItems.filter(c => !isCaseItemDeletedTombstoned(c));
         }
@@ -25385,5 +25776,6 @@ try {
   initCaseViewTopControlsOnce();
   updateCaseSummaryStats();
 } catch (e) {
-  console.warn('init Case Tracking error:', e);
+  console.warn('init Case Tracking v2.9.1 error:', e);
 }
+
