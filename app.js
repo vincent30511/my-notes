@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.9.7'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.9.8'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -7247,7 +7247,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.7', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.8', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -27971,3 +27971,1342 @@ try {
 } catch (e) {
   console.warn('initModules3And4 error:', e);
 }
+
+
+
+// ============================================================================
+// 🚀 LVI_Note v2.9.8 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
+// （完全比照「案件追蹤」：支援「💾 存入歷史」按鈕、未儲存關閉網站/離開自動存入歷史、
+//   展開查看詳情、雙向互相關聯跳轉、載回編輯、刪除、搜尋檢索與 PDF 報告匯出）
+// ============================================================================
+
+if (!(state.expandedTodoHistoryIds instanceof Set)) {
+  state.expandedTodoHistoryIds = new Set();
+}
+
+/**
+ * 將待辦事項「待辦說明 (issue)」暫存輸入區的文字或附件封裝存入 item.issueHistory
+ */
+function commitTodoIssueStagingToHistory(item, { autoSaved = false, linkedResolutionIds = null } = {}) {
+  if (!item) return null;
+  if (!Array.isArray(item.issueHistory)) item.issueHistory = [];
+  if (!Array.isArray(item.resolutionHistory)) item.resolutionHistory = [];
+
+  const textVal = String(item.issueText || '').trim();
+  const attHtml = String(item.issueAttachmentsHtml || '').trim();
+  if (!textVal && !attHtml) return null;
+
+  const nowStr = formatTodoTimestamp();
+  const nowEpoch = Date.now();
+  const nextSeq = (item._nextIssueSeq || item.issueHistory.length) + 1;
+  item._nextIssueSeq = nextSeq;
+
+  const chosenLinks = Array.isArray(linkedResolutionIds)
+    ? linkedResolutionIds.slice()
+    : (Array.isArray(item._stagingIssueLinkResolutionIds) ? item._stagingIssueLinkResolutionIds.slice() : []);
+
+  const entry = {
+    id: 'todo_iss_hist_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
+    code: `說明 #${nextSeq}`,
+    time: nowStr,
+    epoch: nowEpoch,
+    text: textVal,
+    attachmentsHtml: attHtml,
+    linkedResolutionIds: Array.from(new Set(chosenLinks.filter(Boolean))),
+    autoSaved: Boolean(autoSaved)
+  };
+
+  item.issueHistory.unshift(entry);
+
+  // 雙向同步關聯：若指定了 linkedResolutionIds，同步把此說明 ID 加入對應的 resolutionHistory 項目中
+  if (entry.linkedResolutionIds.length > 0) {
+    item.resolutionHistory.forEach(res => {
+      if (res && entry.linkedResolutionIds.includes(res.id)) {
+        if (!Array.isArray(res.linkedIssueIds)) res.linkedIssueIds = [];
+        if (!res.linkedIssueIds.includes(entry.id)) {
+          res.linkedIssueIds.push(entry.id);
+        }
+      }
+    });
+  }
+
+  // 清空暫存輸入區
+  item.issueText = '';
+  item.issueAttachmentsHtml = '';
+  item._stagingIssueLinkResolutionIds = [];
+  item.updatedAt = nowEpoch;
+  return entry;
+}
+
+/**
+ * 將待辦事項「處理結果 (resolution)」暫存輸入區的文字或附件封裝存入 item.resolutionHistory
+ */
+function commitTodoResolutionStagingToHistory(item, { autoSaved = false, linkedIssueIds = null } = {}) {
+  if (!item) return null;
+  if (!Array.isArray(item.issueHistory)) item.issueHistory = [];
+  if (!Array.isArray(item.resolutionHistory)) item.resolutionHistory = [];
+
+  const resVal = String(item.resolutionText || '').trim();
+  const attHtml = String(item.resolutionAttachmentsHtml || '').trim();
+  if (!resVal && !attHtml) return null;
+
+  const nowStr = formatTodoTimestamp();
+  const nowEpoch = Date.now();
+  const nextSeq = (item._nextResolutionSeq || item.resolutionHistory.length) + 1;
+  item._nextResolutionSeq = nextSeq;
+
+  let chosenLinks = Array.isArray(linkedIssueIds)
+    ? linkedIssueIds.slice()
+    : (Array.isArray(item._stagingResolutionLinkIssueIds) ? item._stagingResolutionLinkIssueIds.slice() : []);
+
+  // 若未手動指定關聯哪筆說明，且目前正好有最新一筆待辦說明歷史，預設智慧關聯最新一筆說明
+  if (chosenLinks.length === 0 && item.issueHistory.length === 1) {
+    chosenLinks = [item.issueHistory[0].id];
+  }
+
+  const entry = {
+    id: 'todo_res_hist_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
+    code: `結果 #${nextSeq}`,
+    time: nowStr,
+    epoch: nowEpoch,
+    text: resVal,
+    attachmentsHtml: attHtml,
+    linkedIssueIds: Array.from(new Set(chosenLinks.filter(Boolean))),
+    autoSaved: Boolean(autoSaved)
+  };
+
+  item.resolutionHistory.unshift(entry);
+
+  // 雙向同步關聯：把此結果 ID 同步加入對應的 issueHistory 項目中
+  if (entry.linkedIssueIds.length > 0) {
+    item.issueHistory.forEach(iss => {
+      if (iss && entry.linkedIssueIds.includes(iss.id)) {
+        if (!Array.isArray(iss.linkedResolutionIds)) iss.linkedResolutionIds = [];
+        if (!iss.linkedResolutionIds.includes(entry.id)) {
+          iss.linkedResolutionIds.push(entry.id);
+        }
+      }
+    });
+  }
+
+  // 清空暫存輸入區
+  item.resolutionText = '';
+  item.resolutionAttachmentsHtml = '';
+  item._stagingResolutionLinkIssueIds = [];
+  item.updatedAt = nowEpoch;
+  return entry;
+}
+
+/**
+ * 雙向建立或解除「待辦說明歷史 (issId)」與「處理結果歷史 (resId)」之間的關聯
+ */
+function toggleTodoHistoryMutualLink(item, issId, resId, forceLink = null) {
+  if (!item || !issId || !resId) return false;
+  const iss = (item.issueHistory || []).find(s => s.id === issId);
+  const res = (item.resolutionHistory || []).find(a => a.id === resId);
+  if (!iss || !res) return false;
+
+  if (!Array.isArray(iss.linkedResolutionIds)) iss.linkedResolutionIds = [];
+  if (!Array.isArray(res.linkedIssueIds)) res.linkedIssueIds = [];
+
+  const currentlyLinked = iss.linkedResolutionIds.includes(resId) || res.linkedIssueIds.includes(issId);
+  const shouldLink = forceLink !== null ? Boolean(forceLink) : !currentlyLinked;
+
+  if (shouldLink) {
+    if (!iss.linkedResolutionIds.includes(resId)) iss.linkedResolutionIds.push(resId);
+    if (!res.linkedIssueIds.includes(issId)) res.linkedIssueIds.push(issId);
+  } else {
+    iss.linkedResolutionIds = iss.linkedResolutionIds.filter(id => id !== resId);
+    res.linkedIssueIds = res.linkedIssueIds.filter(id => id !== issId);
+  }
+  item.updatedAt = Date.now();
+  saveTodoItemsState();
+  return shouldLink;
+}
+
+/**
+ * 將單一或所有待辦事項中「已輸入文字或匯入檔案、但尚未按下存入歷史」的暫存內容自動存入歷史紀錄！
+ */
+function flushAllUnsavedTodoStagingToHistory(autoSaved = true) {
+  if (!Array.isArray(state.todoItems)) return false;
+  let committedAny = false;
+
+  // 先從當前畫面上的 DOM 同步最新輸入文字與縮圖附件
+  const activeCardEl = document.querySelector('.lvi-todo-card[data-todo-id]:not(.lvi-case-card)');
+  if (activeCardEl) {
+    const tid = activeCardEl.getAttribute('data-todo-id');
+    const activeItem = state.todoItems.find(t => t.id === tid);
+    if (activeItem) {
+      const issInp = activeCardEl.querySelector('.todo-issue-textarea');
+      const resInp = activeCardEl.querySelector('.todo-resolution-textarea');
+      const issGal = activeCardEl.querySelector('.todo-issue-attachments');
+      const resGal = activeCardEl.querySelector('.todo-resolution-attachments');
+      if (issInp) activeItem.issueText = issInp.value;
+      if (resInp) activeItem.resolutionText = resInp.value;
+      if (issGal) activeItem.issueAttachmentsHtml = compactTodoAttachmentsHtml(issGal.innerHTML);
+      if (resGal) activeItem.resolutionAttachmentsHtml = compactTodoAttachmentsHtml(resGal.innerHTML);
+    }
+  }
+
+  state.todoItems.forEach(item => {
+    if (!item || isTodoItemDeletedTombstoned(item)) return;
+    const iEntry = commitTodoIssueStagingToHistory(item, { autoSaved });
+    const rEntry = commitTodoResolutionStagingToHistory(item, { autoSaved });
+    if (iEntry || rEntry) {
+      committedAny = true;
+    }
+  });
+
+  // 同步清空畫面 DOM 暫存輸入框，確保多次連續呼叫 flushAllUnsavedTodoStagingToHistory 具備 100% 冪等性 (Idempotent)，絕不重複歸檔
+  if (activeCardEl && committedAny) {
+    const issInp = activeCardEl.querySelector(".todo-issue-textarea");
+    const resInp = activeCardEl.querySelector(".todo-resolution-textarea");
+    const issGal = activeCardEl.querySelector(".todo-issue-attachments");
+    const resGal = activeCardEl.querySelector(".todo-resolution-attachments");
+    if (issInp) issInp.value = "";
+    if (resInp) resInp.value = "";
+    if (issGal) issGal.innerHTML = "";
+    if (resGal) resGal.innerHTML = "";
+  }
+
+  if (committedAny) {
+    saveTodoItemsToLocalStorageOnly();
+  }
+  return committedAny;
+}
+
+// 擴充 ensureTodoItemsInitialized：確保 issueHistory / resolutionHistory 陣列存在，且在初次載入時將未存暫存區自動歸檔
+const _origEnsureTodoItemsInitializedV297 = ensureTodoItemsInitialized;
+let _todoBootAutoFlushDone = false;
+ensureTodoItemsInitialized = function() {
+  _origEnsureTodoItemsInitializedV297();
+  if (!Array.isArray(state.todoItems)) return;
+
+  let bootCommitted = false;
+  state.todoItems.forEach(item => {
+    if (!item || typeof item !== 'object') return;
+    if (!Array.isArray(item.issueHistory)) item.issueHistory = [];
+    if (!Array.isArray(item.resolutionHistory)) item.resolutionHistory = [];
+    if (typeof item.issueText !== 'string') item.issueText = '';
+    if (typeof item.resolutionText !== 'string') item.resolutionText = '';
+    if (typeof item.issueAttachmentsHtml !== 'string') item.issueAttachmentsHtml = '';
+    if (typeof item.resolutionAttachmentsHtml !== 'string') item.resolutionAttachmentsHtml = '';
+
+    // 初次載入時，若舊資料或上次未儲存關閉網站留有 issueText / resolutionText 或附件，自動歸檔入歷史資料
+    if (!_todoBootAutoFlushDone) {
+      if ((item.issueText && item.issueText.trim()) || (item.issueAttachmentsHtml && item.issueAttachmentsHtml.trim())) {
+        commitTodoIssueStagingToHistory(item, { autoSaved: true });
+        bootCommitted = true;
+      }
+      if ((item.resolutionText && item.resolutionText.trim()) || (item.resolutionAttachmentsHtml && item.resolutionAttachmentsHtml.trim())) {
+        commitTodoResolutionStagingToHistory(item, { autoSaved: true });
+        bootCommitted = true;
+      }
+    }
+  });
+  _todoBootAutoFlushDone = true;
+
+  if (bootCommitted) {
+    try {
+      safeSetLocalStorageItem(TODO_STORAGE_KEY, JSON.stringify(state.todoItems));
+    } catch (e) {}
+  }
+};
+
+// 擴充 syncTodoCardAttachmentsFromDom：支援已展開的歷史紀錄內修改圖片備註、旋轉或刪除照片時同步回該筆歷史紀錄
+const _origSyncTodoCardAttachmentsFromDomV297 = syncTodoCardAttachmentsFromDom;
+syncTodoCardAttachmentsFromDom = function(cardEl) {
+  if (!cardEl) return;
+  _origSyncTodoCardAttachmentsFromDomV297(cardEl);
+
+  const todoId = cardEl.getAttribute('data-todo-id');
+  if (!todoId || !Array.isArray(state.todoItems)) return;
+  const item = state.todoItems.find(t => t.id === todoId);
+  if (!item) return;
+
+  cardEl.querySelectorAll('.todo-history-attachments-gallery[data-todo-hist-id]').forEach(histGal => {
+    const hid = histGal.getAttribute('data-todo-hist-id');
+    const hsec = histGal.getAttribute('data-todo-hist-section') || 'issue';
+    histGal.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
+    const cleaned = compactTodoAttachmentsHtml(histGal.innerHTML);
+    const targetList = hsec === 'resolution' ? (item.resolutionHistory || []) : (item.issueHistory || []);
+    const entry = targetList.find(x => x.id === hid);
+    if (entry) {
+      entry.attachmentsHtml = cleaned;
+    }
+  });
+
+  item.updatedAt = Date.now();
+  saveTodoItemsState();
+};
+
+/**
+ * 渲染「待辦說明」下方歷史紀錄列表
+ */
+function renderTodoIssueHistoryListHtml(item) {
+  const issHistory = Array.isArray(item.issueHistory) ? item.issueHistory : [];
+  const resHistory = Array.isArray(item.resolutionHistory) ? item.resolutionHistory : [];
+
+  if (issHistory.length === 0) {
+    return `<div class="text-xs text-gray-400 py-2.5 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無歷史紀錄</div>`;
+  }
+
+  return issHistory.map(ih => {
+    const isExpanded = state.expandedTodoHistoryIds.has(ih.id);
+    const attCount = countAttachmentsInHtml(ih.attachmentsHtml);
+    const previewTxt = (ih.text || '').replace(/\s+/g, ' ').trim() || (attCount > 0 ? `（含 ${attCount} 個附件）` : '（無內容）');
+    const linkedIds = Array.isArray(ih.linkedResolutionIds) ? ih.linkedResolutionIds : [];
+    const linkedResList = linkedIds.map(rid => resHistory.find(r => r.id === rid)).filter(Boolean);
+
+    const linkedPillsHtml = linkedResList.map(res => `
+      <span class="case-hist-link-pill todo-jump-linked-hist-btn" data-target-todo-hist-id="${escapeHtml(res.id)}" title="跳轉至「${escapeHtml(res.code)}」">
+        <span>🔗 ${escapeHtml(res.code)}：${escapeHtml((res.text || '').slice(0, 14))}</span>
+        <span>↗</span>
+      </span>
+    `).join('');
+
+    const linkableOptionsHtml = [
+      `<option value="">＋ 新增關聯...</option>`,
+      ...resHistory.map(res => {
+        const already = linkedIds.includes(res.id);
+        const label = `${already ? '✓ ' : ''}${res.code}｜${(res.text || '無內容').replace(/\s+/g, ' ').slice(0, 22)}`;
+        return `<option value="${escapeHtml(res.id)}">${escapeHtml(label)}</option>`;
+      })
+    ].join('');
+
+    return `
+      <div class="lvi-case-history-card ${isExpanded ? 'is-expanded' : ''}" id="todo-hist-card-${escapeHtml(ih.id)}" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">
+        <div class="lvi-case-history-summary-bar" data-toggle-todo-hist-id="${escapeHtml(ih.id)}">
+          <div class="lvi-case-history-summary-left">
+            <span class="case-hist-code-badge case-hist-code-symptom">🔴 ${escapeHtml(ih.code || '說明')}</span>
+            <span class="case-hist-time-text">${escapeHtml(ih.time || '')}</span>
+            <span class="case-hist-preview-text">${escapeHtml(previewTxt)}</span>
+            ${attCount > 0 ? `<span class="case-hist-att-badge">🖼️ ${attCount}</span>` : ''}
+            ${linkedPillsHtml}
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合' : '🔽 詳情'}</span>
+          </div>
+        </div>
+
+        <div class="lvi-case-history-detail-body ${isExpanded ? '' : 'hidden'}">
+          <div class="case-hist-detail-toolbar">
+            <div class="case-hist-detail-links-wrap">
+              <span class="case-hist-detail-label">🔗 關聯結果：</span>
+              ${linkedResList.length > 0 ? linkedResList.map(res => `
+                <span class="case-hist-linked-chip">
+                  <button type="button" class="todo-jump-linked-hist-btn" data-target-todo-hist-id="${escapeHtml(res.id)}">🔵 ${escapeHtml(res.code)}：${escapeHtml((res.text || '').slice(0, 18))} ↗</button>
+                  <button type="button" class="todo-unlink-hist-btn" data-iss-id="${escapeHtml(ih.id)}" data-res-id="${escapeHtml(res.id)}" title="解除關聯">×</button>
+                </span>
+              `).join('') : `<span class="case-hist-time-text">無</span>`}
+              <select class="case-staging-link-select todo-hist-link-select" data-iss-id="${escapeHtml(ih.id)}" data-link-dir="iss-to-res">
+                ${linkableOptionsHtml}
+              </select>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <button type="button" class="todo-load-hist-to-edit-btn case-hist-btn-edit" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">✏️ 編輯</button>
+              <button type="button" class="todo-del-hist-btn case-hist-btn-del" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">🗑️ 刪除</button>
+            </div>
+          </div>
+
+          <div class="lvi-case-history-fulltext">${escapeHtml(ih.text || '（無文字內容）')}</div>
+
+          ${ih.attachmentsHtml ? `
+          <div class="todo-attachments-gallery todo-history-attachments-gallery" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">${ih.attachmentsHtml}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+/**
+ * 渲染「處理結果」下方歷史紀錄列表
+ */
+function renderTodoResolutionHistoryListHtml(item) {
+  const issHistory = Array.isArray(item.issueHistory) ? item.issueHistory : [];
+  const resHistory = Array.isArray(item.resolutionHistory) ? item.resolutionHistory : [];
+
+  if (resHistory.length === 0) {
+    return `<div class="text-xs text-gray-400 py-2.5 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無歷史紀錄</div>`;
+  }
+
+  return resHistory.map(rh => {
+    const isExpanded = state.expandedTodoHistoryIds.has(rh.id);
+    const attCount = countAttachmentsInHtml(rh.attachmentsHtml);
+    const previewTxt = (rh.text || '').replace(/\s+/g, ' ').trim() || (attCount > 0 ? `（含 ${attCount} 個附件）` : '（無內容）');
+    const linkedIds = Array.isArray(rh.linkedIssueIds) ? rh.linkedIssueIds : [];
+    const linkedIssList = linkedIds.map(iid => issHistory.find(i => i.id === iid)).filter(Boolean);
+
+    const linkedPillsHtml = linkedIssList.map(iss => `
+      <span class="case-hist-link-pill todo-jump-linked-hist-btn" data-target-todo-hist-id="${escapeHtml(iss.id)}" title="跳轉至「${escapeHtml(iss.code)}」">
+        <span>🔗 ${escapeHtml(iss.code)}：${escapeHtml((iss.text || '').slice(0, 14))}</span>
+        <span>↗</span>
+      </span>
+    `).join('');
+
+    const linkableOptionsHtml = [
+      `<option value="">＋ 新增關聯...</option>`,
+      ...issHistory.map(iss => {
+        const already = linkedIds.includes(iss.id);
+        const label = `${already ? '✓ ' : ''}${iss.code}｜${(iss.text || '無內容').replace(/\s+/g, ' ').slice(0, 22)}`;
+        return `<option value="${escapeHtml(iss.id)}">${escapeHtml(label)}</option>`;
+      })
+    ].join('');
+
+    return `
+      <div class="lvi-case-history-card ${isExpanded ? 'is-expanded' : ''}" id="todo-hist-card-${escapeHtml(rh.id)}" data-todo-hist-id="${escapeHtml(rh.id)}" data-todo-hist-section="resolution">
+        <div class="lvi-case-history-summary-bar" data-toggle-todo-hist-id="${escapeHtml(rh.id)}">
+          <div class="lvi-case-history-summary-left">
+            <span class="case-hist-code-badge case-hist-code-action">🔵 ${escapeHtml(rh.code || '結果')}</span>
+            <span class="case-hist-time-text">${escapeHtml(rh.time || '')}</span>
+            <span class="case-hist-preview-text">${escapeHtml(previewTxt)}</span>
+            ${attCount > 0 ? `<span class="case-hist-att-badge">🖼️ ${attCount}</span>` : ''}
+            ${linkedPillsHtml}
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合' : '🔽 詳情'}</span>
+          </div>
+        </div>
+
+        <div class="lvi-case-history-detail-body ${isExpanded ? '' : 'hidden'}">
+          <div class="case-hist-detail-toolbar">
+            <div class="case-hist-detail-links-wrap">
+              <span class="case-hist-detail-label">🔗 關聯說明：</span>
+              ${linkedIssList.length > 0 ? linkedIssList.map(iss => `
+                <span class="case-hist-linked-chip chip-symptom">
+                  <button type="button" class="todo-jump-linked-hist-btn" data-target-todo-hist-id="${escapeHtml(iss.id)}">🔴 ${escapeHtml(iss.code)}：${escapeHtml((iss.text || '').slice(0, 18))} ↗</button>
+                  <button type="button" class="todo-unlink-hist-btn" data-iss-id="${escapeHtml(iss.id)}" data-res-id="${escapeHtml(rh.id)}" title="解除關聯">×</button>
+                </span>
+              `).join('') : `<span class="case-hist-time-text">無</span>`}
+              <select class="case-staging-link-select todo-hist-link-select" data-res-id="${escapeHtml(rh.id)}" data-link-dir="res-to-iss">
+                ${linkableOptionsHtml}
+              </select>
+            </div>
+
+            <div class="flex items-center gap-1.5">
+              <button type="button" class="todo-load-hist-to-edit-btn case-hist-btn-edit" data-todo-hist-id="${escapeHtml(rh.id)}" data-todo-hist-section="resolution">✏️ 編輯</button>
+              <button type="button" class="todo-del-hist-btn case-hist-btn-del" data-todo-hist-id="${escapeHtml(rh.id)}" data-todo-hist-section="resolution">🗑️ 刪除</button>
+            </div>
+          </div>
+
+          <div class="lvi-case-history-fulltext">${escapeHtml(rh.text || '（無文字內容）')}</div>
+
+          ${rh.attachmentsHtml ? `
+          <div class="todo-attachments-gallery todo-history-attachments-gallery" data-todo-hist-id="${escapeHtml(rh.id)}" data-todo-hist-section="resolution">${rh.attachmentsHtml}</div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// 覆寫 renderTodoSummaryRowHtml：支援顯示最新說明/結果歷史摘要與歷史紀錄筆數徽章
+renderTodoSummaryRowHtml = function(item) {
+  const normStatus = FIXED_TODO_CATEGORIES.includes(item.status) ? item.status : '🔴 待處理';
+  const statusBadgeCls = getTodoStatusBadgeClass(normStatus);
+  const statusRowAccentCls = normStatus === '🟢 已完成'
+    ? 'status-done'
+    : normStatus === '🟡 處理中'
+    ? 'status-progress'
+    : normStatus === '🟠 待料/觀察中'
+    ? 'status-waiting'
+    : 'status-pending';
+
+  const titleText = (item.title || '').trim() || '（未命名待辦事項）';
+  const latestIss = (item.issueHistory && item.issueHistory[0] && item.issueHistory[0].text) || item.issueText || '';
+  const latestRes = (item.resolutionHistory && item.resolutionHistory[0] && item.resolutionHistory[0].text) || item.resolutionText || '';
+  const issuePreview = latestIss.replace(/\s+/g, ' ').trim();
+  const resPreview = latestRes.replace(/\s+/g, ' ').trim();
+
+  const handlers = Array.isArray(item.handlers) ? item.handlers : [];
+  const tags = Array.isArray(item.tags) ? item.tags : [];
+  const linkedCount = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds.length : 0;
+  const issHistCount = (item.issueHistory || []).length;
+  const resHistCount = (item.resolutionHistory || []).length;
+
+  const allAttHtml = [
+    item.issueAttachmentsHtml || '',
+    item.resolutionAttachmentsHtml || '',
+    ...(item.issueHistory || []).map(h => h.attachmentsHtml || ''),
+    ...(item.resolutionHistory || []).map(h => h.attachmentsHtml || '')
+  ].join('');
+  const totalAtt = countAttachmentsInHtml(allAttHtml);
+
+  let snippetHtml = '';
+  if (issuePreview && resPreview) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🔴 ${escapeHtml(issuePreview.slice(0, 44))} ➔ 🔵 ${escapeHtml(resPreview.slice(0, 44))}</span>`;
+  } else if (issuePreview) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🔴 ${escapeHtml(issuePreview.slice(0, 76))}</span>`;
+  } else if (resPreview) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🔵 ${escapeHtml(resPreview.slice(0, 76))}</span>`;
+  }
+
+  const secondaryBadgesHtml = [
+    ...handlers.map(h => `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800 shrink-0">👤 ${escapeHtml(h)}</span>`),
+    ...tags.map(t => `<span class="px-1.5 py-0.5 rounded-md text-[10.5px] font-bold border ${getTagPillColorClass(t)} shrink-0">#${escapeHtml(t)}</span>`),
+    (issHistCount > 0 || resHistCount > 0) ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold shrink-0">📜 說明 ${issHistCount} / 結果 ${resHistCount}</span>` : '',
+    linkedCount > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold shrink-0">🔗 關聯筆記 ${linkedCount}</span>` : '',
+    totalAtt > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold shrink-0">🖼️ 附件 ${totalAtt}</span>` : ''
+  ].filter(Boolean).join('');
+
+  return `
+    <div class="lvi-todo-summary-row ${statusRowAccentCls} group" data-todo-summary-id="${escapeHtml(item.id)}">
+      <div class="lvi-todo-summary-main">
+        <div class="lvi-todo-summary-top-line">
+          <span class="px-2.5 py-0.5 rounded-md text-xs font-extrabold border shrink-0 ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
+          <span class="lvi-todo-summary-title truncate">${escapeHtml(titleText)}</span>
+          ${item.machineModel ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">🚜 ${escapeHtml(item.machineModel)}</span>` : ''}
+          ${item.clientVendor ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">🏢 ${escapeHtml(item.clientVendor)}</span>` : ''}
+        </div>
+        ${(snippetHtml || secondaryBadgesHtml) ? `
+        <div class="lvi-todo-summary-bottom-line">
+          ${snippetHtml}
+          ${secondaryBadgesHtml}
+        </div>` : ''}
+      </div>
+
+      <div class="lvi-todo-summary-right">
+        <span class="lvi-todo-summary-time">🕒 ${escapeHtml(item.createdAt || '')}</span>
+        <button type="button" class="todo-summary-del-btn" data-todo-id="${escapeHtml(item.id)}" title="永久刪除此筆待辦事項">
+          <span>🗑️ 刪除</span>
+        </button>
+        <span class="lvi-todo-summary-open-pill">
+          <span>詳細</span>
+          <span>➔</span>
+        </span>
+      </div>
+    </div>
+  `;
+};
+
+// 覆寫 renderSingleTodoCardHtml：在「待辦說明」與「處理結果」加入「💾 存入歷史」按鈕與「📜 歷史紀錄」雙向關聯區塊
+renderSingleTodoCardHtml = function(item) {
+  const machines = getSharedMachineModelsForTodo();
+  const clients = getSharedClientsVendorsForTodo();
+  const sharedTags = getSharedTagsForTodo();
+  const handlers = state.todoHandlers || DEFAULT_TODO_HANDLERS;
+
+  const itemTags = Array.isArray(item.tags) ? item.tags : [];
+  const itemHandlers = Array.isArray(item.handlers) ? item.handlers : [];
+  const linkedNoteIds = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds : [];
+  const issHistory = Array.isArray(item.issueHistory) ? item.issueHistory : [];
+  const resHistory = Array.isArray(item.resolutionHistory) ? item.resolutionHistory : [];
+  const normStatus = FIXED_TODO_CATEGORIES.includes(item.status) ? item.status : '🔴 待處理';
+  const isCompleted = isTodoStatusCompleted(normStatus);
+  const statusBadgeCls = getTodoStatusBadgeClass(normStatus);
+
+  const machineOptionsHtml = [
+    `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>`,
+    ...machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_machine__">＋ 新增機型...</option>`,
+    `<option value="__manage_shared_machine__">⚙️ 管理機型...</option>`
+  ].join('');
+
+  const clientOptionsHtml = [
+    `<option value="" ${!item.clientVendor ? 'selected' : ''}>未選擇</option>`,
+    ...clients.map(c => `<option value="${escapeHtml(c)}" ${item.clientVendor === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_client__">➕ 新建客戶/廠商...</option>`,
+    `<option value="__manage_shared_client__">⚙️ 管理客戶/廠商...</option>`
+  ].join('');
+
+  const statusOptionsHtml = FIXED_TODO_CATEGORIES.map(lbl =>
+    `<option value="${escapeHtml(lbl)}" ${normStatus === lbl ? 'selected' : ''}>${escapeHtml(lbl)}</option>`
+  ).join('');
+
+  const linkedNoteChipsHtml = linkedNoteIds.map(nid => {
+    const n = (state.notes || []).find(x => x.id === nid);
+    const nTitle = resolveLinkedNoteTitle(item, nid);
+    const nIcon = (n && n.meta && n.meta.icon) || '📝';
+    return `
+      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900 transition">
+        <button type="button" class="todo-jump-note-shortcut-btn inline-flex items-center gap-1 cursor-pointer hover:underline" data-note-id="${escapeHtml(nid)}" title="點擊開啟此關聯筆記">
+          <span>${nIcon}</span>
+          <span class="truncate max-w-[220px]">${escapeHtml(nTitle)}</span>
+          <span class="text-[10px] opacity-75">↗</span>
+        </button>
+        <button type="button" class="todo-remove-note-shortcut-btn text-gray-400 hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-note-id="${escapeHtml(nid)}" title="移除關聯筆記">×</button>
+      </span>
+    `;
+  }).join('');
+
+  const availableNotesOptionsHtml = [
+    `<option value="">＋ 關聯筆記...</option>`,
+    `<option value="__create_new_linked_note__">＋ 新建關聯筆記...</option>`,
+    `<option disabled>── 選擇現有筆記 ──</option>`,
+    ...(state.notes || []).slice(0, 120).map(n => {
+      const nTitle = (n.name || '未命名筆記').replace(/\.md$/i, '');
+      const mach = (n.meta && n.meta.machineModel && n.meta.machineModel !== '未分類') ? `[${n.meta.machineModel}] ` : '';
+      return `<option value="${escapeHtml(n.id)}">📝 ${escapeHtml(mach + nTitle)}</option>`;
+    })
+  ].join('');
+
+  const tagsPillsHtml = itemTags.length > 0
+    ? itemTags.map(tagName => `
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${getTagPillColorClass(tagName)}">
+          <span>#${escapeHtml(tagName)}</span>
+          <button type="button" class="todo-remove-tag-btn hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-tag-name="${escapeHtml(tagName)}" title="移除標籤">×</button>
+        </span>
+      `).join('')
+    : `<span class="text-xs text-gray-400">無</span>`;
+
+  const bottomTagAddOptionsHtml = [
+    `<option value="">＋ 新增標籤...</option>`,
+    ...sharedTags.map(t => {
+      const name = typeof t === 'string' ? t : (t.name || t.id);
+      return `<option value="${escapeHtml(name)}">#${escapeHtml(name)}</option>`;
+    }),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_tag__">➕ 新建標籤...</option>`,
+    `<option value="__manage_shared_tags__">⚙️ 管理標籤庫...</option>`
+  ].join('');
+
+  const handlerPillsHtml = itemHandlers.length > 0
+    ? itemHandlers.map(hName => `
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-cyan-50 text-cyan-900 border border-cyan-300 dark:bg-cyan-950/80 dark:text-cyan-200 dark:border-cyan-700">
+          <span>👤 ${escapeHtml(hName)}</span>
+          <button type="button" class="todo-remove-handler-btn hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-handler-name="${escapeHtml(hName)}" title="移除人員">×</button>
+        </span>
+      `).join('')
+    : `<span class="text-xs text-gray-400">無</span>`;
+
+  const handlerAddOptionsHtml = [
+    `<option value="">＋ 指派人員...</option>`,
+    ...handlers.map(h => `<option value="${escapeHtml(h)}">👤 ${escapeHtml(h)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_new_handler__">➕ 新增人員...</option>`,
+    `<option value="__rename_handler__">✏️ 修改人員名稱...</option>`,
+    `<option value="__manage_handlers__">⚙️ 管理人員列表...</option>`
+  ].join('');
+
+  const stagingIssLinkOptsHtml = [
+    `<option value="">選擇對應待辦說明...</option>`,
+    ...issHistory.map((ih, idx) => `<option value="${escapeHtml(ih.id)}" ${idx === 0 ? 'selected' : ''}>🔴 ${escapeHtml(ih.code)}｜${escapeHtml((ih.text || '含附件').replace(/\s+/g, ' ').slice(0, 26))}</option>`)
+  ].join('');
+
+  return `
+    <!-- 頂部返回列表與刪除導航列 -->
+    <div class="lvi-todo-detail-navbar">
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <button type="button" id="btn-back-to-todo-list">
+          <span>← 返回列表</span>
+        </button>
+        <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold border ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" class="todo-export-pdf-btn px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white dark:bg-blue-950/70 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-xs font-extrabold transition cursor-pointer" data-todo-id="${escapeHtml(item.id)}">
+          <span>📄 匯出 PDF</span>
+        </button>
+        <button type="button" class="todo-delete-card-btn" data-todo-id="${escapeHtml(item.id)}" title="永久刪除此筆待辦事項">
+          <span>🗑️ 刪除</span>
+        </button>
+      </div>
+    </div>
+
+    <article class="lvi-todo-card ${isCompleted ? 'is-completed-card' : ''}" data-todo-id="${escapeHtml(item.id)}">
+      <!-- 第 1 列：標題 | 機型分類 | 客戶或廠商 | 進度 -->
+      <div class="lvi-todo-row-1">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📌 標題</span>
+          </div>
+          <input type="text" class="todo-title-input" value="${escapeHtml(item.title || '')}" placeholder="請輸入待辦標題..." />
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🚜 機型分類</span>
+            <button type="button" class="todo-open-mgr-btn" data-mgr-tab="machine">⚙️ 管理</button>
+          </div>
+          <select class="todo-box-select todo-machine-select">
+            ${machineOptionsHtml}
+          </select>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🏢 客戶或廠商</span>
+            <button type="button" class="todo-open-mgr-btn" data-mgr-tab="client">⚙️ 管理</button>
+          </div>
+          <select class="todo-box-select todo-client-select">
+            ${clientOptionsHtml}
+          </select>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📊 處理進度</span>
+            <span class="text-[10px] font-bold ${isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">${isCompleted ? '已結案' : '追蹤中'}</span>
+          </div>
+          <select class="todo-box-select todo-status-select">
+            ${statusOptionsHtml}
+          </select>
+        </div>
+      </div>
+
+      <!-- 第 2 列：建立時間 | 關聯筆記 -->
+      <div class="lvi-todo-row-2">
+        <div class="lvi-todo-created-pill todo-edit-created-time-btn" title="點擊可調整建立時間">
+          <span class="text-[10px] font-extrabold text-blue-700 dark:text-blue-300">🕒 建立時間</span>
+          <span class="text-xs font-black text-blue-950 dark:text-blue-100 todo-created-time-text">${escapeHtml(item.createdAt || formatTodoTimestamp())}</span>
+        </div>
+
+        <div class="lvi-todo-linked-notes-box">
+          <div class="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
+            <span class="text-xs font-extrabold text-blue-700 dark:text-blue-300 shrink-0">🔗 關聯筆記：</span>
+            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">無</span>`}
+          </div>
+          <select class="todo-link-note-select">
+            ${availableNotesOptionsHtml}
+          </select>
+        </div>
+      </div>
+
+      <!-- 第 3 列：待辦說明 (含拍照、附件、存入歷史按鈕與歷史紀錄條列) -->
+      <div class="lvi-todo-issue-box">
+        <div class="lvi-todo-section-header">
+          <div class="lvi-todo-section-title">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+            <span>待辦說明</span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <button type="button" class="todo-section-camera-btn" data-section="issue">
+              <span>📷 拍照</span>
+            </button>
+            <button type="button" class="todo-section-upload-btn" data-section="issue">
+              <span>📎 附件</span>
+            </button>
+            <button type="button" class="case-save-history-btn btn-symptom-save todo-save-issue-history-btn">
+              <span>💾 存入歷史</span>
+            </button>
+          </div>
+        </div>
+        <textarea class="lvi-todo-textarea todo-issue-textarea" rows="3" placeholder="輸入待辦說明...">${escapeHtml(item.issueText || '')}</textarea>
+        <div class="todo-attachments-gallery todo-issue-attachments">${item.issueAttachmentsHtml || ''}</div>
+
+        <!-- 待辦說明・歷史紀錄 -->
+        <div class="lvi-case-history-section">
+          <div class="lvi-case-history-header">
+            <div class="lvi-case-history-title">
+              <span>📜 歷史紀錄</span>
+              <span class="lvi-case-history-count" data-todo-hist-count="issue">${issHistory.length}</span>
+            </div>
+          </div>
+          <div class="lvi-case-history-list" data-todo-hist-list="issue">
+            ${renderTodoIssueHistoryListHtml(item)}
+          </div>
+        </div>
+      </div>
+
+      <!-- 第 4 列：處理結果 (含拍照、附件、存入歷史按鈕、對應說明關聯與歷史紀錄條列) -->
+      <div class="lvi-todo-resolution-box">
+        <div class="lvi-todo-section-header">
+          <div class="lvi-todo-section-title">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
+            <span>處理結果</span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <button type="button" class="todo-section-camera-btn" data-section="resolution">
+              <span>📷 拍照</span>
+            </button>
+            <button type="button" class="todo-section-upload-btn" data-section="resolution">
+              <span>📎 附件</span>
+            </button>
+            <button type="button" class="case-save-history-btn btn-action-save todo-save-resolution-history-btn">
+              <span>💾 存入歷史</span>
+            </button>
+          </div>
+        </div>
+        <textarea class="lvi-todo-textarea todo-resolution-textarea" rows="3" placeholder="輸入處理結果...">${escapeHtml(item.resolutionText || '')}</textarea>
+        ${issHistory.length > 0 ? `
+        <div class="case-staging-link-bar">
+          <span class="case-hist-detail-label">🔗 關聯說明：</span>
+          <select class="case-staging-link-select todo-staging-res-link-issue-select">
+            ${stagingIssLinkOptsHtml}
+          </select>
+        </div>` : ''}
+        <div class="todo-attachments-gallery todo-resolution-attachments">${item.resolutionAttachmentsHtml || ''}</div>
+
+        <!-- 處理結果・歷史紀錄 -->
+        <div class="lvi-case-history-section">
+          <div class="lvi-case-history-header">
+            <div class="lvi-case-history-title">
+              <span>📜 歷史紀錄</span>
+              <span class="lvi-case-history-count" data-todo-hist-count="resolution">${resHistory.length}</span>
+            </div>
+          </div>
+          <div class="lvi-case-history-list" data-todo-hist-list="resolution">
+            ${renderTodoResolutionHistoryListHtml(item)}
+          </div>
+        </div>
+      </div>
+
+      <!-- 第 5 列：標籤 | 處理人員 | 結束時間 -->
+      <div class="lvi-todo-row-5">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🏷️ 標籤</span>
+            <div class="flex items-center gap-1.5">
+              <select class="todo-bottom-tag-add-select">
+                ${bottomTagAddOptionsHtml}
+              </select>
+              <button type="button" class="todo-open-mgr-btn" data-mgr-tab="custom">⚙️ 管理</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap pt-1 todo-tags-pills-wrap">
+            ${tagsPillsHtml}
+          </div>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>👥 處理人員</span>
+            <div class="flex items-center gap-1.5">
+              <select class="todo-handler-add-select">
+                ${handlerAddOptionsHtml}
+              </select>
+              <button type="button" class="todo-open-mgr-btn" data-mgr-tab="todo_handler">⚙️ 管理</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap pt-1 todo-handlers-pills-wrap">
+            ${handlerPillsHtml}
+          </div>
+        </div>
+
+        <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} todo-edit-completed-time-btn" title="完成時自動記錄；點擊可手動調整">
+          <span class="text-[10px] font-extrabold ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'}">🏁 結束時間</span>
+          <span class="text-xs font-black ${isCompleted ? 'text-emerald-950 dark:text-emerald-100' : 'text-blue-950 dark:text-blue-100'} todo-completed-time-text">
+            ${item.completedAt ? escapeHtml(item.completedAt) : '無'}
+          </span>
+        </div>
+      </div>
+    </article>
+  `;
+};
+
+// 擴充 bindTodoCardsInteractions：綁定「💾 存入歷史」、展開/收合歷史卡片、雙向關聯設定、跳轉、載回編輯、刪除與匯出 PDF
+const _origBindTodoCardsInteractionsV297 = bindTodoCardsInteractions;
+bindTodoCardsInteractions = function(listContainer) {
+  if (!listContainer) return;
+
+  // 先攔截「← 返回列表」按鈕，確保離開前自動將未儲存的暫存內容歸檔至歷史紀錄
+  const backBtn = document.getElementById('btn-back-to-todo-list');
+  if (backBtn && !backBtn._v298Bound) {
+    backBtn._v298Bound = true;
+    backBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      flushAllUnsavedTodoStagingToHistory(true);
+      state.activeTodoDetailId = null;
+      renderTasksView();
+    });
+  }
+
+  _origBindTodoCardsInteractionsV297(listContainer);
+
+  // 匯出 PDF 按鈕
+  listContainer.querySelectorAll('.todo-export-pdf-btn').forEach(btn => {
+    if (btn._v298Bound) return;
+    btn._v298Bound = true;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const tid = btn.getAttribute('data-todo-id') || state.activeTodoDetailId;
+      if (tid) exportSingleTodoReportPDF(tid);
+    });
+  });
+
+  listContainer.querySelectorAll('.lvi-todo-card:not(.lvi-case-card)').forEach(cardEl => {
+    const todoId = cardEl.getAttribute('data-todo-id');
+    const getItem = () => (state.todoItems || []).find(t => t.id === todoId);
+
+    // 1. 「💾 存入歷史」按鈕（待辦說明）
+    const saveIssBtn = cardEl.querySelector('.todo-save-issue-history-btn');
+    if (saveIssBtn && !saveIssBtn._v298Bound) {
+      saveIssBtn._v298Bound = true;
+      saveIssBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const item = getItem();
+        if (!item) return;
+        syncTodoCardAttachmentsFromDom(cardEl);
+        const issInp = cardEl.querySelector('.todo-issue-textarea');
+        if (issInp) item.issueText = issInp.value;
+        const entry = commitTodoIssueStagingToHistory(item, { autoSaved: false });
+        if (!entry) {
+          showToast('⚠️ 請先輸入待辦說明文字或匯入照片/檔案，再點擊「存入歷史」');
+          return;
+        }
+        saveTodoItemsState(true);
+        renderTasksView();
+        pushSingleTodoItemToGoogleTasks(item);
+        showToast(`💾 已將「${entry.code}」存入此待辦事項的待辦說明歷史紀錄！`);
+      });
+    }
+
+    // 2. 「💾 存入歷史」按鈕（處理結果）
+    const saveResBtn = cardEl.querySelector('.todo-save-resolution-history-btn');
+    if (saveResBtn && !saveResBtn._v298Bound) {
+      saveResBtn._v298Bound = true;
+      saveResBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const item = getItem();
+        if (!item) return;
+        syncTodoCardAttachmentsFromDom(cardEl);
+        const resInp = cardEl.querySelector('.todo-resolution-textarea');
+        const linkSel = cardEl.querySelector('.todo-staging-res-link-issue-select');
+        if (resInp) item.resolutionText = resInp.value;
+        const pickedIssId = linkSel && linkSel.value ? [linkSel.value] : [];
+        const entry = commitTodoResolutionStagingToHistory(item, {
+          autoSaved: false,
+          linkedIssueIds: pickedIssId
+        });
+        if (!entry) {
+          showToast('⚠️ 請先輸入處理結果文字或匯入照片/檔案，再點擊「存入歷史」');
+          return;
+        }
+        saveTodoItemsState(true);
+        renderTasksView();
+        pushSingleTodoItemToGoogleTasks(item);
+        showToast(`💾 已將「${entry.code}」存入此待辦事項的處理結果歷史紀錄！`);
+      });
+    }
+
+    // 3. 點擊歷史條列展開/收合詳情
+    cardEl.querySelectorAll('.lvi-case-history-summary-bar[data-toggle-todo-hist-id]').forEach(bar => {
+      if (bar._v298Bound) return;
+      bar._v298Bound = true;
+      bar.addEventListener('click', (e) => {
+        if (e.target.closest('.todo-jump-linked-hist-btn, button, select')) return;
+        const hid = bar.getAttribute('data-toggle-todo-hist-id');
+        if (!hid) return;
+        if (state.expandedTodoHistoryIds.has(hid)) {
+          state.expandedTodoHistoryIds.delete(hid);
+        } else {
+          state.expandedTodoHistoryIds.add(hid);
+        }
+        renderTasksView();
+      });
+    });
+
+    // 4. 點擊關聯膠囊一鍵展開並捲動高光閃爍至對向歷史紀錄
+    cardEl.querySelectorAll('.todo-jump-linked-hist-btn').forEach(btn => {
+      if (btn._v298Bound) return;
+      btn._v298Bound = true;
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const targetId = btn.getAttribute('data-target-todo-hist-id');
+        if (!targetId) return;
+        state.expandedTodoHistoryIds.add(targetId);
+        renderTasksView();
+        setTimeout(() => {
+          const targetCard = document.getElementById(`todo-hist-card-${targetId}`);
+          if (targetCard) {
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            targetCard.classList.add('flash-highlight');
+            setTimeout(() => targetCard.classList.remove('flash-highlight'), 1600);
+          }
+        }, 40);
+      });
+    });
+
+    // 5. 在歷史詳情中選擇新增互相關聯
+    cardEl.querySelectorAll('.todo-hist-link-select').forEach(sel => {
+      if (sel._v298Bound) return;
+      sel._v298Bound = true;
+      sel.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const item = getItem();
+        if (!item || !sel.value) return;
+        const dir = sel.getAttribute('data-link-dir');
+        const issId = dir === 'iss-to-res' ? sel.getAttribute('data-iss-id') : sel.value;
+        const resId = dir === 'iss-to-res' ? sel.value : sel.getAttribute('data-res-id');
+        toggleTodoHistoryMutualLink(item, issId, resId, true);
+        renderTasksView();
+        showToast('🔗 已建立「待辦說明 ⇄ 處理結果」雙向關聯！');
+      });
+    });
+
+    // 6. 解除關聯按鈕
+    cardEl.querySelectorAll('.todo-unlink-hist-btn').forEach(btn => {
+      if (btn._v298Bound) return;
+      btn._v298Bound = true;
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const issId = btn.getAttribute('data-iss-id');
+        const resId = btn.getAttribute('data-res-id');
+        toggleTodoHistoryMutualLink(item, issId, resId, false);
+        renderTasksView();
+        showToast('已解除該筆關聯');
+      });
+    });
+
+    // 7. 載回上方輸入框重新編輯
+    cardEl.querySelectorAll('.todo-load-hist-to-edit-btn').forEach(btn => {
+      if (btn._v298Bound) return;
+      btn._v298Bound = true;
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-todo-hist-id');
+        const sec = btn.getAttribute('data-todo-hist-section') || 'issue';
+        if (sec === 'issue') {
+          const idx = (item.issueHistory || []).findIndex(x => x.id === hid);
+          if (idx === -1) return;
+          if ((item.issueText && item.issueText.trim()) || (item.issueAttachmentsHtml && item.issueAttachmentsHtml.trim())) {
+            commitTodoIssueStagingToHistory(item, { autoSaved: true });
+          }
+          const target = item.issueHistory.splice(idx, 1)[0];
+          item.issueText = target.text || '';
+          item.issueAttachmentsHtml = target.attachmentsHtml || '';
+          item._stagingIssueLinkResolutionIds = target.linkedResolutionIds || [];
+        } else {
+          const idx = (item.resolutionHistory || []).findIndex(x => x.id === hid);
+          if (idx === -1) return;
+          if ((item.resolutionText && item.resolutionText.trim()) || (item.resolutionAttachmentsHtml && item.resolutionAttachmentsHtml.trim())) {
+            commitTodoResolutionStagingToHistory(item, { autoSaved: true });
+          }
+          const target = item.resolutionHistory.splice(idx, 1)[0];
+          item.resolutionText = target.text || '';
+          item.resolutionAttachmentsHtml = target.attachmentsHtml || '';
+          item._stagingResolutionLinkIssueIds = target.linkedIssueIds || [];
+        }
+        item.updatedAt = Date.now();
+        saveTodoItemsState();
+        renderTasksView();
+        showToast('✏️ 已將該筆歷史載回上方輸入框，修改後再按「💾 存入歷史」即可');
+      });
+    });
+
+    // 8. 刪除單筆歷史紀錄
+    cardEl.querySelectorAll('.todo-del-hist-btn').forEach(btn => {
+      if (btn._v298Bound) return;
+      btn._v298Bound = true;
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-todo-hist-id');
+        const sec = btn.getAttribute('data-todo-hist-section') || 'issue';
+        if (sec === 'issue') {
+          item.issueHistory = (item.issueHistory || []).filter(x => x.id !== hid);
+          (item.resolutionHistory || []).forEach(r => {
+            if (Array.isArray(r.linkedIssueIds)) {
+              r.linkedIssueIds = r.linkedIssueIds.filter(id => id !== hid);
+            }
+          });
+        } else {
+          item.resolutionHistory = (item.resolutionHistory || []).filter(x => x.id !== hid);
+          (item.issueHistory || []).forEach(i => {
+            if (Array.isArray(i.linkedResolutionIds)) {
+              i.linkedResolutionIds = i.linkedResolutionIds.filter(id => id !== hid);
+            }
+          });
+        }
+        state.expandedTodoHistoryIds.delete(hid);
+        item.updatedAt = Date.now();
+        saveTodoItemsState(true);
+        renderTasksView();
+        pushSingleTodoItemToGoogleTasks(item);
+        showToast('🗑️ 已刪除該筆歷史資料');
+      });
+    });
+  });
+};
+
+// 綁定「忘記按存入歷史就直接關閉網站 / 重新整理 / 切換主視圖」時自動將待辦事項暫存輸入區歸檔至歷史紀錄
+if (!window._todoAutoHistoryFlushBound) {
+  window._todoAutoHistoryFlushBound = true;
+  window.addEventListener('beforeunload', () => {
+    flushAllUnsavedTodoStagingToHistory(true);
+  });
+  window.addEventListener('pagehide', () => {
+    flushAllUnsavedTodoStagingToHistory(true);
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      flushAllUnsavedTodoStagingToHistory(true);
+    }
+  });
+}
+
+const _origSwitchViewV297 = switchView;
+switchView = function(viewName) {
+  try {
+    if (state.currentView === 'tasks' && viewName !== 'tasks') {
+      flushAllUnsavedTodoStagingToHistory(true);
+    }
+    if (state.currentView === 'cases' && viewName !== 'cases') {
+      flushAllUnsavedCaseStagingToHistory(true);
+    }
+  } catch (e) {}
+  return _origSwitchViewV297(viewName);
+};
+
+// 擴充模糊檢索與 Google Tasks 同步、表格快速預覽抽屜，納入待辦事項的 issueHistory 與 resolutionHistory
+const _origExtractTodoAttachmentsSearchableTextV297 = extractTodoAttachmentsSearchableText;
+extractTodoAttachmentsSearchableText = function(todoItem) {
+  if (!todoItem) return '';
+  const htmlParts = [
+    todoItem.issueAttachmentsHtml || '',
+    todoItem.resolutionAttachmentsHtml || '',
+    ...(todoItem.issueHistory || []).map(h => h.attachmentsHtml || ''),
+    ...(todoItem.resolutionHistory || []).map(h => h.attachmentsHtml || '')
+  ];
+  return extractHtmlAttachmentsSearchText(htmlParts.join(' ')) || _origExtractTodoAttachmentsSearchableTextV297(todoItem);
+};
+
+evaluateFuzzyTodoMatch = function(todoItem, parsedQuery) {
+  if (!parsedQuery || !parsedQuery.rawNormalized) {
+    return {
+      matched: true,
+      score: 100,
+      confidencePct: 100,
+      matchReasons: [],
+      highlightTerms: [],
+      snippet: null,
+      isSolutionNote: Boolean((todoItem.resolutionHistory && todoItem.resolutionHistory.length) || todoItem.resolutionText)
+    };
+  }
+
+  const attSearchText = extractTodoAttachmentsSearchableText(todoItem);
+  const issHistoryLines = (todoItem.issueHistory || []).map(ih =>
+    `【${ih.code || '說明'} (${ih.time || ''})】${ih.text || ''}`
+  ).join('\n');
+  const resHistoryLines = (todoItem.resolutionHistory || []).map(rh =>
+    `【${rh.code || '結果'} (${rh.time || ''})】${rh.text || ''}`
+  ).join('\n');
+
+  const pseudoNote = {
+    id: todoItem.id,
+    name: todoItem.title || '未命名待辦事項',
+    meta: {
+      machineModel: todoItem.machineModel || '',
+      workContent: (todoItem.tags || []).join(' '),
+      clientVendor: todoItem.clientVendor || '',
+      status: `${todoItem.status || ''} ${(todoItem.handlers || []).join(' ')}`,
+      tags: [...(todoItem.tags || []), ...(todoItem.handlers || []), todoItem.status || '']
+    },
+    _cachedBody: [
+      `【待辦說明】${todoItem.issueText || ''}`,
+      issHistoryLines,
+      `【處理結果】${todoItem.resolutionText || ''}`,
+      resHistoryLines,
+      attSearchText ? `【圖片備註與附件】${attSearchText}` : ''
+    ].filter(Boolean).join('\n')
+  };
+
+  const baseRes = evaluateFuzzyNoteMatch(pseudoNote, parsedQuery);
+  if (baseRes && baseRes.matched && ((todoItem.resolutionHistory && todoItem.resolutionHistory.length) || (todoItem.resolutionText && todoItem.resolutionText.trim()))) {
+    baseRes.isSolutionNote = true;
+  }
+  return baseRes;
+};
+
+const _origFormatGoogleTaskPayloadFromTodoItemV297 = formatGoogleTaskPayloadFromTodoItem;
+formatGoogleTaskPayloadFromTodoItem = function(item) {
+  const payload = _origFormatGoogleTaskPayloadFromTodoItemV297(item);
+  const issHistLines = (item.issueHistory || []).map(ih => `・[${ih.code} ${ih.time || ''}] ${ih.text || '（附件）'}`).join('\n');
+  const resHistLines = (item.resolutionHistory || []).map(rh => `・[${rh.code} ${rh.time || ''}] ${rh.text || '（附件）'}`).join('\n');
+  if (issHistLines || resHistLines) {
+    const extra = [
+      issHistLines ? `\n📜【待辦說明歷史】\n${issHistLines}` : '',
+      resHistLines ? `\n📜【處理結果歷史】\n${resHistLines}` : ''
+    ].filter(Boolean).join('\n');
+    payload.notes = String(payload.notes || '').replace(/(\n\[LVI_TODO_ID:[^\]]+\])$/, `${extra}$1`);
+  }
+  return payload;
+};
+
+/**
+ * 待辦事項專屬 A4 專業排版 PDF 報告匯出引擎 (renderTodoToDirectPdfBlob & exportSingleTodoReportPDF)
+ */
+async function renderTodoToDirectPdfBlob(item) {
+  if (!item) throw new Error('找不到待辦事項資料');
+
+  // 匯出前若有未存入歷史的暫存輸入內容，先自動歸檔入歷史資料
+  commitTodoIssueStagingToHistory(item, { autoSaved: true });
+  commitTodoResolutionStagingToHistory(item, { autoSaved: true });
+  saveTodoItemsState();
+
+  const syntheticCaseItem = {
+    ...item,
+    caseNumber: item.title || '未命名待辦事項',
+    title: item.title || '未命名待辦事項',
+    symptomText: '',
+    actionTakenText: '',
+    partsReplacedText: '',
+    symptomAttachmentsHtml: '',
+    actionAttachmentsHtml: '',
+    symptomHistory: (item.issueHistory || []).map(ih => ({
+      id: ih.id,
+      code: ih.code,
+      time: ih.time,
+      text: ih.text,
+      attachmentsHtml: ih.attachmentsHtml,
+      linkedActionIds: ih.linkedResolutionIds || []
+    })),
+    actionHistory: (item.resolutionHistory || []).map(rh => ({
+      id: rh.id,
+      code: rh.code,
+      time: rh.time,
+      actionText: rh.text,
+      partsText: '',
+      attachmentsHtml: rh.attachmentsHtml,
+      linkedSymptomIds: rh.linkedIssueIds || []
+    }))
+  };
+  return await renderCaseToDirectPdfBlob(syntheticCaseItem);
+}
+
+async function exportSingleTodoReportPDF(todoId) {
+  ensureTodoItemsInitialized();
+  const item = (state.todoItems || []).find(t => t.id === todoId);
+  if (!item) {
+    showToast('⚠️ 找不到要匯出的待辦事項');
+    return;
+  }
+  const cleanTitle = (item.title || '待辦事項報告').replace(/[\\/:*?"<>|\s]+/g, '_');
+  const safeFile = `LVI-Todo_${cleanTitle}.pdf`;
+
+  showToast(`📄 正在排版並匯出 PDF 報告「${safeFile}」...`, 2000);
+  try {
+    const pdfBlob = await renderTodoToDirectPdfBlob(item);
+    downloadBlob(pdfBlob, safeFile);
+    if (state.currentView === 'tasks' && state.activeTodoDetailId === todoId) {
+      renderTasksView();
+    }
+    showToast(`✅ 已匯出待辦事項 PDF 報告「${safeFile}」！`, 2600);
+  } catch (err) {
+    console.error('匯出待辦 PDF 報告失敗:', err);
+    showToast(`⚠️ 匯出 PDF 失敗：${err.message || '請稍後再試'}`);
+  }
+}
+
+const _origExportPdfV297 = exportPDF;
+exportPDF = async function() {
+  if (DOM.exportMenu) DOM.exportMenu.classList.add('hidden');
+  if (state.currentView === 'tasks') {
+    ensureTodoItemsInitialized();
+    const targetId = state.activeTodoDetailId || (state.todoItems && state.todoItems[0] && state.todoItems[0].id);
+    if (targetId) {
+      await exportSingleTodoReportPDF(targetId);
+      return;
+    }
+  }
+  return await _origExportPdfV297();
+};
+
+
+// 當從單一待辦事項詳細頁返回列表（不論是點擊返回、切換上方 4 大狀態分類、搜尋或切換側邊欄）時，自動將未儲存的暫存內容歸檔至歷史紀錄
+
+const _origFlushAllUnsavedCaseStagingToHistoryV297 = flushAllUnsavedCaseStagingToHistory;
+flushAllUnsavedCaseStagingToHistory = function(autoSaved = true) {
+  const committed = _origFlushAllUnsavedCaseStagingToHistoryV297(autoSaved);
+  if (committed) {
+    const activeCardEl = document.querySelector(".lvi-case-card[data-case-id]");
+    if (activeCardEl) {
+      const symInp = activeCardEl.querySelector(".case-symptom-textarea");
+      const actInp = activeCardEl.querySelector(".case-action-textarea");
+      const partsInp = activeCardEl.querySelector(".case-parts-input");
+      const symGal = activeCardEl.querySelector(".case-symptom-attachments");
+      const actGal = activeCardEl.querySelector(".case-action-attachments");
+      if (symInp) symInp.value = "";
+      if (actInp) actInp.value = "";
+      if (partsInp) partsInp.value = "";
+      if (symGal) symGal.innerHTML = "";
+      if (actGal) actGal.innerHTML = "";
+    }
+  }
+  return committed;
+};
+
+let _lastActiveTodoDetailIdV298 = null;
+const _origRenderTasksViewV297 = renderTasksView;
+renderTasksView = function() {
+  try {
+    if (_lastActiveTodoDetailIdV298 && state.activeTodoDetailId !== _lastActiveTodoDetailIdV298) {
+      flushAllUnsavedTodoStagingToHistory(true);
+    }
+    _lastActiveTodoDetailIdV298 = state.activeTodoDetailId || null;
+  } catch (e) {}
+  return _origRenderTasksViewV297();
+};
+
+// 擴充表格資料庫「👁️ 預覽」待辦事項抽屜：完整呈現待辦說明歷史與處理結果歷史
+const _origOpenTodoQuickPeekDrawerV297 = openTodoQuickPeekDrawer;
+openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
+  _origOpenTodoQuickPeekDrawerV297(todoId, fuzzyRes);
+  try {
+    const item = (state.todoItems || []).find(t => t.id === todoId);
+    if (!item || !DOM.peekNoteBody) return;
+    const issHist = Array.isArray(item.issueHistory) ? item.issueHistory : [];
+    const resHist = Array.isArray(item.resolutionHistory) ? item.resolutionHistory : [];
+    if (issHist.length === 0 && resHist.length === 0) return;
+
+    const linkedNotesHtml = (item.linkedNoteIds || []).map(nid => {
+      const nTitle = resolveLinkedNoteTitle(item, nid);
+      return `<button type="button" class="peek-linked-note-chip inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-bold hover:bg-blue-100 cursor-pointer" data-note-id="${escapeHtml(nid)}">📝 ${escapeHtml(nTitle)} ↗</button>`;
+    }).filter(Boolean).join(' ');
+
+    const issRowsHtml = issHist.map(ih => `
+      <div class="p-2.5 rounded-lg bg-white/90 dark:bg-slate-900/80 border border-rose-200/80 dark:border-rose-900/50 space-y-1">
+        <div class="flex items-center justify-between text-[11px] font-bold text-rose-700 dark:text-rose-300">
+          <span>🔴 ${escapeHtml(ih.code || '說明')}</span>
+          <span class="text-gray-400 font-mono">${escapeHtml(ih.time || '')}</span>
+        </div>
+        <div class="whitespace-pre-wrap text-gray-800 dark:text-gray-100 text-xs">${escapeHtml(ih.text || '（僅含附件）')}</div>
+        ${ih.attachmentsHtml ? `<div class="todo-attachments-gallery mt-2">${ih.attachmentsHtml}</div>` : ''}
+      </div>
+    `).join('');
+
+    const resRowsHtml = resHist.map(rh => `
+      <div class="p-2.5 rounded-lg bg-white/90 dark:bg-slate-900/80 border border-blue-200/80 dark:border-blue-900/50 space-y-1">
+        <div class="flex items-center justify-between text-[11px] font-bold text-blue-700 dark:text-blue-300">
+          <span>🔵 ${escapeHtml(rh.code || '結果')}</span>
+          <span class="text-gray-400 font-mono">${escapeHtml(rh.time || '')}</span>
+        </div>
+        <div class="whitespace-pre-wrap text-gray-800 dark:text-gray-100 text-xs">${escapeHtml(rh.text || '（僅含附件）')}</div>
+        ${rh.attachmentsHtml ? `<div class="todo-attachments-gallery mt-2">${rh.attachmentsHtml}</div>` : ''}
+      </div>
+    `).join('');
+
+    DOM.peekNoteBody.innerHTML = `
+      <div class="space-y-4 text-xs sm:text-sm">
+        <div class="p-3 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+          <div class="font-bold text-blue-800 dark:text-blue-200 mb-1">🔗 關聯筆記：</div>
+          <div class="flex flex-wrap gap-1.5">${linkedNotesHtml || '<span class="text-gray-400">無</span>'}</div>
+        </div>
+        <div class="p-3.5 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/60 border-l-4 border-l-rose-500 space-y-2">
+          <div class="font-extrabold text-rose-800 dark:text-rose-300">🔴 待辦說明 (${issHist.length} 筆歷史)</div>
+          ${item.issueText ? `<div class="whitespace-pre-wrap text-gray-800 dark:text-gray-100 font-medium">${escapeHtml(item.issueText)}</div>` : ''}
+          ${issRowsHtml || (!item.issueText ? '<div class="text-gray-400">無</div>' : '')}
+        </div>
+        <div class="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 border-l-4 border-l-blue-500 space-y-2">
+          <div class="font-extrabold text-slate-800 dark:text-slate-200">🔵 處理結果 (${resHist.length} 筆歷史)</div>
+          ${item.resolutionText ? `<div class="whitespace-pre-wrap text-gray-800 dark:text-gray-100 font-medium">${escapeHtml(item.resolutionText)}</div>` : ''}
+          ${resRowsHtml || (!item.resolutionText ? '<div class="text-gray-400">無</div>' : '')}
+        </div>
+        <div class="pt-2 flex justify-end">
+          <button type="button" id="peek-jump-to-todo-btn" class="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold cursor-pointer">進入詳細介面編輯 ➔</button>
+        </div>
+      </div>
+    `;
+    DOM.peekNoteBody.querySelectorAll('.todo-attachments-gallery').forEach(gal => {
+      try { enhanceAllEditorBlocks(gal); } catch (e) {}
+    });
+    const jumpBtn = DOM.peekNoteBody.querySelector('#peek-jump-to-todo-btn');
+    if (jumpBtn) {
+      jumpBtn.addEventListener('click', () => {
+        closeTableQuickPeekDrawer();
+        openTodoItemFromTable(todoId);
+      });
+    }
+  } catch (e) {}
+};
