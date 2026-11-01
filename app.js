@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.9.6'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.9.7'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -7247,7 +7247,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.6', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.7', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -22519,13 +22519,153 @@ ensureEditableSpacesAroundMediaBlocks = function(container = DOM.editor) {
   } catch (e) {}
 };
 
+function getOrCreateDblClickEnterProxyEl() {
+  let proxy = document.getElementById('lvi-dblclick-enter-proxy');
+  if (!proxy) {
+    proxy = document.createElement('textarea');
+    proxy.id = 'lvi-dblclick-enter-proxy';
+    proxy.rows = 1;
+    proxy.setAttribute('enterkeyhint', 'enter');
+    proxy.setAttribute('inputmode', 'text');
+    proxy.setAttribute('autocapitalize', 'off');
+    proxy.setAttribute('autocomplete', 'off');
+    proxy.setAttribute('autocorrect', 'off');
+    proxy.setAttribute('spellcheck', 'false');
+    proxy.setAttribute('aria-hidden', 'true');
+    proxy.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;z-index:-1;border:none;padding:0;margin:0;outline:none;resize:none;';
+    document.body.appendChild(proxy);
+
+    proxy.addEventListener('keydown', (e) => {
+      if (!state.pendingDblClickTarget) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        clearPendingDblClickTarget();
+        return;
+      }
+      if (e.key === 'Enter' || e.keyCode === 13) {
+        e.preventDefault();
+        e.stopPropagation();
+        proxy.value = '';
+        executePendingDblClickInsertLine();
+      }
+    });
+
+    proxy.addEventListener('beforeinput', (e) => {
+      if (!state.pendingDblClickTarget) return;
+      if (e.inputType === 'insertParagraph' || e.inputType === 'insertLineBreak') {
+        e.preventDefault();
+        e.stopPropagation();
+        proxy.value = '';
+        executePendingDblClickInsertLine();
+      }
+    });
+
+    proxy.addEventListener('input', () => {
+      if (!state.pendingDblClickTarget) {
+        proxy.value = '';
+        return;
+      }
+      const val = proxy.value || '';
+      if (val.includes('\n') || val.includes('\r')) {
+        proxy.value = '';
+        executePendingDblClickInsertLine();
+      } else if (val.length > 0) {
+        // 若手機使用者於雙擊記住位置後直接輸入文字，自動在該位置插入新行並填入該文字
+        const typedText = val;
+        proxy.value = '';
+        executePendingDblClickInsertLine(false, typedText);
+      }
+    });
+  }
+  return proxy;
+}
+
+function executePendingDblClickInsertLine(fallbackToBottomOrCursor = false, initialText = '') {
+  if (!DOM.editor) return false;
+  let target = state.pendingDblClickTarget;
+
+  if (!target && fallbackToBottomOrCursor) {
+    if (state.hasActiveEditorCursor && state.savedEditorCursorRange) {
+      let node = state.savedEditorCursorRange.commonAncestorContainer;
+      if (node && node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+      const topBlock = node && node.closest ? node.closest('#editor > *') : null;
+      if (topBlock && DOM.editor.contains(topBlock)) {
+        target = { mode: 'after', refEl: topBlock };
+      }
+    }
+    if (!target) {
+      target = { mode: 'end', refEl: DOM.editor.lastElementChild || null };
+    }
+  }
+
+  if (!target) return false;
+  clearPendingDblClickTarget();
+
+  const newP = document.createElement('p');
+  if (initialText) {
+    newP.textContent = initialText;
+  } else {
+    newP.innerHTML = '<br>';
+  }
+
+  commitEditorCanvasAction('insert_line', '➕ 於指定位置新增一行', '', () => {
+    if (target.refEl && DOM.editor.contains(target.refEl)) {
+      if (target.mode === 'before') {
+        target.refEl.before(newP);
+      } else {
+        target.refEl.after(newP);
+      }
+    } else {
+      DOM.editor.appendChild(newP);
+    }
+  });
+
+  DOM.editor.focus({ preventScroll: true });
+  if (initialText && newP.firstChild) {
+    try {
+      const sel = window.getSelection();
+      const r = document.createRange();
+      r.setStart(newP.firstChild, initialText.length);
+      r.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(r);
+    } catch (e) {
+      placeCaretAtStart(newP);
+    }
+  } else {
+    placeCaretAtStart(newP);
+  }
+  updateActiveEditorCursorFromSelection();
+  saveLocalDraftImmediately();
+  triggerAutoSaveDebounce();
+  return true;
+}
+
 function getOrCreateDblClickIndicatorEl() {
   let el = document.getElementById('lvi-pending-dblclick-indicator');
   if (!el) {
     el = document.createElement('div');
     el.id = 'lvi-pending-dblclick-indicator';
     el.className = 'hidden';
+    el.innerHTML = `
+      <button type="button" class="lvi-dblclick-insert-btn" title="點擊此處或按 Enter 鍵在此新增一行空白段落">
+        <span>↵ 新增空白行</span>
+        <span class="lvi-dblclick-hint-sub">（點此或按 Enter）</span>
+      </button>
+    `;
     document.body.appendChild(el);
+
+    const btn = el.querySelector('.lvi-dblclick-insert-btn');
+    if (btn) {
+      const triggerInsert = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        executePendingDblClickInsertLine();
+      };
+      btn.addEventListener('mousedown', triggerInsert);
+      btn.addEventListener('touchstart', triggerInsert, { passive: false });
+      btn.addEventListener('click', triggerInsert);
+    }
   }
   return el;
 }
@@ -22534,6 +22674,8 @@ function clearPendingDblClickTarget() {
   state.pendingDblClickTarget = null;
   const ind = document.getElementById('lvi-pending-dblclick-indicator');
   if (ind) ind.classList.add('hidden');
+  const mbBtn = document.getElementById('mb-tool-insert-line');
+  if (mbBtn) mbBtn.classList.remove('ring-2', 'ring-blue-500');
 }
 
 function updatePendingDblClickIndicatorPosition() {
@@ -22564,8 +22706,28 @@ function updatePendingDblClickIndicatorPosition() {
 
   ind.style.left = `${Math.round(editorRect.left)}px`;
   ind.style.top = `${Math.round(topPx)}px`;
-  ind.style.width = `${Math.round(Math.min(editorRect.width, 280))}px`;
+  ind.style.width = `${Math.round(Math.min(editorRect.width, 340))}px`;
   ind.classList.remove('hidden');
+
+  const mbBtn = document.getElementById('mb-tool-insert-line');
+  if (mbBtn) mbBtn.classList.add('ring-2', 'ring-blue-500');
+}
+
+function activatePendingDblClickAtPoint(clientX, clientY) {
+  try { window.getSelection().removeAllRanges(); } catch (err) {}
+  state.hasActiveEditorCursor = false;
+  state.savedEditorCursorRange = null;
+
+  state.pendingDblClickTarget = resolveEditorInsertPositionFromPoint(clientX, clientY);
+  updatePendingDblClickIndicatorPosition();
+
+  // 聚焦隱藏代理輸入框以支援手機虛擬鍵盤直接按 Enter / 換行，且不觸發 contenteditable 自動加兩行
+  try {
+    const proxy = getOrCreateDblClickEnterProxyEl();
+    proxy.value = '';
+    proxy.style.top = `${Math.max(0, Math.min(window.innerHeight - 10, Math.round(clientY)))}px`;
+    proxy.focus({ preventScroll: true });
+  } catch (e) {}
 }
 
 function isEditableTextElementInEditor(el) {
@@ -22885,7 +23047,7 @@ function initV289EditorCursorAndDblClickEngine() {
 
   // 3. 單擊無輸入游標的空白區或卡片外框時：不自動加行，並清除舊游標避免瀏覽器預設跳至第一行
   const handleContainerMouseDown = (e) => {
-    if (e.target.closest('button, a, summary, input, select, textarea, .notion-popover, .drag-handle, .notion-todo-checkbox, .highlight-color-btn, .media-top-note-input, #note-backlinks-panel, #wikilink-autocomplete-menu, #page-header, #page-cover, .lvi-backlink-card, .lvi-wikilink-menu-item, .lvi-wikilink, .lvi-backlinks-copy-btn')) {
+    if (e.target.closest('button, a, summary, input, select, textarea, .notion-popover, .drag-handle, .notion-todo-checkbox, .highlight-color-btn, .media-top-note-input, #lvi-pending-dblclick-indicator, #note-backlinks-panel, #wikilink-autocomplete-menu, #page-header, #page-cover, .lvi-backlink-card, .lvi-wikilink-menu-item, .lvi-wikilink, .lvi-backlinks-copy-btn')) {
       return;
     }
     if (!isEditableTextElementInEditor(e.target)) {
@@ -22906,11 +23068,14 @@ function initV289EditorCursorAndDblClickEngine() {
 
   if (scrollContainer) scrollContainer.addEventListener('mousedown', handleContainerMouseDown);
 
-  // 4. 雙擊 (dblclick) 無輸入游標的地方時：記住該位置 (顯示細線提示)，絕不直接加兩行；待後續按下 Enter 才加一行！
+  // 4. 雙擊 (dblclick) 或手機快速雙擊 (double-tap) 無輸入游標的地方時：記住該位置，顯示互動式「↵ 新增空白行」膠囊並支援直接按 Enter 新增一行！
+  const isIgnoredInteractiveTarget = (targetEl) => {
+    if (!targetEl || !targetEl.closest) return true;
+    return Boolean(targetEl.closest('button, a, summary, input, select, textarea, .notion-popover, .drag-handle, .notion-todo-checkbox, .highlight-color-btn, .media-top-note-input, #lvi-pending-dblclick-indicator, #lvi-pending-dblclick-indicator, #note-backlinks-panel, #wikilink-autocomplete-menu, #page-header, #page-cover, .lvi-backlink-card, .lvi-wikilink-menu-item, .lvi-wikilink, .lvi-backlinks-copy-btn'));
+  };
+
   const handleContainerDblClick = (e) => {
-    if (e.target.closest('button, a, summary, input, select, textarea, .notion-popover, .drag-handle, .notion-todo-checkbox, .highlight-color-btn, .media-top-note-input, #note-backlinks-panel, #wikilink-autocomplete-menu, #page-header, #page-cover, .lvi-backlink-card, .lvi-wikilink-menu-item, .lvi-wikilink, .lvi-backlinks-copy-btn')) {
-      return;
-    }
+    if (isIgnoredInteractiveTarget(e.target)) return;
     // 若雙擊在已有文字且已有游標的文字段落內，維持原生選詞行為
     if (isEditableTextElementInEditor(e.target) && state.hasActiveEditorCursor) {
       const block = e.target.closest('p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, pre');
@@ -22921,20 +23086,59 @@ function initV289EditorCursorAndDblClickEngine() {
 
     e.preventDefault();
     e.stopPropagation();
+    activatePendingDblClickAtPoint(e.clientX, e.clientY);
+  };
 
-    try { window.getSelection().removeAllRanges(); } catch (err) {}
-    state.hasActiveEditorCursor = false;
-    state.savedEditorCursorRange = null;
+  // 手機端觸控雙擊 (Double-Tap) 偵測：解決手機瀏覽器不觸發 dblclick 或觸發過慢的問題
+  let lastTouchEndTime = 0;
+  let lastTouchX = 0;
+  let lastTouchY = 0;
+  const handleContainerTouchEnd = (e) => {
+    if (isIgnoredInteractiveTarget(e.target)) return;
+    if (!e.changedTouches || e.changedTouches.length !== 1) return;
+    const touch = e.changedTouches[0];
+    const now = Date.now();
+    const dt = now - lastTouchEndTime;
+    const dx = Math.abs(touch.clientX - lastTouchX);
+    const dy = Math.abs(touch.clientY - lastTouchY);
 
-    state.pendingDblClickTarget = resolveEditorInsertPositionFromPoint(e.clientX, e.clientY);
-    updatePendingDblClickIndicatorPosition();
+    if (dt > 30 && dt <= 380 && dx < 36 && dy < 36) {
+      if (isEditableTextElementInEditor(e.target) && state.hasActiveEditorCursor) {
+        const block = e.target.closest('p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, pre');
+        if (block && (block.textContent || '').trim().length > 0) {
+          lastTouchEndTime = 0;
+          return;
+        }
+      }
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+      lastTouchEndTime = 0;
+      activatePendingDblClickAtPoint(touch.clientX, touch.clientY);
+      return;
+    }
+
+    lastTouchEndTime = now;
+    lastTouchX = touch.clientX;
+    lastTouchY = touch.clientY;
   };
 
   if (scrollContainer) {
     scrollContainer.addEventListener('dblclick', handleContainerDblClick);
+    scrollContainer.addEventListener('touchend', handleContainerTouchEnd, { passive: false });
     scrollContainer.addEventListener('scroll', () => {
       if (state.pendingDblClickTarget) updatePendingDblClickIndicatorPosition();
     }, { passive: true });
+  }
+
+  // 手機底部工具列專屬「↵插行」按鈕綁定
+  const mbInsertLineBtn = document.getElementById('mb-tool-insert-line');
+  if (mbInsertLineBtn && !mbInsertLineBtn._bound) {
+    mbInsertLineBtn._bound = true;
+    mbInsertLineBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      executePendingDblClickInsertLine(true);
+    });
   }
 
   // 5. 當已記住雙擊位置時，使用者後續按下 Enter 才在該位置新增 1 行 (<p><br></p>) 並置入游標
@@ -22948,36 +23152,15 @@ function initV289EditorCursorAndDblClickEngine() {
       clearPendingDblClickTarget();
       return;
     }
-    if (e.key === 'Enter' && !e.isComposing) {
-      const activeTag = document.activeElement ? document.activeElement.tagName : '';
-      if (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT') return;
+    if (e.key === 'Enter' || e.keyCode === 13) {
+      const activeEl = document.activeElement;
+      const activeTag = activeEl ? activeEl.tagName : '';
+      const isProxy = activeEl && activeEl.id === 'lvi-dblclick-enter-proxy';
+      if (!isProxy && (activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT')) return;
 
       e.preventDefault();
       e.stopPropagation();
-
-      const target = state.pendingDblClickTarget;
-      clearPendingDblClickTarget();
-
-      const newP = document.createElement('p');
-      newP.innerHTML = '<br>';
-
-      commitEditorCanvasAction('insert_line', '➕ 於指定位置新增一行', '', () => {
-        if (target.refEl && DOM.editor.contains(target.refEl)) {
-          if (target.mode === 'before') {
-            target.refEl.before(newP);
-          } else {
-            target.refEl.after(newP);
-          }
-        } else {
-          DOM.editor.appendChild(newP);
-        }
-      });
-
-      DOM.editor.focus();
-      placeCaretAtStart(newP);
-      updateActiveEditorCursorFromSelection();
-      saveLocalDraftImmediately();
-      triggerAutoSaveDebounce();
+      executePendingDblClickInsertLine();
     }
   }, true);
 }
@@ -23335,6 +23518,10 @@ function ensureCaseItemsInitialized() {
   let bootAutoCommitted = false;
 
   state.caseItems.forEach(item => {
+    if (!item || typeof item !== 'object') return;
+    if (!item.caseNumber && item.title) {
+      item.caseNumber = String(item.title).trim();
+    }
     item.status = normalizeCaseStatusValue(item.status);
     if (typeof item.caseNumber !== 'string') item.caseNumber = '';
     if (typeof item.machineModel !== 'string') item.machineModel = '';
@@ -24076,7 +24263,7 @@ async function renderCaseToDirectPdfBlob(item) {
   curY += 20;
 
   // 2. 案件大標題 + 案號標章
-  const titleDisplay = `${item.caseNumber ? '[' + item.caseNumber + '] ' : ''}${item.title || '未命名案件'}`;
+  const titleDisplay = `案號：${getCaseDisplayNo(item)}`;
   curCtx.font = `800 36px ${FONT_FAMILY}`;
   curCtx.fillStyle = '#0f172a';
   const titleLines = wrapTextLines(curCtx, titleDisplay, CONTENT_W);
@@ -24396,6 +24583,11 @@ function countAttachmentsInHtml(attHtml) {
   return (attHtml.match(/notion-media-collapse/g) || []).length + (attHtml.match(/notion-file-attachment/g) || []).length;
 }
 
+function getCaseDisplayNo(item) {
+  if (!item) return '（未填案號）';
+  return (item.caseNumber || item.title || '').trim() || '（未填案號）';
+}
+
 function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
   const normStatus = normalizeCaseStatusValue(item.status);
   const statusBadgeCls = getCaseStatusBadgeClass(normStatus);
@@ -24404,7 +24596,7 @@ function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
     normStatus === '🟡 處理中' ? 'row-status-progress' :
     normStatus === '🟠 待料/觀察中' ? 'row-status-waiting' : 'row-status-pending';
 
-  const titleText = (item.title || '').trim() || '（未命名案件）';
+  const caseNoText = getCaseDisplayNo(item);
   const latestSym = (item.symptomHistory && item.symptomHistory[0] && item.symptomHistory[0].text) || item.symptomText || '';
   const latestAct = (item.actionHistory && item.actionHistory[0] && item.actionHistory[0].actionText) || item.actionTakenText || '';
   const symptomPreview = latestSym.replace(/\s+/g, ' ').trim();
@@ -24438,22 +24630,21 @@ function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
   const secondaryBadgesHtml = [
     ...handlers.map(h => `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800 shrink-0">👤 ${escapeHtml(h)}</span>`),
     ...tags.map(t => `<span class="px-1.5 py-0.5 rounded-md text-[10.5px] font-bold border ${getTagPillColorClass(t)} shrink-0">#${escapeHtml(t)}</span>`),
-    (symHistCount > 0 || actHistCount > 0) ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold shrink-0">📜 歷史：異常 ${symHistCount} / 對策 ${actHistCount}</span>` : '',
-    linkedCount > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold shrink-0">🔗 關聯筆記 ${linkedCount}</span>` : '',
-    totalAtt > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold shrink-0">🖼️ 縮圖/附件 ${totalAtt}</span>` : ''
+    (symHistCount > 0 || actHistCount > 0) ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold shrink-0">📜 異常 ${symHistCount} / 對策 ${actHistCount}</span>` : '',
+    linkedCount > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold shrink-0">🔗 筆記 ${linkedCount}</span>` : '',
+    totalAtt > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold shrink-0">🖼️ 附件 ${totalAtt}</span>` : ''
   ].filter(Boolean).join('');
 
   const completedBadgeHtml = item.completedAt
-    ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">🏁 結案：${escapeHtml(item.completedAt)}</span>`
-    : `<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 shrink-0">🏁 結案：未結案</span>`;
+    ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">🏁 ${escapeHtml(item.completedAt)}</span>`
+    : `<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 shrink-0">未結案</span>`;
 
   return `
     <div class="lvi-todo-summary-row lvi-case-summary-row ${statusRowAccentCls} group" data-case-summary-id="${escapeHtml(item.id)}">
       <div class="lvi-todo-summary-main">
         <div class="lvi-todo-summary-top-line">
           <span class="px-2.5 py-0.5 rounded-md text-xs font-extrabold border shrink-0 ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
-          ${item.caseNumber ? `<span class="lvi-case-no-badge shrink-0">📁 ${escapeHtml(item.caseNumber)}</span>` : `<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500 shrink-0">未填案號</span>`}
-          <span class="lvi-todo-summary-title truncate">${escapeHtml(titleText)}</span>
+          <span class="lvi-todo-summary-title truncate font-mono">📁 ${escapeHtml(caseNoText)}</span>
           ${item.machineModel ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">🚜 ${escapeHtml(item.machineModel)}</span>` : ''}
           ${item.clientVendor ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">🏢 ${escapeHtml(item.clientVendor)}</span>` : ''}
         </div>
@@ -24466,12 +24657,12 @@ function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
 
       <div class="lvi-todo-summary-right">
         ${completedBadgeHtml}
-        <span class="lvi-todo-summary-time">🕒 立案：${escapeHtml(item.createdAt || '')}</span>
+        <span class="lvi-todo-summary-time">🕒 ${escapeHtml(item.createdAt || '')}</span>
         <button type="button" class="todo-summary-del-btn case-summary-del-btn" data-case-id="${escapeHtml(item.id)}" title="刪除此筆案件">
           <span>🗑️ 刪除</span>
         </button>
         <span class="lvi-todo-summary-open-pill">
-          <span>追蹤詳情</span>
+          <span>詳情</span>
           <span>➔</span>
         </span>
       </div>
@@ -24485,9 +24676,14 @@ function renderCasesTableModeHtml(filteredList) {
 
   const rowsHtml = filteredList.map(({ item, fuzzyRes }) => {
     const normStatus = normalizeCaseStatusValue(item.status);
-    const titleText = (item.title || '').trim() || '（未命名案件）';
     const symHistCount = (item.symptomHistory || []).length;
     const actHistCount = (item.actionHistory || []).length;
+    const latestSym = (item.symptomHistory && item.symptomHistory[0] && item.symptomHistory[0].text) || item.symptomText || '';
+    const latestAct = (item.actionHistory && item.actionHistory[0] && item.actionHistory[0].actionText) || item.actionTakenText || '';
+    const summaryLine = [
+      latestSym ? `🚨 ${latestSym.replace(/\s+/g, ' ').trim().slice(0, 32)}` : '',
+      latestAct ? `🛠️ ${latestAct.replace(/\s+/g, ' ').trim().slice(0, 32)}` : ''
+    ].filter(Boolean).join(' ➔ ');
 
     const machOpts = `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>` +
       machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`).join('');
@@ -24511,11 +24707,11 @@ function renderCasesTableModeHtml(filteredList) {
           </select>
         </td>
         <td onclick="event.stopPropagation();">
-          <input type="text" class="case-inline-table-input" data-case-id="${escapeHtml(item.id)}" data-field="caseNumber" value="${escapeHtml(item.caseNumber || '')}" placeholder="直接輸入案號..." />
+          <input type="text" class="case-inline-table-input" data-case-id="${escapeHtml(item.id)}" data-field="caseNumber" value="${escapeHtml(item.caseNumber || item.title || '')}" placeholder="輸入案號..." />
         </td>
         <td>
-          <div class="font-extrabold text-slate-900 dark:text-white">${escapeHtml(titleText)}</div>
-          <div class="text-[11px] text-teal-700 dark:text-teal-300">📜 歷史紀錄：異常 ${symHistCount} 筆 ／ 對策 ${actHistCount} 筆</div>
+          <div class="text-[11px] font-bold text-teal-700 dark:text-teal-300">異常 ${symHistCount} 筆 ／ 對策 ${actHistCount} 筆</div>
+          ${summaryLine ? `<div class="text-xs text-slate-600 dark:text-slate-300 truncate max-w-[260px]">${escapeHtml(summaryLine)}</div>` : ''}
           ${(fuzzyRes && fuzzyRes.snippet) ? `<div class="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">🔍 ${highlightMatchedTermsHtml(fuzzyRes.snippet.text || String(fuzzyRes.snippet || ""), fuzzyRes.highlightTerms || [])}</div>` : ''}
         </td>
         <td onclick="event.stopPropagation();">
@@ -24547,7 +24743,7 @@ function renderCasesTableModeHtml(filteredList) {
           <tr>
             <th>📊 狀態</th>
             <th>📁 案號</th>
-            <th style="min-width:200px;">📌 案件主旨 / 歷史統計</th>
+            <th style="min-width:180px;">📜 歷史摘要</th>
             <th>🚜 機型</th>
             <th>🏢 客戶/廠商</th>
             <th>👥 處理人員</th>
@@ -24566,35 +24762,35 @@ function renderCasesTableModeHtml(filteredList) {
 }
 
 /**
- * 渲染「客訴與異常現象」下方獨立歷史資料列表 (點擊任一列即可展開查看詳情 + 關聯售後處理對策)
+ * 渲染「客訴 / 異常現象」下方歷史紀錄列表 (精簡無贅字版)
  */
 function renderSymptomHistoryListHtml(item) {
   const symHistory = Array.isArray(item.symptomHistory) ? item.symptomHistory : [];
   const actHistory = Array.isArray(item.actionHistory) ? item.actionHistory : [];
 
   if (symHistory.length === 0) {
-    return `<div class="text-xs text-gray-400 py-3 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無客訴與異常現象歷史資料（於上方輸入文字或匯入檔案後，點擊「💾 存入歷史」或直接關閉網站即會自動存入此處）</div>`;
+    return `<div class="text-xs text-gray-400 py-2.5 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無歷史紀錄</div>`;
   }
 
   return symHistory.map(sh => {
     const isExpanded = state.expandedCaseHistoryIds.has(sh.id);
     const attCount = countAttachmentsInHtml(sh.attachmentsHtml);
-    const previewTxt = (sh.text || '').replace(/\s+/g, ' ').trim() || (attCount > 0 ? `（含 ${attCount} 個照片/檔案附件）` : '（無文字內容）');
+    const previewTxt = (sh.text || '').replace(/\s+/g, ' ').trim() || (attCount > 0 ? `（含 ${attCount} 個附件）` : '（無內容）');
     const linkedIds = Array.isArray(sh.linkedActionIds) ? sh.linkedActionIds : [];
     const linkedActions = linkedIds.map(aid => actHistory.find(a => a.id === aid)).filter(Boolean);
 
     const linkedPillsHtml = linkedActions.map(act => `
-      <span class="case-hist-link-pill case-jump-linked-hist-btn" data-target-hist-id="${escapeHtml(act.id)}" title="點擊直接跳轉並展開對應的售後處理對策「${escapeHtml(act.code)}」">
-        <span>🔗 對應${escapeHtml(act.code)}：${escapeHtml((act.actionText || act.partsText || '查看詳情').slice(0, 16))}</span>
+      <span class="case-hist-link-pill case-jump-linked-hist-btn" data-target-hist-id="${escapeHtml(act.id)}" title="跳轉至「${escapeHtml(act.code)}」">
+        <span>🔗 ${escapeHtml(act.code)}：${escapeHtml((act.actionText || act.partsText || '').slice(0, 14))}</span>
         <span>↗</span>
       </span>
     `).join('');
 
     const linkableOptionsHtml = [
-      `<option value="">＋ 關聯售後處理對策...</option>`,
+      `<option value="">＋ 新增關聯...</option>`,
       ...actHistory.map(act => {
         const already = linkedIds.includes(act.id);
-        const label = `${already ? '✓ ' : ''}${act.code}｜${(act.actionText || act.partsText || '無標題').replace(/\s+/g, ' ').slice(0, 26)}`;
+        const label = `${already ? '✓ ' : ''}${act.code}｜${(act.actionText || act.partsText || '無內容').replace(/\s+/g, ' ').slice(0, 22)}`;
         return `<option value="${escapeHtml(act.id)}">${escapeHtml(label)}</option>`;
       })
     ].join('');
@@ -24604,47 +24800,41 @@ function renderSymptomHistoryListHtml(item) {
         <div class="lvi-case-history-summary-bar" data-toggle-hist-id="${escapeHtml(sh.id)}">
           <div class="lvi-case-history-summary-left">
             <span class="case-hist-code-badge case-hist-code-symptom">🚨 ${escapeHtml(sh.code || '異常')}</span>
-            <span class="case-hist-time-text">🕒 ${escapeHtml(sh.time || '')}</span>
+            <span class="case-hist-time-text">${escapeHtml(sh.time || '')}</span>
             <span class="case-hist-preview-text">${escapeHtml(previewTxt)}</span>
-            ${attCount > 0 ? `<span class="case-hist-att-badge">🖼️ 附件 ${attCount}</span>` : ''}
+            ${attCount > 0 ? `<span class="case-hist-att-badge">🖼️ ${attCount}</span>` : ''}
             ${linkedPillsHtml}
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
-            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合詳情' : '🔽 點擊查看詳情'}</span>
+            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合' : '🔽 詳情'}</span>
           </div>
         </div>
 
         <div class="lvi-case-history-detail-body ${isExpanded ? '' : 'hidden'}">
           <div class="case-hist-detail-toolbar">
             <div class="case-hist-detail-links-wrap">
-              <span class="case-hist-detail-label">🔗 關聯之售後處理對策：</span>
+              <span class="case-hist-detail-label">🔗 關聯對策：</span>
               ${linkedActions.length > 0 ? linkedActions.map(act => `
                 <span class="case-hist-linked-chip">
-                  <button type="button" class="case-jump-linked-hist-btn" data-target-hist-id="${escapeHtml(act.id)}">🛠️ ${escapeHtml(act.code)}：${escapeHtml((act.actionText || act.partsText || '').slice(0, 22))} ↗</button>
+                  <button type="button" class="case-jump-linked-hist-btn" data-target-hist-id="${escapeHtml(act.id)}">🛠️ ${escapeHtml(act.code)}：${escapeHtml((act.actionText || act.partsText || '').slice(0, 18))} ↗</button>
                   <button type="button" class="case-unlink-hist-btn" data-sym-id="${escapeHtml(sh.id)}" data-act-id="${escapeHtml(act.id)}" title="解除關聯">×</button>
                 </span>
-              `).join('') : `<span class="case-hist-time-text">尚未關聯處理對策</span>`}
+              `).join('') : `<span class="case-hist-time-text">無</span>`}
               <select class="case-staging-link-select case-hist-link-select" data-sym-id="${escapeHtml(sh.id)}" data-link-dir="sym-to-act">
                 ${linkableOptionsHtml}
               </select>
             </div>
 
             <div class="flex items-center gap-1.5">
-              <button type="button" class="case-load-hist-to-edit-btn case-hist-btn-edit" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom" title="將此筆歷史載回上方輸入框重新編輯">✏️ 載回編輯</button>
+              <button type="button" class="case-load-hist-to-edit-btn case-hist-btn-edit" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">✏️ 編輯</button>
               <button type="button" class="case-del-hist-btn case-hist-btn-del" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">🗑️ 刪除</button>
             </div>
           </div>
 
-          <div>
-            <div class="case-hist-detail-label" style="margin-bottom:4px;">🚨 客訴 / 異常現象完整內容：</div>
-            <div class="lvi-case-history-fulltext">${escapeHtml(sh.text || '（無文字描述）')}</div>
-          </div>
+          <div class="lvi-case-history-fulltext">${escapeHtml(sh.text || '（無文字內容）')}</div>
 
           ${sh.attachmentsHtml ? `
-          <div>
-            <div class="case-hist-detail-label" style="margin-bottom:4px;">🖼️ 附帶照片與檔案（點擊縮圖可放大檢視或標註）：</div>
-            <div class="todo-attachments-gallery case-history-attachments-gallery" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">${sh.attachmentsHtml}</div>
-          </div>` : ''}
+          <div class="todo-attachments-gallery case-history-attachments-gallery" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">${sh.attachmentsHtml}</div>` : ''}
         </div>
       </div>
     `;
@@ -24652,35 +24842,35 @@ function renderSymptomHistoryListHtml(item) {
 }
 
 /**
- * 渲染「售後處理對策與零件更換紀錄」下方獨立歷史資料列表 (點擊任一列即可展開查看詳情 + 關聯客訴異常)
+ * 渲染「處理對策與零件更換」下方歷史紀錄列表 (精簡無贅字版)
  */
 function renderActionHistoryListHtml(item) {
   const symHistory = Array.isArray(item.symptomHistory) ? item.symptomHistory : [];
   const actHistory = Array.isArray(item.actionHistory) ? item.actionHistory : [];
 
   if (actHistory.length === 0) {
-    return `<div class="text-xs text-gray-400 py-3 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無售後處理對策歷史資料（於上方輸入對策、零件或匯入檔案後，點擊「💾 存入歷史」或直接關閉網站即會自動存入此處）</div>`;
+    return `<div class="text-xs text-gray-400 py-2.5 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無歷史紀錄</div>`;
   }
 
   return actHistory.map(ah => {
     const isExpanded = state.expandedCaseHistoryIds.has(ah.id);
     const attCount = countAttachmentsInHtml(ah.attachmentsHtml);
-    const previewTxt = (ah.actionText || '').replace(/\s+/g, ' ').trim() || (ah.partsText ? `🔩 ${ah.partsText}` : (attCount > 0 ? `（含 ${attCount} 個照片/檔案附件）` : '（無文字內容）'));
+    const previewTxt = (ah.actionText || '').replace(/\s+/g, ' ').trim() || (ah.partsText ? `🔩 ${ah.partsText}` : (attCount > 0 ? `（含 ${attCount} 個附件）` : '（無內容）'));
     const linkedIds = Array.isArray(ah.linkedSymptomIds) ? ah.linkedSymptomIds : [];
     const linkedSymptoms = linkedIds.map(sid => symHistory.find(s => s.id === sid)).filter(Boolean);
 
     const linkedPillsHtml = linkedSymptoms.map(sym => `
-      <span class="case-hist-link-pill case-jump-linked-hist-btn" data-target-hist-id="${escapeHtml(sym.id)}" title="點擊直接跳轉並展開對應的客訴異常「${escapeHtml(sym.code)}」">
-        <span>🔗 對應${escapeHtml(sym.code)}：${escapeHtml((sym.text || '查看詳情').slice(0, 16))}</span>
+      <span class="case-hist-link-pill case-jump-linked-hist-btn" data-target-hist-id="${escapeHtml(sym.id)}" title="跳轉至「${escapeHtml(sym.code)}」">
+        <span>🔗 ${escapeHtml(sym.code)}：${escapeHtml((sym.text || '').slice(0, 14))}</span>
         <span>↗</span>
       </span>
     `).join('');
 
     const linkableOptionsHtml = [
-      `<option value="">＋ 關聯客訴/異常現象...</option>`,
+      `<option value="">＋ 新增關聯...</option>`,
       ...symHistory.map(sym => {
         const already = linkedIds.includes(sym.id);
-        const label = `${already ? '✓ ' : ''}${sym.code}｜${(sym.text || '無標題').replace(/\s+/g, ' ').slice(0, 26)}`;
+        const label = `${already ? '✓ ' : ''}${sym.code}｜${(sym.text || '無內容').replace(/\s+/g, ' ').slice(0, 22)}`;
         return `<option value="${escapeHtml(sym.id)}">${escapeHtml(label)}</option>`;
       })
     ].join('');
@@ -24690,54 +24880,48 @@ function renderActionHistoryListHtml(item) {
         <div class="lvi-case-history-summary-bar" data-toggle-hist-id="${escapeHtml(ah.id)}">
           <div class="lvi-case-history-summary-left">
             <span class="case-hist-code-badge case-hist-code-action">🛠️ ${escapeHtml(ah.code || '對策')}</span>
-            <span class="case-hist-time-text">🕒 ${escapeHtml(ah.time || '')}</span>
+            <span class="case-hist-time-text">${escapeHtml(ah.time || '')}</span>
             <span class="case-hist-preview-text">${escapeHtml(previewTxt)}</span>
-            ${ah.partsText ? `<span class="case-hist-parts-badge">🔩 ${escapeHtml(ah.partsText.slice(0, 24))}</span>` : ''}
-            ${attCount > 0 ? `<span class="case-hist-att-badge">🖼️ 附件 ${attCount}</span>` : ''}
+            ${ah.partsText ? `<span class="case-hist-parts-badge">🔩 ${escapeHtml(ah.partsText.slice(0, 20))}</span>` : ''}
+            ${attCount > 0 ? `<span class="case-hist-att-badge">🖼️ ${attCount}</span>` : ''}
             ${linkedPillsHtml}
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
-            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合詳情' : '🔽 點擊查看詳情'}</span>
+            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合' : '🔽 詳情'}</span>
           </div>
         </div>
 
         <div class="lvi-case-history-detail-body ${isExpanded ? '' : 'hidden'}">
           <div class="case-hist-detail-toolbar">
             <div class="case-hist-detail-links-wrap">
-              <span class="case-hist-detail-label">🔗 對應之客訴與異常現象：</span>
+              <span class="case-hist-detail-label">🔗 關聯異常：</span>
               ${linkedSymptoms.length > 0 ? linkedSymptoms.map(sym => `
                 <span class="case-hist-linked-chip chip-symptom">
-                  <button type="button" class="case-jump-linked-hist-btn" data-target-hist-id="${escapeHtml(sym.id)}">🚨 ${escapeHtml(sym.code)}：${escapeHtml((sym.text || '').slice(0, 22))} ↗</button>
+                  <button type="button" class="case-jump-linked-hist-btn" data-target-hist-id="${escapeHtml(sym.id)}">🚨 ${escapeHtml(sym.code)}：${escapeHtml((sym.text || '').slice(0, 18))} ↗</button>
                   <button type="button" class="case-unlink-hist-btn" data-sym-id="${escapeHtml(sym.id)}" data-act-id="${escapeHtml(ah.id)}" title="解除關聯">×</button>
                 </span>
-              `).join('') : `<span class="case-hist-time-text">尚未關聯客訴異常</span>`}
+              `).join('') : `<span class="case-hist-time-text">無</span>`}
               <select class="case-staging-link-select case-hist-link-select" data-act-id="${escapeHtml(ah.id)}" data-link-dir="act-to-sym">
                 ${linkableOptionsHtml}
               </select>
             </div>
 
             <div class="flex items-center gap-1.5">
-              <button type="button" class="case-load-hist-to-edit-btn case-hist-btn-edit" data-hist-id="${escapeHtml(ah.id)}" data-hist-section="action" title="將此筆歷史載回上方輸入框重新編輯">✏️ 載回編輯</button>
+              <button type="button" class="case-load-hist-to-edit-btn case-hist-btn-edit" data-hist-id="${escapeHtml(ah.id)}" data-hist-section="action">✏️ 編輯</button>
               <button type="button" class="case-del-hist-btn case-hist-btn-del" data-hist-id="${escapeHtml(ah.id)}" data-hist-section="action">🗑️ 刪除</button>
             </div>
           </div>
 
-          <div>
-            <div class="case-hist-detail-label" style="margin-bottom:4px;">🛠️ 售後處理過程與對策完整內容：</div>
-            <div class="lvi-case-history-fulltext">${escapeHtml(ah.actionText || '（無文字描述）')}</div>
-          </div>
+          <div class="lvi-case-history-fulltext">${escapeHtml(ah.actionText || '（無文字內容）')}</div>
 
           ${ah.partsText ? `
           <div class="case-hist-parts-detail-box">
-            <span>🔩 更換零件 / 耗材：</span>
+            <span>🔩 更換零件：</span>
             <span>${escapeHtml(ah.partsText)}</span>
           </div>` : ''}
 
           ${ah.attachmentsHtml ? `
-          <div>
-            <div class="case-hist-detail-label" style="margin-bottom:4px;">🖼️ 附帶照片與檔案（點擊縮圖可放大檢視或標註）：</div>
-            <div class="todo-attachments-gallery case-history-attachments-gallery" data-hist-id="${escapeHtml(ah.id)}" data-hist-section="action">${ah.attachmentsHtml}</div>
-          </div>` : ''}
+          <div class="todo-attachments-gallery case-history-attachments-gallery" data-hist-id="${escapeHtml(ah.id)}" data-hist-section="action">${ah.attachmentsHtml}</div>` : ''}
         </div>
       </div>
     `;
@@ -24758,6 +24942,7 @@ function renderSingleCaseDetailHtml(item) {
   const normStatus = normalizeCaseStatusValue(item.status);
   const isCompleted = isCaseStatusCompleted(normStatus);
   const statusBadgeCls = getCaseStatusBadgeClass(normStatus);
+  const effectiveCaseNo = item.caseNumber || item.title || '';
 
   const machineOptionsHtml = [
     `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>`,
@@ -24787,7 +24972,7 @@ function renderSingleCaseDetailHtml(item) {
       <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
         <button type="button" class="case-jump-note-btn inline-flex items-center gap-1 cursor-pointer hover:underline" data-note-id="${escapeHtml(nid)}">
           <span>${nIcon}</span>
-          <span class="truncate max-w-[200px]">${escapeHtml(nTitle)}</span>
+          <span class="truncate max-w-[180px]">${escapeHtml(nTitle)}</span>
           <span class="text-[10px] opacity-75">↗</span>
         </button>
         <button type="button" class="case-remove-note-btn text-gray-400 hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-note-id="${escapeHtml(nid)}">×</button>
@@ -24843,24 +25028,23 @@ function renderSingleCaseDetailHtml(item) {
     `<option value="__manage_handlers__">⚙️ 管理人員...</option>`
   ].join('');
 
-  // 售後處理對策輸入區的「預選對應客訴異常」下拉選單
   const stagingSymLinkOptsHtml = [
-    `<option value="">（選填）選擇此對策對應的客訴/異常紀錄...</option>`,
-    ...symHistory.map((sh, idx) => `<option value="${escapeHtml(sh.id)}" ${idx === 0 ? 'selected' : ''}>🚨 ${escapeHtml(sh.code)}｜${escapeHtml((sh.text || '含附件').replace(/\s+/g, ' ').slice(0, 32))}</option>`)
+    `<option value="">選擇對應異常...</option>`,
+    ...symHistory.map((sh, idx) => `<option value="${escapeHtml(sh.id)}" ${idx === 0 ? 'selected' : ''}>🚨 ${escapeHtml(sh.code)}｜${escapeHtml((sh.text || '含附件').replace(/\s+/g, ' ').slice(0, 26))}</option>`)
   ].join('');
 
   return `
     <!-- 頂部返回列表與操作導航列 -->
     <div class="lvi-todo-detail-navbar">
-      <div class="flex items-center gap-2.5 flex-wrap">
+      <div class="flex items-center gap-2 flex-wrap">
         <button type="button" id="btn-back-to-case-list" class="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-extrabold text-slate-700 dark:text-slate-200 hover:bg-slate-100 cursor-pointer shadow-2xs">
-          <span>← 返回列表</span>
+          <span>← 返回</span>
         </button>
         <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold border ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
-        <span id="case-navbar-caseno-pill" class="lvi-case-no-badge ${item.caseNumber ? '' : 'hidden'}">📁 ${escapeHtml(item.caseNumber || '')}</span>
+        <span id="case-navbar-caseno-pill" class="lvi-case-no-badge ${effectiveCaseNo ? '' : 'hidden'}">📁 ${escapeHtml(effectiveCaseNo)}</span>
       </div>
       <div class="flex items-center gap-2">
-        <button type="button" class="case-export-pdf-btn case-export-md-btn px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-600 text-teal-700 hover:text-white dark:bg-teal-950/70 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-xs font-extrabold transition cursor-pointer" data-case-id="${escapeHtml(item.id)}" title="將此案件完整履歷與歷史資料匯出為 A4 PDF 報告">
+        <button type="button" class="case-export-pdf-btn case-export-md-btn px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-600 text-teal-700 hover:text-white dark:bg-teal-950/70 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-xs font-extrabold transition cursor-pointer" data-case-id="${escapeHtml(item.id)}">
           <span>📄 匯出 PDF</span>
         </button>
         <button type="button" class="todo-delete-card-btn case-delete-card-btn" data-case-id="${escapeHtml(item.id)}">
@@ -24870,20 +25054,13 @@ function renderSingleCaseDetailHtml(item) {
     </div>
 
     <article class="lvi-todo-card lvi-case-card ${isCompleted ? 'is-completed-card' : ''}" data-case-id="${escapeHtml(item.id)}">
-      <!-- 第 1 列：案件主旨 | 案號 (直接輸入) | 機型分類 | 客戶或廠商 | 案件狀態 -->
+      <!-- 第 1 列：案號 (即為標題，直接輸入) | 機型分類 | 客戶或廠商 | 案件狀態 -->
       <div class="lvi-case-row-1">
-        <div class="lvi-todo-box">
-          <div class="lvi-todo-box-label">
-            <span>📌 案件主旨</span>
-          </div>
-          <input type="text" class="todo-title-input case-title-input" value="${escapeHtml(item.title || '')}" placeholder="輸入案件主旨或客訴摘要..." />
-        </div>
-
         <div class="lvi-todo-box">
           <div class="lvi-todo-box-label">
             <span>📁 案號</span>
           </div>
-          <input type="text" class="todo-title-input case-caseno-input" value="${escapeHtml(item.caseNumber || '')}" placeholder="直接輸入案號..." />
+          <input type="text" class="todo-title-input case-caseno-input" value="${escapeHtml(effectiveCaseNo)}" placeholder="輸入案號..." />
         </div>
 
         <div class="lvi-todo-box">
@@ -24923,7 +25100,7 @@ function renderSingleCaseDetailHtml(item) {
           <span class="text-xs font-black text-blue-950 dark:text-blue-100 case-created-time-text">${escapeHtml(item.createdAt || formatTodoTimestamp())}</span>
         </div>
 
-        <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} case-edit-completed-time-btn cursor-pointer" title="結案時自動記錄；點擊可手動調整">
+        <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} case-edit-completed-time-btn cursor-pointer" title="點擊調整結案時間">
           <span class="text-[10px] font-extrabold ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'}">🏁 結案時間</span>
           <span class="text-xs font-black ${isCompleted ? 'text-emerald-950 dark:text-emerald-100' : 'text-blue-950 dark:text-blue-100'} case-completed-time-text">
             ${item.completedAt ? escapeHtml(item.completedAt) : '未結案'}
@@ -24941,35 +25118,35 @@ function renderSingleCaseDetailHtml(item) {
         </div>
       </div>
 
-      <!-- 第 3 列：客訴 / 異常現象描述 (單一全寬文字框 + 附件 + 💾 存入歷史按鈕 + 下方獨立歷史資料條列) -->
+      <!-- 第 3 列：客訴 / 異常現象 -->
       <div class="lvi-todo-issue-box">
         <div class="lvi-todo-section-header">
           <div class="lvi-todo-section-title">
             <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
-            <span>🚨 客訴 / 異常現象描述</span>
+            <span>🚨 客訴 / 異常現象</span>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-1.5 flex-wrap">
             <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="symptom">
               <span>📷 拍照</span>
             </button>
             <button type="button" class="todo-section-upload-btn case-section-upload-btn" data-section="symptom">
               <span>📎 附件</span>
             </button>
-            <button type="button" class="case-save-history-btn btn-symptom-save case-save-symptom-history-btn" title="將目前輸入的客訴文字與檔案存入此案號的歷史資料中（若忘記按就關閉網站也會自動存入）">
+            <button type="button" class="case-save-history-btn btn-symptom-save case-save-symptom-history-btn">
               <span>💾 存入歷史</span>
             </button>
           </div>
         </div>
 
-        <textarea class="lvi-todo-textarea case-symptom-textarea" rows="3" placeholder="輸入本次客戶反映問題、現場異常現象或錯誤碼（輸入後按「💾 存入歷史」，或直接關閉網站亦會自動存入下方歷史資料）...">${escapeHtml(item.symptomText || '')}</textarea>
+        <textarea class="lvi-todo-textarea case-symptom-textarea" rows="3" placeholder="輸入異常現象...">${escapeHtml(item.symptomText || '')}</textarea>
         <div class="todo-attachments-gallery case-symptom-attachments">${item.symptomAttachmentsHtml || ''}</div>
 
-        <!-- 客訴與異常現象・獨立歷史資料條列區 -->
+        <!-- 客訴與異常現象・歷史紀錄 -->
         <div class="lvi-case-history-section">
           <div class="lvi-case-history-header">
             <div class="lvi-case-history-title">
-              <span>📜 客訴與異常現象・歷史資料（點擊項目可展開查看詳情與照片）</span>
-              <span class="lvi-case-history-count" data-hist-count="symptom">${symHistory.length} 筆</span>
+              <span>📜 歷史紀錄</span>
+              <span class="lvi-case-history-count" data-hist-count="symptom">${symHistory.length}</span>
             </div>
           </div>
           <div class="lvi-case-history-list" data-hist-list="symptom">
@@ -24978,47 +25155,46 @@ function renderSingleCaseDetailHtml(item) {
         </div>
       </div>
 
-      <!-- 第 4 列：售後處理對策與零件更換紀錄 (對策文字框 + 零件欄 + 附件 + 💾 存入歷史按鈕 + 下方獨立歷史資料條列) -->
+      <!-- 第 4 列：處理對策與零件更換 -->
       <div class="lvi-todo-resolution-box">
         <div class="lvi-todo-section-header">
           <div class="lvi-todo-section-title">
             <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
-            <span>🛠️ 售後處理對策與零件更換紀錄</span>
+            <span>🛠️ 處理對策與零件更換</span>
           </div>
-          <div class="flex items-center gap-2 flex-wrap">
+          <div class="flex items-center gap-1.5 flex-wrap">
             <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="action">
               <span>📷 拍照</span>
             </button>
             <button type="button" class="todo-section-upload-btn case-section-upload-btn" data-section="action">
               <span>📎 附件</span>
             </button>
-            <button type="button" class="case-save-history-btn btn-action-save case-save-action-history-btn" title="將目前輸入的售後處理對策、零件與檔案存入此案號的歷史資料中（若忘記按就關閉網站也會自動存入）">
+            <button type="button" class="case-save-history-btn btn-action-save case-save-action-history-btn">
               <span>💾 存入歷史</span>
             </button>
           </div>
         </div>
 
-        <textarea class="lvi-todo-textarea case-action-textarea" rows="3" placeholder="輸入本次售後維修步驟、參數調整、改善對策或驗證結果（輸入後按「💾 存入歷史」，或直接關閉網站亦會自動存入下方歷史資料）...">${escapeHtml(item.actionTakenText || '')}</textarea>
+        <textarea class="lvi-todo-textarea case-action-textarea" rows="3" placeholder="輸入處理對策...">${escapeHtml(item.actionTakenText || '')}</textarea>
         <div class="lvi-case-parts-row">
-          <span class="lvi-case-parts-label">🔩 更換零件 / 耗材：</span>
-          <input type="text" class="case-parts-input" value="${escapeHtml(item.partsReplacedText || '')}" placeholder="輸入更換之料號、零件名稱或耗材數量（無則留空）..." />
+          <span class="lvi-case-parts-label">🔩 更換零件：</span>
+          <input type="text" class="case-parts-input" value="${escapeHtml(item.partsReplacedText || '')}" placeholder="輸入料號或零件名稱..." />
         </div>
         ${symHistory.length > 0 ? `
         <div class="case-staging-link-bar">
-          <span class="case-hist-detail-label">🔗 關聯對應之客訴/異常現象：</span>
+          <span class="case-hist-detail-label">🔗 關聯異常：</span>
           <select class="case-staging-link-select case-staging-action-link-sym-select">
             ${stagingSymLinkOptsHtml}
           </select>
-          <span class="case-hist-time-text">（存入歷史後亦可隨時於下方歷史卡片中新增或解除關聯）</span>
         </div>` : ''}
         <div class="todo-attachments-gallery case-action-attachments">${item.actionAttachmentsHtml || ''}</div>
 
-        <!-- 售後處理對策與零件更換・獨立歷史資料條列區 -->
+        <!-- 處理對策與零件更換・歷史紀錄 -->
         <div class="lvi-case-history-section">
           <div class="lvi-case-history-header">
             <div class="lvi-case-history-title">
-              <span>📜 售後處理對策與零件更換・歷史資料（點擊項目可展開查看詳情與對應異常）</span>
-              <span class="lvi-case-history-count" data-hist-count="action">${actHistory.length} 筆</span>
+              <span>📜 歷史紀錄</span>
+              <span class="lvi-case-history-count" data-hist-count="action">${actHistory.length}</span>
             </div>
           </div>
           <div class="lvi-case-history-list" data-hist-list="action">
@@ -25059,7 +25235,7 @@ function renderSingleCaseDetailHtml(item) {
           </div>
         </div>
 
-        <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} case-edit-completed-time-btn cursor-pointer" title="結案時自動記錄；點擊可手動調整">
+        <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} case-edit-completed-time-btn cursor-pointer" title="點擊調整結案時間">
           <span class="text-[10px] font-extrabold ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'}">🏁 結案時間</span>
           <span class="text-xs font-black ${isCompleted ? 'text-emerald-950 dark:text-emerald-100' : 'text-blue-950 dark:text-blue-100'} case-completed-time-text">
             ${item.completedAt ? escapeHtml(item.completedAt) : '未結案'}
