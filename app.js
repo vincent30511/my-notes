@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.9.9'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.0.0'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -7251,7 +7251,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.9', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v3.0.0', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -14703,6 +14703,9 @@ function renderTodoSummaryRowHtml(item) {
 
       <div class="lvi-todo-summary-right">
         <span class="lvi-todo-summary-time">🕒 ${escapeHtml(item.createdAt || '')}</span>
+        <button type="button" class="todo-convert-to-note-btn" data-todo-id="${escapeHtml(item.id)}" title="以此待辦事項資訊為基礎，新增一篇常規筆記">
+          <span>📝 轉為筆記</span>
+        </button>
         <button type="button" class="todo-summary-del-btn" data-todo-id="${escapeHtml(item.id)}" title="永久刪除此筆待辦事項">
           <span>🗑️ 刪除</span>
         </button>
@@ -15001,7 +15004,7 @@ function bindTodoCardsInteractions(listContainer) {
   // 簡略列表列點擊 -> 進入詳細介面
   listContainer.querySelectorAll('.lvi-todo-summary-row').forEach(rowEl => {
     rowEl.addEventListener('click', (e) => {
-      if (e.target.closest('.todo-summary-del-btn')) return;
+      if (e.target.closest('.todo-summary-del-btn, .todo-convert-to-note-btn')) return;
       const tid = rowEl.getAttribute('data-todo-summary-id');
       if (tid) {
         state.activeTodoDetailId = tid;
@@ -24662,6 +24665,9 @@ function renderCaseSummaryRowHtml(item, fuzzyRes = null) {
       <div class="lvi-todo-summary-right">
         ${completedBadgeHtml}
         <span class="lvi-todo-summary-time">🕒 ${escapeHtml(item.createdAt || '')}</span>
+        <button type="button" class="case-convert-to-note-btn" data-case-id="${escapeHtml(item.id)}" title="以此案件資訊為基礎，新增一篇常規筆記">
+          <span>📝 轉為筆記</span>
+        </button>
         <button type="button" class="todo-summary-del-btn case-summary-del-btn" data-case-id="${escapeHtml(item.id)}" title="刪除此筆案件">
           <span>🗑️ 刪除</span>
         </button>
@@ -24733,6 +24739,7 @@ function renderCasesTableModeHtml(filteredList) {
         <td class="text-[11px] font-extrabold ${item.completedAt ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-400'} whitespace-nowrap">${escapeHtml(item.completedAt || '未結案')}</td>
         <td class="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">${escapeHtml(item.createdAt || '')}</td>
         <td class="text-center whitespace-nowrap" onclick="event.stopPropagation();">
+          <button type="button" class="case-convert-to-note-btn mr-1" data-case-id="${escapeHtml(item.id)}" title="以此案件資訊為基礎，新增一篇常規筆記">📝 轉為筆記</button>
           <button type="button" class="case-table-open-btn px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold cursor-pointer mr-1" data-case-id="${escapeHtml(item.id)}">詳情</button>
           <button type="button" class="case-summary-del-btn px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold cursor-pointer" data-case-id="${escapeHtml(item.id)}">刪除</button>
         </td>
@@ -25047,7 +25054,10 @@ function renderSingleCaseDetailHtml(item) {
         <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold border ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
         <span id="case-navbar-caseno-pill" class="lvi-case-no-badge ${effectiveCaseNo ? '' : 'hidden'}">📁 ${escapeHtml(effectiveCaseNo)}</span>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" class="case-convert-to-note-btn" data-case-id="${escapeHtml(item.id)}" title="以此案件的所有資訊（含案號、屬性、異常與對策歷史、更換零件與附件）為基礎，新增一篇常規筆記">
+          <span>📝 轉為筆記</span>
+        </button>
         <button type="button" class="case-export-pdf-btn case-export-md-btn px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-600 text-teal-700 hover:text-white dark:bg-teal-950/70 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-xs font-extrabold transition cursor-pointer" data-case-id="${escapeHtml(item.id)}">
           <span>📄 匯出 PDF</span>
         </button>
@@ -25269,7 +25279,7 @@ function bindCaseCardsInteractions(listContainer) {
   // 清單列點擊 -> 進入個案詳細介面
   listContainer.querySelectorAll('.lvi-case-summary-row').forEach(rowEl => {
     rowEl.addEventListener('click', (e) => {
-      if (e.target.closest('.case-summary-del-btn')) return;
+      if (e.target.closest('.case-summary-del-btn, .case-convert-to-note-btn')) return;
       const cid = rowEl.getAttribute('data-case-summary-id');
       if (cid) {
         state.activeCaseDetailId = cid;
@@ -27979,7 +27989,7 @@ try {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.9 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
+// 🚀 LVI_Note v3.0.0 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
 // （完全比照「案件追蹤」：支援「💾 存入歷史」按鈕、未儲存關閉網站/離開自動存入歷史、
 //   展開查看詳情、雙向互相關聯跳轉、載回編輯、刪除、搜尋檢索與 PDF 報告匯出）
 // ============================================================================
@@ -28471,6 +28481,9 @@ renderTodoSummaryRowHtml = function(item) {
 
       <div class="lvi-todo-summary-right">
         <span class="lvi-todo-summary-time">🕒 ${escapeHtml(item.createdAt || '')}</span>
+        <button type="button" class="todo-convert-to-note-btn" data-todo-id="${escapeHtml(item.id)}" title="以此待辦事項資訊為基礎，新增一篇常規筆記">
+          <span>📝 轉為筆記</span>
+        </button>
         <button type="button" class="todo-summary-del-btn" data-todo-id="${escapeHtml(item.id)}" title="永久刪除此筆待辦事項">
           <span>🗑️ 刪除</span>
         </button>
@@ -28598,7 +28611,10 @@ renderSingleTodoCardHtml = function(item) {
         </button>
         <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold border ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" class="todo-convert-to-note-btn" data-todo-id="${escapeHtml(item.id)}" title="以此待辦事項的所有資訊（含屬性、待辦說明歷史、處理結果歷史與附件）為基礎，新增一篇常規筆記">
+          <span>📝 轉為筆記</span>
+        </button>
         <button type="button" class="todo-export-pdf-btn px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white dark:bg-blue-950/70 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-xs font-extrabold transition cursor-pointer" data-todo-id="${escapeHtml(item.id)}">
           <span>📄 匯出 PDF</span>
         </button>
@@ -29318,7 +29334,7 @@ openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
 
 
 // ============================================================================
-// 🕰️ LVI_Note v2.9.9 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
+// 🕰️ LVI_Note v3.0.0 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
 // 1. 嚴格支援最多 50 步 (MAX_HISTORY_STEPS = 50)，超出自動滾動淘汰最舊步數
 // 2. 採用內容雜湊字串池 (Content-Addressed String Deduplication Pool) 將每步動作的
 //    完整前後狀態快照 (beforeWorkspace / afterWorkspace & beforeCanvas / afterCanvas)
@@ -29635,7 +29651,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v2.9.9',
+        version: 'v3.0.0',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -29996,3 +30012,550 @@ if (document.readyState === 'loading') {
     loadPersistentActionHistoryOnBoot();
   }, 20);
 }
+
+
+
+// ============================================================================
+// 📝 LVI_Note v3.0.0 「轉為筆記」核心引擎 (Convert Todo / Case Item to Regular Note)
+// 支援從「待辦事項」與「案件追蹤」內的單一事件或案件（無論在清單、表格或詳細頁），
+// 以其自身原本的完整資訊（機型、客戶/廠商、人員、標籤、時間、所有歷史紀錄、互相關聯、
+// 更換零件、以及所有現場照片與檔案附件）為基礎，自動建立一篇結構化的「常規筆記」，
+// 並自動雙向綁定關聯筆記與支援 50 步持久化回朔！
+// ============================================================================
+
+/**
+ * 決定新常規筆記的預設 3 大分類（機型、工作內容、急迫性），確保建立出的筆記屬於正式「常規筆記」而非未分類隨手筆記
+ */
+function resolveRegularNoteTaxonomyFromSource(sourceItem, isCase = false) {
+  const machines = getSharedMachineModelsForTodo();
+  const contents = (Array.isArray(state.workContents) && state.workContents.length > 0)
+    ? state.workContents
+    : DEFAULT_WORK_CONTENTS;
+
+  let machineModel = (sourceItem.machineModel || '').trim();
+  if (!machineModel || machineModel === '未分類' || machineModel === '未指定') {
+    machineModel = machines.includes('通用')
+      ? '通用'
+      : (machines.find(m => m && m !== '未分類' && m !== '未指定') || '通用');
+  }
+
+  let workContent = isCase ? '故障排除 ⚠️' : '異常通報 🚨';
+  if (!contents.includes(workContent)) {
+    workContent = contents.find(c => c && c !== '未分類' && c !== '隨手速記 ✍️') || workContent;
+  }
+
+  const statusStr = String(sourceItem.status || '');
+  let urgency = '🟡 高急迫';
+  if (statusStr.includes('已完成') || statusStr.includes('已結案')) {
+    urgency = '🟢 常規';
+  } else if (statusStr.includes('待處理')) {
+    urgency = '🟡 高急迫';
+  }
+
+  let dueDate = getLocalTodayDateKey(new Date());
+  if (sourceItem.createdAt) {
+    const m = String(sourceItem.createdAt).match(/^(\d{4})[\/\-](\d{2})[\/\-](\d{2})/);
+    if (m) {
+      dueDate = `${m[1]}-${m[2]}-${m[3]}`;
+    }
+  }
+
+  return { machineModel, workContent, urgency, dueDate };
+}
+
+/**
+ * 將單一「待辦事項 (Todo Item)」完整轉換並新增為一篇新的「常規筆記 (Regular Note)」
+ */
+async function convertTodoToRegularNote(todoId) {
+  if (!todoId) return null;
+  ensureTodoItemsInitialized();
+
+  // 若當前正在該待辦詳情頁且有未存入歷史的暫存文字或附件，先自動歸檔入歷史紀錄以確保資料 100% 完整納入新筆記
+  flushAllUnsavedTodoStagingToHistory(true);
+
+  const item = (state.todoItems || []).find(t => t.id === todoId);
+  if (!item) {
+    showToast('⚠️ 找不到該筆待辦事項');
+    return null;
+  }
+
+  const beforeWs = (!state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+
+  const rawTitle = (item.title || '').trim() || '待辦事項紀錄';
+  const noteTitle = item.machineModel && !rawTitle.includes(item.machineModel)
+    ? `[${item.machineModel}] ${rawTitle}`
+    : rawTitle;
+
+  const tax = resolveRegularNoteTaxonomyFromSource(item, false);
+  const tags = Array.from(new Set([
+    ...(Array.isArray(item.tags) ? item.tags : []),
+    '待辦轉筆記'
+  ].filter(Boolean)));
+  if (!state.tags.some(t => (t.name || t) === '待辦轉筆記')) {
+    try { addCustomTag('待辦轉筆記', 'blue', false); } catch (e) {}
+  }
+
+  const handlersStr = (Array.isArray(item.handlers) && item.handlers.length > 0)
+    ? item.handlers.join('、')
+    : '未指派';
+  const tagsStr = (Array.isArray(item.tags) && item.tags.length > 0)
+    ? item.tags.map(t => `#${t}`).join(' ')
+    : '無';
+
+  const issHistory = Array.isArray(item.issueHistory) ? item.issueHistory : [];
+  const resHistory = Array.isArray(item.resolutionHistory) ? item.resolutionHistory : [];
+
+  // 組裝「待辦說明」HTML 與 Markdown
+  const issHtmlBlocks = [];
+  const issMdBlocks = [];
+  if (issHistory.length === 0) {
+    issHtmlBlocks.push(`<p class="text-gray-400">（尚無待辦說明紀錄）</p>`);
+    issMdBlocks.push(`- （尚無待辦說明紀錄）`);
+  } else {
+    issHistory.forEach((ih, idx) => {
+      const linkedResCodes = (ih.linkedResolutionIds || [])
+        .map(rid => resHistory.find(r => r.id === rid))
+        .filter(Boolean)
+        .map(r => r.code)
+        .join('、');
+      const headerLine = `🔴 ${ih.code || ('說明 #' + (idx + 1))} ｜ 🕒 ${ih.time || ''}${linkedResCodes ? ' ｜ 🔗 對應結果：' + linkedResCodes : ''}`;
+      issHtmlBlocks.push(
+        `<div class="notion-callout troubleshoot-stage-1" style="margin:8px 0;">` +
+        `<span class="notion-callout-icon">🔴</span>` +
+        `<div class="notion-callout-body"><strong>${escapeHtml(headerLine)}</strong><br>${escapeHtml(ih.text || '（僅含附件）').replace(/\r?\n/g, '<br>')}</div>` +
+        `</div>`
+      );
+      if (ih.attachmentsHtml && ih.attachmentsHtml.trim()) {
+        issHtmlBlocks.push(ih.attachmentsHtml);
+      }
+      issMdBlocks.push(`#### ${headerLine}\n${ih.text || '（僅含附件）'}\n`);
+    });
+  }
+
+  // 組裝「處理結果」HTML 與 Markdown
+  const resHtmlBlocks = [];
+  const resMdBlocks = [];
+  if (resHistory.length === 0) {
+    resHtmlBlocks.push(`<p class="text-gray-400">（尚無處理結果紀錄）</p>`);
+    resMdBlocks.push(`- （尚無處理結果紀錄）`);
+  } else {
+    resHistory.forEach((rh, idx) => {
+      const linkedIssCodes = (rh.linkedIssueIds || [])
+        .map(iid => issHistory.find(i => i.id === iid))
+        .filter(Boolean)
+        .map(i => i.code)
+        .join('、');
+      const headerLine = `🔵 ${rh.code || ('結果 #' + (idx + 1))} ｜ 🕒 ${rh.time || ''}${linkedIssCodes ? ' ｜ 🔗 對應說明：' + linkedIssCodes : ''}`;
+      resHtmlBlocks.push(
+        `<div class="notion-callout troubleshoot-stage-3" style="margin:8px 0;">` +
+        `<span class="notion-callout-icon">🔵</span>` +
+        `<div class="notion-callout-body"><strong>${escapeHtml(headerLine)}</strong><br>${escapeHtml(rh.text || '（僅含附件）').replace(/\r?\n/g, '<br>')}</div>` +
+        `</div>`
+      );
+      if (rh.attachmentsHtml && rh.attachmentsHtml.trim()) {
+        resHtmlBlocks.push(rh.attachmentsHtml);
+      }
+      resMdBlocks.push(`#### ${headerLine}\n${rh.text || '（僅含附件）'}\n`);
+    });
+  }
+
+  // 原有關聯筆記雙向連結語法
+  const existingLinkedNotes = (item.linkedNoteIds || [])
+    .map(nid => resolveLinkedNoteTitle(item, nid))
+    .filter(Boolean);
+  const wikilinksHtml = existingLinkedNotes.length > 0
+    ? `<p><strong>🔗 相關筆記連結：</strong>${existingLinkedNotes.map(t => `[[${escapeHtml(t)}]]`).join(' 、 ')}</p>`
+    : '';
+  const wikilinksMd = existingLinkedNotes.length > 0
+    ? `\n- **相關筆記連結**：${existingLinkedNotes.map(t => `[[${t}]]`).join(' 、 ')}\n`
+    : '';
+
+  const initHtml = [
+    `<div class="notion-callout troubleshoot-stage-2" style="margin-bottom:12px;">` +
+      `<span class="notion-callout-icon">📋</span>` +
+      `<div class="notion-callout-body">` +
+        `<strong>待辦事項轉存筆記：${escapeHtml(rawTitle)}</strong><br>` +
+        `<span>📊 處理進度：${escapeHtml(item.status || '🔴 待處理')} ｜ 🚜 機型分類：${escapeHtml(item.machineModel || tax.machineModel)} ｜ 🏢 客戶/廠商：${escapeHtml(item.clientVendor || '未指定')}</span><br>` +
+        `<span>👥 處理人員：${escapeHtml(handlersStr)} ｜ 🏷️ 標籤：${escapeHtml(tagsStr)}</span><br>` +
+        `<span>🕒 建立時間：${escapeHtml(item.createdAt || '')} ｜ 🏁 結束時間：${escapeHtml(item.completedAt || '進行中')}</span>` +
+      `</div>` +
+    `</div>`,
+    `<h3>🔴 待辦說明與歷史紀錄（共 ${issHistory.length} 筆）</h3>`,
+    ...issHtmlBlocks,
+    `<h3>🔵 處理結果與歷史紀錄（共 ${resHistory.length} 筆）</h3>`,
+    ...resHtmlBlocks,
+    wikilinksHtml,
+    `<p><br></p>`
+  ].filter(Boolean).join('');
+
+  const initMd = [
+    `### 📋 待辦事項轉存筆記：${rawTitle}`,
+    `- **處理進度**：${item.status || '🔴 待處理'}`,
+    `- **機型分類**：${item.machineModel || tax.machineModel}`,
+    `- **客戶或廠商**：${item.clientVendor || '未指定'}`,
+    `- **處理人員**：${handlersStr}`,
+    `- **標籤**：${tagsStr}`,
+    `- **建立時間**：${item.createdAt || ''}`,
+    `- **結束時間**：${item.completedAt || '進行中'}`,
+    wikilinksMd,
+    `### 🔴 待辦說明與歷史紀錄（共 ${issHistory.length} 筆）`,
+    ...issMdBlocks,
+    `### 🔵 處理結果與歷史紀錄（共 ${resHistory.length} 筆）`,
+    ...resMdBlocks
+  ].filter(Boolean).join('\n');
+
+  const newNoteId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+  const nowIso = new Date().toISOString();
+  const initMeta = {
+    icon: '📋',
+    cover: null,
+    machineModel: tax.machineModel,
+    workContent: tax.workContent,
+    urgency: tax.urgency,
+    clientVendor: item.clientVendor || '',
+    status: item.status || '🔴 待處理',
+    dueDate: tax.dueDate,
+    tags: tags,
+    pinned: false,
+    sourceTodoId: item.id
+  };
+
+  const newNoteObj = {
+    id: newNoteId,
+    _tempId: newNoteId,
+    name: noteTitle + '.md',
+    modifiedTime: nowIso,
+    parentId: null,
+    meta: initMeta,
+    _cachedBody: initMd,
+    _cachedHtml: initHtml,
+    _cachedMeta: initMeta
+  };
+
+  state.notes.unshift(newNoteObj);
+  updateNoteSearchIndex(newNoteId, nowIso, initMd);
+
+  // 自動將新建立的常規筆記加入該筆待辦事項的「🔗 關聯筆記」中
+  if (!Array.isArray(item.linkedNoteIds)) item.linkedNoteIds = [];
+  if (!item.linkedNoteIds.includes(newNoteId)) item.linkedNoteIds.push(newNoteId);
+  if (!item.linkedNoteTitles || typeof item.linkedNoteTitles !== 'object') item.linkedNoteTitles = {};
+  item.linkedNoteTitles[newNoteId] = noteTitle;
+  item.updatedAt = Date.now();
+
+  saveTodoItemsState();
+  saveSwrCacheSnapshot();
+  renderWorkTagLists();
+  renderWorkTagSelects();
+  renderSidebarTags();
+  renderNotesList();
+
+  if (state.accessToken) {
+    pendingCloudSaveMap.set(newNoteId, {
+      key: newNoteId,
+      noteId: null,
+      tempId: newNoteId,
+      noteRef: newNoteObj,
+      rawTitle: noteTitle,
+      fileName: noteTitle + '.md',
+      parentId: null,
+      meta: initMeta,
+      html: initHtml,
+      markdownBody: initMd,
+      fullContent: buildFrontmatterString(initMeta) + initMd,
+      updatedAt: Date.now(),
+      updatedIso: nowIso
+    });
+    processCloudSaveQueue();
+  }
+
+  // 切換至筆記編輯器並直接開啟這篇新建的常規筆記
+  await selectNote(newNoteId);
+  switchView('editor');
+  try { rebuildBacklinksIndex(); } catch (e) {}
+  try { renderCurrentNoteBacklinks(); } catch (e) {}
+
+  if (beforeWs) {
+    recordAction({
+      type: 'create_quick_note',
+      title: `📝 待辦轉為常規筆記「${noteTitle}」`,
+      subtitle: `來源待辦：「${rawTitle}」`,
+      noteId: newNoteId,
+      _beforeWorkspace: beforeWs
+    });
+  }
+
+  showToast(`📝 已由待辦事項建立常規筆記：「${noteTitle}」！`, 3200);
+  return newNoteObj;
+}
+
+/**
+ * 將單一「案件追蹤 (Case Item)」完整轉換並新增為一篇新的「常規筆記 (Regular Note)」
+ */
+async function convertCaseToRegularNote(caseId) {
+  if (!caseId) return null;
+  ensureCaseItemsInitialized();
+
+  // 若當前正在該案件詳情頁且有未存入歷史的暫存文字或附件，先自動歸檔入歷史紀錄以確保資料 100% 完整納入新筆記
+  flushAllUnsavedCaseStagingToHistory(true);
+
+  const item = (state.caseItems || []).find(c => c.id === caseId);
+  if (!item) {
+    showToast('⚠️ 找不到該筆案件');
+    return null;
+  }
+
+  const beforeWs = (!state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+
+  const caseNo = getCaseDisplayNo(item);
+  const noteTitleParts = [caseNo];
+  if (item.machineModel && !caseNo.includes(item.machineModel)) noteTitleParts.push(item.machineModel);
+  if (item.clientVendor && !caseNo.includes(item.clientVendor)) noteTitleParts.push(item.clientVendor);
+  const noteTitle = noteTitleParts.join(' - ');
+
+  const tax = resolveRegularNoteTaxonomyFromSource(item, true);
+  const tags = Array.from(new Set([
+    ...(Array.isArray(item.tags) ? item.tags : []),
+    item.caseNumber ? item.caseNumber : '',
+    '案件轉筆記'
+  ].filter(Boolean)));
+  if (!state.tags.some(t => (t.name || t) === '案件轉筆記')) {
+    try { addCustomTag('案件轉筆記', 'teal', false); } catch (e) {}
+  }
+
+  const handlersStr = (Array.isArray(item.handlers) && item.handlers.length > 0)
+    ? item.handlers.join('、')
+    : '未指派';
+  const tagsStr = (Array.isArray(item.tags) && item.tags.length > 0)
+    ? item.tags.map(t => `#${t}`).join(' ')
+    : '無';
+  const normStatus = normalizeCaseStatusValue(item.status);
+
+  const symHistory = Array.isArray(item.symptomHistory) ? item.symptomHistory : [];
+  const actHistory = Array.isArray(item.actionHistory) ? item.actionHistory : [];
+
+  // 組裝「客訴 / 異常現象」HTML 與 Markdown
+  const symHtmlBlocks = [];
+  const symMdBlocks = [];
+  if (symHistory.length === 0) {
+    symHtmlBlocks.push(`<p class="text-gray-400">（尚無客訴與異常現象紀錄）</p>`);
+    symMdBlocks.push(`- （尚無客訴與異常現象紀錄）`);
+  } else {
+    symHistory.forEach((sh, idx) => {
+      const linkedActCodes = (sh.linkedActionIds || [])
+        .map(aid => actHistory.find(a => a.id === aid))
+        .filter(Boolean)
+        .map(a => a.code)
+        .join('、');
+      const headerLine = `🚨 ${sh.code || ('異常 #' + (idx + 1))} ｜ 🕒 ${sh.time || ''}${linkedActCodes ? ' ｜ 🔗 對應對策：' + linkedActCodes : ''}`;
+      symHtmlBlocks.push(
+        `<div class="notion-callout troubleshoot-stage-1" style="margin:8px 0;">` +
+        `<span class="notion-callout-icon">🚨</span>` +
+        `<div class="notion-callout-body"><strong>${escapeHtml(headerLine)}</strong><br>${escapeHtml(sh.text || '（僅含附件）').replace(/\r?\n/g, '<br>')}</div>` +
+        `</div>`
+      );
+      if (sh.attachmentsHtml && sh.attachmentsHtml.trim()) {
+        symHtmlBlocks.push(sh.attachmentsHtml);
+      }
+      symMdBlocks.push(`#### ${headerLine}\n${sh.text || '（僅含附件）'}\n`);
+    });
+  }
+
+  // 組裝「處理對策與零件更換」HTML 與 Markdown
+  const actHtmlBlocks = [];
+  const actMdBlocks = [];
+  if (actHistory.length === 0) {
+    actHtmlBlocks.push(`<p class="text-gray-400">（尚無處理對策與零件更換紀錄）</p>`);
+    actMdBlocks.push(`- （尚無處理對策與零件更換紀錄）`);
+  } else {
+    actHistory.forEach((ah, idx) => {
+      const linkedSymCodes = (ah.linkedSymptomIds || [])
+        .map(sid => symHistory.find(s => s.id === sid))
+        .filter(Boolean)
+        .map(s => s.code)
+        .join('、');
+      const headerLine = `🛠️ ${ah.code || ('對策 #' + (idx + 1))} ｜ 🕒 ${ah.time || ''}${linkedSymCodes ? ' ｜ 🔗 對應異常：' + linkedSymCodes : ''}`;
+      const partsHtml = ah.partsText
+        ? `<br><span style="color:#b45309;font-weight:700;">🔩 更換零件：${escapeHtml(ah.partsText)}</span>`
+        : '';
+      actHtmlBlocks.push(
+        `<div class="notion-callout troubleshoot-stage-3" style="margin:8px 0;">` +
+        `<span class="notion-callout-icon">🛠️</span>` +
+        `<div class="notion-callout-body"><strong>${escapeHtml(headerLine)}</strong><br>${escapeHtml(ah.actionText || '（僅含零件或附件）').replace(/\r?\n/g, '<br>')}${partsHtml}</div>` +
+        `</div>`
+      );
+      if (ah.attachmentsHtml && ah.attachmentsHtml.trim()) {
+        actHtmlBlocks.push(ah.attachmentsHtml);
+      }
+      actMdBlocks.push(`#### ${headerLine}\n${ah.actionText || ''}${ah.partsText ? '\n- **更換零件**：' + ah.partsText : ''}\n`);
+    });
+  }
+
+  // 原有關聯筆記雙向連結語法
+  const existingLinkedNotes = (item.linkedNoteIds || [])
+    .map(nid => resolveLinkedNoteTitle(item, nid))
+    .filter(Boolean);
+  const wikilinksHtml = existingLinkedNotes.length > 0
+    ? `<p><strong>🔗 相關筆記連結：</strong>${existingLinkedNotes.map(t => `[[${escapeHtml(t)}]]`).join(' 、 ')}</p>`
+    : '';
+  const wikilinksMd = existingLinkedNotes.length > 0
+    ? `\n- **相關筆記連結**：${existingLinkedNotes.map(t => `[[${t}]]`).join(' 、 ')}\n`
+    : '';
+
+  const initHtml = [
+    `<div class="notion-callout troubleshoot-stage-2" style="margin-bottom:12px;">` +
+      `<span class="notion-callout-icon">🛡️</span>` +
+      `<div class="notion-callout-body">` +
+        `<strong>案件追蹤轉存筆記：📁 ${escapeHtml(caseNo)}</strong><br>` +
+        `<span>📊 案件狀態：${escapeHtml(normStatus)} ｜ 🚜 機型分類：${escapeHtml(item.machineModel || tax.machineModel)} ｜ 🏢 客戶/廠商：${escapeHtml(item.clientVendor || '未指定')}</span><br>` +
+        `<span>👥 處理人員：${escapeHtml(handlersStr)} ｜ 🏷️ 標籤：${escapeHtml(tagsStr)}</span><br>` +
+        `<span>🕒 立案時間：${escapeHtml(item.createdAt || '')} ｜ 🏁 結案時間：${escapeHtml(item.completedAt || '未結案')}</span>` +
+      `</div>` +
+    `</div>`,
+    `<h3>🚨 客訴 / 異常現象歷史紀錄（共 ${symHistory.length} 筆）</h3>`,
+    ...symHtmlBlocks,
+    `<h3>🛠️ 處理對策與零件更換歷史紀錄（共 ${actHistory.length} 筆）</h3>`,
+    ...actHtmlBlocks,
+    wikilinksHtml,
+    `<p><br></p>`
+  ].filter(Boolean).join('');
+
+  const initMd = [
+    `### 🛡️ 案件追蹤轉存筆記：📁 ${caseNo}`,
+    `- **案號**：${caseNo}`,
+    `- **案件狀態**：${normStatus}`,
+    `- **機型分類**：${item.machineModel || tax.machineModel}`,
+    `- **客戶或廠商**：${item.clientVendor || '未指定'}`,
+    `- **處理人員**：${handlersStr}`,
+    `- **標籤**：${tagsStr}`,
+    `- **立案時間**：${item.createdAt || ''}`,
+    `- **結案時間**：${item.completedAt || '未結案'}`,
+    wikilinksMd,
+    `### 🚨 客訴 / 異常現象歷史紀錄（共 ${symHistory.length} 筆）`,
+    ...symMdBlocks,
+    `### 🛠️ 處理對策與零件更換歷史紀錄（共 ${actHistory.length} 筆）`,
+    ...actMdBlocks
+  ].filter(Boolean).join('\n');
+
+  const newNoteId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+  const nowIso = new Date().toISOString();
+  const initMeta = {
+    icon: '🛡️',
+    cover: null,
+    machineModel: tax.machineModel,
+    workContent: tax.workContent,
+    urgency: tax.urgency,
+    clientVendor: item.clientVendor || '',
+    status: normStatus,
+    dueDate: tax.dueDate,
+    tags: tags,
+    pinned: false,
+    sourceCaseId: item.id,
+    caseNumber: caseNo
+  };
+
+  const newNoteObj = {
+    id: newNoteId,
+    _tempId: newNoteId,
+    name: noteTitle + '.md',
+    modifiedTime: nowIso,
+    parentId: null,
+    meta: initMeta,
+    _cachedBody: initMd,
+    _cachedHtml: initHtml,
+    _cachedMeta: initMeta
+  };
+
+  state.notes.unshift(newNoteObj);
+  updateNoteSearchIndex(newNoteId, nowIso, initMd);
+
+  // 自動將新建立的常規筆記加入該案件的「🔗 關聯筆記」中
+  if (!Array.isArray(item.linkedNoteIds)) item.linkedNoteIds = [];
+  if (!item.linkedNoteIds.includes(newNoteId)) item.linkedNoteIds.push(newNoteId);
+  if (!item.linkedNoteTitles || typeof item.linkedNoteTitles !== 'object') item.linkedNoteTitles = {};
+  item.linkedNoteTitles[newNoteId] = noteTitle;
+  item.updatedAt = Date.now();
+
+  saveCaseItemsState(true);
+  saveSwrCacheSnapshot();
+  renderWorkTagLists();
+  renderWorkTagSelects();
+  renderSidebarTags();
+  renderNotesList();
+
+  if (state.accessToken) {
+    pendingCloudSaveMap.set(newNoteId, {
+      key: newNoteId,
+      noteId: null,
+      tempId: newNoteId,
+      noteRef: newNoteObj,
+      rawTitle: noteTitle,
+      fileName: noteTitle + '.md',
+      parentId: null,
+      meta: initMeta,
+      html: initHtml,
+      markdownBody: initMd,
+      fullContent: buildFrontmatterString(initMeta) + initMd,
+      updatedAt: Date.now(),
+      updatedIso: nowIso
+    });
+    processCloudSaveQueue();
+  }
+
+  // 切換至筆記編輯器並直接開啟這篇新建的常規筆記
+  await selectNote(newNoteId);
+  switchView('editor');
+  try { rebuildBacklinksIndex(); } catch (e) {}
+  try { renderCurrentNoteBacklinks(); } catch (e) {}
+
+  if (beforeWs) {
+    recordAction({
+      type: 'create_quick_note',
+      title: `📝 案件轉為常規筆記「${noteTitle}」`,
+      subtitle: `來源案號：「${caseNo}」`,
+      noteId: newNoteId,
+      _beforeWorkspace: beforeWs
+    });
+  }
+
+  showToast(`📝 已由案件「${caseNo}」建立常規筆記：「${noteTitle}」！`, 3200);
+  return newNoteObj;
+}
+
+// 綁定「📝 轉為筆記」按鈕事件（涵蓋待辦事項清單/詳細頁、案件追蹤清單/表格/詳細頁）
+const _origBindTodoCardsInteractionsV299 = bindTodoCardsInteractions;
+bindTodoCardsInteractions = function(listContainer) {
+  _origBindTodoCardsInteractionsV299(listContainer);
+  if (!listContainer) return;
+
+  listContainer.querySelectorAll('.todo-convert-to-note-btn').forEach(btn => {
+    if (btn._v300Bound) return;
+    btn._v300Bound = true;
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const tid = btn.getAttribute('data-todo-id') || state.activeTodoDetailId;
+      if (tid) {
+        await convertTodoToRegularNote(tid);
+      }
+    });
+  });
+};
+
+const _origBindCaseCardsInteractionsV299 = bindCaseCardsInteractions;
+bindCaseCardsInteractions = function(listContainer) {
+  _origBindCaseCardsInteractionsV299(listContainer);
+  if (!listContainer) return;
+
+  listContainer.querySelectorAll('.case-convert-to-note-btn').forEach(btn => {
+    if (btn._v300Bound) return;
+    btn._v300Bound = true;
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const cid = btn.getAttribute('data-case-id') || state.activeCaseDetailId;
+      if (cid) {
+        await convertCaseToRegularNote(cid);
+      }
+    });
+  });
+};

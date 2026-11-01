@@ -7331,7 +7331,7 @@ html.dark .lvi-diff-btn.btn-keep-local:hover {
 
 
 /* ============================================================================
-   📱 LVI_Note v2.9.9 手機端雙擊插行互動膠囊、案件追蹤 4 欄標題化與全站行動體驗深度優化
+   📱 LVI_Note v3.0.0 手機端雙擊插行互動膠囊、案件追蹤 4 欄標題化與全站行動體驗深度優化
    ============================================================================ */
 
 /* 1. 雙擊記憶位置指示線 + 可直接點擊/觸控的「↵ 新增空白行」膠囊按鈕 */
@@ -7652,4 +7652,43 @@ header, header > div {
   #header-note-title {
     max-width: 96px !important;
   }
+}
+
+
+/* 📝 v3.0.0 轉為筆記按鈕樣式 (Convert Todo/Case to Regular Note) */
+.todo-convert-to-note-btn,
+.case-convert-to-note-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 5px 11px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #4338ca;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.todo-convert-to-note-btn:hover,
+.case-convert-to-note-btn:hover {
+  color: #ffffff !important;
+  background: #4f46e5 !important;
+  border-color: #4338ca !important;
+  box-shadow: 0 3px 10px rgba(79, 70, 229, 0.25);
+}
+.dark .todo-convert-to-note-btn,
+.dark .case-convert-to-note-btn {
+  color: #c7d2fe;
+  background: rgba(49, 46, 129, 0.55);
+  border-color: #4338ca;
+}
+.dark .todo-convert-to-note-btn:hover,
+.dark .case-convert-to-note-btn:hover {
+  color: #ffffff !important;
+  background: #4f46e5 !important;
 }
