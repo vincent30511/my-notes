@@ -1,4 +1,4 @@
-const APP_VERSION = 'v2.9.8'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v2.9.9'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -2101,7 +2101,7 @@ async function fullSyncWithDrive(showFeedback = true) {
 }
 
 // ----------------- 🕒 全域全動作時光回朔核心引擎 (Universal Omniscient Time-Machine v2.6.6) -----------------
-const MAX_HISTORY_STEPS = 150; // 支援高達 150 步全動作歷史回朔
+const MAX_HISTORY_STEPS = 50; // 最多支援 50 步全動作歷史回朔（關閉筆記軟體重開仍完整保留）
 
 state.actionHistory = [];      // 儲存 ActionRecord 陣列
 state.historyIndex = -1;       // 當前歷史節點指標
@@ -2238,6 +2238,8 @@ function flushPendingEditorInputHistory(customTitle = '✍️ 編輯筆記內文
       title: customTitle,
       subtitle: `筆記：「${noteTitle}」`,
       noteId: noteId,
+      _beforeCanvas: { noteId: noteId, html: oldHtml, meta: null, title: null },
+      _afterCanvas: { noteId: noteId, html: newHtml, meta: null, title: null },
       undo: () => applyNoteCanvasSnapshot(noteId, oldHtml),
       redo: () => applyNoteCanvasSnapshot(noteId, newHtml)
     });
@@ -2284,6 +2286,8 @@ function commitEditorCanvasAction(type, actionTitle, subtitleOrFn, maybeFn = '')
       title: actionTitle,
       subtitle: customSubtitle ? `${customSubtitle} · 筆記：「${noteTitle}」` : `筆記：「${noteTitle}」`,
       noteId: noteId,
+      _beforeCanvas: { noteId: noteId, html: beforeHtml, meta: metaChanged ? beforeMeta : null, title: titleChanged ? beforeTitle : null },
+      _afterCanvas: { noteId: noteId, html: afterHtml, meta: metaChanged ? afterMeta : null, title: titleChanged ? afterTitle : null },
       undo: () => applyNoteCanvasSnapshot(noteId, beforeHtml, metaChanged ? beforeMeta : null, titleChanged ? beforeTitle : null),
       redo: () => applyNoteCanvasSnapshot(noteId, afterHtml, metaChanged ? afterMeta : null, titleChanged ? afterTitle : null)
     });
@@ -7247,7 +7251,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.8', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261026_v2.9.9', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -27975,7 +27979,7 @@ try {
 
 
 // ============================================================================
-// 🚀 LVI_Note v2.9.8 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
+// 🚀 LVI_Note v2.9.9 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
 // （完全比照「案件追蹤」：支援「💾 存入歷史」按鈕、未儲存關閉網站/離開自動存入歷史、
 //   展開查看詳情、雙向互相關聯跳轉、載回編輯、刪除、搜尋檢索與 PDF 報告匯出）
 // ============================================================================
@@ -29310,3 +29314,685 @@ openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
     }
   } catch (e) {}
 };
+
+
+
+// ============================================================================
+// 🕰️ LVI_Note v2.9.9 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
+// 1. 嚴格支援最多 50 步 (MAX_HISTORY_STEPS = 50)，超出自動滾動淘汰最舊步數
+// 2. 採用內容雜湊字串池 (Content-Addressed String Deduplication Pool) 將每步動作的
+//    完整前後狀態快照 (beforeWorkspace / afterWorkspace & beforeCanvas / afterCanvas)
+//    即時持久化至 localStorage (`lvi_persistent_action_history_v299`) 與 IndexedDB 雙重備份
+// 3. 關閉筆記軟體或重新整理後再重開，自動載入並重建所有歷史步驟的 undo / redo 函式，
+//    無論單步復原、重做或指定任意步驟「回朔至此」皆可 100% 跨重開運作！
+// ============================================================================
+
+const PERSISTENT_ACTION_HISTORY_KEY = 'lvi_persistent_action_history_v299';
+const PERSISTENT_HISTORY_IDB_NAME = 'lvi_action_history_db_v299';
+const PERSISTENT_HISTORY_IDB_STORE = 'history_store';
+const PERSISTENT_MAX_STEPS = 50;
+
+let _lastCommittedWorkspaceSnapshot = null;
+let _isRestoringActionSnapshot = false;
+
+/**
+ * 擷取當前整個工作區的輕量完整可序列化快照（含筆記列表與內文、當前編輯器狀態、分類/標籤/人員、待辦事項與案件追蹤）
+ */
+function captureWorkspaceActionSnapshot() {
+  const activeNoteId = (state.currentNote && state.currentNote.id) || null;
+  const inEditor = state.currentView === 'editor' && !state.isLoadingNote;
+  const currentEditorHtml = (DOM.editor && inEditor) ? DOM.editor.innerHTML : null;
+  const currentTitleVal = (DOM.noteTitle && inEditor) ? DOM.noteTitle.value : null;
+
+  const notesSnap = (state.notes || []).map(n => {
+    const isCurrent = Boolean(activeNoteId && n.id === activeNoteId);
+    const html = (isCurrent && currentEditorHtml !== null && !isSkeletonOrCorruptedContent(currentEditorHtml))
+      ? currentEditorHtml
+      : (n._cachedHtml || '');
+    const cleanTitle = (isCurrent && currentTitleVal !== null && currentTitleVal.trim())
+      ? currentTitleVal.trim().replace(/\.md$/i, '')
+      : (n.name || '未命名筆記').replace(/\.md$/i, '');
+    return {
+      id: n.id,
+      _tempId: n._tempId || null,
+      name: cleanTitle + '.md',
+      parentId: n.parentId || null,
+      modifiedTime: n.modifiedTime || new Date().toISOString(),
+      meta: n.meta ? JSON.parse(JSON.stringify(n.meta)) : {},
+      _cachedHtml: html,
+      _cachedBody: n._cachedBody || ''
+    };
+  });
+
+  return {
+    currentView: state.currentView || 'editor',
+    activeNoteId: activeNoteId,
+    activeNoteName: (state.currentNote && state.currentNote.name) || '',
+    activeNoteMeta: (state.currentNote && state.currentNote.meta) ? JSON.parse(JSON.stringify(state.currentNote.meta)) : null,
+    editorHtml: currentEditorHtml !== null ? currentEditorHtml : ((state.currentNote && state.currentNote._cachedHtml) || ''),
+    noteTitleValue: currentTitleVal !== null ? currentTitleVal : ((state.currentNote && state.currentNote.name) ? state.currentNote.name.replace(/\.md$/i, '') : ''),
+    notes: notesSnap,
+    machineModels: Array.isArray(state.machineModels) ? state.machineModels.slice() : [],
+    workContents: Array.isArray(state.workContents) ? state.workContents.slice() : [],
+    urgencies: Array.isArray(state.urgencies) ? JSON.parse(JSON.stringify(state.urgencies)) : [],
+    clientsVendors: Array.isArray(state.clientsVendors) ? state.clientsVendors.slice() : [],
+    tags: Array.isArray(state.tags) ? JSON.parse(JSON.stringify(state.tags)) : [],
+    todoHandlers: Array.isArray(state.todoHandlers) ? state.todoHandlers.slice() : [],
+    deletedCategoryItems: state.deletedCategoryItems ? JSON.parse(JSON.stringify(state.deletedCategoryItems)) : {},
+    todoItems: Array.isArray(state.todoItems) ? JSON.parse(JSON.stringify(state.todoItems)) : [],
+    deletedTodoIds: Array.isArray(state.deletedTodoIds) ? state.deletedTodoIds.slice() : [],
+    activeTodoDetailId: state.activeTodoDetailId || null,
+    caseItems: Array.isArray(state.caseItems) ? JSON.parse(JSON.stringify(state.caseItems)) : [],
+    deletedCaseIds: Array.isArray(state.deletedCaseIds) ? state.deletedCaseIds.slice() : [],
+    activeCaseDetailId: state.activeCaseDetailId || null
+  };
+}
+
+/**
+ * 將 canvasDiff ({ noteId, html, meta, title }) 覆寫套用至工作區快照副本上
+ */
+function applyCanvasDiffToWorkspaceSnapshot(baseWsSnap, canvasSnap) {
+  if (!baseWsSnap) return null;
+  const cloned = JSON.parse(JSON.stringify(baseWsSnap));
+  if (!canvasSnap) return cloned;
+
+  const targetId = canvasSnap.noteId || cloned.activeNoteId;
+  if (targetId && Array.isArray(cloned.notes)) {
+    const n = cloned.notes.find(x => x.id === targetId);
+    if (n) {
+      if (typeof canvasSnap.html === 'string') {
+        n._cachedHtml = canvasSnap.html;
+      }
+      if (canvasSnap.meta && typeof canvasSnap.meta === 'object') {
+        n.meta = JSON.parse(JSON.stringify(canvasSnap.meta));
+      }
+      if (canvasSnap.title !== null && canvasSnap.title !== undefined) {
+        const cleanT = String(canvasSnap.title).replace(/\.md$/i, '') || '未命名筆記';
+        n.name = cleanT + '.md';
+      }
+    }
+  }
+  if (!targetId || targetId === cloned.activeNoteId) {
+    if (typeof canvasSnap.html === 'string') {
+      cloned.editorHtml = canvasSnap.html;
+    }
+    if (canvasSnap.meta && typeof canvasSnap.meta === 'object') {
+      cloned.activeNoteMeta = JSON.parse(JSON.stringify(canvasSnap.meta));
+    }
+    if (canvasSnap.title !== null && canvasSnap.title !== undefined) {
+      const cleanT = String(canvasSnap.title).replace(/\.md$/i, '') || '未命名筆記';
+      cloned.noteTitleValue = cleanT;
+      cloned.activeNoteName = cleanT + '.md';
+    }
+  }
+  return cloned;
+}
+
+/**
+ * 從持久化的快照精準還原整個工作區與畫布狀態（供關閉重開後的 Undo / Redo / 回朔使用）
+ */
+function restoreWorkspaceFromActionSnapshot(wsSnap, canvasSnap = null) {
+  if (!wsSnap && !canvasSnap) return;
+  _isRestoringActionSnapshot = true;
+  try {
+    // 若僅為單純的畫布編輯且目標筆記存在，同時還原工作區與畫布
+    if (wsSnap) {
+      if (Array.isArray(wsSnap.machineModels)) state.machineModels = wsSnap.machineModels.slice();
+      if (Array.isArray(wsSnap.workContents)) state.workContents = wsSnap.workContents.slice();
+      if (Array.isArray(wsSnap.urgencies)) state.urgencies = JSON.parse(JSON.stringify(wsSnap.urgencies));
+      if (Array.isArray(wsSnap.clientsVendors)) state.clientsVendors = wsSnap.clientsVendors.slice();
+      if (Array.isArray(wsSnap.tags)) state.tags = JSON.parse(JSON.stringify(wsSnap.tags));
+      if (Array.isArray(wsSnap.todoHandlers)) state.todoHandlers = wsSnap.todoHandlers.slice();
+      if (wsSnap.deletedCategoryItems && typeof wsSnap.deletedCategoryItems === 'object') {
+        state.deletedCategoryItems = JSON.parse(JSON.stringify(wsSnap.deletedCategoryItems));
+        try { saveDeletedCategoryItems(); } catch (e) {}
+      }
+
+      if (Array.isArray(wsSnap.notes)) {
+        state.notes = JSON.parse(JSON.stringify(wsSnap.notes));
+      }
+      if (Array.isArray(wsSnap.todoItems)) {
+        state.todoItems = JSON.parse(JSON.stringify(wsSnap.todoItems));
+      }
+      if (Array.isArray(wsSnap.deletedTodoIds)) {
+        state.deletedTodoIds = wsSnap.deletedTodoIds.slice();
+      }
+      state.activeTodoDetailId = wsSnap.activeTodoDetailId || null;
+
+      if (Array.isArray(wsSnap.caseItems)) {
+        state.caseItems = JSON.parse(JSON.stringify(wsSnap.caseItems));
+      }
+      if (Array.isArray(wsSnap.deletedCaseIds)) {
+        state.deletedCaseIds = wsSnap.deletedCaseIds.slice();
+      }
+      state.activeCaseDetailId = wsSnap.activeCaseDetailId || null;
+    }
+
+    // 判斷是否需要切換或還原筆記畫布
+    const targetNoteId = (canvasSnap && canvasSnap.noteId) || (wsSnap && wsSnap.activeNoteId) || (state.currentNote && state.currentNote.id);
+    const targetNote = targetNoteId ? (state.notes || []).find(n => n.id === targetNoteId) : (state.notes && state.notes[0]);
+
+    if (canvasSnap && (typeof canvasSnap.html === 'string' || canvasSnap.meta || canvasSnap.title !== null)) {
+      applyNoteCanvasSnapshot(
+        targetNoteId,
+        typeof canvasSnap.html === 'string' ? canvasSnap.html : (targetNote ? targetNote._cachedHtml : ''),
+        canvasSnap.meta || (targetNote ? targetNote.meta : null),
+        canvasSnap.title !== null && canvasSnap.title !== undefined ? canvasSnap.title : (targetNote ? targetNote.name.replace(/\.md$/i, '') : null)
+      );
+    } else if (wsSnap) {
+      if (targetNote) {
+        state.currentNote = {
+          id: targetNote.id,
+          _tempId: targetNote._tempId,
+          name: targetNote.name,
+          parentId: targetNote.parentId,
+          meta: JSON.parse(JSON.stringify(targetNote.meta || {}))
+        };
+        localStorage.setItem('lvi_last_active_note_id', targetNote.id);
+        const cleanTitle = (targetNote.name || '').replace(/\.md$/i, '');
+        if (DOM.noteTitle) DOM.noteTitle.value = cleanTitle;
+        if (DOM.headerTitle) DOM.headerTitle.textContent = cleanTitle || '未命名筆記';
+        if (DOM.editor) {
+          const htmlToSet = (targetNote.id === wsSnap.activeNoteId && typeof wsSnap.editorHtml === 'string')
+            ? wsSnap.editorHtml
+            : (targetNote._cachedHtml || '');
+          DOM.editor.innerHTML = htmlToSet;
+          targetNote._cachedHtml = htmlToSet;
+          try {
+            targetNote._cachedBody = convertHtmlToMarkdown(htmlToSet);
+          } catch (e) {}
+          state.editorSnapshotBeforeEdit = htmlToSet;
+          state.snapshotNoteId = targetNote.id;
+          state.titleBeforeEdit = cleanTitle;
+          try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+        }
+        try { renderCurrentNote(); } catch (e) {}
+      }
+
+      if (wsSnap.currentView && wsSnap.currentView !== state.currentView) {
+        switchView(wsSnap.currentView);
+      }
+    }
+
+    // 同步重新渲染所有分類、側邊欄、待辦與案件視圖並寫入本機快取
+    try { saveWorkTags(); } catch (e) {}
+    try { saveTags(); } catch (e) {}
+    try { saveTodoItemsToLocalStorageOnly(); } catch (e) {}
+    try { saveCaseItemsToLocalStorageOnly(); } catch (e) {}
+    try { saveSwrCacheSnapshot(); } catch (e) {}
+    try { saveLocalDraftImmediately(); } catch (e) {}
+    try { refreshAllViewsAfterCategoryChange(); } catch (e) {}
+    try { renderNotesList(); } catch (e) {}
+    try { if (state.currentView === 'tasks') renderTasksView(); } catch (e) {}
+    try { if (state.currentView === 'cases') renderCasesView(); } catch (e) {}
+    try { if (state.currentView === 'table') renderTableView(); } catch (e) {}
+
+    _lastCommittedWorkspaceSnapshot = captureWorkspaceActionSnapshot();
+  } finally {
+    _isRestoringActionSnapshot = false;
+  }
+}
+
+/**
+ * 字串去重壓縮與還原工具（將長度 > 64 的重複 HTML/字串集中存放於 stringPool，大幅降低 50 步快照體積）
+ */
+function dehydrateHistoryValue(val, pool, poolMap) {
+  if (typeof val === 'string') {
+    if (val.length > 64) {
+      let idx = poolMap.get(val);
+      if (idx === undefined) {
+        idx = pool.length;
+        pool.push(val);
+        poolMap.set(val, idx);
+      }
+      return `@@LVI_POOL_${idx}@@`;
+    }
+    return val;
+  }
+  if (Array.isArray(val)) {
+    return val.map(item => dehydrateHistoryValue(item, pool, poolMap));
+  }
+  if (val && typeof val === 'object') {
+    const out = {};
+    for (const k of Object.keys(val)) {
+      out[k] = dehydrateHistoryValue(val[k], pool, poolMap);
+    }
+    return out;
+  }
+  return val;
+}
+
+function rehydrateHistoryValue(val, pool) {
+  if (typeof val === 'string') {
+    if (val.startsWith('@@LVI_POOL_') && val.endsWith('@@')) {
+      const idx = parseInt(val.slice(11, -2), 10);
+      if (!isNaN(idx) && pool && idx >= 0 && idx < pool.length) {
+        return pool[idx];
+      }
+    }
+    return val;
+  }
+  if (Array.isArray(val)) {
+    return val.map(item => rehydrateHistoryValue(item, pool));
+  }
+  if (val && typeof val === 'object') {
+    const out = {};
+    for (const k of Object.keys(val)) {
+      out[k] = rehydrateHistoryValue(val[k], pool);
+    }
+    return out;
+  }
+  return val;
+}
+
+/**
+ * 同步寫入 IndexedDB 備援（供超大圖片歷史使用）
+ */
+function saveActionHistoryToIndexedDB(serializedStr) {
+  try {
+    if (!window.indexedDB) return;
+    const req = window.indexedDB.open(PERSISTENT_HISTORY_IDB_NAME, 1);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(PERSISTENT_HISTORY_IDB_STORE)) {
+        db.createObjectStore(PERSISTENT_HISTORY_IDB_STORE);
+      }
+    };
+    req.onsuccess = (e) => {
+      try {
+        const db = e.target.result;
+        const tx = db.transaction(PERSISTENT_HISTORY_IDB_STORE, 'readwrite');
+        tx.objectStore(PERSISTENT_HISTORY_IDB_STORE).put(serializedStr, 'latest');
+      } catch (err) {}
+    };
+  } catch (e) {}
+}
+
+/**
+ * 將當前 state.actionHistory (最多 50 步) 與 state.historyIndex 持久化至 localStorage
+ */
+function savePersistentActionHistory() {
+  try {
+    if (!Array.isArray(state.actionHistory)) return;
+    // 嚴格限制最多 50 步
+    if (state.actionHistory.length > PERSISTENT_MAX_STEPS) {
+      const overflow = state.actionHistory.length - PERSISTENT_MAX_STEPS;
+      state.actionHistory.splice(0, overflow);
+      state.historyIndex = Math.max(-1, state.historyIndex - overflow);
+    }
+
+    const buildSerializedPayload = (recordsSlice, idxOffset = 0) => {
+      const pool = [];
+      const poolMap = new Map();
+      const records = recordsSlice.map(rec => ({
+        id: rec.id,
+        timeIso: rec.time instanceof Date ? rec.time.toISOString() : (rec.timeIso || new Date().toISOString()),
+        timeStr: rec.timeStr || '',
+        type: rec.type || 'edit_content',
+        title: rec.title || '',
+        subtitle: rec.subtitle || '',
+        noteId: rec.noteId || null,
+        snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
+      }));
+      return JSON.stringify({
+        version: 'v2.9.9',
+        maxSteps: PERSISTENT_MAX_STEPS,
+        historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
+        pool,
+        records
+      });
+    };
+
+    const fullJson = buildSerializedPayload(state.actionHistory, 0);
+    saveActionHistoryToIndexedDB(fullJson);
+
+    try {
+      localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, fullJson);
+    } catch (quotaErr) {
+      // 若瀏覽器 localStorage 空間不足，逐步保留最新步驟確保一定能寫入成功
+      for (let keep = Math.min(35, state.actionHistory.length); keep >= 5; keep -= 5) {
+        try {
+          const offset = state.actionHistory.length - keep;
+          const partialJson = buildSerializedPayload(state.actionHistory.slice(offset), offset);
+          localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, partialJson);
+          break;
+        } catch (e2) {}
+      }
+    }
+  } catch (err) {
+    console.warn('儲存持久化回朔歷史略過:', err);
+  }
+}
+
+/**
+ * 為從 localStorage 載入的單筆歷史紀錄綁定可執行的 undo / redo 函式
+ */
+function bindRehydratedUndoRedoHandlers(rec) {
+  const payload = rec.snapshotPayload || {};
+  rec.undo = () => {
+    restoreWorkspaceFromActionSnapshot(payload.beforeWorkspace, payload.beforeCanvas);
+  };
+  rec.redo = () => {
+    restoreWorkspaceFromActionSnapshot(payload.afterWorkspace, payload.afterCanvas);
+  };
+  return rec;
+}
+
+/**
+ * 啟動時從 localStorage 載入持久化的回朔歷史（最多 50 步），讓關閉軟體重開後仍可隨時回朔！
+ */
+function loadPersistentActionHistoryOnBoot() {
+  try {
+    const raw = localStorage.getItem(PERSISTENT_ACTION_HISTORY_KEY);
+    if (!raw) {
+      _lastCommittedWorkspaceSnapshot = captureWorkspaceActionSnapshot();
+      return false;
+    }
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.records) || parsed.records.length === 0) {
+      _lastCommittedWorkspaceSnapshot = captureWorkspaceActionSnapshot();
+      return false;
+    }
+
+    const pool = Array.isArray(parsed.pool) ? parsed.pool : [];
+    let records = parsed.records.map(r => {
+      const rehydratedPayload = rehydrateHistoryValue(r.snapshotPayload || null, pool);
+      const item = {
+        id: r.id || ('act_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
+        time: r.timeIso ? new Date(r.timeIso) : new Date(),
+        timeIso: r.timeIso || new Date().toISOString(),
+        timeStr: r.timeStr || '',
+        type: r.type || 'edit_content',
+        title: r.title || '歷史動作',
+        subtitle: r.subtitle || '',
+        noteId: r.noteId || null,
+        snapshotPayload: rehydratedPayload
+      };
+      return bindRehydratedUndoRedoHandlers(item);
+    });
+
+    // 嚴格確保不超過 50 步
+    let idx = typeof parsed.historyIndex === 'number' ? parsed.historyIndex : (records.length - 1);
+    if (records.length > PERSISTENT_MAX_STEPS) {
+      const overflow = records.length - PERSISTENT_MAX_STEPS;
+      records = records.slice(overflow);
+      idx = idx - overflow;
+    }
+    idx = Math.max(-1, Math.min(records.length - 1, idx));
+
+    state.actionHistory = records;
+    state.historyIndex = idx;
+    _lastCommittedWorkspaceSnapshot = captureWorkspaceActionSnapshot();
+
+    updateHistoryUI();
+    if (isHistoryModalOpen()) {
+      renderHistoryTimeline();
+    }
+    return true;
+  } catch (err) {
+    console.warn('載入持久化回朔歷史略過:', err);
+    _lastCommittedWorkspaceSnapshot = captureWorkspaceActionSnapshot();
+    return false;
+  }
+}
+
+// 覆寫 recordAction：支援最多 50 步、自動建立完整前後狀態快照並立即持久化至 localStorage
+recordAction = function(action) {
+  if (state.isUndoingOrRedoing || _isRestoringActionSnapshot) return;
+
+  // 若為非內文輸入之其他動作，且目前有尚未結算的打字輸入計時器，先結算打字歷史
+  if (action.type !== 'edit_content' && editorInputTimer) {
+    flushPendingEditorInputHistory();
+  }
+
+  // 若目前指標不在最末端，截斷未來的重做分支
+  if (state.historyIndex < state.actionHistory.length - 1) {
+    state.actionHistory = state.actionHistory.slice(0, state.historyIndex + 1);
+  }
+
+  const afterWorkspace = captureWorkspaceActionSnapshot();
+  const baseBeforeWs = action._beforeWorkspace || _lastCommittedWorkspaceSnapshot || afterWorkspace;
+  const beforeWorkspace = applyCanvasDiffToWorkspaceSnapshot(baseBeforeWs, action._beforeCanvas || null);
+  const finalAfterWorkspace = applyCanvasDiffToWorkspaceSnapshot(afterWorkspace, action._afterCanvas || null);
+
+  const snapshotPayload = {
+    beforeCanvas: action._beforeCanvas || null,
+    afterCanvas: action._afterCanvas || null,
+    beforeWorkspace,
+    afterWorkspace: finalAfterWorkspace
+  };
+
+  const origUndo = typeof action.undo === 'function' ? action.undo : null;
+  const origRedo = typeof action.redo === 'function' ? action.redo : null;
+
+  const record = {
+    id: 'act_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    time: new Date(),
+    timeIso: new Date().toISOString(),
+    timeStr: new Date().toLocaleTimeString('zh-TW', { hour12: false }),
+    type: action.type || 'edit_content',
+    title: action.title,
+    subtitle: action.subtitle || '',
+    noteId: action.noteId || (state.currentNote ? state.currentNote.id : null),
+    snapshotPayload,
+    undo: () => {
+      if (origUndo) {
+        origUndo();
+        try { saveSwrCacheSnapshot(); } catch (e) {}
+        try { saveTodoItemsToLocalStorageOnly(); } catch (e) {}
+        try { saveCaseItemsToLocalStorageOnly(); } catch (e) {}
+        try { saveLocalDraftImmediately(); } catch (e) {}
+      } else {
+        restoreWorkspaceFromActionSnapshot(snapshotPayload.beforeWorkspace, snapshotPayload.beforeCanvas);
+      }
+      _lastCommittedWorkspaceSnapshot = captureWorkspaceActionSnapshot();
+    },
+    redo: () => {
+      if (origRedo) {
+        origRedo();
+        try { saveSwrCacheSnapshot(); } catch (e) {}
+        try { saveTodoItemsToLocalStorageOnly(); } catch (e) {}
+        try { saveCaseItemsToLocalStorageOnly(); } catch (e) {}
+        try { saveLocalDraftImmediately(); } catch (e) {}
+      } else {
+        restoreWorkspaceFromActionSnapshot(snapshotPayload.afterWorkspace, snapshotPayload.afterCanvas);
+      }
+      _lastCommittedWorkspaceSnapshot = captureWorkspaceActionSnapshot();
+    }
+  };
+
+  state.actionHistory.push(record);
+  if (state.actionHistory.length > PERSISTENT_MAX_STEPS) {
+    state.actionHistory.shift();
+  }
+  state.historyIndex = state.actionHistory.length - 1;
+  _lastCommittedWorkspaceSnapshot = finalAfterWorkspace;
+
+  savePersistentActionHistory();
+  updateHistoryUI();
+  if (isHistoryModalOpen()) {
+    renderHistoryTimeline();
+  }
+};
+
+// 擴充 undoAction / redoAction / rollbackToStep：每次復原或重做後立即同步持久化狀態與 historyIndex
+const _origUndoActionV298 = undoAction;
+undoAction = function() {
+  const ok = _origUndoActionV298();
+  if (ok) {
+    _lastCommittedWorkspaceSnapshot = captureWorkspaceActionSnapshot();
+    savePersistentActionHistory();
+  }
+  return ok;
+};
+
+const _origRedoActionV298 = redoAction;
+redoAction = function() {
+  const ok = _origRedoActionV298();
+  if (ok) {
+    _lastCommittedWorkspaceSnapshot = captureWorkspaceActionSnapshot();
+    savePersistentActionHistory();
+  }
+  return ok;
+};
+
+const _origRollbackToStepV298 = rollbackToStep;
+rollbackToStep = function(targetIndex) {
+  _origRollbackToStepV298(targetIndex);
+  _lastCommittedWorkspaceSnapshot = captureWorkspaceActionSnapshot();
+  savePersistentActionHistory();
+};
+
+const _origUpdateHistoryUIV298 = updateHistoryUI;
+updateHistoryUI = function() {
+  _origUpdateHistoryUIV298();
+  const undoCount = state.historyIndex + 1;
+  const redoCount = Math.max(0, state.actionHistory.length - 1 - state.historyIndex);
+  if (DOM.historyStatusText) {
+    DOM.historyStatusText.textContent = `共記錄 ${state.actionHistory.length} / ${PERSISTENT_MAX_STEPS} 步 (目前第 ${undoCount} 步)`;
+  }
+  if (DOM.historyUndoableCount) {
+    DOM.historyUndoableCount.textContent = `可復原 ${undoCount} 步 / 可重做 ${redoCount} 步`;
+  }
+};
+
+// 切換筆記時同步更新基準工作區快照（確保後續非畫布動作擁有最新基準）
+const _origSelectNoteV298ForHistory = selectNote;
+selectNote = async function(noteId) {
+  const res = await _origSelectNoteV298ForHistory(noteId);
+  if (!state.isUndoingOrRedoing && !_isRestoringActionSnapshot) {
+    _lastCommittedWorkspaceSnapshot = captureWorkspaceActionSnapshot();
+  }
+  return res;
+};
+
+// 將待辦事項與案件追蹤的「存入歷史」與「刪除待辦」也納入 50 步持久化回朔時光機中！
+const _origCommitTodoIssueStagingToHistoryV298 = commitTodoIssueStagingToHistory;
+commitTodoIssueStagingToHistory = function(item, opts = {}) {
+  const beforeWs = (!opts.autoSaved && !state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+  const entry = _origCommitTodoIssueStagingToHistoryV298(item, opts);
+  if (entry && !opts.autoSaved && !state.isUndoingOrRedoing) {
+    recordAction({
+      type: 'todo_toggle',
+      title: `💾 待辦說明存入歷史「${entry.code}」`,
+      subtitle: `待辦：「${item.title || '未命名待辦'}」`,
+      _beforeWorkspace: beforeWs
+    });
+  }
+  return entry;
+};
+
+const _origCommitTodoResolutionStagingToHistoryV298 = commitTodoResolutionStagingToHistory;
+commitTodoResolutionStagingToHistory = function(item, opts = {}) {
+  const beforeWs = (!opts.autoSaved && !state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+  const entry = _origCommitTodoResolutionStagingToHistoryV298(item, opts);
+  if (entry && !opts.autoSaved && !state.isUndoingOrRedoing) {
+    recordAction({
+      type: 'todo_toggle',
+      title: `💾 處理結果存入歷史「${entry.code}」`,
+      subtitle: `待辦：「${item.title || '未命名待辦'}」`,
+      _beforeWorkspace: beforeWs
+    });
+  }
+  return entry;
+};
+
+const _origCommitCaseSymptomStagingToHistoryV298 = commitCaseSymptomStagingToHistory;
+commitCaseSymptomStagingToHistory = function(item, opts = {}) {
+  const beforeWs = (!opts.autoSaved && !state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+  const entry = _origCommitCaseSymptomStagingToHistoryV298(item, opts);
+  if (entry && !opts.autoSaved && !state.isUndoingOrRedoing) {
+    recordAction({
+      type: 'category_op',
+      title: `💾 客訴異常存入歷史「${entry.code}」`,
+      subtitle: `案號：「${getCaseDisplayNo(item)}」`,
+      _beforeWorkspace: beforeWs
+    });
+  }
+  return entry;
+};
+
+const _origCommitCaseActionStagingToHistoryV298 = commitCaseActionStagingToHistory;
+commitCaseActionStagingToHistory = function(item, opts = {}) {
+  const beforeWs = (!opts.autoSaved && !state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+  const entry = _origCommitCaseActionStagingToHistoryV298(item, opts);
+  if (entry && !opts.autoSaved && !state.isUndoingOrRedoing) {
+    recordAction({
+      type: 'category_op',
+      title: `💾 處理對策存入歷史「${entry.code}」`,
+      subtitle: `案號：「${getCaseDisplayNo(item)}」`,
+      _beforeWorkspace: beforeWs
+    });
+  }
+  return entry;
+};
+
+const _origDeleteTodoItemByIdV298 = deleteTodoItemById;
+deleteTodoItemById = async function(todoId) {
+  const beforeWs = (!state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+  const targetItem = (state.todoItems || []).find(t => t.id === todoId);
+  const titleLabel = (targetItem && targetItem.title) ? targetItem.title : '待辦事項';
+  const ok = await _origDeleteTodoItemByIdV298(todoId);
+  if (ok && beforeWs && !state.isUndoingOrRedoing) {
+    recordAction({
+      type: 'todo_toggle',
+      title: `🗑️ 刪除待辦「${titleLabel}」`,
+      subtitle: '可按復原 (Ctrl+Z) 救回',
+      _beforeWorkspace: beforeWs
+    });
+  }
+  return ok;
+};
+
+// 綁定關閉視窗 / 重新整理 / 切換背景時，先結算未滿 800ms 的打字輸入並寫入持久化歷史
+if (!window._persistentHistoryUnloadBound) {
+  window._persistentHistoryUnloadBound = true;
+  const flushAndPersistOnClose = () => {
+    try { flushPendingEditorInputHistory(); } catch (e) {}
+    try { saveLocalDraftImmediately(); } catch (e) {}
+    try { saveSwrCacheSnapshot(); } catch (e) {}
+    try { savePersistentActionHistory(); } catch (e) {}
+  };
+  window.addEventListener('beforeunload', flushAndPersistOnClose);
+  window.addEventListener('pagehide', flushAndPersistOnClose);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      flushAndPersistOnClose();
+    }
+  });
+}
+
+// 啟動時自動載入持久化之 50 步回朔紀錄
+try {
+  loadPersistentActionHistoryOnBoot();
+} catch (e) {
+  console.warn('loadPersistentActionHistoryOnBoot error:', e);
+}
+
+
+// 確保在 hydrateFromSwrCacheOnBoot 與 DOMContentLoaded 完成後再次對齊持久化歷史與工作區基準快照
+const _origHydrateFromSwrCacheOnBootV298 = hydrateFromSwrCacheOnBoot;
+hydrateFromSwrCacheOnBoot = function() {
+  const prevFlag = _isRestoringActionSnapshot;
+  _isRestoringActionSnapshot = true;
+  try {
+    _origHydrateFromSwrCacheOnBootV298();
+    ensureTodoItemsInitialized();
+    ensureCaseItemsInitialized();
+  } finally {
+    _isRestoringActionSnapshot = prevFlag;
+  }
+  loadPersistentActionHistoryOnBoot();
+};
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      loadPersistentActionHistoryOnBoot();
+    }, 20);
+  });
+} else {
+  setTimeout(() => {
+    loadPersistentActionHistoryOnBoot();
+  }, 20);
+}
