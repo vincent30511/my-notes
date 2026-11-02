@@ -1,4 +1,4 @@
-const APP_VERSION = 'v3.0.7'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.0.8'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -7251,7 +7251,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261102_v3.0.7', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261102_v3.0.8', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -28012,7 +28012,7 @@ try {
 
 
 // ============================================================================
-// 🚀 LVI_Note v3.0.7 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
+// 🚀 LVI_Note v3.0.8 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
 // （完全比照「案件追蹤」：支援「💾 存入歷史」按鈕、未儲存關閉網站/離開自動存入歷史、
 //   展開查看詳情、雙向互相關聯跳轉、載回編輯、刪除、搜尋檢索與 PDF 報告匯出）
 // ============================================================================
@@ -29357,7 +29357,7 @@ openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
 
 
 // ============================================================================
-// 🕰️ LVI_Note v3.0.7 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
+// 🕰️ LVI_Note v3.0.8 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
 // 1. 嚴格支援最多 50 步 (MAX_HISTORY_STEPS = 50)，超出自動滾動淘汰最舊步數
 // 2. 採用內容雜湊字串池 (Content-Addressed String Deduplication Pool) 將每步動作的
 //    完整前後狀態快照 (beforeWorkspace / afterWorkspace & beforeCanvas / afterCanvas)
@@ -29674,7 +29674,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v3.0.7',
+        version: 'v3.0.8',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -30039,7 +30039,7 @@ if (document.readyState === 'loading') {
 
 
 // ============================================================================
-// 📝 LVI_Note v3.0.7 「轉為筆記」核心引擎 (Convert Todo / Case Item to Regular Note)
+// 📝 LVI_Note v3.0.8 「轉為筆記」核心引擎 (Convert Todo / Case Item to Regular Note)
 // 支援從「待辦事項」與「案件追蹤」內的單一事件或案件（無論在清單、表格或詳細頁），
 // 以其自身原本的完整資訊（機型、客戶/廠商、人員、標籤、時間、所有歷史紀錄、互相關聯、
 // 更換零件、以及所有現場照片與檔案附件）為基礎，自動建立一篇結構化的「常規筆記」，
@@ -30586,7 +30586,7 @@ bindCaseCardsInteractions = function(listContainer) {
 
 
 // ============================================================================
-// 🛡️ LVI_Note v3.0.7 自動穩定性與雙向導航強化補丁 (Scheduled Stability Patch)
+// 🛡️ LVI_Note v3.0.8 自動穩定性與雙向導航強化補丁 (Scheduled Stability Patch)
 // 1. 表格預覽抽屜 (Quick Peek Drawer) 新增「📝 轉為筆記」一鍵轉換按鈕
 // 2. 由待辦事項或案件追蹤轉換出的常規筆記，支援點擊頂部來源橫幅一鍵跳回原待辦或原案件
 // 3. 全域錯誤邊界與儲存空間防護 (Quota-Safe Storage & Event Delegation Guard)
@@ -30686,7 +30686,7 @@ openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
 
 
 // ============================================================================
-// 🛡️ LVI_Note v3.0.7 檔案最高安全防護與「零異動複製轉為筆記」核心引擎
+// 🛡️ LVI_Note v3.0.8 檔案最高安全防護與「零異動複製轉為筆記」核心引擎
 // 1. 最高優先級檔案保護：修正 compactTodoAttachmentsHtml，嚴禁抹除 data: 永久備份網址或未同步雲端之本地檔案連結
 // 2. 待辦事項與案件追蹤上傳任何檔案（含圖片、PDF、Office、壓縮檔等）皆建立永久 DataURL 保底，杜絕 blob: 失效導致檔案消失
 // 3. 「📝 轉為筆記」採用 100% 唯讀深拷貝（Zero-Mutation Deep Copy）：
@@ -31518,7 +31518,7 @@ convertCaseToRegularNote = async function(caseId) {
 
 
 // ============================================================================
-// 🚀 LVI_Note v3.0.7 四大核心升級引擎：
+// 🚀 LVI_Note v3.0.8 四大核心升級引擎：
 // 1. 回朔步數提升至 100 步 (支援於「⚙️ 歷史功能設定」動態調整 50 / 100 / 150 / 200 步，跨重開完整保留)
 // 2. 新增「⚙️ 歷史功能設定」按鈕與「🗑️ 何時刪了什麼（刪除紀錄）」稽核視圖：
 //    完整記錄每次刪除筆記、刪除照片/檔案附件、刪除待辦、刪除案件、刪除歷史紀錄、刪除分類/標籤與刪減內文之精確年月日時分秒與內容摘要
@@ -32159,7 +32159,7 @@ savePersistentActionHistory = function() {
     }));
 
     const fullJson = JSON.stringify({
-      version: 'v3.0.7',
+      version: 'v3.0.8',
       maxSteps: PERSISTENT_MAX_STEPS,
       historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex)),
       pool,
@@ -32189,7 +32189,7 @@ savePersistentActionHistory = function() {
             snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, subPool, subMap)
           }));
           localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, JSON.stringify({
-            version: 'v3.0.7',
+            version: 'v3.0.8',
             maxSteps: PERSISTENT_MAX_STEPS,
             historyIndex: Math.max(-1, Math.min(subRecords.length - 1, state.historyIndex - offset)),
             pool: subPool,
@@ -32458,7 +32458,7 @@ try {
 
 
 // ============================================================================
-// 🛡️ v3.0.7 雙軌隔離升級：
+// 🛡️ v3.0.8 雙軌隔離升級：
 // 1. 手動操作專屬 100 步 (`state.actionHistory`)：100% 僅記錄使用者手動動作，絕不被自動同步或衝突沖刷！
 // 2. 獨立「⚡ 跨裝置衝突備份池」(`state.syncConflictHistory`)：獨立持久化保留最多 30 筆衝突快照，完全不佔用 100 步配額！
 // 3. 內容指紋去重 (`dedupKey = noteId + localHash + cloudHash`)：避免自動同步重試時重複寫入相同衝突。
@@ -32797,7 +32797,7 @@ updateHistoryUI();
 
 
 // ============================================================================
-// 🚀 LVI_Note v3.0.7 案件追蹤欄位擴充與狀態升級補丁：
+// 🚀 LVI_Note v3.0.8 案件追蹤欄位擴充與狀態升級補丁：
 // 1. 新增可編輯欄位：「S/N (serialNumber)」、「出機時間 (shipTime)」、「關聯待處理 (pendingFollowUpText + linkedTodoIds)」
 // 2. 「案件狀態 (status)」固定選項更新為：「準備中」、「已完成等待出機」、「交機完成」、「客戶回饋排除」
 // ============================================================================
@@ -33675,7 +33675,7 @@ convertCaseToRegularNote = async function(caseId) {
 
 
 // ============================================================================
-// 📅 LVI_Note v3.0.7 「出機時間」日曆選擇器 (Date Picker) 與雙向日曆同步引擎：
+// 📅 LVI_Note v3.0.8 「出機時間」日曆選擇器 (Date Picker) 與雙向日曆同步引擎：
 // 1. 出機時間改為從日曆選擇 (<input type="date"> 支援點擊彈出日曆選擇器、一鍵設為今天、一鍵清除)
 // 2. 雙向同步至 App 內建「📅 行事曆」月曆視圖與每日行程面板 (顯示 🚚 [出機] 案號，可點擊開啟案件或直接在日曆修改出機日)
 // 3. 自動同步至 Google Calendar (建立/更新/刪除對應的出機日曆活動，透過 item.googleCalShipEventId 綁定不重複)
@@ -34238,7 +34238,7 @@ openDayScheduleModal = function(dateKey) {
 
 
 // ============================================================================
-// 🛡️ LVI_Note v3.0.7 「電腦＋手機同時開啟」零打斷智慧協同引擎 (Multi-Device Anti-Interruption Engine)
+// 🛡️ LVI_Note v3.0.8 「電腦＋手機同時開啟」零打斷智慧協同引擎 (Multi-Device Anti-Interruption Engine)
 // 徹底解決：電腦與手機同時開著 LVI Note 時，在手機上打字一直被背景雲端同步打斷、游標跳掉或鍵盤收起的問題！
 //
 // 四大核心機制：
@@ -34612,3 +34612,454 @@ flushImmediateCloudSave = function() {
 };
 
 initV307AntiInterruptListeners();
+
+
+// ============================================================================
+// ⚡ LVI_Note v3.0.8 「30秒內電腦⇄手機極速乒乓切換」零掉字・三方智慧合併引擎
+// 專為「電腦與手機同時開著，電腦打字 ➔ 幾秒內換手機打字 ➔ 幾秒內又切回電腦打字」的高頻切換情境打造！
+//
+// 解決 v3.0.7 在 <30 秒極速來回切換時的三大潛在問題：
+// 1. 🎯 精準按鍵與髒資料鎖 (Dirty-State + 1.5s Keystroke Lock)：
+//    - 廢除死板的「30 秒盲目鎖定」（避免電腦打完字 10 秒後換手機、再 10 秒切回電腦時，電腦因還在 30 秒內而拒收手機剛打的字）。
+//    - 改為：只要「正在打字未滿 1.5 秒」、「正在注音/拼音選字 (isImeComposing)」或「本機尚有未上傳修改 (isDirty / isSaving)」，100% 鎖定保護不打斷；
+//    - 一旦停筆 1.2 秒自動完成上傳（或滑鼠移開編輯器/失焦 0ms 立即上傳）後，該裝置即成為「已同步乾淨狀態 (!isDirty)」，隨時可無縫秒接另一台裝置的新內容！
+// 2. ⚡ 接手瞬間「單篇極速預拉 (pullActiveNoteFastHandover)」+ 游標位置保持：
+//    - 當手指剛觸碰手機螢幕 (touchstart / pointerdown) 或滑鼠剛移回電腦視窗 (mouseenter / focus / pointerdown) 時，
+//      若本機目前無未存修改 (!state.isDirty)，立即針對「當前開啟的這篇筆記」發起毫秒級單篇檢查並靜默拉取最新內容，同時保留游標位置！
+// 3. 🧬 三方段落智慧合併 (mergeThreeWayNoteHtml)：
+//    - 萬一您在電腦打完字還沒上傳完的 0.5 秒內，已經同時在手機上打出新文字（雙端同時修改同一篇筆記）：
+//      系統會比對「上次共同基準內容 (_lastSyncedHtml)」、「雲端另一裝置版本」與「本機剛打版本」，自動將兩端各自新增的段落合併保留在畫面上（並將合併前快照存入獨立衝突池），絕不互相覆蓋吃字！
+// ============================================================================
+
+const KEYSTROKE_ACTIVE_GUARD_MS = 1600; // 正在連續敲鍵盤的 1.6 秒內絕對不改寫 DOM
+state.lastKeystrokeOrInputAt = 0;
+let _isFastHandoverFetching = false;
+let _lastFastHandoverCheckAt = 0;
+
+/**
+ * 記錄當前筆記最近一次與雲端一致的「共同基準 HTML (_lastSyncedHtml)」，供三方合併比對使用
+ */
+function updateNoteBaseSyncedSnapshot(noteObj, htmlStr, bodyStr, modTime) {
+  if (!noteObj) return;
+  if (typeof htmlStr === 'string') noteObj._lastSyncedHtml = htmlStr;
+  if (typeof bodyStr === 'string') {
+    noteObj._lastSyncedBody = bodyStr;
+    noteObj._baseContentHash = computeNoteContentHash(bodyStr);
+  }
+  if (modTime) {
+    noteObj.modifiedTime = modTime;
+    noteObj._baseCloudModifiedTime = modTime;
+  }
+}
+
+/**
+ * 儲存與還原編輯器內的游標字元偏移量 (Character Offset)，確保靜默更新時游標不跳回開頭
+ */
+function saveEditorCursorCharacterOffset(containerEl) {
+  if (!containerEl) return null;
+  try {
+    const sel = window.getSelection();
+    if (!sel || sel.rangeCount === 0) return null;
+    const range = sel.getRangeAt(0);
+    if (!containerEl.contains(range.startContainer)) return null;
+    const preRange = range.cloneRange();
+    preRange.selectNodeContents(containerEl);
+    preRange.setEnd(range.startContainer, range.startOffset);
+    return preRange.toString().length;
+  } catch (e) {
+    return null;
+  }
+}
+
+function restoreEditorCursorCharacterOffset(containerEl, targetOffset) {
+  if (!containerEl || typeof targetOffset !== 'number' || targetOffset < 0) return;
+  try {
+    const sel = window.getSelection();
+    if (!sel) return;
+    let charIndex = 0;
+    const range = document.createRange();
+    range.setStart(containerEl, 0);
+    range.collapse(true);
+    const nodeStack = [containerEl];
+    let node;
+    let found = false;
+    while (!found && (node = nodeStack.pop())) {
+      if (node.nodeType === 3) {
+        const nextCharIndex = charIndex + node.length;
+        if (targetOffset >= charIndex && targetOffset <= nextCharIndex) {
+          range.setStart(node, targetOffset - charIndex);
+          range.collapse(true);
+          found = true;
+        }
+        charIndex = nextCharIndex;
+      } else {
+        let i = node.childNodes.length;
+        while (i--) {
+          nodeStack.push(node.childNodes[i]);
+        }
+      }
+    }
+    if (found) {
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+  } catch (e) {}
+}
+
+/**
+ * 🧬 三方段落智慧合併引擎 (mergeThreeWayNoteHtml)：
+ * 當電腦與手機在極短時間內 (<1~2秒) 同時基於舊基準版 (baseHtml) 各自新增或修改了不同段落時：
+ * 自動保留雲端新增的段落 + 本機新增的段落，不會因為「較新版覆蓋」而把另一台剛打的段落洗掉！
+ */
+function mergeThreeWayNoteHtml(baseHtml, cloudHtml, localHtml) {
+  const splitBlocks = (h) => {
+    if (!h || !String(h).trim()) return [];
+    const tmp = document.createElement('div');
+    tmp.innerHTML = h;
+    const blocks = [];
+    Array.from(tmp.childNodes).forEach(node => {
+      if (node.nodeType === 1) {
+        blocks.push(node.outerHTML.trim());
+      } else if (node.nodeType === 3 && node.textContent.trim()) {
+        blocks.push(`<p>${escapeHtml(node.textContent.trim())}</p>`);
+      }
+    });
+    return blocks.filter(b => b && b !== '<p><br></p>');
+  };
+
+  const normText = (blockHtml) => String(blockHtml || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+
+  const baseBlocks = splitBlocks(baseHtml);
+  const cloudBlocks = splitBlocks(cloudHtml);
+  const localBlocks = splitBlocks(localHtml);
+
+  // 若沒有 baseHtml，或其中一方完全包含另一方，直接聯集去重合併
+  const baseTextSet = new Set(baseBlocks.map(normText).filter(Boolean));
+  const localTextSet = new Set(localBlocks.map(normText).filter(Boolean));
+  const cloudTextSet = new Set(cloudBlocks.map(normText).filter(Boolean));
+
+  // 找出「雲端相對於 Base 新增或修改的區塊」
+  const cloudAddedBlocks = cloudBlocks.filter(cb => {
+    const t = normText(cb);
+    if (!t) return cb.includes('<img') || cb.includes('notion-media-collapse') || cb.includes('notion-file-attachment');
+    return !baseTextSet.has(t) && !localTextSet.has(t);
+  });
+
+  // 若雲端有新增區塊、且本機也有自己的區塊，將本機內容與雲端新增區塊無損合併！
+  if (cloudAddedBlocks.length > 0 && localBlocks.length > 0) {
+    return [...cloudBlocks, ...localBlocks.filter(lb => {
+      const t = normText(lb);
+      if (!t) return true;
+      return !cloudTextSet.has(t);
+    })].join('');
+  }
+
+  return null; // 若非單純雙端新增，交由時間戳記較新者勝出 + 獨立衝突備份池保底
+}
+
+// 1. 覆寫 markUserActiveEditingNow 與 isUserActivelyEditingNow：
+//    採用「精準按鍵鎖 (1.6s) + 未存檔髒資料鎖 (isDirty/isSaving) + 輸入法選字鎖 (isImeComposing)」
+//    只要本機已存檔完畢 (!isDirty) 且停筆超過 1.6 秒，就算在 30 秒內從手機切回電腦，電腦也能立即接收手機剛存的最新內容！
+markUserActiveEditingNow = function() {
+  const now = Date.now();
+  state.lastKeystrokeOrInputAt = now;
+  state.lastUserEditInputAt = now;
+  state.lastUserAnyInteractionAt = now;
+  state.deferredCloudNoteUpdate = null;
+  hideDeferredCloudUpdateBanner();
+};
+
+isUserActivelyEditingNow = function() {
+  if (state.antiInterruptPolicy === 'always_pull') return false;
+  // (A) 正在注音/拼音選字中：絕對鎖定
+  if (state.isImeComposing) return true;
+  // (B) 本機尚有未上傳至雲端的修改 (isDirty / autoSaveTimer / 佇列傳輸中)：絕對鎖定，防止未存的字被蓋掉
+  if (state.isDirty || state.isSaving || pendingCloudSaveMap.size > 0 || state.autoSaveTimer) return true;
+  // (C) 手指/鍵盤正在敲擊中 (距離最後一下 input/keydown 未滿 1.6 秒)：絕對鎖定
+  if ((Date.now() - (state.lastKeystrokeOrInputAt || 0)) < KEYSTROKE_ACTIVE_GUARD_MS) return true;
+
+  return false;
+};
+
+// 2. 覆寫 triggerAutoSaveDebounce：
+//    - 停筆 1.2 秒立即自動上傳雲端（讓您從電腦換到手機時，1.2 秒內雲端就已經是最新狀態！）
+//    - 同時當滑鼠移開編輯器 (mouseleave) 或切換視窗 (blur / visibilitychange) 時，0ms 立即同步上傳！
+triggerAutoSaveDebounce = function() {
+  if (state.isLoadingNote) return;
+  markUserActiveEditingNow();
+  state.isDirty = true;
+  saveLocalDraftImmediately();
+
+  if (DOM.statAutosave) {
+    DOM.statAutosave.innerHTML = '<span class="text-blue-500 font-medium">✍️ 編輯中 (本機即時保護)...</span>';
+  }
+
+  if (state.autoSaveTimer) clearTimeout(state.autoSaveTimer);
+  state.autoSaveTimer = setTimeout(() => {
+    state.autoSaveTimer = null;
+    if (autoSaveMaxTimer) {
+      clearTimeout(autoSaveMaxTimer);
+      autoSaveMaxTimer = null;
+    }
+    saveCurrentNote();
+  }, 1200);
+
+  if (!autoSaveMaxTimer) {
+    autoSaveMaxTimer = setTimeout(() => {
+      autoSaveMaxTimer = null;
+      if (state.autoSaveTimer) {
+        clearTimeout(state.autoSaveTimer);
+        state.autoSaveTimer = null;
+      }
+      saveCurrentNote();
+    }, 15000);
+  }
+};
+
+// 3. 接手瞬間「單篇極速預拉 (pullActiveNoteFastHandover)」：
+//    當使用者在 30 秒內從電腦換到手機（或從手機切回電腦），手剛碰到螢幕/滑鼠剛點進視窗時，
+//    若本機沒有未存修改 (!isDirty)，立即在毫秒內檢查當前筆記是否有另一台裝置剛存的新版並無感更新！
+async function pullActiveNoteFastHandover(forceCheck = false) {
+  if (!state.accessToken || !state.currentNote || !state.currentNote.id) return false;
+  if (isLocalOrTempNoteId(state.currentNote.id)) return false;
+  if (isUserActivelyEditingNow()) return false;
+  if (_isFastHandoverFetching) return false;
+
+  const now = Date.now();
+  if (!forceCheck && (now - _lastFastHandoverCheckAt) < 1200) return false;
+  _lastFastHandoverCheckAt = now;
+  _isFastHandoverFetching = true;
+
+  try {
+    const noteId = state.currentNote.id;
+    let cloudFileMeta = null;
+    if (typeof window._mockCloudConflictProvider === 'function') {
+      cloudFileMeta = await window._mockCloudConflictProvider(noteId, 'meta');
+    } else {
+      const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${noteId}?fields=id,name,modifiedTime,description`, {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (metaRes.ok) cloudFileMeta = await metaRes.json();
+    }
+    if (!cloudFileMeta || !cloudFileMeta.modifiedTime) return false;
+
+    const cloudMs = new Date(cloudFileMeta.modifiedTime).getTime();
+    const localBaseTime = state.currentNote._baseCloudModifiedTime || state.currentNote.modifiedTime || 0;
+    const localMs = new Date(localBaseTime).getTime();
+
+    if (cloudMs > localMs + 500) {
+      await reloadCurrentNoteContentSilently(noteId, cloudFileMeta);
+      return true;
+    }
+    return false;
+  } catch (e) {
+    return false;
+  } finally {
+    _isFastHandoverFetching = false;
+  }
+}
+
+// 4. 覆寫 reloadCurrentNoteContentSilently：
+//    只要本機目前沒有未存檔的修改 (!isUserActivelyEditingNow())，無論距離上次操作是 3 秒還是 60 秒，
+//    皆立即靜默載入另一台裝置剛存的最新內容，並自動保存與還原游標位置（絕不跳游標、不打斷輸入）！
+reloadCurrentNoteContentSilently = async function(noteId, fileMeta) {
+  if (!state.accessToken || !noteId) return;
+  if (isUserActivelyEditingNow()) return;
+
+  try {
+    let rawText = '';
+    if (typeof window._mockCloudConflictProvider === 'function') {
+      rawText = await window._mockCloudConflictProvider(noteId, 'media');
+    } else {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${noteId}?alt=media`, {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (!res.ok) return;
+      rawText = await res.text();
+    }
+    if (!rawText) return;
+
+    // 若下載期間使用者已經按下鍵盤開始打字，則轉交給三方智慧合併處理，不直接刷 DOM
+    if (isUserActivelyEditingNow()) return;
+
+    const { meta: bodyMeta, body } = parseFrontmatter(rawText);
+    const currentLocalMd = DOM.editor ? convertHtmlToMarkdown(DOM.editor.innerHTML) : '';
+    if (computeNoteContentHash(body || '') === computeNoteContentHash(currentLocalMd || '')) {
+      updateNoteBaseSyncedSnapshot(state.currentNote, DOM.editor ? DOM.editor.innerHTML : '', body, fileMeta ? fileMeta.modifiedTime : null);
+      return;
+    }
+
+    const renderedHtml = DOMPurify.sanitize(window.marked ? window.marked.parse(body) : body, {
+      ADD_TAGS: ['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'hr', 'div', 'span', 'a', 'mark', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g'],
+      ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'data-color', 'data-image-note', 'data-rotation', 'data-placeholder', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd']
+    });
+
+    if (DOM.editor && !state.isDirty) {
+      const savedOffset = saveEditorCursorCharacterOffset(DOM.editor);
+      DOM.editor.innerHTML = renderedHtml;
+      state.editorSnapshotBeforeEdit = renderedHtml;
+      if (DOM.noteTitle && fileMeta && fileMeta.name) {
+        DOM.noteTitle.value = fileMeta.name.replace(/\.md$/i, '');
+        if (DOM.headerTitle) DOM.headerTitle.textContent = DOM.noteTitle.value;
+      }
+      if (state.currentNote) {
+        updateNoteBaseSyncedSnapshot(state.currentNote, renderedHtml, body, fileMeta ? fileMeta.modifiedTime : null);
+        state.currentNote._cachedBody = body;
+        state.currentNote._cachedHtml = renderedHtml;
+        state.currentNote._cachedMeta = bodyMeta;
+      }
+      try { updateNoteSearchIndex(noteId, fileMeta ? fileMeta.modifiedTime : new Date().toISOString(), body); } catch (e) {}
+      try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) {}
+      try { updateStats(); } catch (e) {}
+      try { renderOutline(); } catch (e) {}
+      if (savedOffset !== null && document.activeElement === DOM.editor) {
+        restoreEditorCursorCharacterOffset(DOM.editor, savedOffset);
+      }
+    }
+  } catch (err) {
+    console.warn('極速接手靜默重載略過:', err);
+  }
+};
+
+// 5. 覆寫 checkAndInterceptCloudSyncConflict：
+//    若使用者在 <1 秒內於電腦與手機「同時打字」（即雲端版本已經比共同基準 Base 更新，且本機也有新打的字）：
+//    自動啟動「🧬 三方段落智慧合併 (mergeThreeWayNoteHtml)」，把電腦剛打的段落與手機剛打的段落同時保留下來，
+//    並將合併前快照存入「⚡ 跨裝置衝突備份池」，實現 30 秒內極速來回切換 0 掉字、0 覆蓋 Bug！
+const _origCheckAndInterceptCloudSyncConflictV307 = checkAndInterceptCloudSyncConflict;
+checkAndInterceptCloudSyncConflict = async function(effectiveNoteId, snap, matchedNoteInState) {
+  if (!effectiveNoteId || !snap) return false;
+  if (snap.forceOverwriteCloud) return false;
+
+  if (state.historyConflictPolicy === 'manual_modal') {
+    return await _origCheckAndInterceptCloudSyncConflictV302(effectiveNoteId, snap, matchedNoteInState);
+  }
+
+  const baseModTime = snap.baseCloudModifiedTime || (matchedNoteInState && matchedNoteInState._baseCloudModifiedTime) || null;
+  if (!baseModTime) return false;
+  const baseMs = new Date(baseModTime).getTime();
+  if (!baseMs || isNaN(baseMs)) return false;
+
+  try {
+    let cloudFileMeta = null;
+    if (typeof window._mockCloudConflictProvider === 'function') {
+      cloudFileMeta = await window._mockCloudConflictProvider(effectiveNoteId, 'meta');
+    } else if (state.accessToken) {
+      const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${effectiveNoteId}?fields=id,name,modifiedTime,description`, {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (metaRes.ok) cloudFileMeta = await metaRes.json();
+    }
+    if (!cloudFileMeta || !cloudFileMeta.modifiedTime) return false;
+
+    const cloudMs = new Date(cloudFileMeta.modifiedTime).getTime();
+    if (cloudMs <= baseMs + 500) {
+      return false;
+    }
+
+    let rawCloudText = '';
+    if (typeof window._mockCloudConflictProvider === 'function') {
+      rawCloudText = await window._mockCloudConflictProvider(effectiveNoteId, 'media');
+    } else if (state.accessToken) {
+      const mediaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${effectiveNoteId}?alt=media`, {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (mediaRes.ok) rawCloudText = await mediaRes.text();
+    }
+    if (!rawCloudText) return false;
+
+    const parsedCloud = (typeof parseFrontmatter === 'function')
+      ? parseFrontmatter(rawCloudText)
+      : { meta: {}, body: rawCloudText };
+    const cloudBody = (parsedCloud && parsedCloud.body !== undefined) ? parsedCloud.body : rawCloudText;
+    const cloudHtml = (window.marked && typeof window.marked.parse === 'function')
+      ? window.marked.parse(cloudBody)
+      : plainTextLinesToEditorHtml(cloudBody);
+
+    const cloudHash = computeNoteContentHash(cloudBody);
+    const localBody = snap.markdownBody || convertHtmlToMarkdown(snap.html || '');
+    const localHash = computeNoteContentHash(localBody);
+
+    if (cloudHash === localHash) {
+      updateNoteBaseSyncedSnapshot(matchedNoteInState, snap.html, localBody, cloudFileMeta.modifiedTime);
+      return false;
+    }
+
+    const noteTitle = snap.rawTitle || (matchedNoteInState && getCleanNoteTitle(matchedNoteInState)) || '未命名筆記';
+    const baseHtml = (matchedNoteInState && matchedNoteInState._lastSyncedHtml) || '';
+
+    // 🧬 嘗試三方段落智慧合併（當使用者在幾秒內同時於電腦與手機各自新增了段落時，自動保留雙端所有段落！）
+    const mergedHtml = mergeThreeWayNoteHtml(baseHtml, cloudHtml, snap.html || '');
+    if (mergedHtml) {
+      const mergedMd = convertHtmlToMarkdown(mergedHtml);
+      recordSyncConflictBackup({
+        noteId: effectiveNoteId,
+        noteTitle,
+        winnerSide: 'local',
+        overwrittenHash: cloudHash,
+        winningHash: computeNoteContentHash(mergedMd),
+        title: `🧬 跨裝置極速切換自動合併（雙端內容同時保留）`,
+        subtitle: `筆記：「${noteTitle}」｜已自動合併另一裝置與本機的新增內容（合併前版本已備份）`,
+        conflictDetail: `另一裝置內容：「${stripHtmlToPlainSnippet(cloudHtml, 60)}」＋ 本機內容：「${stripHtmlToPlainSnippet(snap.html, 60)}」`,
+        overwrittenCanvas: { noteId: effectiveNoteId, html: cloudHtml, meta: parsedCloud ? parsedCloud.meta : null, title: noteTitle },
+        winningCanvas: { noteId: effectiveNoteId, html: mergedHtml, meta: snap.meta || null, title: noteTitle }
+      });
+
+      snap.html = mergedHtml;
+      snap.markdownBody = mergedMd;
+      snap.fullContent = buildFrontmatterString(snap.meta || {}) + mergedMd;
+      snap.baseCloudModifiedTime = cloudFileMeta.modifiedTime;
+      snap.forceOverwriteCloud = true;
+
+      if (matchedNoteInState) {
+        updateNoteBaseSyncedSnapshot(matchedNoteInState, mergedHtml, mergedMd, cloudFileMeta.modifiedTime);
+        matchedNoteInState._cachedBody = mergedMd;
+        matchedNoteInState._cachedHtml = mergedHtml;
+      }
+      if (state.currentNote && state.currentNote.id === effectiveNoteId && DOM.editor) {
+        const savedOffset = saveEditorCursorCharacterOffset(DOM.editor);
+        DOM.editor.innerHTML = mergedHtml;
+        state.editorSnapshotBeforeEdit = mergedHtml;
+        updateNoteBaseSyncedSnapshot(state.currentNote, mergedHtml, mergedMd, cloudFileMeta.modifiedTime);
+        if (savedOffset !== null && document.activeElement === DOM.editor) {
+          restoreEditorCursorCharacterOffset(DOM.editor, savedOffset);
+        }
+      }
+      return false; // 放行將合併後的完整內容上傳至雲端
+    }
+
+    // 若同一段落被改為不同文字，則採用當前正在主動打字的裝置版本（或較新時間戳記版本），並將另一方存入獨立衝突備份池
+    return await _origCheckAndInterceptCloudSyncConflictV307(effectiveNoteId, snap, matchedNoteInState);
+  } catch (err) {
+    console.warn('三方智慧合併衝突檢測略過:', err);
+    return false;
+  }
+};
+
+// 6. 綁定「離開裝置 0ms 立即推出」與「接手裝置 0ms 立即預拉」事件：
+//    - 當手離開電腦滑鼠移出編輯區 (mouseleave) 或視窗失焦 (blur)：若有未存修改 (state.isDirty)，立即 0ms 推上雲端！
+//    - 當手剛觸碰手機螢幕 (touchstart) 或滑鼠移回電腦 (mouseenter / focus)：若本機無未存修改 (!state.isDirty)，立即預拉最新單篇內容！
+if (DOM.editor && !DOM.editor._v308PingPongBound) {
+  DOM.editor._v308PingPongBound = true;
+  DOM.editor.addEventListener('mouseleave', () => {
+    if (state.isDirty) {
+      flushImmediateCloudSave();
+    }
+  });
+  DOM.editor.addEventListener('mouseenter', () => {
+    if (!state.isDirty && !isUserActivelyEditingNow()) {
+      pullActiveNoteFastHandover(false);
+    }
+  });
+}
+
+document.addEventListener('touchstart', () => {
+  if (!state.isDirty && !isUserActivelyEditingNow()) {
+    pullActiveNoteFastHandover(false);
+  }
+}, { passive: true, capture: true });
+
+window.addEventListener('focus', () => {
+  if (!state.isDirty && !isUserActivelyEditingNow()) {
+    pullActiveNoteFastHandover(true);
+  }
+});
