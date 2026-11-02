@@ -7331,7 +7331,7 @@ html.dark .lvi-diff-btn.btn-keep-local:hover {
 
 
 /* ============================================================================
-   📱 LVI_Note v3.0.1 手機端雙擊插行互動膠囊、案件追蹤 4 欄標題化與全站行動體驗深度優化
+   📱 LVI_Note v3.0.3 手機端雙擊插行互動膠囊、案件追蹤 4 欄標題化與全站行動體驗深度優化
    ============================================================================ */
 
 /* 1. 雙擊記憶位置指示線 + 可直接點擊/觸控的「↵ 新增空白行」膠囊按鈕 */
@@ -7655,7 +7655,7 @@ header, header > div {
 }
 
 
-/* 📝 v3.0.1 轉為筆記按鈕樣式 (Convert Todo/Case to Regular Note) */
+/* 📝 v3.0.3 轉為筆記按鈕樣式 (Convert Todo/Case to Regular Note) */
 .todo-convert-to-note-btn,
 .case-convert-to-note-btn {
   display: inline-flex;
@@ -7691,4 +7691,246 @@ header, header > div {
 .dark .case-convert-to-note-btn:hover {
   color: #ffffff !important;
   background: #4f46e5 !important;
+}
+
+
+/* 🔗 關聯筆記膠囊按鈕離線與深色模式高對比樣式 */
+.todo-jump-note-shortcut-btn,
+.case-jump-note-btn {
+  background: transparent !important;
+  border: none !important;
+  color: inherit !important;
+  font-weight: 800 !important;
+  padding: 2px 4px !important;
+}
+.lvi-todo-linked-notes-box span.inline-flex {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-size: 12px;
+  font-weight: 800;
+}
+.dark .lvi-todo-linked-notes-box span.inline-flex {
+  background: rgba(30, 58, 138, 0.45) !important;
+  color: #93c5fd !important;
+  border-color: #1e40af !important;
+}
+
+
+/* 🕰️ v3.0.3 100步回朔、刪除稽核紀錄與「🎯 單步回檔」按鈕樣式 */
+#action-history-modal > div {
+  width: 100% !important;
+  max-width: 680px !important;
+  max-height: 88vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  padding: 20px !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.35) !important;
+  color: #0f172a !important;
+}
+html.dark #action-history-modal > div {
+  background: #181f2c !important;
+  border-color: #2d3748 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.7) !important;
+}
+#history-settings-panel:not(.hidden) {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  padding: 14px !important;
+  border-radius: 12px !important;
+  background: #f8fafc !important;
+  border: 1px solid #cbd5e1 !important;
+}
+html.dark #history-settings-panel:not(.hidden) {
+  background: #0f172a !important;
+  border-color: #334155 !important;
+}
+#history-settings-panel select {
+  width: 100% !important;
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  border: 1px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  margin-top: 4px !important;
+}
+html.dark #history-settings-panel select {
+  background: #1e293b !important;
+  border-color: #475569 !important;
+  color: #f8fafc !important;
+}
+#btn-toggle-history-settings-panel {
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #334155 !important;
+  font-weight: 800 !important;
+  font-size: 12px !important;
+}
+html.dark #btn-toggle-history-settings-panel {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+#history-timeline-list {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  padding-right: 4px !important;
+  max-height: 46vh !important;
+}
+#history-timeline-list > div {
+  padding: 10px 12px !important;
+  border-radius: 10px !important;
+  border: 1px solid #e2e8f0 !important;
+  background: #f8fafc !important;
+}
+html.dark #history-timeline-list > div {
+  background: #1e293b !important;
+  border-color: #334155 !important;
+}
+#btn-quick-undo-20 {
+  padding: 6px 10px !important;
+  border-radius: 8px !important;
+  background: #f59e0b !important;
+  color: #ffffff !important;
+  border: none !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+}
+#btn-modal-undo-one,
+#btn-modal-redo-one,
+#close-history-modal-done-btn {
+  padding: 6px 12px !important;
+  border-radius: 8px !important;
+  background: #e2e8f0 !important;
+  color: #1e293b !important;
+  border: 1px solid #cbd5e1 !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+}
+html.dark #btn-modal-undo-one,
+html.dark #btn-modal-redo-one,
+html.dark #close-history-modal-done-btn {
+  background: #334155 !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
+.hist-filter-tab-btn {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+.dark .hist-filter-tab-btn {
+  background: #1e293b;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+.hist-filter-tab-btn.active[data-hist-filter="all"] {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #1d4ed8 !important;
+}
+.hist-filter-tab-btn.active[data-hist-filter="deletions"] {
+  background: #e11d48 !important;
+  color: #ffffff !important;
+  border-color: #be123c !important;
+}
+.single-step-revert-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 800;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #6ee7b7;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+.single-step-revert-btn:hover {
+  background: #059669 !important;
+  color: #ffffff !important;
+  border-color: #047857 !important;
+}
+.dark .single-step-revert-btn {
+  background: rgba(6, 78, 59, 0.55);
+  color: #6ee7b7;
+  border-color: #059669;
+}
+.dark .single-step-revert-btn:hover {
+  background: #059669 !important;
+  color: #ffffff !important;
+}
+.history-item.is-deletion-record {
+  border-left: 3px solid #f43f5e !important;
+  background: rgba(255, 241, 242, 0.55);
+}
+.dark .history-item.is-deletion-record {
+  background: rgba(136, 19, 55, 0.22);
+}
+.lvi-deleted-detail-box {
+  margin-top: 4px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  background: rgba(244, 63, 94, 0.08);
+  border: 1px dashed rgba(244, 63, 94, 0.35);
+  color: #be123c;
+  word-break: break-all;
+}
+.dark .lvi-deleted-detail-box {
+  background: rgba(244, 63, 94, 0.15);
+  border-color: rgba(251, 113, 133, 0.4);
+  color: #fda4af;
+}
+
+/* ⚡ v3.0.4 獨立跨裝置衝突備份分頁樣式 */
+.hist-filter-tab-btn.active[data-hist-filter="conflicts"] {
+  background: #d97706 !important;
+  color: #ffffff !important;
+  border-color: #b45309 !important;
+}
+.history-item.is-conflict-record {
+  border-left: 3.5px solid #f59e0b !important;
+  background: rgba(254, 243, 199, 0.35);
+}
+.dark .history-item.is-conflict-record {
+  background: rgba(120, 53, 15, 0.22) !important;
+}
+.lvi-conflict-detail-box {
+  margin-top: 4px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: rgba(254, 243, 199, 0.75);
+  border: 1px dashed #fbbf24;
+  color: #92400e;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.dark .lvi-conflict-detail-box {
+  background: rgba(120, 53, 15, 0.35);
+  border-color: #b45309;
+  color: #fde68a;
 }

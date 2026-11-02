@@ -1,4 +1,4 @@
-const APP_VERSION = 'v3.0.1'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.0.4'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -2101,7 +2101,7 @@ async function fullSyncWithDrive(showFeedback = true) {
 }
 
 // ----------------- 🕒 全域全動作時光回朔核心引擎 (Universal Omniscient Time-Machine v2.6.6) -----------------
-const MAX_HISTORY_STEPS = 50; // 最多支援 50 步全動作歷史回朔（關閉筆記軟體重開仍完整保留）
+const MAX_HISTORY_STEPS = 100; // 最多支援 50 步全動作歷史回朔（關閉筆記軟體重開仍完整保留）
 
 state.actionHistory = [];      // 儲存 ActionRecord 陣列
 state.historyIndex = -1;       // 當前歷史節點指標
@@ -7251,7 +7251,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261102_v3.0.1', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261102_v3.0.4', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -27989,7 +27989,7 @@ try {
 
 
 // ============================================================================
-// 🚀 LVI_Note v3.0.1 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
+// 🚀 LVI_Note v3.0.4 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
 // （完全比照「案件追蹤」：支援「💾 存入歷史」按鈕、未儲存關閉網站/離開自動存入歷史、
 //   展開查看詳情、雙向互相關聯跳轉、載回編輯、刪除、搜尋檢索與 PDF 報告匯出）
 // ============================================================================
@@ -29334,7 +29334,7 @@ openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
 
 
 // ============================================================================
-// 🕰️ LVI_Note v3.0.1 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
+// 🕰️ LVI_Note v3.0.4 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
 // 1. 嚴格支援最多 50 步 (MAX_HISTORY_STEPS = 50)，超出自動滾動淘汰最舊步數
 // 2. 採用內容雜湊字串池 (Content-Addressed String Deduplication Pool) 將每步動作的
 //    完整前後狀態快照 (beforeWorkspace / afterWorkspace & beforeCanvas / afterCanvas)
@@ -29346,7 +29346,7 @@ openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
 const PERSISTENT_ACTION_HISTORY_KEY = 'lvi_persistent_action_history_v299';
 const PERSISTENT_HISTORY_IDB_NAME = 'lvi_action_history_db_v299';
 const PERSISTENT_HISTORY_IDB_STORE = 'history_store';
-const PERSISTENT_MAX_STEPS = 50;
+let PERSISTENT_MAX_STEPS = 100;
 
 let _lastCommittedWorkspaceSnapshot = null;
 let _isRestoringActionSnapshot = false;
@@ -29651,7 +29651,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v3.0.1',
+        version: 'v3.0.4',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -30016,7 +30016,7 @@ if (document.readyState === 'loading') {
 
 
 // ============================================================================
-// 📝 LVI_Note v3.0.1 「轉為筆記」核心引擎 (Convert Todo / Case Item to Regular Note)
+// 📝 LVI_Note v3.0.4 「轉為筆記」核心引擎 (Convert Todo / Case Item to Regular Note)
 // 支援從「待辦事項」與「案件追蹤」內的單一事件或案件（無論在清單、表格或詳細頁），
 // 以其自身原本的完整資訊（機型、客戶/廠商、人員、標籤、時間、所有歷史紀錄、互相關聯、
 // 更換零件、以及所有現場照片與檔案附件）為基礎，自動建立一篇結構化的「常規筆記」，
@@ -30563,7 +30563,7 @@ bindCaseCardsInteractions = function(listContainer) {
 
 
 // ============================================================================
-// 🛡️ LVI_Note v3.0.1 自動穩定性與雙向導航強化補丁 (Scheduled Stability Patch)
+// 🛡️ LVI_Note v3.0.4 自動穩定性與雙向導航強化補丁 (Scheduled Stability Patch)
 // 1. 表格預覽抽屜 (Quick Peek Drawer) 新增「📝 轉為筆記」一鍵轉換按鈕
 // 2. 由待辦事項或案件追蹤轉換出的常規筆記，支援點擊頂部來源橫幅一鍵跳回原待辦或原案件
 // 3. 全域錯誤邊界與儲存空間防護 (Quota-Safe Storage & Event Delegation Guard)
@@ -30659,3 +30659,2115 @@ openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
     }
   } catch (e) {}
 };
+
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.0.4 檔案最高安全防護與「零異動複製轉為筆記」核心引擎
+// 1. 最高優先級檔案保護：修正 compactTodoAttachmentsHtml，嚴禁抹除 data: 永久備份網址或未同步雲端之本地檔案連結
+// 2. 待辦事項與案件追蹤上傳任何檔案（含圖片、PDF、Office、壓縮檔等）皆建立永久 DataURL 保底，杜絕 blob: 失效導致檔案消失
+// 3. 「📝 轉為筆記」採用 100% 唯讀深拷貝（Zero-Mutation Deep Copy）：
+//    原本待辦事項或案件追蹤內的文字、圖片、附件與歷史紀錄完全不動（不清空、不搬移），
+//    並將所有檔案與圖片完整複製一份獨立副本進入新建的主體常規筆記中！
+// ============================================================================
+
+let _isCopyingToRegularNote = false;
+
+/**
+ * 覆寫 compactTodoAttachmentsHtml：保留所有圖片與檔案的永久 data: 網址與備份屬性，絕不將有效本地連結替換為 '#'
+ */
+compactTodoAttachmentsHtml = function(rawHtml) {
+  if (!rawHtml || typeof rawHtml !== 'string') return '';
+  try {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = rawHtml;
+    wrap.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
+    wrap.querySelectorAll('details.notion-media-collapse').forEach(det => {
+      det.removeAttribute('data-guard-id');
+      det.removeAttribute('data-delete-bound');
+      det.removeAttribute('data-animated-collapse-bound');
+      det.setAttribute('draggable', 'false');
+      if (!det.hasAttribute('open')) det.setAttribute('open', '');
+      const noteInp = det.querySelector('.media-top-note-input');
+      if (noteInp) {
+        det.setAttribute('data-image-note', noteInp.innerHTML.trim());
+      }
+      const fid = det.getAttribute('data-file-id') || '';
+      if (fid) {
+        det.querySelectorAll('a[download], a[rel*="noopener"]').forEach(a => {
+          const href = a.getAttribute('href') || '';
+          if (href.startsWith('blob:')) {
+            a.setAttribute('href', a.hasAttribute('download')
+              ? `https://drive.google.com/uc?export=download&id=${fid}`
+              : `https://drive.google.com/file/d/${fid}/view?usp=sharing`);
+          }
+        });
+      }
+    });
+    return wrap.innerHTML.trim();
+  } catch (e) {
+    return rawHtml.trim();
+  }
+};
+
+/**
+ * 深拷貝附件 HTML 區塊（圖片卡片與一般檔案附件）供新建立的常規筆記使用：
+ * - 為每個附件重新產生獨立的 DOM id（杜絕與原待辦/案件的 DOM 節點衝突）
+ * - 確保所有圖片 src / data-annotated-backup 與檔案下載連結 100% 完整保留並設為展開狀態
+ */
+function cloneAttachmentsHtmlForRegularNote(rawAttHtml) {
+  if (!rawAttHtml || typeof rawAttHtml !== 'string' || !rawAttHtml.trim()) return '';
+  try {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = rawAttHtml;
+    wrap.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
+
+    wrap.querySelectorAll('details.notion-media-collapse, .notion-file-attachment').forEach((node, idx) => {
+      const newCloneId = 'note_att_copy_' + Date.now() + '_' + idx + '_' + Math.random().toString(36).slice(2, 6);
+      node.setAttribute('id', newCloneId);
+      node.removeAttribute('data-guard-id');
+      node.removeAttribute('data-delete-bound');
+      node.removeAttribute('data-animated-collapse-bound');
+      node.removeAttribute('data-explicit-delete-approved');
+      if (node.tagName === 'DETAILS') {
+        node.setAttribute('open', '');
+      }
+      const img = node.querySelector('img');
+      if (img) {
+        const curSrc = img.getAttribute('src') || '';
+        const backup = img.getAttribute('data-annotated-backup') || '';
+        if ((!curSrc || curSrc.startsWith('blob:')) && backup && backup.startsWith('data:')) {
+          img.setAttribute('src', backup);
+        }
+      }
+      const fileDataUrl = node.getAttribute('data-file-dataurl') || '';
+      if (fileDataUrl) {
+        node.querySelectorAll('a[download]').forEach(a => {
+          const href = a.getAttribute('href') || '';
+          if (!href || href === '#' || href.startsWith('blob:')) {
+            a.setAttribute('href', fileDataUrl);
+          }
+        });
+      }
+    });
+
+    return wrap.innerHTML.trim();
+  } catch (e) {
+    return rawAttHtml.trim();
+  }
+}
+
+/**
+ * 強化待辦事項與案件追蹤的檔案上傳（支援圖片與所有一般檔案建立永久 DataURL，100% 防止重新整理或複製時檔案失效）
+ */
+const _origUploadFileToTodoCardSectionV301 = uploadFileToTodoCardSection;
+uploadFileToTodoCardSection = async function(cardId, section, file) {
+  if (!file || !cardId) return;
+  const isImage = (file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|webp|heic|heif|bmp|gif|svg|ico)$/i.test(file.name);
+  await _origUploadFileToTodoCardSectionV301(cardId, section, file);
+
+  // 為非圖片之一般檔案（如 PDF、Excel、Word、壓縮檔等）補上永久 DataURL 屬性與下載連結，防止 blob: 失效
+  if (!isImage && file.size <= 20 * 1024 * 1024) {
+    try {
+      const permanentDataUrl = await blobToDataUrl(file);
+      if (permanentDataUrl) {
+        const item = (state.todoItems || []).find(t => t.id === cardId);
+        const cardEl = document.querySelector(`.lvi-todo-card[data-todo-id="${cardId}"]`);
+        if (cardEl) {
+          const gal = cardEl.querySelector(section === 'resolution' ? '.todo-resolution-attachments' : '.todo-issue-attachments');
+          if (gal) {
+            const fileNodes = gal.querySelectorAll(`.notion-file-attachment[data-file-name="${CSS.escape(file.name)}"]`);
+            const lastNode = fileNodes[fileNodes.length - 1];
+            if (lastNode) {
+              lastNode.setAttribute('data-file-dataurl', permanentDataUrl);
+              const dlLink = lastNode.querySelector('a[download]');
+              if (dlLink && (!dlLink.getAttribute('href') || dlLink.getAttribute('href').startsWith('blob:'))) {
+                dlLink.setAttribute('href', permanentDataUrl);
+              }
+              syncTodoCardAttachmentsFromDom(cardEl);
+            }
+          }
+        } else if (item) {
+          const prop = section === 'resolution' ? 'resolutionAttachmentsHtml' : 'issueAttachmentsHtml';
+          if (item[prop]) {
+            const wrap = document.createElement('div');
+            wrap.innerHTML = item[prop];
+            const nodes = wrap.querySelectorAll('.notion-file-attachment');
+            const lastNode = nodes[nodes.length - 1];
+            if (lastNode) {
+              lastNode.setAttribute('data-file-dataurl', permanentDataUrl);
+              const dlLink = lastNode.querySelector('a[download]');
+              if (dlLink) dlLink.setAttribute('href', permanentDataUrl);
+              item[prop] = wrap.innerHTML;
+              saveTodoItemsState();
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+};
+
+const _origUploadFileToCaseCardSectionV301 = uploadFileToCaseCardSection;
+uploadFileToCaseCardSection = async function(caseId, section, file) {
+  if (!file || !caseId) return;
+  const isImage = (file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|webp|heic|heif|bmp|gif|svg|ico)$/i.test(file.name);
+  await _origUploadFileToCaseCardSectionV301(caseId, section, file);
+
+  if (!isImage && file.size <= 20 * 1024 * 1024) {
+    try {
+      const permanentDataUrl = await blobToDataUrl(file);
+      if (permanentDataUrl) {
+        const item = (state.caseItems || []).find(c => c.id === caseId);
+        const cardEl = document.querySelector(`.lvi-case-card[data-case-id="${caseId}"]`);
+        if (cardEl) {
+          const gal = cardEl.querySelector(section === 'action' ? '.case-action-attachments' : '.case-symptom-attachments');
+          if (gal) {
+            const fileNodes = gal.querySelectorAll(`.notion-file-attachment[data-file-name="${CSS.escape(file.name)}"]`);
+            const lastNode = fileNodes[fileNodes.length - 1];
+            if (lastNode) {
+              lastNode.setAttribute('data-file-dataurl', permanentDataUrl);
+              const dlLink = lastNode.querySelector('a[download]');
+              if (dlLink && (!dlLink.getAttribute('href') || dlLink.getAttribute('href').startsWith('blob:'))) {
+                dlLink.setAttribute('href', permanentDataUrl);
+              }
+              syncCaseCardAttachmentsFromDom(cardEl);
+            }
+          }
+        } else if (item) {
+          const prop = section === 'action' ? 'actionAttachmentsHtml' : 'symptomAttachmentsHtml';
+          if (item[prop]) {
+            const wrap = document.createElement('div');
+            wrap.innerHTML = item[prop];
+            const nodes = wrap.querySelectorAll('.notion-file-attachment');
+            const lastNode = nodes[nodes.length - 1];
+            if (lastNode) {
+              lastNode.setAttribute('data-file-dataurl', permanentDataUrl);
+              const dlLink = lastNode.querySelector('a[download]');
+              if (dlLink) dlLink.setAttribute('href', permanentDataUrl);
+              item[prop] = wrap.innerHTML;
+              saveCaseItemsState();
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }
+};
+
+/**
+ * 唯讀同步當前畫面上的待辦或案件輸入框至記憶體（絕不清空、絕不呼叫存入歷史、絕不改動原待辦或案件結構）
+ */
+function syncTodoDomToMemoryNonDestructive(todoId) {
+  const cardEl = document.querySelector(`.lvi-todo-card[data-todo-id="${todoId}"]:not(.lvi-case-card)`);
+  if (!cardEl) return;
+  const item = (state.todoItems || []).find(t => t.id === todoId);
+  if (!item) return;
+
+  const titleInp = cardEl.querySelector('.todo-title-input');
+  const issInp = cardEl.querySelector('.todo-issue-textarea');
+  const resInp = cardEl.querySelector('.todo-resolution-textarea');
+  const issGal = cardEl.querySelector('.todo-issue-attachments');
+  const resGal = cardEl.querySelector('.todo-resolution-attachments');
+
+  if (titleInp && titleInp.value.trim()) item.title = titleInp.value;
+  if (issInp && issInp.value.trim()) item.issueText = issInp.value;
+  if (resInp && resInp.value.trim()) item.resolutionText = resInp.value;
+  if (issGal && issGal.innerHTML.trim()) {
+    item.issueAttachmentsHtml = compactTodoAttachmentsHtml(issGal.innerHTML);
+  }
+  if (resGal && resGal.innerHTML.trim()) {
+    item.resolutionAttachmentsHtml = compactTodoAttachmentsHtml(resGal.innerHTML);
+  }
+  saveTodoItemsToLocalStorageOnly();
+}
+
+function syncCaseDomToMemoryNonDestructive(caseId) {
+  const cardEl = document.querySelector(`.lvi-case-card[data-case-id="${caseId}"]`);
+  if (!cardEl) return;
+  const item = (state.caseItems || []).find(c => c.id === caseId);
+  if (!item) return;
+
+  const caseNoInp = cardEl.querySelector('.case-caseno-input');
+  const symInp = cardEl.querySelector('.case-symptom-textarea');
+  const actInp = cardEl.querySelector('.case-action-textarea');
+  const partsInp = cardEl.querySelector('.case-parts-input');
+  const symGal = cardEl.querySelector('.case-symptom-attachments');
+  const actGal = cardEl.querySelector('.case-action-attachments');
+
+  if (caseNoInp && caseNoInp.value.trim()) item.caseNumber = caseNoInp.value.trim();
+  if (symInp && symInp.value.trim()) item.symptomText = symInp.value;
+  if (actInp && actInp.value.trim()) item.actionTakenText = actInp.value;
+  if (partsInp && partsInp.value.trim()) item.partsReplacedText = partsInp.value;
+  if (symGal && symGal.innerHTML.trim()) {
+    item.symptomAttachmentsHtml = compactTodoAttachmentsHtml(symGal.innerHTML);
+  }
+  if (actGal && actGal.innerHTML.trim()) {
+    item.actionAttachmentsHtml = compactTodoAttachmentsHtml(actGal.innerHTML);
+  }
+  saveCaseItemsToLocalStorageOnly();
+}
+
+// 當正在執行「📝 轉為筆記」而切換至 editor 視圖時，攔截自動歸檔（保持原待辦事項與案件追蹤內的輸入框與檔案 100% 原封不動！）
+
+// 4. 嚴格保護待辦事項與案件追蹤輸入框內的檔案與文字：
+//    切換視圖 (switchView)、返回列表 (← 返回列表) 或切換分類籤時，僅執行「原地無損儲存 (Non-Destructive Sync)」，
+//    絕不擅自清空上方輸入框或搬移檔案！僅在按下「💾 存入歷史」或「關閉網站 (beforeunload/pagehide)」時才歸檔至歷史紀錄。
+const _origFlushTodoForNavGuard = flushAllUnsavedTodoStagingToHistory;
+flushAllUnsavedTodoStagingToHistory = function(autoSaved = true, fromWebsiteClose = false) {
+  if (_isCopyingToRegularNote) return false;
+  if (!fromWebsiteClose) {
+    // 僅原地同步保存 DOM 文字與檔案至 item，不清空輸入框與附件區！
+    if (state.activeTodoDetailId) {
+      syncTodoDomToMemoryNonDestructive(state.activeTodoDetailId);
+    }
+    return false;
+  }
+  return _origFlushTodoForNavGuard(autoSaved);
+};
+
+const _origFlushCaseForNavGuard = flushAllUnsavedCaseStagingToHistory;
+flushAllUnsavedCaseStagingToHistory = function(autoSaved = true, fromWebsiteClose = false) {
+  if (_isCopyingToRegularNote) return false;
+  if (!fromWebsiteClose) {
+    if (state.activeCaseDetailId) {
+      syncCaseDomToMemoryNonDestructive(state.activeCaseDetailId);
+    }
+    return false;
+  }
+  return _origFlushCaseForNavGuard(autoSaved);
+};
+
+// 關閉網站時才傳入 fromWebsiteClose = true 進行未存自動歸檔
+window.addEventListener("beforeunload", () => {
+  try { flushAllUnsavedTodoStagingToHistory(true, true); } catch (e) {}
+  try { flushAllUnsavedCaseStagingToHistory(true, true); } catch (e) {}
+});
+window.addEventListener("pagehide", () => {
+  try { flushAllUnsavedTodoStagingToHistory(true, true); } catch (e) {}
+  try { flushAllUnsavedCaseStagingToHistory(true, true); } catch (e) {}
+});
+
+
+// 當任何歷史紀錄新增時，若內含附件或文字，預設自動展開該筆歷史卡片，防止使用者感覺檔案收合消失
+const _origCommitTodoIssueV301 = commitTodoIssueStagingToHistory;
+commitTodoIssueStagingToHistory = function(item, opts = {}) {
+  const entry = _origCommitTodoIssueV301(item, opts);
+  if (entry && state.expandedTodoHistoryIds instanceof Set) {
+    state.expandedTodoHistoryIds.add(entry.id);
+  }
+  return entry;
+};
+
+const _origCommitTodoResV301 = commitTodoResolutionStagingToHistory;
+commitTodoResolutionStagingToHistory = function(item, opts = {}) {
+  const entry = _origCommitTodoResV301(item, opts);
+  if (entry && state.expandedTodoHistoryIds instanceof Set) {
+    state.expandedTodoHistoryIds.add(entry.id);
+  }
+  return entry;
+};
+
+const _origCommitCaseSymV301 = commitCaseSymptomStagingToHistory;
+commitCaseSymptomStagingToHistory = function(item, opts = {}) {
+  const entry = _origCommitCaseSymV301(item, opts);
+  if (entry && state.expandedCaseHistoryIds instanceof Set) {
+    state.expandedCaseHistoryIds.add(entry.id);
+  }
+  return entry;
+};
+
+const _origCommitCaseActV301 = commitCaseActionStagingToHistory;
+commitCaseActionStagingToHistory = function(item, opts = {}) {
+  const entry = _origCommitCaseActV301(item, opts);
+  if (entry && state.expandedCaseHistoryIds instanceof Set) {
+    state.expandedCaseHistoryIds.add(entry.id);
+  }
+  return entry;
+};
+
+/**
+ * 覆寫 convertTodoToRegularNote：
+ * 1. 完全不動原待辦事項（不清空暫存區、不搬移原檔案）
+ * 2. 將當前輸入框文字/檔案 + 所有歷史紀錄文字/檔案，以深拷貝方式完整複製一份到新建的主體常規筆記中
+ */
+convertTodoToRegularNote = async function(todoId) {
+  if (!todoId) return null;
+  ensureTodoItemsInitialized();
+
+  // 唯讀同步 DOM 至記憶體，完全不改變、不清空原待辦事項！
+  syncTodoDomToMemoryNonDestructive(todoId);
+
+  const item = (state.todoItems || []).find(t => t.id === todoId);
+  if (!item) {
+    showToast('⚠️ 找不到該筆待辦事項');
+    return null;
+  }
+
+  _isCopyingToRegularNote = true;
+  try {
+    const beforeWs = (!state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+
+    const rawTitle = (item.title || '').trim() || '待辦事項紀錄';
+    const noteTitle = item.machineModel && !rawTitle.includes(item.machineModel)
+      ? `[${item.machineModel}] ${rawTitle}`
+      : rawTitle;
+
+    const tax = resolveRegularNoteTaxonomyFromSource(item, false);
+    const tags = Array.from(new Set([
+      ...(Array.isArray(item.tags) ? item.tags : []),
+      '待辦轉筆記'
+    ].filter(Boolean)));
+    if (!state.tags.some(t => (t.name || t) === '待辦轉筆記')) {
+      try { addCustomTag('待辦轉筆記', 'blue', false); } catch (e) {}
+    }
+
+    const handlersStr = (Array.isArray(item.handlers) && item.handlers.length > 0)
+      ? item.handlers.join('、')
+      : '未指派';
+    const tagsStr = (Array.isArray(item.tags) && item.tags.length > 0)
+      ? item.tags.map(t => `#${t}`).join(' ')
+      : '無';
+
+    // 組合所有「待辦說明」項目（包含當前輸入框內的說明與附件 + 歷史紀錄內的說明與附件，全部深拷貝！）
+    const allIssueRecords = [];
+    if ((item.issueText && item.issueText.trim()) || (item.issueAttachmentsHtml && item.issueAttachmentsHtml.trim())) {
+      allIssueRecords.push({
+        code: '當前待辦說明',
+        time: item.createdAt || formatTodoTimestamp(),
+        text: item.issueText || '',
+        attachmentsHtml: cloneAttachmentsHtmlForRegularNote(item.issueAttachmentsHtml || ''),
+        linkedResolutionIds: []
+      });
+    }
+    (Array.isArray(item.issueHistory) ? item.issueHistory : []).forEach(ih => {
+      allIssueRecords.push({
+        id: ih.id,
+        code: ih.code || '歷史說明',
+        time: ih.time || '',
+        text: ih.text || '',
+        attachmentsHtml: cloneAttachmentsHtmlForRegularNote(ih.attachmentsHtml || ''),
+        linkedResolutionIds: ih.linkedResolutionIds || []
+      });
+    });
+
+    // 組合所有「處理結果」項目（包含當前輸入框內的結果與附件 + 歷史紀錄內的結果與附件，全部深拷貝！）
+    const allResRecords = [];
+    if ((item.resolutionText && item.resolutionText.trim()) || (item.resolutionAttachmentsHtml && item.resolutionAttachmentsHtml.trim())) {
+      allResRecords.push({
+        code: '當前處理結果',
+        time: item.completedAt || formatTodoTimestamp(),
+        text: item.resolutionText || '',
+        attachmentsHtml: cloneAttachmentsHtmlForRegularNote(item.resolutionAttachmentsHtml || ''),
+        linkedIssueIds: []
+      });
+    }
+    (Array.isArray(item.resolutionHistory) ? item.resolutionHistory : []).forEach(rh => {
+      allResRecords.push({
+        id: rh.id,
+        code: rh.code || '歷史結果',
+        time: rh.time || '',
+        text: rh.text || '',
+        attachmentsHtml: cloneAttachmentsHtmlForRegularNote(rh.attachmentsHtml || ''),
+        linkedIssueIds: rh.linkedIssueIds || []
+      });
+    });
+
+    const issHtmlBlocks = [];
+    if (allIssueRecords.length === 0) {
+      issHtmlBlocks.push(`<p class="text-gray-400">（尚無待辦說明內容）</p>`);
+    } else {
+      allIssueRecords.forEach((ih, idx) => {
+        const linkedResCodes = (ih.linkedResolutionIds || [])
+          .map(rid => (item.resolutionHistory || []).find(r => r.id === rid))
+          .filter(Boolean)
+          .map(r => r.code)
+          .join('、');
+        const headerLine = `🔴 ${ih.code || ('說明 #' + (idx + 1))} ｜ 🕒 ${ih.time || ''}${linkedResCodes ? ' ｜ 🔗 對應結果：' + linkedResCodes : ''}`;
+        issHtmlBlocks.push(
+          `<div class="notion-callout troubleshoot-stage-1" style="margin:8px 0;">` +
+          `<span class="notion-callout-icon">🔴</span>` +
+          `<div class="notion-callout-body"><strong>${escapeHtml(headerLine)}</strong><br>${escapeHtml(ih.text || '（僅含附件）').replace(/\r?\n/g, '<br>')}</div>` +
+          `</div>`
+        );
+        if (ih.attachmentsHtml) {
+          issHtmlBlocks.push(ih.attachmentsHtml);
+        }
+      });
+    }
+
+    const resHtmlBlocks = [];
+    if (allResRecords.length === 0) {
+      resHtmlBlocks.push(`<p class="text-gray-400">（尚無處理結果內容）</p>`);
+    } else {
+      allResRecords.forEach((rh, idx) => {
+        const linkedIssCodes = (rh.linkedIssueIds || [])
+          .map(iid => (item.issueHistory || []).find(i => i.id === iid))
+          .filter(Boolean)
+          .map(i => i.code)
+          .join('、');
+        const headerLine = `🔵 ${rh.code || ('結果 #' + (idx + 1))} ｜ 🕒 ${rh.time || ''}${linkedIssCodes ? ' ｜ 🔗 對應說明：' + linkedIssCodes : ''}`;
+        resHtmlBlocks.push(
+          `<div class="notion-callout troubleshoot-stage-3" style="margin:8px 0;">` +
+          `<span class="notion-callout-icon">🔵</span>` +
+          `<div class="notion-callout-body"><strong>${escapeHtml(headerLine)}</strong><br>${escapeHtml(rh.text || '（僅含附件）').replace(/\r?\n/g, '<br>')}</div>` +
+          `</div>`
+        );
+        if (rh.attachmentsHtml) {
+          resHtmlBlocks.push(rh.attachmentsHtml);
+        }
+      });
+    }
+
+    const existingLinkedNotes = (item.linkedNoteIds || [])
+      .map(nid => resolveLinkedNoteTitle(item, nid))
+      .filter(Boolean);
+    const wikilinksHtml = existingLinkedNotes.length > 0
+      ? `<p><strong>🔗 相關筆記連結：</strong>${existingLinkedNotes.map(t => `[[${escapeHtml(t)}]]`).join(' 、 ')}</p>`
+      : '';
+
+    const initHtml = [
+      `<div class="notion-callout troubleshoot-stage-2" data-source-todo-id="${escapeHtml(item.id)}" style="margin-bottom:12px;">` +
+        `<span class="notion-callout-icon">📋</span>` +
+        `<div class="notion-callout-body">` +
+          `<strong>待辦事項轉存筆記：${escapeHtml(rawTitle)}</strong><br>` +
+          `<span>📊 處理進度：${escapeHtml(item.status || '🔴 待處理')} ｜ 🚜 機型分類：${escapeHtml(item.machineModel || tax.machineModel)} ｜ 🏢 客戶/廠商：${escapeHtml(item.clientVendor || '未指定')}</span><br>` +
+          `<span>👥 處理人員：${escapeHtml(handlersStr)} ｜ 🏷️ 標籤：${escapeHtml(tagsStr)}</span><br>` +
+          `<span>🕒 建立時間：${escapeHtml(item.createdAt || '')} ｜ 🏁 結束時間：${escapeHtml(item.completedAt || '進行中')}</span>` +
+          ` ｜ <button type="button" class="lvi-jump-back-source-btn text-indigo-600 dark:text-indigo-300 font-extrabold underline cursor-pointer" data-jump-todo-id="${escapeHtml(item.id)}" contenteditable="false">↗ 返回原待辦事項</button>` +
+        `</div>` +
+      `</div>`,
+      `<h3>🔴 待辦說明與歷史紀錄（共 ${allIssueRecords.length} 筆）</h3>`,
+      ...issHtmlBlocks,
+      `<h3>🔵 處理結果與歷史紀錄（共 ${allResRecords.length} 筆）</h3>`,
+      ...resHtmlBlocks,
+      wikilinksHtml,
+      `<p><br></p>`
+    ].filter(Boolean).join('');
+
+    // 使用完整保留 HTML 附件區塊的 Markdown 作為 _cachedBody，確保雲端同步與重新載入時所有複製過去的檔案與照片 100% 保留！
+    const initMd = convertHtmlToMarkdown(initHtml);
+
+    const newNoteId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    const nowIso = new Date().toISOString();
+    const initMeta = {
+      icon: '📋',
+      cover: null,
+      machineModel: tax.machineModel,
+      workContent: tax.workContent,
+      urgency: tax.urgency,
+      clientVendor: item.clientVendor || '',
+      status: item.status || '🔴 待處理',
+      dueDate: tax.dueDate,
+      tags: tags,
+      pinned: false,
+      sourceTodoId: item.id
+    };
+
+    const newNoteObj = {
+      id: newNoteId,
+      _tempId: newNoteId,
+      name: noteTitle + '.md',
+      modifiedTime: nowIso,
+      parentId: null,
+      meta: initMeta,
+      _cachedBody: initMd,
+      _cachedHtml: initHtml,
+      _cachedMeta: initMeta
+    };
+
+    state.notes.unshift(newNoteObj);
+    updateNoteSearchIndex(newNoteId, nowIso, initMd);
+
+    // 僅在原待辦事項的關聯筆記清單中加上此新筆記連結，原待辦的文字、圖片與檔案完全不動！
+    if (!Array.isArray(item.linkedNoteIds)) item.linkedNoteIds = [];
+    if (!item.linkedNoteIds.includes(newNoteId)) item.linkedNoteIds.push(newNoteId);
+    if (!item.linkedNoteTitles || typeof item.linkedNoteTitles !== 'object') item.linkedNoteTitles = {};
+    item.linkedNoteTitles[newNoteId] = noteTitle;
+
+    saveTodoItemsToLocalStorageOnly();
+    saveSwrCacheSnapshot();
+    renderWorkTagLists();
+    renderWorkTagSelects();
+    renderSidebarTags();
+    renderNotesList();
+
+    if (state.accessToken) {
+      pendingCloudSaveMap.set(newNoteId, {
+        key: newNoteId,
+        noteId: null,
+        tempId: newNoteId,
+        noteRef: newNoteObj,
+        rawTitle: noteTitle,
+        fileName: noteTitle + '.md',
+        parentId: null,
+        meta: initMeta,
+        html: initHtml,
+        markdownBody: initMd,
+        fullContent: buildFrontmatterString(initMeta) + initMd,
+        updatedAt: Date.now(),
+        updatedIso: nowIso
+      });
+      processCloudSaveQueue();
+    }
+
+    await selectNote(newNoteId);
+    switchView('editor');
+    try { rebuildBacklinksIndexMap(); } catch (e) {}
+    try { renderCurrentNoteBacklinks(); } catch (e) {}
+
+    if (beforeWs) {
+      recordAction({
+        type: 'create_quick_note',
+        title: `📝 待辦複製新增為筆記「${noteTitle}」`,
+        subtitle: `原待辦事項與附件保持不變`,
+        noteId: newNoteId,
+        _beforeWorkspace: beforeWs
+      });
+    }
+
+    showToast(`📝 已將待辦資訊與檔案複製新增至筆記：「${noteTitle}」（原待辦事項保持不變）！`, 3200);
+    return newNoteObj;
+  } finally {
+    _isCopyingToRegularNote = false;
+  }
+};
+
+/**
+ * 覆寫 convertCaseToRegularNote：
+ * 1. 完全不動原案件追蹤（不清空暫存區、不搬移原檔案）
+ * 2. 將當前輸入框文字/零件/檔案 + 所有歷史紀錄文字/零件/檔案，以深拷貝方式完整複製一份到新建的主體常規筆記中
+ */
+convertCaseToRegularNote = async function(caseId) {
+  if (!caseId) return null;
+  ensureCaseItemsInitialized();
+
+  // 唯讀同步 DOM 至記憶體，完全不改變、不清空原案件！
+  syncCaseDomToMemoryNonDestructive(caseId);
+
+  const item = (state.caseItems || []).find(c => c.id === caseId);
+  if (!item) {
+    showToast('⚠️ 找不到該筆案件');
+    return null;
+  }
+
+  _isCopyingToRegularNote = true;
+  try {
+    const beforeWs = (!state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+
+    const caseNo = getCaseDisplayNo(item);
+    const noteTitleParts = [caseNo];
+    if (item.machineModel && !caseNo.includes(item.machineModel)) noteTitleParts.push(item.machineModel);
+    if (item.clientVendor && !caseNo.includes(item.clientVendor)) noteTitleParts.push(item.clientVendor);
+    const noteTitle = noteTitleParts.join(' - ');
+
+    const tax = resolveRegularNoteTaxonomyFromSource(item, true);
+    const tags = Array.from(new Set([
+      ...(Array.isArray(item.tags) ? item.tags : []),
+      item.caseNumber ? item.caseNumber : '',
+      '案件轉筆記'
+    ].filter(Boolean)));
+    if (!state.tags.some(t => (t.name || t) === '案件轉筆記')) {
+      try { addCustomTag('案件轉筆記', 'teal', false); } catch (e) {}
+    }
+
+    const handlersStr = (Array.isArray(item.handlers) && item.handlers.length > 0)
+      ? item.handlers.join('、')
+      : '未指派';
+    const tagsStr = (Array.isArray(item.tags) && item.tags.length > 0)
+      ? item.tags.map(t => `#${t}`).join(' ')
+      : '無';
+    const normStatus = normalizeCaseStatusValue(item.status);
+
+    // 組合所有「客訴 / 異常現象」項目（包含當前輸入框內的現象與附件 + 歷史紀錄內的現象與附件，全部深拷貝！）
+    const allSymRecords = [];
+    if ((item.symptomText && item.symptomText.trim()) || (item.symptomAttachmentsHtml && item.symptomAttachmentsHtml.trim())) {
+      allSymRecords.push({
+        code: '當前客訴 / 異常現象',
+        time: item.createdAt || formatTodoTimestamp(),
+        text: item.symptomText || '',
+        attachmentsHtml: cloneAttachmentsHtmlForRegularNote(item.symptomAttachmentsHtml || ''),
+        linkedActionIds: []
+      });
+    }
+    (Array.isArray(item.symptomHistory) ? item.symptomHistory : []).forEach(sh => {
+      allSymRecords.push({
+        id: sh.id,
+        code: sh.code || '歷史異常',
+        time: sh.time || '',
+        text: sh.text || '',
+        attachmentsHtml: cloneAttachmentsHtmlForRegularNote(sh.attachmentsHtml || ''),
+        linkedActionIds: sh.linkedActionIds || []
+      });
+    });
+
+    // 組合所有「處理對策與零件更換」項目（包含當前輸入框內的對策/零件與附件 + 歷史紀錄內的對策/零件與附件，全部深拷貝！）
+    const allActRecords = [];
+    if (
+      (item.actionTakenText && item.actionTakenText.trim()) ||
+      (item.partsReplacedText && item.partsReplacedText.trim()) ||
+      (item.actionAttachmentsHtml && item.actionAttachmentsHtml.trim())
+    ) {
+      allActRecords.push({
+        code: '當前處理對策',
+        time: item.completedAt || formatTodoTimestamp(),
+        actionText: item.actionTakenText || '',
+        partsText: item.partsReplacedText || '',
+        attachmentsHtml: cloneAttachmentsHtmlForRegularNote(item.actionAttachmentsHtml || ''),
+        linkedSymptomIds: []
+      });
+    }
+    (Array.isArray(item.actionHistory) ? item.actionHistory : []).forEach(ah => {
+      allActRecords.push({
+        id: ah.id,
+        code: ah.code || '歷史對策',
+        time: ah.time || '',
+        actionText: ah.actionText || '',
+        partsText: ah.partsText || '',
+        attachmentsHtml: cloneAttachmentsHtmlForRegularNote(ah.attachmentsHtml || ''),
+        linkedSymptomIds: ah.linkedSymptomIds || []
+      });
+    });
+
+    const symHtmlBlocks = [];
+    if (allSymRecords.length === 0) {
+      symHtmlBlocks.push(`<p class="text-gray-400">（尚無客訴與異常現象內容）</p>`);
+    } else {
+      allSymRecords.forEach((sh, idx) => {
+        const linkedActCodes = (sh.linkedActionIds || [])
+          .map(aid => (item.actionHistory || []).find(a => a.id === aid))
+          .filter(Boolean)
+          .map(a => a.code)
+          .join('、');
+        const headerLine = `🚨 ${sh.code || ('異常 #' + (idx + 1))} ｜ 🕒 ${sh.time || ''}${linkedActCodes ? ' ｜ 🔗 對應對策：' + linkedActCodes : ''}`;
+        symHtmlBlocks.push(
+          `<div class="notion-callout troubleshoot-stage-1" style="margin:8px 0;">` +
+          `<span class="notion-callout-icon">🚨</span>` +
+          `<div class="notion-callout-body"><strong>${escapeHtml(headerLine)}</strong><br>${escapeHtml(sh.text || '（僅含附件）').replace(/\r?\n/g, '<br>')}</div>` +
+          `</div>`
+        );
+        if (sh.attachmentsHtml) {
+          symHtmlBlocks.push(sh.attachmentsHtml);
+        }
+      });
+    }
+
+    const actHtmlBlocks = [];
+    if (allActRecords.length === 0) {
+      actHtmlBlocks.push(`<p class="text-gray-400">（尚無處理對策與零件更換內容）</p>`);
+    } else {
+      allActRecords.forEach((ah, idx) => {
+        const linkedSymCodes = (ah.linkedSymptomIds || [])
+          .map(sid => (item.symptomHistory || []).find(s => s.id === sid))
+          .filter(Boolean)
+          .map(s => s.code)
+          .join('、');
+        const headerLine = `🛠️ ${ah.code || ('對策 #' + (idx + 1))} ｜ 🕒 ${ah.time || ''}${linkedSymCodes ? ' ｜ 🔗 對應異常：' + linkedSymCodes : ''}`;
+        const partsHtml = ah.partsText
+          ? `<br><span style="color:#b45309;font-weight:700;">🔩 更換零件：${escapeHtml(ah.partsText)}</span>`
+          : '';
+        actHtmlBlocks.push(
+          `<div class="notion-callout troubleshoot-stage-3" style="margin:8px 0;">` +
+          `<span class="notion-callout-icon">🛠️</span>` +
+          `<div class="notion-callout-body"><strong>${escapeHtml(headerLine)}</strong><br>${escapeHtml(ah.actionText || '（僅含零件或附件）').replace(/\r?\n/g, '<br>')}${partsHtml}</div>` +
+          `</div>`
+        );
+        if (ah.attachmentsHtml) {
+          actHtmlBlocks.push(ah.attachmentsHtml);
+        }
+      });
+    }
+
+    const existingLinkedNotes = (item.linkedNoteIds || [])
+      .map(nid => resolveLinkedNoteTitle(item, nid))
+      .filter(Boolean);
+    const wikilinksHtml = existingLinkedNotes.length > 0
+      ? `<p><strong>🔗 相關筆記連結：</strong>${existingLinkedNotes.map(t => `[[${escapeHtml(t)}]]`).join(' 、 ')}</p>`
+      : '';
+
+    const initHtml = [
+      `<div class="notion-callout troubleshoot-stage-2" data-source-case-id="${escapeHtml(item.id)}" style="margin-bottom:12px;">` +
+        `<span class="notion-callout-icon">🛡️</span>` +
+        `<div class="notion-callout-body">` +
+          `<strong>案件追蹤轉存筆記：📁 ${escapeHtml(caseNo)}</strong><br>` +
+          `<span>📊 案件狀態：${escapeHtml(normStatus)} ｜ 🚜 機型分類：${escapeHtml(item.machineModel || tax.machineModel)} ｜ 🏢 客戶/廠商：${escapeHtml(item.clientVendor || '未指定')}</span><br>` +
+          `<span>👥 處理人員：${escapeHtml(handlersStr)} ｜ 🏷️ 標籤：${escapeHtml(tagsStr)}</span><br>` +
+          `<span>🕒 立案時間：${escapeHtml(item.createdAt || '')} ｜ 🏁 結案時間：${escapeHtml(item.completedAt || '未結案')}</span>` +
+          ` ｜ <button type="button" class="lvi-jump-back-source-btn text-teal-600 dark:text-teal-300 font-extrabold underline cursor-pointer" data-jump-case-id="${escapeHtml(item.id)}" contenteditable="false">↗ 返回原案件追蹤</button>` +
+        `</div>` +
+      `</div>`,
+      `<h3>🚨 客訴 / 異常現象紀錄（共 ${allSymRecords.length} 筆）</h3>`,
+      ...symHtmlBlocks,
+      `<h3>🛠️ 處理對策與零件更換紀錄（共 ${allActRecords.length} 筆）</h3>`,
+      ...actHtmlBlocks,
+      wikilinksHtml,
+      `<p><br></p>`
+    ].filter(Boolean).join('');
+
+    const initMd = convertHtmlToMarkdown(initHtml);
+
+    const newNoteId = 'temp_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    const nowIso = new Date().toISOString();
+    const initMeta = {
+      icon: '🛡️',
+      cover: null,
+      machineModel: tax.machineModel,
+      workContent: tax.workContent,
+      urgency: tax.urgency,
+      clientVendor: item.clientVendor || '',
+      status: normStatus,
+      dueDate: tax.dueDate,
+      tags: tags,
+      pinned: false,
+      sourceCaseId: item.id,
+      caseNumber: caseNo
+    };
+
+    const newNoteObj = {
+      id: newNoteId,
+      _tempId: newNoteId,
+      name: noteTitle + '.md',
+      modifiedTime: nowIso,
+      parentId: null,
+      meta: initMeta,
+      _cachedBody: initMd,
+      _cachedHtml: initHtml,
+      _cachedMeta: initMeta
+    };
+
+    state.notes.unshift(newNoteObj);
+    updateNoteSearchIndex(newNoteId, nowIso, initMd);
+
+    // 僅在原案件的關聯筆記清單中加上此新筆記連結，原案件的文字、圖片與檔案完全不動！
+    if (!Array.isArray(item.linkedNoteIds)) item.linkedNoteIds = [];
+    if (!item.linkedNoteIds.includes(newNoteId)) item.linkedNoteIds.push(newNoteId);
+    if (!item.linkedNoteTitles || typeof item.linkedNoteTitles !== 'object') item.linkedNoteTitles = {};
+    item.linkedNoteTitles[newNoteId] = noteTitle;
+
+    saveCaseItemsToLocalStorageOnly();
+    saveSwrCacheSnapshot();
+    renderWorkTagLists();
+    renderWorkTagSelects();
+    renderSidebarTags();
+    renderNotesList();
+
+    if (state.accessToken) {
+      pendingCloudSaveMap.set(newNoteId, {
+        key: newNoteId,
+        noteId: null,
+        tempId: newNoteId,
+        noteRef: newNoteObj,
+        rawTitle: noteTitle,
+        fileName: noteTitle + '.md',
+        parentId: null,
+        meta: initMeta,
+        html: initHtml,
+        markdownBody: initMd,
+        fullContent: buildFrontmatterString(initMeta) + initMd,
+        updatedAt: Date.now(),
+        updatedIso: nowIso
+      });
+      processCloudSaveQueue();
+    }
+
+    await selectNote(newNoteId);
+    switchView('editor');
+    try { rebuildBacklinksIndexMap(); } catch (e) {}
+    try { renderCurrentNoteBacklinks(); } catch (e) {}
+
+    if (beforeWs) {
+      recordAction({
+        type: 'create_quick_note',
+        title: `📝 案件複製新增為筆記「${noteTitle}」`,
+        subtitle: `原案件追蹤與附件保持不變`,
+        noteId: newNoteId,
+        _beforeWorkspace: beforeWs
+      });
+    }
+
+    showToast(`📝 已將案件「${caseNo}」資訊與檔案複製新增至筆記：「${noteTitle}」（原案件保持不變）！`, 3200);
+    return newNoteObj;
+  } finally {
+    _isCopyingToRegularNote = false;
+  }
+};
+
+
+
+// ============================================================================
+// 🚀 LVI_Note v3.0.4 四大核心升級引擎：
+// 1. 回朔步數提升至 100 步 (支援於「⚙️ 歷史功能設定」動態調整 50 / 100 / 150 / 200 步，跨重開完整保留)
+// 2. 新增「⚙️ 歷史功能設定」按鈕與「🗑️ 何時刪了什麼（刪除紀錄）」稽核視圖：
+//    完整記錄每次刪除筆記、刪除照片/檔案附件、刪除待辦、刪除案件、刪除歷史紀錄、刪除分類/標籤與刪減內文之精確年月日時分秒與內容摘要
+// 3. 支援「🎯 單步回檔」(revertSingleHistoryStep)：
+//    可針對歷史清單中的「任何單一步驟」（哪怕不是最新的一步）獨立進行回檔/救回，絕不洗掉後續其他步驟的進度！
+// 4. 跨裝置檔案同步衝突「⚡ 優先以較新時間版本自動覆蓋 + 舊版自動存入 100 步回朔保底」：
+//    比較本地與雲端最後修改時間，較新者直接勝出覆蓋，同時將被覆蓋的另一方版本自動寫入 100 步回朔時光機保底！
+// ============================================================================
+
+const HISTORY_SETTINGS_STORAGE_KEY = 'lvi_history_settings_v303';
+state.historyModalFilterMode = 'all'; // 'all' | 'deletions'
+state.historyConflictPolicy = 'newer_wins'; // 'newer_wins' | 'manual_modal'
+
+function loadHistorySettingsConfig() {
+  try {
+    const raw = localStorage.getItem(HISTORY_SETTINGS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        const steps = parseInt(parsed.maxSteps, 10);
+        if ([50, 100, 150, 200].includes(steps)) {
+          PERSISTENT_MAX_STEPS = steps;
+        } else {
+          PERSISTENT_MAX_STEPS = 100;
+        }
+        if (parsed.conflictPolicy === 'manual_modal' || parsed.conflictPolicy === 'newer_wins') {
+          state.historyConflictPolicy = parsed.conflictPolicy;
+        }
+      }
+    } else {
+      PERSISTENT_MAX_STEPS = 100;
+      state.historyConflictPolicy = 'newer_wins';
+    }
+  } catch (e) {
+    PERSISTENT_MAX_STEPS = 100;
+    state.historyConflictPolicy = 'newer_wins';
+  }
+}
+
+function saveHistorySettingsConfig() {
+  try {
+    localStorage.setItem(HISTORY_SETTINGS_STORAGE_KEY, JSON.stringify({
+      maxSteps: PERSISTENT_MAX_STEPS,
+      conflictPolicy: state.historyConflictPolicy || 'newer_wins'
+    }));
+  } catch (e) {}
+}
+
+loadHistorySettingsConfig();
+
+function formatFullHistoryDateTime(dt = new Date()) {
+  const d = (dt instanceof Date && !isNaN(dt.getTime())) ? dt : new Date(dt || Date.now());
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  const ss = String(d.getSeconds()).padStart(2, '0');
+  return `${yyyy}/${mm}/${dd} ${hh}:${mi}:${ss}`;
+}
+
+/**
+ * 判斷某筆歷史紀錄是否屬於「刪除動作」或包含被刪除的內容，並提取「刪了什麼」的詳細說明
+ */
+function analyzeDeletionMetadataForAction(action, beforeWs, afterWs) {
+  const type = String(action.type || '');
+  const title = String(action.title || '');
+  const subtitle = String(action.subtitle || '');
+
+  let isDeletion = Boolean(
+    action.isDeletion ||
+    type.startsWith('delete_') ||
+    type.startsWith('remove_') ||
+    title.includes('刪除') ||
+    title.includes('移除')
+  );
+  let deletedDetail = action.deletedDetail || '';
+
+  // 1. 檢查是否刪除了筆記
+  if (!deletedDetail && beforeWs && afterWs && Array.isArray(beforeWs.notes) && Array.isArray(afterWs.notes)) {
+    if (beforeWs.notes.length > afterWs.notes.length) {
+      const afterIds = new Set(afterWs.notes.map(n => n.id));
+      const removedNotes = beforeWs.notes.filter(n => !afterIds.has(n.id));
+      if (removedNotes.length > 0) {
+        isDeletion = true;
+        const rn = removedNotes[0];
+        const cleanName = (rn.name || '未命名筆記').replace(/\.md$/i, '');
+        const plainSnippet = String(rn._cachedHtml || rn._cachedBody || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+        deletedDetail = `刪除筆記：「${cleanName}」（機型：${(rn.meta && rn.meta.machineModel) || '未分類'}）${plainSnippet ? '｜內容摘要：' + plainSnippet : ''}`;
+      }
+    }
+  }
+
+  // 2. 檢查是否刪除了待辦事項
+  if (!deletedDetail && beforeWs && afterWs && Array.isArray(beforeWs.todoItems) && Array.isArray(afterWs.todoItems)) {
+    if (beforeWs.todoItems.length > afterWs.todoItems.length) {
+      const afterIds = new Set(afterWs.todoItems.map(t => t.id));
+      const removedTodos = beforeWs.todoItems.filter(t => !afterIds.has(t.id));
+      if (removedTodos.length > 0) {
+        isDeletion = true;
+        const rt = removedTodos[0];
+        deletedDetail = `刪除待辦事項：「${rt.title || '未命名待辦'}」（機型：${rt.machineModel || '未選擇'}｜客戶：${rt.clientVendor || '未選擇'}）`;
+      }
+    }
+  }
+
+  // 3. 檢查是否刪除了案件追蹤
+  if (!deletedDetail && beforeWs && afterWs && Array.isArray(beforeWs.caseItems) && Array.isArray(afterWs.caseItems)) {
+    if (beforeWs.caseItems.length > afterWs.caseItems.length) {
+      const afterIds = new Set(afterWs.caseItems.map(c => c.id));
+      const removedCases = beforeWs.caseItems.filter(c => !afterIds.has(c.id));
+      if (removedCases.length > 0) {
+        isDeletion = true;
+        const rc = removedCases[0];
+        deletedDetail = `刪除案件追蹤：案號「${rc.caseNumber || rc.title || '未填案號'}」（機型：${rc.machineModel || '未選擇'}｜客戶：${rc.clientVendor || '未選擇'}）`;
+      }
+    }
+  }
+
+  // 4. 檢查是否在筆記編輯時刪除了照片/附件或大幅刪減了文字
+  if (!deletedDetail && action._beforeCanvas && action._afterCanvas) {
+    const bHtml = String(action._beforeCanvas.html || '');
+    const aHtml = String(action._afterCanvas.html || '');
+    const bAttCount = countAttachmentsInHtml(bHtml);
+    const aAttCount = countAttachmentsInHtml(aHtml);
+    if (bAttCount > aAttCount) {
+      isDeletion = true;
+      deletedDetail = `於${subtitle || '筆記中'}刪除了 ${bAttCount - aAttCount} 個圖片/檔案附件`;
+    } else {
+      const bText = bHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const aText = aHtml.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (bText.length > aText.length + 4 && !aText.includes(bText)) {
+        isDeletion = true;
+        // 找出被刪除的文字片段
+        let diffSnippet = bText.replace(aText, '').trim();
+        if (!diffSnippet) diffSnippet = bText.slice(0, 70);
+        deletedDetail = `刪減文字內容：「${diffSnippet.slice(0, 70)}」`;
+      }
+    }
+  }
+
+  if (isDeletion && !deletedDetail) {
+    deletedDetail = `${title}${subtitle ? '（' + subtitle + '）' : ''}`;
+  }
+
+  return { isDeletion, deletedDetail };
+}
+
+// 增強 recordAction：自動填入完整時間戳記 (YYYY/MM/DD HH:mm:ss) 與刪除稽核資訊 (isDeletion / deletedDetail)
+const _origRecordActionV302 = recordAction;
+recordAction = function(action) {
+  if (state.isUndoingOrRedoing || _isRestoringActionSnapshot) return;
+  const beforeWs = action._beforeWorkspace || _lastCommittedWorkspaceSnapshot;
+  _origRecordActionV302(action);
+
+  const latestRec = state.actionHistory[state.actionHistory.length - 1];
+  if (latestRec) {
+    const nowDt = latestRec.time instanceof Date ? latestRec.time : new Date();
+    latestRec.fullTimeStr = formatFullHistoryDateTime(nowDt);
+    latestRec.timeStr = latestRec.fullTimeStr;
+    const payload = latestRec.snapshotPayload || {};
+    const delInfo = analyzeDeletionMetadataForAction(
+      action,
+      payload.beforeWorkspace || beforeWs,
+      payload.afterWorkspace
+    );
+    latestRec.isDeletion = delInfo.isDeletion;
+    latestRec.deletedDetail = delInfo.deletedDetail;
+    savePersistentActionHistory();
+    updateHistoryUI();
+    if (isHistoryModalOpen()) {
+      renderHistoryTimeline();
+    }
+  }
+};
+
+// 補齊待辦事項與案件追蹤中「刪除單筆歷史紀錄」與「刪除附件」的 recordAction 紀錄，讓刪除稽核中心 100% 查得到！
+const _origExecuteConfirmedMediaDeleteV302 = executeConfirmedMediaDelete;
+executeConfirmedMediaDelete = function() {
+  const blockEl = pendingDeleteBlockEl;
+  const mediaName = pendingDeleteMediaName || (blockEl && blockEl.getAttribute && blockEl.getAttribute('data-file-name')) || '媒體/檔案附件';
+  const parentTodoCard = blockEl && blockEl.closest ? blockEl.closest('.lvi-todo-card') : null;
+  const isCaseCard = parentTodoCard && parentTodoCard.classList.contains('lvi-case-card');
+  const beforeWs = (!state.isUndoingOrRedoing && parentTodoCard) ? captureWorkspaceActionSnapshot() : null;
+
+  _origExecuteConfirmedMediaDeleteV302();
+
+  if (parentTodoCard && beforeWs && !state.isUndoingOrRedoing) {
+    const cardLabel = isCaseCard
+      ? `案號：${parentTodoCard.querySelector('.case-caseno-input') ? parentTodoCard.querySelector('.case-caseno-input').value : '案件追蹤'}`
+      : `待辦：${parentTodoCard.querySelector('.todo-title-input') ? parentTodoCard.querySelector('.todo-title-input').value : '待辦事項'}`;
+    recordAction({
+      type: 'delete_media',
+      isDeletion: true,
+      title: `🗑️ 刪除附件「${mediaName}」`,
+      subtitle: cardLabel,
+      deletedDetail: `於【${cardLabel}】刪除了檔案/照片附件：「${mediaName}」`,
+      _beforeWorkspace: beforeWs
+    });
+  }
+};
+
+// 攔截待辦與案件歷史紀錄的「🗑️ 刪除」按鈕以記錄刪除稽核與快照
+document.addEventListener('click', (e) => {
+  const todoDelHistBtn = e.target && e.target.closest ? e.target.closest('.todo-del-hist-btn') : null;
+  if (todoDelHistBtn && !state.isUndoingOrRedoing) {
+    const hid = todoDelHistBtn.getAttribute('data-todo-hist-id');
+    const sec = todoDelHistBtn.getAttribute('data-todo-hist-section') || 'issue';
+    const cardEl = todoDelHistBtn.closest('.lvi-todo-card');
+    const tid = cardEl ? cardEl.getAttribute('data-todo-id') : state.activeTodoDetailId;
+    const item = (state.todoItems || []).find(t => t.id === tid);
+    if (item && hid) {
+      const list = sec === 'issue' ? (item.issueHistory || []) : (item.resolutionHistory || []);
+      const targetEntry = list.find(x => x.id === hid);
+      if (targetEntry) {
+        const beforeWs = captureWorkspaceActionSnapshot();
+        const codeLabel = targetEntry.code || (sec === 'issue' ? '待辦說明' : '處理結果');
+        const preview = (targetEntry.text || '').slice(0, 60) || '含附件紀錄';
+        setTimeout(() => {
+          recordAction({
+            type: 'delete_todo_history',
+            isDeletion: true,
+            title: `🗑️ 刪除待辦歷史「${codeLabel}」`,
+            subtitle: `待辦：「${item.title || '未命名待辦'}」`,
+            deletedDetail: `刪除待辦【${item.title || '未命名待辦'}】之歷史「${codeLabel}」：${preview}`,
+            _beforeWorkspace: beforeWs
+          });
+        }, 10);
+      }
+    }
+  }
+
+  const caseDelHistBtn = e.target && e.target.closest ? e.target.closest('.case-del-hist-btn') : null;
+  if (caseDelHistBtn && !state.isUndoingOrRedoing) {
+    const hid = caseDelHistBtn.getAttribute('data-hist-id');
+    const sec = caseDelHistBtn.getAttribute('data-hist-section') || 'symptom';
+    const cardEl = caseDelHistBtn.closest('.lvi-case-card');
+    const cid = cardEl ? cardEl.getAttribute('data-case-id') : state.activeCaseDetailId;
+    const item = (state.caseItems || []).find(c => c.id === cid);
+    if (item && hid) {
+      const list = sec === 'symptom' ? (item.symptomHistory || []) : (item.actionHistory || []);
+      const targetEntry = list.find(x => x.id === hid);
+      if (targetEntry) {
+        const beforeWs = captureWorkspaceActionSnapshot();
+        const codeLabel = targetEntry.code || (sec === 'symptom' ? '客訴異常' : '處理對策');
+        const preview = (targetEntry.text || targetEntry.actionText || targetEntry.partsText || '').slice(0, 60) || '含附件紀錄';
+        setTimeout(() => {
+          recordAction({
+            type: 'delete_case_history',
+            isDeletion: true,
+            title: `🗑️ 刪除案件歷史「${codeLabel}」`,
+            subtitle: `案號：「${getCaseDisplayNo(item)}」`,
+            deletedDetail: `刪除案件【${getCaseDisplayNo(item)}】之歷史「${codeLabel}」：${preview}`,
+            _beforeWorkspace: beforeWs
+          });
+        }, 10);
+      }
+    }
+  }
+}, true);
+
+/**
+ * 🎯 單步獨立回檔核心引擎 (revertSingleHistoryStep)：
+ * 可針對歷史清單中「任何單一步驟 (targetIdx)」（即使不是最新的一步，後面還有許多新動作）進行獨立回檔/救回，
+ * 僅將該步驟所刪除或修改的目標物件（筆記、照片/檔案、待辦、案件、歷史紀錄或分類）還原回當前工作區，
+ * 絕不洗掉該步驟之後所做的其他無關修改！
+ */
+function revertSingleHistoryStep(targetIdx) {
+  flushPendingEditorInputHistory();
+  if (targetIdx < 0 || targetIdx >= state.actionHistory.length) return false;
+
+  const act = state.actionHistory[targetIdx];
+  if (!act || !act.snapshotPayload) {
+    showToast('⚠️ 找不到該步驟的快照資料');
+    return false;
+  }
+
+  const beforeCurrentWs = captureWorkspaceActionSnapshot();
+  const B = act.snapshotPayload.beforeWorkspace;
+  const A = act.snapshotPayload.afterWorkspace;
+  const BC = act.snapshotPayload.beforeCanvas;
+
+  if (!B) {
+    showToast('⚠️ 該步驟無可用回檔快照');
+    return false;
+  }
+
+  _isRestoringActionSnapshot = true;
+  let restoredSummary = act.title || `第 #${targetIdx + 1} 步`;
+
+  try {
+    const type = String(act.type || '');
+
+    // 1. 若該步驟刪除了筆記 (或 B 有某篇筆記而目前 state.notes 沒有)
+    const currentNoteIds = new Set((state.notes || []).map(n => n.id));
+    const missingNotesFromB = (B.notes || []).filter(n => !currentNoteIds.has(n.id) && (!A || !(A.notes || []).some(an => an.id === n.id)));
+    if (type === 'delete_note' || missingNotesFromB.length > 0) {
+      const notesToRestore = missingNotesFromB.length > 0
+        ? missingNotesFromB
+        : (B.notes || []).filter(n => n.id === act.noteId);
+      notesToRestore.forEach(rn => {
+        const cloned = JSON.parse(JSON.stringify(rn));
+        state.notes.unshift(cloned);
+      });
+      if (notesToRestore[0]) {
+        const rn = notesToRestore[0];
+        applyNoteCanvasSnapshot(rn.id, rn._cachedHtml || '', rn.meta || null, (rn.name || '').replace(/\.md$/i, ''));
+      }
+    }
+    // 2. 若該步驟針對特定筆記進行了內文編輯、格式、標題、屬性或刪除媒體 (BC 或 act.noteId)
+    else if (BC || (act.noteId && (B.notes || []).some(n => n.id === act.noteId))) {
+      const targetNoteId = (BC && BC.noteId) || act.noteId;
+      const noteInB = (B.notes || []).find(n => n.id === targetNoteId);
+      const htmlToRestore = (BC && typeof BC.html === 'string') ? BC.html : (noteInB ? noteInB._cachedHtml : null);
+      const metaToRestore = (BC && BC.meta) ? BC.meta : (noteInB ? noteInB.meta : null);
+      const titleToRestore = (BC && BC.title !== null && BC.title !== undefined)
+        ? BC.title
+        : (noteInB ? (noteInB.name || '').replace(/\.md$/i, '') : null);
+
+      // 特判：若是「刪除媒體/附件 (delete_media)」且該筆記後來還被繼續打字編輯過，我們把被刪掉的媒體卡片直接補回當前筆記，連後來打的字都一起保留！
+      const curNoteInState = (state.notes || []).find(n => n.id === targetNoteId);
+      if (type === 'delete_media' && curNoteInState && htmlToRestore && A) {
+        const noteInA = (A.notes || []).find(n => n.id === targetNoteId);
+        const aHtml = (act.snapshotPayload.afterCanvas && act.snapshotPayload.afterCanvas.html) || (noteInA && noteInA._cachedHtml) || '';
+        const curHtml = (state.currentNote && state.currentNote.id === targetNoteId && DOM.editor)
+          ? DOM.editor.innerHTML
+          : (curNoteInState._cachedHtml || '');
+        if (curHtml && curHtml !== aHtml) {
+          // 找出在 B 中存在但 A 中被刪除的 details.notion-media-collapse 或 .notion-file-attachment
+          const wrapB = document.createElement('div');
+          wrapB.innerHTML = htmlToRestore;
+          const wrapA = document.createElement('div');
+          wrapA.innerHTML = aHtml;
+          const aCardsHtml = wrapA.innerHTML;
+          const rescuedNodesHtml = [];
+          wrapB.querySelectorAll('details.notion-media-collapse, .notion-file-attachment').forEach(node => {
+            const fname = node.getAttribute('data-file-name') || '';
+            if (fname && !aCardsHtml.includes(fname)) {
+              rescuedNodesHtml.push(node.outerHTML);
+            }
+          });
+          if (rescuedNodesHtml.length > 0) {
+            applyNoteCanvasSnapshot(targetNoteId, curHtml + '<p><br></p>' + rescuedNodesHtml.join('<p><br></p>'), metaToRestore, titleToRestore);
+          } else {
+            applyNoteCanvasSnapshot(targetNoteId, htmlToRestore, metaToRestore, titleToRestore);
+          }
+        } else {
+          applyNoteCanvasSnapshot(targetNoteId, htmlToRestore, metaToRestore, titleToRestore);
+        }
+      } else {
+        if (!curNoteInState && noteInB) {
+          state.notes.unshift(JSON.parse(JSON.stringify(noteInB)));
+        }
+        applyNoteCanvasSnapshot(targetNoteId, htmlToRestore, metaToRestore, titleToRestore);
+      }
+    }
+    // 3. 若該步驟涉及待辦事項（刪除待辦、刪除待辦歷史、刪除待辦附件、或修改待辦）
+    else if (type.includes('todo') || JSON.stringify(B.todoItems || []) !== JSON.stringify((A && A.todoItems) || [])) {
+      const bTodos = Array.isArray(B.todoItems) ? B.todoItems : [];
+      const aTodos = (A && Array.isArray(A.todoItems)) ? A.todoItems : [];
+      bTodos.forEach(bt => {
+        const at = aTodos.find(x => x.id === bt.id);
+        if (!at) {
+          // 該筆待辦在步驟中被刪除了 -> 救回該筆待辦！
+          state.deletedTodoIds = (state.deletedTodoIds || []).filter(id => id !== bt.id && id !== bt.googleTaskId);
+          const existingIdx = (state.todoItems || []).findIndex(x => x.id === bt.id);
+          if (existingIdx === -1) {
+            state.todoItems.unshift(JSON.parse(JSON.stringify(bt)));
+          } else {
+            state.todoItems[existingIdx] = JSON.parse(JSON.stringify(bt));
+          }
+          state.activeTodoDetailId = bt.id;
+        } else if (JSON.stringify(bt) !== JSON.stringify(at)) {
+          // 該筆待辦在步驟中內容或歷史被異動/刪除了 -> 將該筆待辦還原為步驟前的狀態（保留後來新增的其他待辦）
+          const curIdx = (state.todoItems || []).findIndex(x => x.id === bt.id);
+          if (curIdx !== -1) {
+            state.todoItems[curIdx] = JSON.parse(JSON.stringify(bt));
+          } else {
+            state.todoItems.unshift(JSON.parse(JSON.stringify(bt)));
+          }
+          state.activeTodoDetailId = bt.id;
+        }
+      });
+      saveTodoItemsToLocalStorageOnly();
+      if (state.currentView === 'tasks') renderTasksView();
+    }
+    // 4. 若該步驟涉及案件追蹤（刪除案件、刪除案件歷史、刪除案件附件、或修改案件）
+    else if (type.includes('case') || JSON.stringify(B.caseItems || []) !== JSON.stringify((A && A.caseItems) || [])) {
+      const bCases = Array.isArray(B.caseItems) ? B.caseItems : [];
+      const aCases = (A && Array.isArray(A.caseItems)) ? A.caseItems : [];
+      bCases.forEach(bc => {
+        const ac = aCases.find(x => x.id === bc.id);
+        if (!ac) {
+          state.deletedCaseIds = (state.deletedCaseIds || []).filter(id => id !== bc.id);
+          const existingIdx = (state.caseItems || []).findIndex(x => x.id === bc.id);
+          if (existingIdx === -1) {
+            state.caseItems.unshift(JSON.parse(JSON.stringify(bc)));
+          } else {
+            state.caseItems[existingIdx] = JSON.parse(JSON.stringify(bc));
+          }
+          state.activeCaseDetailId = bc.id;
+        } else if (JSON.stringify(bc) !== JSON.stringify(ac)) {
+          const curIdx = (state.caseItems || []).findIndex(x => x.id === bc.id);
+          if (curIdx !== -1) {
+            state.caseItems[curIdx] = JSON.parse(JSON.stringify(bc));
+          } else {
+            state.caseItems.unshift(JSON.parse(JSON.stringify(bc)));
+          }
+          state.activeCaseDetailId = bc.id;
+        }
+      });
+      saveCaseItemsToLocalStorageOnly();
+      if (state.currentView === 'cases') renderCasesView();
+    }
+    // 5. 若該步驟涉及分類 / 機型 / 工作內容 / 急迫性 / 客戶 / 標籤 / 處理人員
+    else {
+      if (Array.isArray(B.machineModels)) state.machineModels = mergeUniqueStringList(B.machineModels, state.machineModels || []);
+      if (Array.isArray(B.workContents)) state.workContents = mergeUniqueStringList(B.workContents, state.workContents || []);
+      if (Array.isArray(B.clientsVendors)) state.clientsVendors = mergeUniqueStringList(B.clientsVendors, state.clientsVendors || []);
+      if (Array.isArray(B.todoHandlers)) state.todoHandlers = mergeUniqueStringList(B.todoHandlers, state.todoHandlers || []);
+      if (Array.isArray(B.urgencies)) state.urgencies = mergeUniqueUrgencyObjects(B.urgencies, state.urgencies || []);
+      if (Array.isArray(B.tags)) state.tags = mergeUniqueTagObjects(B.tags, state.tags || []);
+      if (B.deletedCategoryItems) {
+        state.deletedCategoryItems = JSON.parse(JSON.stringify(B.deletedCategoryItems));
+        try { saveDeletedCategoryItems(); } catch (e) {}
+      }
+      refreshAllViewsAfterCategoryChange();
+    }
+
+    try { saveSwrCacheSnapshot(); } catch (e) {}
+    try { saveLocalDraftImmediately(); } catch (e) {}
+    try { renderNotesList(); } catch (e) {}
+    try { renderWorkTagLists(); } catch (e) {}
+    try { renderSidebarTags(); } catch (e) {}
+  } finally {
+    _isRestoringActionSnapshot = false;
+  }
+
+  // 將此次「單步獨立回檔」本身也記錄為一筆新歷史步驟，保留所有後續步驟不流失！
+  recordAction({
+    type: 'single_step_revert',
+    title: `🎯 單步回檔：已還原 #${targetIdx + 1}「${restoredSummary}」`,
+    subtitle: `獨立還原第 #${targetIdx + 1} 步（保留後續其他步驟進度）`,
+    noteId: act.noteId || (state.currentNote ? state.currentNote.id : null),
+    _beforeWorkspace: beforeCurrentWs
+  });
+
+  showToast(`🎯 已成功單步回檔第 #${targetIdx + 1} 步：「${restoredSummary}」（後續其他步驟均完整保留）！`, 3500);
+  return true;
+}
+
+/**
+ * 覆寫 renderHistoryTimeline 與 updateHistoryUI：
+ * 1. 支援「📋 全部動作」與「🗑️ 何時刪了什麼（刪除紀錄）」分頁切換
+ * 2. 每一步皆顯示完整時間 (YYYY/MM/DD HH:mm:ss)、刪除內容預覽框、以及「🎯 單步回檔」與「⏮️ 回朔至此」雙按鈕
+ */
+const _origUpdateHistoryUIV302 = updateHistoryUI;
+updateHistoryUI = function() {
+  _origUpdateHistoryUIV302();
+  const allCount = (state.actionHistory || []).length;
+  const delCount = (state.actionHistory || []).filter(a => a && a.isDeletion).length;
+  const undoCount = state.historyIndex + 1;
+  const redoCount = Math.max(0, allCount - 1 - state.historyIndex);
+
+  if (DOM.historyStatusText) {
+    DOM.historyStatusText.textContent = `共記錄 ${allCount} / ${PERSISTENT_MAX_STEPS} 步 (目前第 ${undoCount} 步 · 刪除紀錄 ${delCount} 筆)`;
+  }
+  if (DOM.historyUndoableCount) {
+    DOM.historyUndoableCount.textContent = `可復原 ${undoCount} 步 / 可重做 ${redoCount} 步`;
+  }
+
+  const allTabBadge = document.getElementById('hist-tab-all-count');
+  const delTabBadge = document.getElementById('hist-tab-del-count');
+  const headerDelBadge = document.getElementById('history-del-header-badge');
+  if (allTabBadge) allTabBadge.textContent = String(allCount);
+  if (delTabBadge) delTabBadge.textContent = String(delCount);
+  if (headerDelBadge) {
+    headerDelBadge.textContent = String(delCount);
+    headerDelBadge.classList.toggle('hidden', delCount === 0);
+  }
+
+  document.querySelectorAll('.hist-filter-tab-btn').forEach(btn => {
+    const mode = btn.getAttribute('data-hist-filter');
+    btn.classList.toggle('active', mode === (state.historyModalFilterMode || 'all'));
+  });
+};
+
+renderHistoryTimeline = function() {
+  if (!DOM.historyTimelineList) return;
+  DOM.historyTimelineList.innerHTML = '';
+
+  const filterMode = state.historyModalFilterMode || 'all';
+  const indexedList = (state.actionHistory || [])
+    .map((act, idx) => ({ act, idx }))
+    .filter(({ act }) => filterMode === 'deletions' ? Boolean(act && act.isDeletion) : true);
+
+  if (indexedList.length === 0) {
+    DOM.historyTimelineList.innerHTML = `
+      <div class="text-center py-10 text-gray-400 text-xs">
+        <i data-lucide="clock" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+        <p>${filterMode === 'deletions' ? '目前尚無任何刪除紀錄' : '目前尚無歷史動作紀錄'}</p>
+        <p class="text-[11px] mt-1 text-gray-400">${filterMode === 'deletions' ? '當您刪除筆記、照片/附件、待辦事項、案件追蹤、歷史紀錄或分類時，會自動在此記錄刪除時間與內容，並支援單步回檔救回。' : `支援最多 ${PERSISTENT_MAX_STEPS} 步跨重開持久化回朔，任何單一步驟皆可獨立回檔！`}</p>
+      </div>
+    `;
+    initLucide();
+    return;
+  }
+
+  for (let k = indexedList.length - 1; k >= 0; k--) {
+    const { act, idx: i } = indexedList[k];
+    const isCurrent = i === state.historyIndex;
+    const isPast = i <= state.historyIndex;
+    const stepDiff = state.historyIndex - i;
+    const catBadge = getActionCategoryBadge(act.type);
+    const fullTime = act.fullTimeStr || act.timeStr || '';
+
+    const item = document.createElement('div');
+    item.className = `p-2.5 rounded-lg flex items-center justify-between gap-3 text-xs transition history-item ${act.isDeletion ? 'is-deletion-record' : ''} ${isCurrent ? 'is-current ring-1 ring-blue-500/40 bg-blue-50/40 dark:bg-blue-950/20' : ''}`;
+
+    let statusBadge = '';
+    let timelineBtn = '';
+
+    if (isCurrent) {
+      statusBadge = `<span class="px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-600 text-white shrink-0">📍 目前狀態</span>`;
+      timelineBtn = `
+        <button type="button" class="undo-this-btn px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 hover:bg-amber-100 dark:hover:bg-amber-950 text-gray-600 dark:text-gray-300 text-[11px] font-medium flex items-center gap-1 transition shrink-0 cursor-pointer" title="復原此步動作">
+          <span>↩️ 復原此步</span>
+        </button>
+      `;
+    } else if (isPast) {
+      statusBadge = `<span class="text-[10px] text-gray-400 shrink-0 font-medium">${stepDiff} 步前</span>`;
+      timelineBtn = `
+        <button type="button" class="rollback-btn px-2 py-1 rounded bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900 text-[11px] font-semibold flex items-center gap-1 transition shrink-0 cursor-pointer" data-idx="${i}" title="將整個工作區回捲至此時間點">
+          <span>⏮️ 回朔至此</span>
+        </button>
+      `;
+    } else {
+      const futureDiff = i - state.historyIndex;
+      statusBadge = `<span class="text-[10px] text-purple-400 shrink-0 font-medium">${futureDiff} 步後 (已復原)</span>`;
+      timelineBtn = `
+        <button type="button" class="rollback-btn px-2 py-1 rounded bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900 text-[11px] font-semibold flex items-center gap-1 transition shrink-0 cursor-pointer" data-idx="${i}">
+          <span>⏩ 前進重做</span>
+        </button>
+      `;
+    }
+
+    const singleStepRevertBtn = `
+      <button type="button" class="single-step-revert-btn" data-single-revert-idx="${i}" title="僅獨立回檔/救回此單一步驟（即使不是最新一步，也不會洗掉後續其他步驟）">
+        <span>🎯 單步回檔</span>
+      </button>
+    `;
+
+    const deletionBadgeHtml = act.isDeletion
+      ? `<span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-300 border border-rose-300 dark:border-rose-800">🗑️ 刪除紀錄</span>`
+      : '';
+
+    const deletionDetailBoxHtml = (act.isDeletion && act.deletedDetail)
+      ? `<div class="lvi-deleted-detail-box">🕒 <strong>刪除時間：</strong>${escapeHtml(fullTime)} ｜ <strong>刪除內容：</strong>${escapeHtml(act.deletedDetail)}</div>`
+      : '';
+
+    item.innerHTML = `
+      <div class="flex items-start gap-2.5 flex-1 min-w-0">
+        <span class="text-[10px] font-mono font-bold text-gray-400 w-8 shrink-0 pt-0.5">#${i + 1}</span>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            ${deletionBadgeHtml}
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-semibold ${catBadge.cls}">${catBadge.label}</span>
+            <span class="font-bold text-gray-900 dark:text-gray-100">${escapeHtml(act.title)}</span>
+            ${statusBadge}
+          </div>
+          ${act.subtitle ? `<div class="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">${escapeHtml(act.subtitle)}</div>` : ''}
+          ${deletionDetailBoxHtml}
+        </div>
+        <span class="text-[10px] text-gray-400 font-mono shrink-0 pt-0.5">${escapeHtml(fullTime)}</span>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        ${singleStepRevertBtn}
+        ${timelineBtn}
+      </div>
+    `;
+
+    const sBtn = item.querySelector('.single-step-revert-btn');
+    if (sBtn) {
+      sBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        revertSingleHistoryStep(i);
+      });
+    }
+
+    const rBtn = item.querySelector('.rollback-btn');
+    if (rBtn) {
+      rBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        rollbackToStep(i);
+      });
+    }
+
+    const uBtn = item.querySelector('.undo-this-btn');
+    if (uBtn) {
+      uBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        undoAction();
+      });
+    }
+
+    DOM.historyTimelineList.appendChild(item);
+  }
+
+  initLucide();
+};
+
+// 確保持久化載入時保留 fullTimeStr、isDeletion、deletedDetail
+const _origSavePersistentActionHistoryV302 = savePersistentActionHistory;
+savePersistentActionHistory = function() {
+  try {
+    if (!Array.isArray(state.actionHistory)) return;
+    if (state.actionHistory.length > PERSISTENT_MAX_STEPS) {
+      const overflow = state.actionHistory.length - PERSISTENT_MAX_STEPS;
+      state.actionHistory.splice(0, overflow);
+      state.historyIndex = Math.max(-1, state.historyIndex - overflow);
+    }
+
+    const pool = [];
+    const poolMap = new Map();
+    const records = state.actionHistory.map(rec => ({
+      id: rec.id,
+      timeIso: rec.time instanceof Date ? rec.time.toISOString() : (rec.timeIso || new Date().toISOString()),
+      timeStr: rec.timeStr || '',
+      fullTimeStr: rec.fullTimeStr || rec.timeStr || '',
+      type: rec.type || 'edit_content',
+      title: rec.title || '',
+      subtitle: rec.subtitle || '',
+      noteId: rec.noteId || null,
+      isDeletion: Boolean(rec.isDeletion),
+      deletedDetail: rec.deletedDetail || '',
+      snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
+    }));
+
+    const fullJson = JSON.stringify({
+      version: 'v3.0.4',
+      maxSteps: PERSISTENT_MAX_STEPS,
+      historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex)),
+      pool,
+      records
+    });
+
+    saveActionHistoryToIndexedDB(fullJson);
+    try {
+      localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, fullJson);
+    } catch (quotaErr) {
+      for (let keep = Math.min(60, state.actionHistory.length); keep >= 10; keep -= 10) {
+        try {
+          const offset = state.actionHistory.length - keep;
+          const subPool = [];
+          const subMap = new Map();
+          const subRecords = state.actionHistory.slice(offset).map(rec => ({
+            id: rec.id,
+            timeIso: rec.time instanceof Date ? rec.time.toISOString() : (rec.timeIso || new Date().toISOString()),
+            timeStr: rec.timeStr || '',
+            fullTimeStr: rec.fullTimeStr || rec.timeStr || '',
+            type: rec.type || 'edit_content',
+            title: rec.title || '',
+            subtitle: rec.subtitle || '',
+            noteId: rec.noteId || null,
+            isDeletion: Boolean(rec.isDeletion),
+            deletedDetail: rec.deletedDetail || '',
+            snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, subPool, subMap)
+          }));
+          localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, JSON.stringify({
+            version: 'v3.0.4',
+            maxSteps: PERSISTENT_MAX_STEPS,
+            historyIndex: Math.max(-1, Math.min(subRecords.length - 1, state.historyIndex - offset)),
+            pool: subPool,
+            records: subRecords
+          }));
+          break;
+        } catch (e2) {}
+      }
+    }
+  } catch (e) {}
+};
+
+const _origLoadPersistentActionHistoryOnBootV302 = loadPersistentActionHistoryOnBoot;
+loadPersistentActionHistoryOnBoot = function() {
+  loadHistorySettingsConfig();
+  const ok = _origLoadPersistentActionHistoryOnBootV302();
+  if (ok) {
+    try {
+      const raw = localStorage.getItem(PERSISTENT_ACTION_HISTORY_KEY);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && Array.isArray(parsed.records)) {
+        state.actionHistory.forEach((rec, idx) => {
+          const src = parsed.records[idx];
+          if (src) {
+            rec.fullTimeStr = src.fullTimeStr || src.timeStr || rec.timeStr;
+            rec.isDeletion = Boolean(src.isDeletion);
+            rec.deletedDetail = src.deletedDetail || '';
+          }
+        });
+      }
+      updateHistoryUI();
+    } catch (e) {}
+  }
+  return ok;
+};
+
+/**
+ * 4. 跨裝置檔案衝突自動解決引擎 (checkAndInterceptCloudSyncConflict)：
+ * 當 state.historyConflictPolicy === 'newer_wins' (預設)：
+ * - 自動比較本地修改時間 (localMs) 與雲端修改時間 (cloudMs)
+ * - 優先選擇較新的版本直接覆蓋過去，無須彈窗打斷使用者！
+ * - 被覆蓋的較舊版本自動完整寫入 100 步持久化回朔時光機保底，隨時可按「🎯 單步回檔」或「↩️ 復原」救回！
+ */
+const _origCheckAndInterceptCloudSyncConflictV302 = checkAndInterceptCloudSyncConflict;
+checkAndInterceptCloudSyncConflict = async function(effectiveNoteId, snap, matchedNoteInState) {
+  if (!effectiveNoteId || !snap) return false;
+  if (snap.forceOverwriteCloud) return false;
+
+  // 若使用者在設定中改為手動彈窗模式，則沿用原本的 Diff Modal
+  if (state.historyConflictPolicy === 'manual_modal') {
+    return await _origCheckAndInterceptCloudSyncConflictV302(effectiveNoteId, snap, matchedNoteInState);
+  }
+
+  const baseModTime = snap.baseCloudModifiedTime || (matchedNoteInState && matchedNoteInState._baseCloudModifiedTime) || null;
+  if (!baseModTime) return false;
+  const baseMs = new Date(baseModTime).getTime();
+  if (!baseMs || isNaN(baseMs)) return false;
+
+  try {
+    let cloudFileMeta = null;
+    if (typeof window._mockCloudConflictProvider === 'function') {
+      cloudFileMeta = await window._mockCloudConflictProvider(effectiveNoteId, 'meta');
+    } else if (state.accessToken) {
+      const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${effectiveNoteId}?fields=id,name,modifiedTime,description`, {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (metaRes.ok) {
+        cloudFileMeta = await metaRes.json();
+      }
+    }
+    if (!cloudFileMeta || !cloudFileMeta.modifiedTime) return false;
+
+    const cloudMs = new Date(cloudFileMeta.modifiedTime).getTime();
+    if (cloudMs <= baseMs + 1000) {
+      return false;
+    }
+
+    let rawCloudText = '';
+    if (typeof window._mockCloudConflictProvider === 'function') {
+      rawCloudText = await window._mockCloudConflictProvider(effectiveNoteId, 'media');
+    } else if (state.accessToken) {
+      const mediaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${effectiveNoteId}?alt=media`, {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (mediaRes.ok) {
+        rawCloudText = await mediaRes.text();
+      }
+    }
+    if (!rawCloudText) return false;
+
+    const parsedCloud = (typeof parseFrontmatter === 'function')
+      ? parseFrontmatter(rawCloudText)
+      : { meta: {}, body: rawCloudText };
+    const cloudBody = (parsedCloud && parsedCloud.body !== undefined) ? parsedCloud.body : rawCloudText;
+    const cloudHtml = (window.marked && typeof window.marked.parse === 'function')
+      ? window.marked.parse(cloudBody)
+      : plainTextLinesToEditorHtml(cloudBody);
+
+    const cloudHash = computeNoteContentHash(cloudBody);
+    const localBody = snap.markdownBody || convertHtmlToMarkdown(snap.html || '');
+    const localHash = computeNoteContentHash(localBody);
+
+    if (cloudHash === localHash) {
+      if (matchedNoteInState) {
+        matchedNoteInState._baseCloudModifiedTime = cloudFileMeta.modifiedTime;
+        matchedNoteInState._baseContentHash = cloudHash;
+      }
+      return false;
+    }
+
+    // 發生跨裝置檔案衝突！比較本地時間 (localMs) 與雲端時間 (cloudMs)
+    const localMs = new Date(snap.updatedIso || snap.updatedAt || Date.now()).getTime();
+    const noteTitle = snap.rawTitle || (matchedNoteInState && getCleanNoteTitle(matchedNoteInState)) || '未命名筆記';
+
+    if (localMs >= cloudMs) {
+      // ✅ 本地版本較新：先將被覆蓋的「雲端舊版」寫入 100 步回朔時光機保底，接著直接以本地新版覆蓋雲端！
+      recordAction({
+        type: 'edit_content',
+        title: `⚡ 跨裝置衝突自動覆蓋（採用較新本地版）`,
+        subtitle: `筆記：「${noteTitle}」｜被覆蓋的雲端版本已存入回朔保底`,
+        noteId: effectiveNoteId,
+        _beforeCanvas: { noteId: effectiveNoteId, html: cloudHtml, meta: parsedCloud ? parsedCloud.meta : null, title: noteTitle },
+        _afterCanvas: { noteId: effectiveNoteId, html: snap.html, meta: snap.meta || null, title: noteTitle },
+        undo: () => applyNoteCanvasSnapshot(effectiveNoteId, cloudHtml, parsedCloud ? parsedCloud.meta : null, noteTitle),
+        redo: () => applyNoteCanvasSnapshot(effectiveNoteId, snap.html, snap.meta || null, noteTitle)
+      });
+
+      snap.baseCloudModifiedTime = cloudFileMeta.modifiedTime;
+      snap.forceOverwriteCloud = true;
+      if (matchedNoteInState) {
+        matchedNoteInState._baseCloudModifiedTime = cloudFileMeta.modifiedTime;
+        matchedNoteInState._baseContentHash = localHash;
+      }
+      showToast(`⚡ 跨裝置衝突：已自動採用較新的「本地版本」覆蓋雲端（舊版已存入 100 步回朔保底）`, 3200);
+      return false; // 放行繼續上傳本地新版覆蓋雲端
+    } else {
+      // ✅ 雲端版本較新：先將被覆蓋的「本地舊版」寫入 100 步回朔時光機保底，接著直接採用雲端新版覆蓋本地！
+      recordAction({
+        type: 'edit_content',
+        title: `⚡ 跨裝置衝突自動覆蓋（採用較新雲端版）`,
+        subtitle: `筆記：「${noteTitle}」｜被覆蓋的本地版本已存入回朔保底`,
+        noteId: effectiveNoteId,
+        _beforeCanvas: { noteId: effectiveNoteId, html: snap.html, meta: snap.meta || null, title: noteTitle },
+        _afterCanvas: { noteId: effectiveNoteId, html: cloudHtml, meta: parsedCloud ? parsedCloud.meta : null, title: noteTitle },
+        undo: () => applyNoteCanvasSnapshot(effectiveNoteId, snap.html, snap.meta || null, noteTitle),
+        redo: () => applyNoteCanvasSnapshot(effectiveNoteId, cloudHtml, parsedCloud ? parsedCloud.meta : null, noteTitle)
+      });
+
+      if (matchedNoteInState) {
+        matchedNoteInState.modifiedTime = cloudFileMeta.modifiedTime;
+        matchedNoteInState._baseCloudModifiedTime = cloudFileMeta.modifiedTime;
+        matchedNoteInState._baseContentHash = cloudHash;
+        matchedNoteInState._cachedBody = cloudBody;
+        matchedNoteInState._cachedHtml = cloudHtml;
+        if (parsedCloud && parsedCloud.meta) {
+          matchedNoteInState.meta = { ...(matchedNoteInState.meta || {}), ...parsedCloud.meta };
+        }
+      }
+      if (state.currentNote && state.currentNote.id === effectiveNoteId) {
+        state.currentNote._baseCloudModifiedTime = cloudFileMeta.modifiedTime;
+        state.currentNote._baseContentHash = cloudHash;
+        if (DOM.editor) {
+          DOM.editor.innerHTML = cloudHtml;
+          state.editorSnapshotBeforeEdit = cloudHtml;
+          try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+        }
+      }
+      pendingCloudSaveMap.delete(snap.key);
+      try { saveSwrCacheSnapshot(); } catch (e) {}
+      updateSyncStatus('synced', '已自動採用較新雲端版');
+      showToast(`⚡ 跨裝置衝突：已自動採用較新的「雲端版本」（原本地版已存入 100 步回朔保底）`, 3200);
+      return true; // 攔截舊版上傳，因為已直接採用較新的雲端版
+    }
+  } catch (err) {
+    console.warn('跨裝置自動衝突比較略過:', err);
+    return false;
+  }
+};
+
+/**
+ * 初始化歷史功能設定按鈕、刪除紀錄分頁與設定選單事件
+ */
+function initV303HistorySettingsAndAuditUI() {
+  const headerSettingsBtn = document.getElementById('history-settings-btn');
+  const toggleSettingsBtn = document.getElementById('btn-toggle-history-settings-panel');
+  const settingsPanel = document.getElementById('history-settings-panel');
+  const maxStepsSelect = document.getElementById('hist-setting-max-steps');
+  const conflictPolicySelect = document.getElementById('hist-setting-conflict-policy');
+
+  if (maxStepsSelect) {
+    maxStepsSelect.value = String(PERSISTENT_MAX_STEPS || 100);
+    if (!maxStepsSelect._v303Bound) {
+      maxStepsSelect._v303Bound = true;
+      maxStepsSelect.addEventListener('change', () => {
+        const val = parseInt(maxStepsSelect.value, 10) || 100;
+        PERSISTENT_MAX_STEPS = val;
+        saveHistorySettingsConfig();
+        savePersistentActionHistory();
+        updateHistoryUI();
+        renderHistoryTimeline();
+        showToast(`⚙️ 已將最大回朔步數上限設定為 ${val} 步！`);
+      });
+    }
+  }
+
+  if (conflictPolicySelect) {
+    conflictPolicySelect.value = state.historyConflictPolicy || 'newer_wins';
+    if (!conflictPolicySelect._v303Bound) {
+      conflictPolicySelect._v303Bound = true;
+      conflictPolicySelect.addEventListener('change', () => {
+        state.historyConflictPolicy = conflictPolicySelect.value || 'newer_wins';
+        saveHistorySettingsConfig();
+        showToast(
+          state.historyConflictPolicy === 'newer_wins'
+            ? '⚡ 已設定：跨裝置衝突時優先選擇較新版本覆蓋（舊版自動寫入回朔保底）'
+            : '🔍 已設定：跨裝置衝突時彈出差異比對視窗手動選擇'
+        );
+      });
+    }
+  }
+
+  if (headerSettingsBtn && !headerSettingsBtn._v303Bound) {
+    headerSettingsBtn._v303Bound = true;
+    headerSettingsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      state.historyModalFilterMode = 'deletions';
+      openHistoryModal();
+      if (settingsPanel) {
+        settingsPanel.classList.remove('hidden');
+      }
+      updateHistoryUI();
+      renderHistoryTimeline();
+    });
+  }
+
+  if (toggleSettingsBtn && !toggleSettingsBtn._v303Bound) {
+    toggleSettingsBtn._v303Bound = true;
+    toggleSettingsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (settingsPanel) {
+        settingsPanel.classList.toggle('hidden');
+      }
+    });
+  }
+
+  document.querySelectorAll('.hist-filter-tab-btn').forEach(btn => {
+    if (btn._v303Bound) return;
+    btn._v303Bound = true;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      const mode = btn.getAttribute('data-hist-filter') || 'all';
+      state.historyModalFilterMode = mode;
+      updateHistoryUI();
+      renderHistoryTimeline();
+    });
+  });
+
+  updateHistoryUI();
+}
+
+try {
+  initV303HistorySettingsAndAuditUI();
+} catch (e) {
+  console.warn('initV303HistorySettingsAndAuditUI error:', e);
+}
+
+
+// ============================================================================
+// 🛡️ v3.0.4 雙軌隔離升級：
+// 1. 手動操作專屬 100 步 (`state.actionHistory`)：100% 僅記錄使用者手動動作，絕不被自動同步或衝突沖刷！
+// 2. 獨立「⚡ 跨裝置衝突備份池」(`state.syncConflictHistory`)：獨立持久化保留最多 30 筆衝突快照，完全不佔用 100 步配額！
+// 3. 內容指紋去重 (`dedupKey = noteId + localHash + cloudHash`)：避免自動同步重試時重複寫入相同衝突。
+// ============================================================================
+
+function stripHtmlToPlainSnippet(htmlStr, maxLen = 90) {
+  if (!htmlStr) return '';
+  const plain = String(htmlStr).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return plain.length > maxLen ? plain.slice(0, maxLen) + '…' : plain;
+}
+
+const PERSISTENT_SYNC_CONFLICT_KEY = 'lvi_sync_conflict_history_v304';
+const MAX_SYNC_CONFLICT_STEPS = 30;
+state.syncConflictHistory = state.syncConflictHistory || [];
+
+function savePersistentSyncConflictHistory() {
+  try {
+    if (!Array.isArray(state.syncConflictHistory)) state.syncConflictHistory = [];
+    if (state.syncConflictHistory.length > MAX_SYNC_CONFLICT_STEPS) {
+      state.syncConflictHistory = state.syncConflictHistory.slice(state.syncConflictHistory.length - MAX_SYNC_CONFLICT_STEPS);
+    }
+    localStorage.setItem(PERSISTENT_SYNC_CONFLICT_KEY, JSON.stringify(state.syncConflictHistory));
+  } catch (e) {
+    console.warn('儲存獨立衝突備份池失敗:', e);
+  }
+}
+
+function loadPersistentSyncConflictHistory() {
+  try {
+    const raw = localStorage.getItem(PERSISTENT_SYNC_CONFLICT_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      state.syncConflictHistory = parsed.slice(-MAX_SYNC_CONFLICT_STEPS);
+    }
+  } catch (e) {
+    console.warn('讀取獨立衝突備份池失敗:', e);
+  }
+}
+
+/**
+ * 記錄跨裝置同步衝突至「獨立衝突備份池」（絕不寫入 state.actionHistory，0 佔用 100 步配額！）
+ * 並具備內容指紋去重機制，相同 (noteId + OverwrittenHash + WinningHash) 不重複刷紀錄。
+ */
+function recordSyncConflictBackup(payload) {
+  if (!Array.isArray(state.syncConflictHistory)) state.syncConflictHistory = [];
+  const dedupKey = `${payload.noteId || ''}::${payload.overwrittenHash || ''}::${payload.winningHash || ''}`;
+  const existsAlready = state.syncConflictHistory.some(item => item && item.dedupKey === dedupKey);
+  if (existsAlready) {
+    return false; // 相同內容指紋已備份過，直接跳過防刷！
+  }
+
+  const now = new Date();
+  const fullTimeStr = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
+  const entry = {
+    id: 'conflict_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+    dedupKey,
+    timeIso: now.toISOString(),
+    fullTimeStr,
+    noteId: payload.noteId,
+    noteTitle: payload.noteTitle || '未命名筆記',
+    winnerSide: payload.winnerSide, // 'cloud' | 'local'
+    title: payload.title,
+    subtitle: payload.subtitle,
+    conflictDetail: payload.conflictDetail || '',
+    overwrittenCanvas: payload.overwrittenCanvas, // 被覆蓋的舊版完整快照
+    winningCanvas: payload.winningCanvas
+  };
+
+  state.syncConflictHistory.push(entry);
+  if (state.syncConflictHistory.length > MAX_SYNC_CONFLICT_STEPS) {
+    state.syncConflictHistory.shift();
+  }
+  savePersistentSyncConflictHistory();
+  updateHistoryUI();
+  return true;
+}
+
+/**
+ * 從「⚡ 跨裝置衝突備份池」單步救回被覆蓋的舊版本
+ * （當使用者主動點擊「🎯 救回此被覆蓋版本」時，才算一次使用者手動救援動作）
+ */
+function restoreSyncConflictBackupItem(conflictId) {
+  if (!Array.isArray(state.syncConflictHistory)) return false;
+  const entry = state.syncConflictHistory.find(c => c && c.id === conflictId);
+  if (!entry || !entry.overwrittenCanvas) {
+    showToast('⚠️ 找不到該筆衝突備份資料');
+    return false;
+  }
+
+  const oc = entry.overwrittenCanvas;
+  const targetNote = (state.notes || []).find(n => n.id === entry.noteId);
+  const beforeHtml = (targetNote && targetNote._cachedHtml) || (state.currentNote && state.currentNote.id === entry.noteId && DOM.editor ? DOM.editor.innerHTML : '');
+  const beforeMeta = targetNote && targetNote.meta ? JSON.parse(JSON.stringify(targetNote.meta)) : null;
+
+  applyNoteCanvasSnapshot(entry.noteId, oc.html || '', oc.meta || null, oc.title || entry.noteTitle);
+
+  // 使用者主動按下救回時，記錄一筆手動救援至 100 步歷史中
+  recordAction({
+    type: 'edit_content',
+    title: `🎯 從衝突備份救回：「${entry.noteTitle}」`,
+    subtitle: `已還原 ${entry.fullTimeStr} 被自動覆蓋的${entry.winnerSide === 'cloud' ? '本地舊版' : '雲端舊版'}`,
+    noteId: entry.noteId,
+    _beforeCanvas: { noteId: entry.noteId, html: beforeHtml, meta: beforeMeta, title: entry.noteTitle },
+    _afterCanvas: { noteId: entry.noteId, html: oc.html || '', meta: oc.meta || null, title: entry.noteTitle }
+  });
+
+  updateHistoryUI();
+  if (DOM.actionHistoryModal && !DOM.actionHistoryModal.classList.contains('hidden')) {
+    renderHistoryTimeline();
+  }
+  showToast(`✅ 已成功救回「${entry.noteTitle}」被覆蓋前的版本！`, 3200);
+  return true;
+}
+
+// 覆寫 updateHistoryUI：更新「⚡ 跨裝置衝突備份」計數徽章，且 100 步完全只計手動動作
+const _origUpdateHistoryUIV303 = updateHistoryUI;
+updateHistoryUI = function() {
+  _origUpdateHistoryUIV303();
+  const conflictCountBadge = document.getElementById('hist-tab-conflict-count');
+  const conflictCount = Array.isArray(state.syncConflictHistory) ? state.syncConflictHistory.length : 0;
+  if (conflictCountBadge) {
+    conflictCountBadge.textContent = String(conflictCount);
+  }
+  const totalManual = Array.isArray(state.actionHistory) ? state.actionHistory.length : 0;
+  const delCount = Array.isArray(state.actionHistory) ? state.actionHistory.filter(a => a && a.isDeletion).length : 0;
+  if (DOM.historyStatusText) {
+    DOM.historyStatusText.textContent = `手動操作 ${totalManual} / ${PERSISTENT_MAX_STEPS} 步（刪除紀錄 ${delCount} 筆・獨立衝突備份 ${conflictCount} 筆）`;
+  }
+};
+
+// 覆寫 renderHistoryTimeline：支援 'conflicts' 分頁顯示獨立衝突備份池
+const _origRenderHistoryTimelineV303 = renderHistoryTimeline;
+renderHistoryTimeline = function() {
+  if (!DOM.historyTimelineList) return;
+  const filterMode = state.historyModalFilterMode || 'all';
+  if (filterMode !== 'conflicts') {
+    return _origRenderHistoryTimelineV303();
+  }
+
+  DOM.historyTimelineList.innerHTML = '';
+  const conflictList = Array.isArray(state.syncConflictHistory) ? state.syncConflictHistory : [];
+
+  if (conflictList.length === 0) {
+    DOM.historyTimelineList.innerHTML = `
+      <div class="text-center py-10 text-gray-400 text-xs">
+        <i data-lucide="shield-check" class="w-8 h-8 mx-auto mb-2 opacity-40"></i>
+        <p>目前尚無任何跨裝置同步衝突備份</p>
+        <p class="text-[11px] mt-1 text-gray-400">當不同裝置發生檔案衝突時，系統會自動採用較新版本，並將被覆蓋的舊版獨立保存在此（最多保留 ${MAX_SYNC_CONFLICT_STEPS} 筆，完全不佔用您的 100 步手動回朔配額）。</p>
+      </div>
+    `;
+    initLucide();
+    return;
+  }
+
+  for (let i = conflictList.length - 1; i >= 0; i--) {
+    const entry = conflictList[i];
+    const item = document.createElement('div');
+    item.className = 'p-2.5 rounded-lg flex items-center justify-between gap-3 text-xs transition history-item is-conflict-record';
+
+    item.innerHTML = `
+      <div class="flex items-start gap-2.5 flex-1 min-w-0">
+        <span class="text-[10px] font-mono font-bold text-amber-500 w-8 shrink-0 pt-0.5">⚡#${i + 1}</span>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="px-1.5 py-0.2 rounded text-[10px] font-extrabold bg-amber-100 text-amber-800 dark:bg-amber-950/80 dark:text-amber-300 border border-amber-300 dark:border-amber-700">⚡ 獨立衝突備份（不佔 100 步）</span>
+            <span class="font-bold text-gray-900 dark:text-gray-100">${escapeHtml(entry.title)}</span>
+          </div>
+          ${entry.subtitle ? `<div class="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-0.5">${escapeHtml(entry.subtitle)}</div>` : ''}
+          ${entry.conflictDetail ? `<div class="lvi-conflict-detail-box">🕒 <strong>衝突時間：</strong>${escapeHtml(entry.fullTimeStr)} ｜ <strong>被保護的舊版摘要：</strong>${escapeHtml(entry.conflictDetail)}</div>` : ''}
+        </div>
+        <span class="text-[10px] text-gray-400 font-mono shrink-0 pt-0.5">${escapeHtml(entry.fullTimeStr)}</span>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button type="button" class="single-step-revert-btn restore-conflict-btn" data-conflict-id="${escapeHtml(entry.id)}" title="將此筆被覆蓋的舊版本單獨還原至筆記">
+          <span>🎯 救回此舊版</span>
+        </button>
+      </div>
+    `;
+
+    const restoreBtn = item.querySelector('.restore-conflict-btn');
+    if (restoreBtn) {
+      restoreBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        restoreSyncConflictBackupItem(entry.id);
+      });
+    }
+
+    DOM.historyTimelineList.appendChild(item);
+  }
+  initLucide();
+};
+
+// 覆寫 checkAndInterceptCloudSyncConflict：改為存入獨立的 recordSyncConflictBackup，0 佔用 state.actionHistory！
+checkAndInterceptCloudSyncConflict = async function(effectiveNoteId, snap, matchedNoteInState) {
+  if (!effectiveNoteId || !snap) return false;
+  if (snap.forceOverwriteCloud) return false;
+
+  if (state.historyConflictPolicy === 'manual_modal') {
+    return await _origCheckAndInterceptCloudSyncConflictV302(effectiveNoteId, snap, matchedNoteInState);
+  }
+
+  const baseModTime = snap.baseCloudModifiedTime || (matchedNoteInState && matchedNoteInState._baseCloudModifiedTime) || null;
+  if (!baseModTime) return false;
+  const baseMs = new Date(baseModTime).getTime();
+  if (!baseMs || isNaN(baseMs)) return false;
+
+  try {
+    let cloudFileMeta = null;
+    if (typeof window._mockCloudConflictProvider === 'function') {
+      cloudFileMeta = await window._mockCloudConflictProvider(effectiveNoteId, 'meta');
+    } else if (state.accessToken) {
+      const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${effectiveNoteId}?fields=id,name,modifiedTime,description`, {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (metaRes.ok) {
+        cloudFileMeta = await metaRes.json();
+      }
+    }
+    if (!cloudFileMeta || !cloudFileMeta.modifiedTime) return false;
+
+    const cloudMs = new Date(cloudFileMeta.modifiedTime).getTime();
+    if (cloudMs <= baseMs + 1000) {
+      return false;
+    }
+
+    let rawCloudText = '';
+    if (typeof window._mockCloudConflictProvider === 'function') {
+      rawCloudText = await window._mockCloudConflictProvider(effectiveNoteId, 'media');
+    } else if (state.accessToken) {
+      const mediaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${effectiveNoteId}?alt=media`, {
+        headers: { Authorization: `Bearer ${state.accessToken}` }
+      });
+      if (mediaRes.ok) {
+        rawCloudText = await mediaRes.text();
+      }
+    }
+    if (!rawCloudText) return false;
+
+    const parsedCloud = (typeof parseFrontmatter === 'function')
+      ? parseFrontmatter(rawCloudText)
+      : { meta: {}, body: rawCloudText };
+    const cloudBody = (parsedCloud && parsedCloud.body !== undefined) ? parsedCloud.body : rawCloudText;
+    const cloudHtml = (window.marked && typeof window.marked.parse === 'function')
+      ? window.marked.parse(cloudBody)
+      : plainTextLinesToEditorHtml(cloudBody);
+
+    const cloudHash = computeNoteContentHash(cloudBody);
+    const localBody = snap.markdownBody || convertHtmlToMarkdown(snap.html || '');
+    const localHash = computeNoteContentHash(localBody);
+
+    if (cloudHash === localHash) {
+      if (matchedNoteInState) {
+        matchedNoteInState._baseCloudModifiedTime = cloudFileMeta.modifiedTime;
+        matchedNoteInState._baseContentHash = cloudHash;
+      }
+      return false;
+    }
+
+    const localMs = new Date(snap.updatedIso || snap.updatedAt || Date.now()).getTime();
+    const noteTitle = snap.rawTitle || (matchedNoteInState && getCleanNoteTitle(matchedNoteInState)) || '未命名筆記';
+
+    if (localMs >= cloudMs) {
+      const cloudPlainSnippet = stripHtmlToPlainSnippet(cloudHtml, 90);
+      recordSyncConflictBackup({
+        noteId: effectiveNoteId,
+        noteTitle,
+        winnerSide: 'local',
+        overwrittenHash: cloudHash,
+        winningHash: localHash,
+        title: `⚡ 跨裝置衝突自動覆蓋（採用較新本地版）`,
+        subtitle: `筆記：「${noteTitle}」｜被覆蓋的雲端舊版已存入獨立衝突備份池`,
+        conflictDetail: `被覆蓋的雲端舊版內容：「${cloudPlainSnippet || '(空白)'}」`,
+        overwrittenCanvas: { noteId: effectiveNoteId, html: cloudHtml, meta: parsedCloud ? parsedCloud.meta : null, title: noteTitle },
+        winningCanvas: { noteId: effectiveNoteId, html: snap.html, meta: snap.meta || null, title: noteTitle }
+      });
+
+      snap.baseCloudModifiedTime = cloudFileMeta.modifiedTime;
+      snap.forceOverwriteCloud = true;
+      if (matchedNoteInState) {
+        matchedNoteInState._baseCloudModifiedTime = cloudFileMeta.modifiedTime;
+        matchedNoteInState._baseContentHash = localHash;
+      }
+      showToast(`⚡ 跨裝置衝突：已採用較新本地版（舊版已存入獨立衝突備份，不佔 100 步配額）`, 3200);
+      return false;
+    } else {
+      const localPlainSnippet = stripHtmlToPlainSnippet(snap.html || '', 90);
+      recordSyncConflictBackup({
+        noteId: effectiveNoteId,
+        noteTitle,
+        winnerSide: 'cloud',
+        overwrittenHash: localHash,
+        winningHash: cloudHash,
+        title: `⚡ 跨裝置衝突自動覆蓋（採用較新雲端版）`,
+        subtitle: `筆記：「${noteTitle}」｜被覆蓋的本地舊版已存入獨立衝突備份池`,
+        conflictDetail: `被覆蓋的本地舊版內容：「${localPlainSnippet || '(空白)'}」`,
+        overwrittenCanvas: { noteId: effectiveNoteId, html: snap.html, meta: snap.meta || null, title: noteTitle },
+        winningCanvas: { noteId: effectiveNoteId, html: cloudHtml, meta: parsedCloud ? parsedCloud.meta : null, title: noteTitle }
+      });
+
+      if (matchedNoteInState) {
+        matchedNoteInState.modifiedTime = cloudFileMeta.modifiedTime;
+        matchedNoteInState._baseCloudModifiedTime = cloudFileMeta.modifiedTime;
+        matchedNoteInState._baseContentHash = cloudHash;
+        matchedNoteInState._cachedBody = cloudBody;
+        matchedNoteInState._cachedHtml = cloudHtml;
+        if (parsedCloud && parsedCloud.meta) {
+          matchedNoteInState.meta = { ...(matchedNoteInState.meta || {}), ...parsedCloud.meta };
+        }
+      }
+      if (state.currentNote && state.currentNote.id === effectiveNoteId) {
+        state.currentNote._baseCloudModifiedTime = cloudFileMeta.modifiedTime;
+        state.currentNote._baseContentHash = cloudHash;
+        if (DOM.editor) {
+          DOM.editor.innerHTML = cloudHtml;
+          state.editorSnapshotBeforeEdit = cloudHtml;
+          try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+        }
+      }
+      pendingCloudSaveMap.delete(snap.key);
+      try { saveSwrCacheSnapshot(); } catch (e) {}
+      updateSyncStatus('synced', '已自動採用較新雲端版');
+      showToast(`⚡ 跨裝置衝突：已採用較新雲端版（舊版已存入獨立衝突備份，不佔 100 步配額）`, 3200);
+      return true;
+    }
+  } catch (err) {
+    console.warn('跨裝置自動衝突比較略過:', err);
+    return false;
+  }
+};
+
+loadPersistentSyncConflictHistory();
+updateHistoryUI();
