@@ -1,4 +1,4 @@
-const APP_VERSION = 'v3.0.5'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.0.7'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -7251,7 +7251,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261102_v3.0.5', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261102_v3.0.7', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -28012,7 +28012,7 @@ try {
 
 
 // ============================================================================
-// 🚀 LVI_Note v3.0.5 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
+// 🚀 LVI_Note v3.0.7 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
 // （完全比照「案件追蹤」：支援「💾 存入歷史」按鈕、未儲存關閉網站/離開自動存入歷史、
 //   展開查看詳情、雙向互相關聯跳轉、載回編輯、刪除、搜尋檢索與 PDF 報告匯出）
 // ============================================================================
@@ -29357,7 +29357,7 @@ openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
 
 
 // ============================================================================
-// 🕰️ LVI_Note v3.0.5 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
+// 🕰️ LVI_Note v3.0.7 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
 // 1. 嚴格支援最多 50 步 (MAX_HISTORY_STEPS = 50)，超出自動滾動淘汰最舊步數
 // 2. 採用內容雜湊字串池 (Content-Addressed String Deduplication Pool) 將每步動作的
 //    完整前後狀態快照 (beforeWorkspace / afterWorkspace & beforeCanvas / afterCanvas)
@@ -29674,7 +29674,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v3.0.5',
+        version: 'v3.0.7',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -30039,7 +30039,7 @@ if (document.readyState === 'loading') {
 
 
 // ============================================================================
-// 📝 LVI_Note v3.0.5 「轉為筆記」核心引擎 (Convert Todo / Case Item to Regular Note)
+// 📝 LVI_Note v3.0.7 「轉為筆記」核心引擎 (Convert Todo / Case Item to Regular Note)
 // 支援從「待辦事項」與「案件追蹤」內的單一事件或案件（無論在清單、表格或詳細頁），
 // 以其自身原本的完整資訊（機型、客戶/廠商、人員、標籤、時間、所有歷史紀錄、互相關聯、
 // 更換零件、以及所有現場照片與檔案附件）為基礎，自動建立一篇結構化的「常規筆記」，
@@ -30586,7 +30586,7 @@ bindCaseCardsInteractions = function(listContainer) {
 
 
 // ============================================================================
-// 🛡️ LVI_Note v3.0.5 自動穩定性與雙向導航強化補丁 (Scheduled Stability Patch)
+// 🛡️ LVI_Note v3.0.7 自動穩定性與雙向導航強化補丁 (Scheduled Stability Patch)
 // 1. 表格預覽抽屜 (Quick Peek Drawer) 新增「📝 轉為筆記」一鍵轉換按鈕
 // 2. 由待辦事項或案件追蹤轉換出的常規筆記，支援點擊頂部來源橫幅一鍵跳回原待辦或原案件
 // 3. 全域錯誤邊界與儲存空間防護 (Quota-Safe Storage & Event Delegation Guard)
@@ -30686,7 +30686,7 @@ openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
 
 
 // ============================================================================
-// 🛡️ LVI_Note v3.0.5 檔案最高安全防護與「零異動複製轉為筆記」核心引擎
+// 🛡️ LVI_Note v3.0.7 檔案最高安全防護與「零異動複製轉為筆記」核心引擎
 // 1. 最高優先級檔案保護：修正 compactTodoAttachmentsHtml，嚴禁抹除 data: 永久備份網址或未同步雲端之本地檔案連結
 // 2. 待辦事項與案件追蹤上傳任何檔案（含圖片、PDF、Office、壓縮檔等）皆建立永久 DataURL 保底，杜絕 blob: 失效導致檔案消失
 // 3. 「📝 轉為筆記」採用 100% 唯讀深拷貝（Zero-Mutation Deep Copy）：
@@ -31518,7 +31518,7 @@ convertCaseToRegularNote = async function(caseId) {
 
 
 // ============================================================================
-// 🚀 LVI_Note v3.0.5 四大核心升級引擎：
+// 🚀 LVI_Note v3.0.7 四大核心升級引擎：
 // 1. 回朔步數提升至 100 步 (支援於「⚙️ 歷史功能設定」動態調整 50 / 100 / 150 / 200 步，跨重開完整保留)
 // 2. 新增「⚙️ 歷史功能設定」按鈕與「🗑️ 何時刪了什麼（刪除紀錄）」稽核視圖：
 //    完整記錄每次刪除筆記、刪除照片/檔案附件、刪除待辦、刪除案件、刪除歷史紀錄、刪除分類/標籤與刪減內文之精確年月日時分秒與內容摘要
@@ -32159,7 +32159,7 @@ savePersistentActionHistory = function() {
     }));
 
     const fullJson = JSON.stringify({
-      version: 'v3.0.5',
+      version: 'v3.0.7',
       maxSteps: PERSISTENT_MAX_STEPS,
       historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex)),
       pool,
@@ -32189,7 +32189,7 @@ savePersistentActionHistory = function() {
             snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, subPool, subMap)
           }));
           localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, JSON.stringify({
-            version: 'v3.0.5',
+            version: 'v3.0.7',
             maxSteps: PERSISTENT_MAX_STEPS,
             historyIndex: Math.max(-1, Math.min(subRecords.length - 1, state.historyIndex - offset)),
             pool: subPool,
@@ -32458,7 +32458,7 @@ try {
 
 
 // ============================================================================
-// 🛡️ v3.0.5 雙軌隔離升級：
+// 🛡️ v3.0.7 雙軌隔離升級：
 // 1. 手動操作專屬 100 步 (`state.actionHistory`)：100% 僅記錄使用者手動動作，絕不被自動同步或衝突沖刷！
 // 2. 獨立「⚡ 跨裝置衝突備份池」(`state.syncConflictHistory`)：獨立持久化保留最多 30 筆衝突快照，完全不佔用 100 步配額！
 // 3. 內容指紋去重 (`dedupKey = noteId + localHash + cloudHash`)：避免自動同步重試時重複寫入相同衝突。
@@ -32797,7 +32797,7 @@ updateHistoryUI();
 
 
 // ============================================================================
-// 🚀 LVI_Note v3.0.5 案件追蹤欄位擴充與狀態升級補丁：
+// 🚀 LVI_Note v3.0.7 案件追蹤欄位擴充與狀態升級補丁：
 // 1. 新增可編輯欄位：「S/N (serialNumber)」、「出機時間 (shipTime)」、「關聯待處理 (pendingFollowUpText + linkedTodoIds)」
 // 2. 「案件狀態 (status)」固定選項更新為：「準備中」、「已完成等待出機」、「交機完成」、「客戶回饋排除」
 // ============================================================================
@@ -33672,3 +33672,943 @@ convertCaseToRegularNote = async function(caseId) {
   }
   return newNote;
 };
+
+
+// ============================================================================
+// 📅 LVI_Note v3.0.7 「出機時間」日曆選擇器 (Date Picker) 與雙向日曆同步引擎：
+// 1. 出機時間改為從日曆選擇 (<input type="date"> 支援點擊彈出日曆選擇器、一鍵設為今天、一鍵清除)
+// 2. 雙向同步至 App 內建「📅 行事曆」月曆視圖與每日行程面板 (顯示 🚚 [出機] 案號，可點擊開啟案件或直接在日曆修改出機日)
+// 3. 自動同步至 Google Calendar (建立/更新/刪除對應的出機日曆活動，透過 item.googleCalShipEventId 綁定不重複)
+// ============================================================================
+
+/**
+ * 將任意格式的出機時間字串 (如 '2026/11/10'、'2026/11/10 15:30'、'2026-11-10') 正規化為日曆標準 'YYYY-MM-DD'
+ */
+function normalizeShipDateKey(rawVal) {
+  if (!rawVal) return '';
+  const s = String(rawVal).trim();
+  if (!s) return '';
+  const m = s.match(/(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (!m) return '';
+  const yyyy = m[1];
+  const mm = String(parseInt(m[2], 10)).padStart(2, '0');
+  const dd = String(parseInt(m[3], 10)).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+/**
+ * 將案件的「出機時間 (item.shipTime)」同步至 Google Calendar Events 陣列與 Google Calendar API
+ */
+async function syncCaseShipDateWithCalendar(item, { showFeedback = false } = {}) {
+  if (!item || !item.id) return false;
+  const dateKey = normalizeShipDateKey(item.shipTime);
+  item.shipTime = dateKey; // 統一儲存為標準 YYYY-MM-DD 日曆格式
+
+  if (!Array.isArray(state.googleCalendarEvents)) {
+    state.googleCalendarEvents = [];
+  }
+
+  const localSyncEventId = item.googleCalShipEventId || `lvi_case_ship_${item.id}`;
+  const existingIdx = state.googleCalendarEvents.findIndex(
+    e => e && (e.id === localSyncEventId || e.lviCaseId === item.id)
+  );
+
+  // 若清除了出機時間 -> 從日曆活動移除並同步刪除雲端 Google Calendar 活動
+  if (!dateKey) {
+    if (existingIdx !== -1) {
+      const removedEvt = state.googleCalendarEvents.splice(existingIdx, 1)[0];
+      if (state.accessToken && removedEvt && removedEvt.id && !String(removedEvt.id).startsWith('lvi_case_ship_') && !String(removedEvt.id).startsWith('cal_temp_')) {
+        try {
+          await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(removedEvt.calendarId || 'primary')}/events/${encodeURIComponent(removedEvt.id)}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${state.accessToken}` }
+          });
+        } catch (e) {}
+      }
+    }
+    item.googleCalShipEventId = '';
+    item.shipCalendarSyncedAt = '';
+    saveCaseItemsState();
+    if (state.currentView === 'calendar') renderCalendarView();
+    if (showFeedback) showToast('📅 已清除出機時間並從日曆移除');
+    return true;
+  }
+
+  // 有設定出機時間 -> 建立或更新日曆活動內容
+  const caseNo = getCaseDisplayNo(item);
+  const normStatus = normalizeCaseStatusValue(item.status);
+  const titleParts = [`🚚 [出機] ${caseNo}`];
+  if (item.machineModel) titleParts.push(item.machineModel);
+  if (item.clientVendor) titleParts.push(item.clientVendor);
+  const eventSummary = titleParts.join(' - ');
+
+  const descLines = [
+    `📁 案號：${caseNo}`,
+    `📊 案件狀態：${normStatus}`,
+    item.serialNumber ? `🔢 S/N：${item.serialNumber}` : '',
+    item.machineModel ? `🚜 機型分類：${item.machineModel}` : '',
+    item.clientVendor ? `🏢 客戶/廠商：${item.clientVendor}` : '',
+    getCasePendingFollowUpDisplayStr(item) ? `📋 關聯待處理：${getCasePendingFollowUpDisplayStr(item)}` : ''
+  ].filter(Boolean).join('\n');
+
+  const evtPayload = {
+    id: existingIdx !== -1 ? state.googleCalendarEvents[existingIdx].id : localSyncEventId,
+    lviCaseId: item.id,
+    isLviCaseShipEvent: true,
+    summary: eventSummary,
+    description: descLines,
+    start: { date: dateKey },
+    end: { date: dateKey },
+    calendarId: 'primary',
+    calendarName: '案件出機日曆',
+    calendarColor: '#0d9488'
+  };
+
+  if (existingIdx !== -1) {
+    state.googleCalendarEvents[existingIdx] = {
+      ...state.googleCalendarEvents[existingIdx],
+      ...evtPayload
+    };
+  } else {
+    state.googleCalendarEvents.push(evtPayload);
+  }
+
+  item.googleCalShipEventId = evtPayload.id;
+  item.shipCalendarSyncedAt = formatTodoTimestamp();
+  saveCaseItemsState();
+
+  // 若已登入授權 Google Calendar API，同步寫入/更新至 Google 官方日曆
+  if (state.accessToken) {
+    try {
+      const isRemoteId = evtPayload.id && !String(evtPayload.id).startsWith('lvi_case_ship_') && !String(evtPayload.id).startsWith('cal_temp_');
+      const apiUrl = isRemoteId
+        ? `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(evtPayload.id)}`
+        : `https://www.googleapis.com/calendar/v3/calendars/primary/events`;
+      const apiMethod = isRemoteId ? 'PATCH' : 'POST';
+      const res = await fetch(apiUrl, {
+        method: apiMethod,
+        headers: {
+          Authorization: `Bearer ${state.accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          summary: eventSummary,
+          description: descLines,
+          start: { date: dateKey },
+          end: { date: dateKey }
+        })
+      });
+      if (res.ok) {
+        const realEvt = await res.json();
+        if (realEvt && realEvt.id) {
+          item.googleCalShipEventId = realEvt.id;
+          const idxNow = state.googleCalendarEvents.findIndex(e => e && e.lviCaseId === item.id);
+          if (idxNow !== -1) {
+            state.googleCalendarEvents[idxNow].id = realEvt.id;
+          }
+          saveCaseItemsToLocalStorageOnly();
+        }
+      }
+    } catch (e) {
+      console.warn('同步案件出機時間至 Google 日曆略過:', e);
+    }
+  }
+
+  if (state.currentView === 'calendar') {
+    renderCalendarView();
+  }
+  if (showFeedback) {
+    showToast(`📅 已將「${caseNo}」出機時間 (${dateKey}) 同步至日曆！`, 2400);
+  }
+  return true;
+}
+
+/**
+ * 啟動或重整時，確保所有設定了 shipTime 的案件皆已同步至行事曆活動清單
+ */
+function ensureAllCaseShipDatesSyncedToCalendar() {
+  ensureCaseItemsInitialized();
+  if (!Array.isArray(state.googleCalendarEvents)) {
+    state.googleCalendarEvents = [];
+  }
+  (state.caseItems || []).forEach(item => {
+    if (!item || isCaseItemDeletedTombstoned(item)) return;
+    const dk = normalizeShipDateKey(item.shipTime);
+    if (dk) {
+      item.shipTime = dk;
+      const caseNo = getCaseDisplayNo(item);
+      const normStatus = normalizeCaseStatusValue(item.status);
+      const titleParts = [`🚚 [出機] ${caseNo}`];
+      if (item.machineModel) titleParts.push(item.machineModel);
+      if (item.clientVendor) titleParts.push(item.clientVendor);
+      const eventSummary = titleParts.join(' - ');
+      const descLines = [
+        `📁 案號：${caseNo}`,
+        `📊 案件狀態：${normStatus}`,
+        item.serialNumber ? `🔢 S/N：${item.serialNumber}` : '',
+        item.machineModel ? `🚜 機型分類：${item.machineModel}` : '',
+        item.clientVendor ? `🏢 客戶/廠商：${item.clientVendor}` : '',
+        getCasePendingFollowUpDisplayStr(item) ? `📋 關聯待處理：${getCasePendingFollowUpDisplayStr(item)}` : ''
+      ].filter(Boolean).join('\n');
+
+      const localSyncEventId = item.googleCalShipEventId || `lvi_case_ship_${item.id}`;
+      const existingIdx = state.googleCalendarEvents.findIndex(
+        e => e && (e.id === localSyncEventId || e.lviCaseId === item.id)
+      );
+      const payload = {
+        id: localSyncEventId,
+        lviCaseId: item.id,
+        isLviCaseShipEvent: true,
+        summary: eventSummary,
+        description: descLines,
+        start: { date: dk },
+        end: { date: dk },
+        calendarId: 'primary',
+        calendarName: '案件出機日曆',
+        calendarColor: '#0d9488'
+      };
+      if (existingIdx !== -1) {
+        state.googleCalendarEvents[existingIdx] = { ...state.googleCalendarEvents[existingIdx], ...payload };
+      } else {
+        state.googleCalendarEvents.push(payload);
+      }
+    }
+  });
+}
+
+/**
+ * 點擊「📅 已同步日曆 ↗」一鍵跳轉至「行事曆」視圖對應的出機年月與當日行程面板
+ */
+function jumpToCalendarForCaseShipDate(dateKey) {
+  const dk = normalizeShipDateKey(dateKey);
+  if (!dk) {
+    showToast('⚠️ 請先從日曆選擇出機時間');
+    return;
+  }
+  const parts = dk.split('-');
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  if (!isNaN(y) && !isNaN(m)) {
+    state.calendarYear = y;
+    state.calendarMonth = m;
+  }
+  ensureAllCaseShipDatesSyncedToCalendar();
+  switchView('calendar');
+  renderCalendarView();
+  openDayScheduleModal(dk);
+}
+
+// 覆寫 renderCasesTableModeHtml：將表格內的「🚚 出機時間」改為 <input type="date"> 日曆選擇器 + 日曆跳轉按鈕
+const _origRenderCasesTableModeHtmlV305 = renderCasesTableModeHtml;
+renderCasesTableModeHtml = function(filteredList) {
+  const machines = getSharedMachineModelsForTodo();
+  const clients = getSharedClientsVendorsForTodo();
+
+  const rowsHtml = filteredList.map(({ item, fuzzyRes }) => {
+    const normStatus = normalizeCaseStatusValue(item.status);
+    const shipDateKey = normalizeShipDateKey(item.shipTime);
+    const symHistCount = (item.symptomHistory || []).length;
+    const actHistCount = (item.actionHistory || []).length;
+    const latestSym = (item.symptomHistory && item.symptomHistory[0] && item.symptomHistory[0].text) || item.symptomText || '';
+    const latestAct = (item.actionHistory && item.actionHistory[0] && item.actionHistory[0].actionText) || item.actionTakenText || '';
+    const summaryLine = [
+      latestSym ? `🚨 ${latestSym.replace(/\s+/g, ' ').trim().slice(0, 32)}` : '',
+      latestAct ? `🛠️ ${latestAct.replace(/\s+/g, ' ').trim().slice(0, 32)}` : ''
+    ].filter(Boolean).join(' ➔ ');
+
+    const machOpts = `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>` +
+      machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`).join('');
+    const cliOpts = `<option value="" ${!item.clientVendor ? 'selected' : ''}>未選擇</option>` +
+      clients.map(c => `<option value="${escapeHtml(c)}" ${item.clientVendor === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`).join('');
+    const stOpts = FIXED_CASE_STATUSES.map(st => `<option value="${escapeHtml(st)}" ${normStatus === st ? 'selected' : ''}>${escapeHtml(st)}</option>`).join('');
+
+    const linkedTodoPills = (Array.isArray(item.linkedTodoIds) ? item.linkedTodoIds : []).map(tid => {
+      const tTitle = resolveLinkedTodoTitleForCase(item, tid);
+      return `<button type="button" class="case-jump-todo-btn px-1.5 py-0.5 rounded text-[10.5px] font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200 border border-amber-200 dark:border-amber-800 cursor-pointer hover:underline" data-todo-id="${escapeHtml(tid)}">☑️ ${escapeHtml(tTitle.slice(0, 14))} ↗</button>`;
+    }).join(' ');
+
+    const handlersHtml = (item.handlers && item.handlers.length)
+      ? item.handlers.map(h => `<span class="px-1.5 py-0.5 rounded text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800">👤 ${escapeHtml(h)}</span>`).join(' ')
+      : '<span class="text-gray-400">無</span>';
+
+    const tagsHtml = (item.tags && item.tags.length)
+      ? item.tags.map(t => `<span class="px-1.5 py-0.5 rounded text-[10.5px] font-bold border ${getTagPillColorClass(t)}">#${escapeHtml(t)}</span>`).join(' ')
+      : '<span class="text-gray-400">無</span>';
+
+    return `
+      <tr class="case-table-row cursor-pointer" data-case-id="${escapeHtml(item.id)}">
+        <td onclick="event.stopPropagation();">
+          <select class="case-inline-table-select" data-case-id="${escapeHtml(item.id)}" data-field="status">
+            ${stOpts}
+          </select>
+        </td>
+        <td onclick="event.stopPropagation();">
+          <input type="text" class="case-inline-table-input" data-case-id="${escapeHtml(item.id)}" data-field="caseNumber" value="${escapeHtml(item.caseNumber || item.title || '')}" placeholder="輸入案號..." />
+        </td>
+        <td onclick="event.stopPropagation();">
+          <input type="text" class="case-inline-table-input font-mono" data-case-id="${escapeHtml(item.id)}" data-field="serialNumber" value="${escapeHtml(item.serialNumber || '')}" placeholder="輸入 S/N..." />
+        </td>
+        <td onclick="event.stopPropagation();">
+          <div class="flex items-center gap-1">
+            <input type="date" class="case-inline-table-input case-inline-table-date-input" data-case-id="${escapeHtml(item.id)}" data-field="shipTime" value="${escapeHtml(shipDateKey)}" title="點擊從日曆選擇出機時間（自動同步至日曆）" />
+            ${shipDateKey ? `<button type="button" class="case-jump-cal-btn px-1.5 py-1 rounded bg-emerald-50 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-extrabold shrink-0 cursor-pointer" data-ship-date="${escapeHtml(shipDateKey)}" title="在行事曆中檢視此出機排程">📅↗</button>` : ''}
+          </div>
+        </td>
+        <td onclick="event.stopPropagation();">
+          <div class="space-y-1">
+            <input type="text" class="case-inline-table-input" data-case-id="${escapeHtml(item.id)}" data-field="pendingFollowUpText" value="${escapeHtml(item.pendingFollowUpText || '')}" placeholder="輸入關聯待處理..." />
+            ${linkedTodoPills ? `<div class="flex flex-wrap gap-1">${linkedTodoPills}</div>` : ''}
+          </div>
+        </td>
+        <td>
+          <div class="text-[11px] font-bold text-teal-700 dark:text-teal-300">異常 ${symHistCount} 筆 ／ 對策 ${actHistCount} 筆</div>
+          ${summaryLine ? `<div class="text-xs text-slate-600 dark:text-slate-300 truncate max-w-[240px]">${escapeHtml(summaryLine)}</div>` : ''}
+          ${(fuzzyRes && fuzzyRes.snippet) ? `<div class="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">🔍 ${highlightMatchedTermsHtml(fuzzyRes.snippet.text || String(fuzzyRes.snippet || ""), fuzzyRes.highlightTerms || [])}</div>` : ''}
+        </td>
+        <td onclick="event.stopPropagation();">
+          <select class="case-inline-table-select" data-case-id="${escapeHtml(item.id)}" data-field="machineModel">
+            ${machOpts}
+          </select>
+        </td>
+        <td onclick="event.stopPropagation();">
+          <select class="case-inline-table-select" data-case-id="${escapeHtml(item.id)}" data-field="clientVendor">
+            ${cliOpts}
+          </select>
+        </td>
+        <td><div class="flex flex-wrap gap-1">${handlersHtml}</div></td>
+        <td><div class="flex flex-wrap gap-1">${tagsHtml}</div></td>
+        <td class="text-[11px] font-extrabold ${item.completedAt ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-400'} whitespace-nowrap">${escapeHtml(item.completedAt || '未結案')}</td>
+        <td class="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">${escapeHtml(item.createdAt || '')}</td>
+        <td class="text-center whitespace-nowrap" onclick="event.stopPropagation();">
+          <button type="button" class="case-convert-to-note-btn mr-1" data-case-id="${escapeHtml(item.id)}" title="以此案件資訊為基礎，新增一篇常規筆記">📝 轉為筆記</button>
+          <button type="button" class="case-table-open-btn px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold cursor-pointer mr-1" data-case-id="${escapeHtml(item.id)}">詳情</button>
+          <button type="button" class="case-summary-del-btn px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold cursor-pointer" data-case-id="${escapeHtml(item.id)}">刪除</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="lvi-case-table-wrap">
+      <table class="lvi-case-table">
+        <thead>
+          <tr>
+            <th>📊 案件狀態</th>
+            <th>📁 案號</th>
+            <th>🔢 S/N</th>
+            <th>🚚 出機時間 (日曆同步)</th>
+            <th style="min-width:170px;">📋 關聯待處理</th>
+            <th style="min-width:180px;">📜 歷史摘要</th>
+            <th>🚜 機型</th>
+            <th>🏢 客戶/廠商</th>
+            <th>👥 處理人員</th>
+            <th>🏷️ 標籤</th>
+            <th>🏁 結案時間 ↓</th>
+            <th>🕒 立案時間</th>
+            <th class="text-center">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    </div>
+  `;
+};
+
+// 覆寫 renderSingleCaseDetailHtml：將「🚚 出機時間」升級為日曆選擇器 (<input type="date">) + 「📅 已同步日曆 ↗」按鈕 + 「今天 / 清除」
+const _origRenderSingleCaseDetailHtmlV305 = renderSingleCaseDetailHtml;
+renderSingleCaseDetailHtml = function(item) {
+  const shipDateKey = normalizeShipDateKey(item.shipTime);
+  item.shipTime = shipDateKey;
+  const rawHtml = _origRenderSingleCaseDetailHtmlV305(item);
+
+  const oldShipBoxHtml = `        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🚚 出機時間</span>
+            <button type="button" class="case-fill-now-shiptime-btn todo-open-mgr-btn" title="點擊快速填入今日日期與時間">📅 填入現在</button>
+          </div>
+          <input type="text" class="case-shiptime-input" value="${escapeHtml(item.shipTime || '')}" placeholder="輸入出機時間 (例: 2026/11/05)..." />
+        </div>`;
+
+  const syncPillHtml = shipDateKey
+    ? `<button type="button" class="case-cal-sync-pill case-jump-cal-btn" data-ship-date="${escapeHtml(shipDateKey)}" title="此出機時間已同步至行事曆，點擊一鍵開啟日曆檢視"><span>📅 已同步日曆 ↗</span></button>`
+    : `<span class="case-cal-sync-pill is-empty" title="選擇出機日期後將自動同步至日曆"><span>📅 選擇後自動同步日曆</span></span>`;
+
+  const newShipBoxHtml = `        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🚚 出機時間</span>
+            <div class="flex items-center gap-1 flex-wrap">
+              ${syncPillHtml}
+              <button type="button" class="case-fill-today-shiptime-btn todo-open-mgr-btn" title="設為今天並同步日曆">今天</button>
+              ${shipDateKey ? `<button type="button" class="case-clear-shiptime-btn todo-open-mgr-btn text-rose-500" title="清除出機時間">清除</button>` : ''}
+            </div>
+          </div>
+          <div class="case-shiptime-date-wrap">
+            <input type="date" class="case-shiptime-input" value="${escapeHtml(shipDateKey)}" title="點擊從日曆選擇出機日期（自動同步至日曆）" />
+          </div>
+        </div>`;
+
+  return rawHtml.replace(oldShipBoxHtml, newShipBoxHtml);
+};
+
+// 擴充 bindCaseCardsInteractions：綁定日曆選擇器 change 事件自動同步至日曆、點擊「📅 已同步日曆 ↗」跳轉至日曆
+const _origBindCaseCardsInteractionsV305 = bindCaseCardsInteractions;
+bindCaseCardsInteractions = function(listContainer) {
+  _origBindCaseCardsInteractionsV305(listContainer);
+  if (!listContainer) return;
+
+  // 點擊「📅 已同步日曆 ↗」或表格內「📅↗」跳轉至行事曆對應日期
+  listContainer.querySelectorAll('.case-jump-cal-btn').forEach(btn => {
+    if (btn._v306CalJumpBound) return;
+    btn._v306CalJumpBound = true;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const dk = btn.getAttribute('data-ship-date');
+      if (dk) jumpToCalendarForCaseShipDate(dk);
+    });
+  });
+
+  // 表格行內 <input type="date" data-field="shipTime"> 變更時自動同步日曆並重繪
+  listContainer.querySelectorAll('.case-inline-table-date-input[data-field="shipTime"]').forEach(dateInp => {
+    if (dateInp._v306DateBound) return;
+    dateInp._v306DateBound = true;
+    dateInp.addEventListener('change', async (e) => {
+      e.stopPropagation();
+      const cid = dateInp.getAttribute('data-case-id');
+      const item = (state.caseItems || []).find(c => c.id === cid);
+      if (!item) return;
+      item.shipTime = normalizeShipDateKey(dateInp.value);
+      item.updatedAt = Date.now();
+      await syncCaseShipDateWithCalendar(item, { showFeedback: true });
+      renderCasesView();
+    });
+  });
+
+  listContainer.querySelectorAll('.lvi-case-card').forEach(cardEl => {
+    if (cardEl._v306ShipCalBound) return;
+    cardEl._v306ShipCalBound = true;
+    const caseId = cardEl.getAttribute('data-case-id');
+    const getItem = () => (state.caseItems || []).find(c => c.id === caseId);
+
+    const shipDateInp = cardEl.querySelector('.case-shiptime-input[type="date"]');
+    if (shipDateInp) {
+      shipDateInp.addEventListener('change', async () => {
+        const item = getItem();
+        if (!item) return;
+        item.shipTime = normalizeShipDateKey(shipDateInp.value);
+        item.updatedAt = Date.now();
+        await syncCaseShipDateWithCalendar(item, { showFeedback: true });
+        renderCasesView();
+      });
+    }
+
+    const todayBtn = cardEl.querySelector('.case-fill-today-shiptime-btn');
+    if (todayBtn) {
+      todayBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const item = getItem();
+        if (!item) return;
+        const todayStr = getLocalTodayDateKey();
+        item.shipTime = todayStr;
+        if (shipDateInp) shipDateInp.value = todayStr;
+        item.updatedAt = Date.now();
+        await syncCaseShipDateWithCalendar(item, { showFeedback: true });
+        renderCasesView();
+      });
+    }
+
+    const clearBtn = cardEl.querySelector('.case-clear-shiptime-btn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const item = getItem();
+        if (!item) return;
+        item.shipTime = '';
+        if (shipDateInp) shipDateInp.value = '';
+        item.updatedAt = Date.now();
+        await syncCaseShipDateWithCalendar(item, { showFeedback: true });
+        renderCasesView();
+      });
+    }
+  });
+};
+
+// 擴充 renderCalendarView 與 openDayScheduleModal：
+// 1. 每次渲染行事曆前自動呼叫 ensureAllCaseShipDatesSyncedToCalendar()，確保所有案件的「🚚 出機時間」100% 同步呈現在月曆格子上
+// 2. 在每日行程面板 (openDayScheduleModal) 中，針對案件出機項目提供「🛡️ 開啟案件」按鈕與「📅 直接改期」日曆選擇器，實現雙向同步！
+const _origRenderCalendarViewV305 = renderCalendarView;
+renderCalendarView = function() {
+  try { ensureAllCaseShipDatesSyncedToCalendar(); } catch (e) {}
+  return _origRenderCalendarViewV305();
+};
+
+const _origOpenDayScheduleModalV305 = openDayScheduleModal;
+openDayScheduleModal = function(dateKey) {
+  try { ensureAllCaseShipDatesSyncedToCalendar(); } catch (e) {}
+  _origOpenDayScheduleModalV305(dateKey);
+
+  // 在每日行程面板的「工作筆記與待辦事項」清單頂部，額外渲染當日排定「🚚 出機時間」的案件追蹤卡片（支援一鍵開啟案件與直接改期雙向同步）
+  if (!DOM.dayModalNotesList) return;
+  const dayShipCases = (state.caseItems || []).filter(c => {
+    if (!c || isCaseItemDeletedTombstoned(c)) return false;
+    return normalizeShipDateKey(c.shipTime) === dateKey;
+  });
+
+  if (dayShipCases.length > 0) {
+    // 若原本顯示「本日無排定工作筆記或待辦事項」，先清空佔位文字
+    if (DOM.dayModalNotesList.textContent.includes('本日無排定工作筆記或待辦事項')) {
+      DOM.dayModalNotesList.innerHTML = '';
+    }
+
+    const shipCasesHtml = dayShipCases.map(c => {
+      const caseNo = getCaseDisplayNo(c);
+      const normStatus = normalizeCaseStatusValue(c.status);
+      const isDone = isCaseStatusCompleted(normStatus);
+      return `
+        <div class="p-2.5 rounded-xl border border-teal-300 dark:border-teal-800 bg-teal-50/60 dark:bg-teal-950/40 shadow-sm flex items-center justify-between gap-2 transition hover:shadow-md mb-2" data-day-case-id="${escapeHtml(c.id)}">
+          <div class="flex items-center gap-2 min-w-0 flex-1">
+            <span class="text-base shrink-0">🚚</span>
+            <div class="min-w-0 flex-1">
+              <div class="text-xs font-extrabold ${isDone ? 'text-emerald-700 dark:text-emerald-300' : 'text-teal-900 dark:text-teal-100'} truncate">[案件出機] 📁 ${escapeHtml(caseNo)} ${c.serialNumber ? `(S/N: ${escapeHtml(c.serialNumber)})` : ''}</div>
+              <div class="text-[10px] text-gray-600 dark:text-gray-300 flex items-center gap-1.5 mt-0.5 flex-wrap">
+                <span class="font-bold text-teal-700 dark:text-teal-300">📊 ${escapeHtml(normStatus)}</span>
+                ${c.machineModel ? `<span class="text-blue-600 dark:text-blue-400 font-semibold">🚜 ${escapeHtml(c.machineModel)}</span>` : ''}
+                ${c.clientVendor ? `<span class="text-indigo-600 dark:text-indigo-400 font-semibold">🏢 ${escapeHtml(c.clientVendor)}</span>` : ''}
+              </div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <input type="date" class="day-modal-case-ship-date-input px-1.5 py-0.5 text-[11px] rounded border border-teal-300 dark:border-teal-700 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-mono font-bold cursor-pointer" data-case-id="${escapeHtml(c.id)}" value="${escapeHtml(normalizeShipDateKey(c.shipTime))}" title="於日曆直接調整出機日期（雙向同步回案件追蹤）" />
+            <button type="button" class="day-modal-open-case-btn px-2.5 py-1 text-xs rounded-lg bg-teal-600 hover:bg-teal-700 text-white font-bold transition shrink-0 cursor-pointer" data-case-id="${escapeHtml(c.id)}">開啟案件</button>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    DOM.dayModalNotesList.insertAdjacentHTML('afterbegin', shipCasesHtml);
+
+    // 更新徽章數量
+    const dayNotes = state.notes.filter(n => (n.meta && n.meta.dueDate) === dateKey);
+    const dayTodos = (state.todoItems || []).filter(t => {
+      if (isTodoItemDeletedTombstoned(t)) return false;
+      const cDate = (t.createdAt || '').split(' ')[0].replace(/\//g, '-');
+      const eDate = (t.completedAt || '').split(' ')[0].replace(/\//g, '-');
+      return cDate === dateKey || eDate === dateKey;
+    });
+    if (DOM.dayModalNotesCount) {
+      DOM.dayModalNotesCount.textContent = `出機 ${dayShipCases.length} 筆 / 筆記 ${dayNotes.length} 篇 / 待辦 ${dayTodos.length} 筆`;
+    }
+    if (DOM.dayModalNotesBadge) {
+      DOM.dayModalNotesBadge.textContent = `${dayShipCases.length + dayNotes.length + dayTodos.length} 項`;
+    }
+
+    // 綁定「開啟案件」按鈕
+    DOM.dayModalNotesList.querySelectorAll('.day-modal-open-case-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const cid = btn.getAttribute('data-case-id');
+        if (cid) {
+          closeDayScheduleModal();
+          state.activeCaseDetailId = cid;
+          switchView('cases');
+          renderCasesView();
+        }
+      });
+    });
+
+    // 綁定在行事曆面板中直接修改出機日期 -> 雙向同步回案件追蹤
+    DOM.dayModalNotesList.querySelectorAll('.day-modal-case-ship-date-input').forEach(inp => {
+      inp.addEventListener('change', async (e) => {
+        e.stopPropagation();
+        const cid = inp.getAttribute('data-case-id');
+        const item = (state.caseItems || []).find(c => c.id === cid);
+        if (!item) return;
+        const newDateKey = normalizeShipDateKey(inp.value);
+        item.shipTime = newDateKey;
+        item.updatedAt = Date.now();
+        await syncCaseShipDateWithCalendar(item, { showFeedback: true });
+        renderCalendarView();
+        openDayScheduleModal(newDateKey || dateKey);
+      });
+    });
+  }
+};
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.0.7 「電腦＋手機同時開啟」零打斷智慧協同引擎 (Multi-Device Anti-Interruption Engine)
+// 徹底解決：電腦與手機同時開著 LVI Note 時，在手機上打字一直被背景雲端同步打斷、游標跳掉或鍵盤收起的問題！
+//
+// 四大核心機制：
+// 1. 🔒 主動編輯保護鎖 (isUserActivelyEditingNow)：
+//    - 追蹤最後一次打字/觸控編輯時間 (state.lastUserEditInputAt)、注音/拼音輸入法組字狀態 (state.isImeComposing)、以及焦點狀態。
+//    - 只要使用者正在打字、正在選字、游標在編輯器/輸入框內、或停筆未滿 30 秒冷卻期：
+//      嚴禁任何背景雲端輪詢 (fetchNotesList / reloadCurrentNoteContentSilently / fullSyncWithDrive) 覆寫 DOM.editor.innerHTML！
+// 2. 💤 閒置裝置自動待命模式 (isDeviceIdleStandby)：
+//    - 開著沒動的電腦若超過 45 秒無任何鍵盤或滑鼠編輯動作，自動進入「待命唯讀接收模式」，絕不主動推播舊快照去跟手機搶寫！
+// 3. ⏱️ 手機端智慧停筆防抖與同階段免重複衝突攔截 (Smart Debounce & Active Session Fast-Overwrite)：
+//    - 打字時第 0 毫秒即時存入本機 localStorage 保證 100% 零掉字；雲端上傳改為停筆 2.2 秒後靜默背景傳送，取消舊版每 4 秒強制切斷打字的計時器。
+//    - 主動編輯端上傳時自動標記 `forceOverwriteCloud = true`（若雲端有舊版則自動由獨立衝突池背景備份，絕不反過來拿雲端舊版覆蓋手機正在打的畫面！）。
+// 4. ☁️ 靜默延遲同步微提示 (Deferred Cloud Update)：
+//    - 若手機未編輯時偵測到另一台裝置有更新，僅在真正閒置且未聚焦編輯器時才靜默載入；若正在閱讀/編輯中則暫存於 _deferredCloudUpdate，完全不打斷操作！
+// ============================================================================
+
+const ACTIVE_EDIT_COOLDOWN_MS = 30000; // 停筆後 30 秒內視為連續編輯保護期，禁止背景拉取覆寫編輯器
+const IDLE_STANDBY_THRESHOLD_MS = 45000; // 超過 45 秒無互動視為閒置待命裝置
+
+state.lastUserEditInputAt = 0;
+state.lastUserAnyInteractionAt = Date.now();
+state.isImeComposing = false;
+state.antiInterruptPolicy = localStorage.getItem('lvi_anti_interrupt_policy_v307') || 'smart_lock';
+state.deferredCloudNoteUpdate = null;
+
+/**
+ * 標記使用者剛在當前裝置進行了實質編輯動作 (打字、貼上、格式化、修改標題或屬性)
+ */
+function markUserActiveEditingNow() {
+  const now = Date.now();
+  state.lastUserEditInputAt = now;
+  state.lastUserAnyInteractionAt = now;
+  // 一旦使用者在當前裝置主動打字編輯，任何先前暫存的外部雲端舊更新即作廢，以使用者當前輸入為準
+  state.deferredCloudNoteUpdate = null;
+  hideDeferredCloudUpdateBanner();
+}
+
+/**
+ * 判斷使用者目前是否正在「主動編輯中」（保護期內嚴禁背景雲端同步改寫畫面或游標）
+ */
+function isUserActivelyEditingNow() {
+  if (state.antiInterruptPolicy === 'always_pull') return false;
+  if (state.isImeComposing) return true;
+  if (state.isDirty || state.isSaving || pendingCloudSaveMap.size > 0) return true;
+  if (state.autoSaveTimer) return true;
+
+  const now = Date.now();
+  const sinceLastEdit = now - (state.lastUserEditInputAt || 0);
+  const sinceAnyInteraction = now - (state.lastUserAnyInteractionAt || 0);
+
+  // 1. 只要距離最後一次打字/編輯未滿 30 秒冷卻期，一律視為正在主動編輯中（即使手機暫時收起鍵盤思考也不會被打斷）
+  if (sinceLastEdit < ACTIVE_EDIT_COOLDOWN_MS) {
+    return true;
+  }
+
+  // 2. 若游標聚焦在編輯器或輸入框內，且最近 30 秒內確實有觸控/滑鼠/鍵盤互動，視為正在操作中
+  //    （若電腦只是開著把游標留在編輯器內、但超過 30 秒完全沒碰電腦，則不視為編輯中，允許電腦靜默接收手機的最新內容！）
+  const activeEl = document.activeElement;
+  if (activeEl && sinceAnyInteraction < ACTIVE_EDIT_COOLDOWN_MS) {
+    if (DOM.editor && (activeEl === DOM.editor || DOM.editor.contains(activeEl))) {
+      return true;
+    }
+    const tag = (activeEl.tagName || '').toUpperCase();
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || activeEl.isContentEditable) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * 判斷當前裝置是否為「放著沒動的閒置待命裝置」（例如開著沒動的電腦）
+ */
+function isDeviceIdleStandby() {
+  if (document.visibilityState === 'hidden') return true;
+  const sinceAny = Date.now() - (state.lastUserAnyInteractionAt || 0);
+  const sinceEdit = Date.now() - (state.lastUserEditInputAt || 0);
+  return sinceAny > IDLE_STANDBY_THRESHOLD_MS && sinceEdit > IDLE_STANDBY_THRESHOLD_MS;
+}
+
+function showDeferredCloudUpdateBanner(noteId, fileMeta, renderedHtml, body, bodyMeta) {
+  state.deferredCloudNoteUpdate = { noteId, fileMeta, renderedHtml, body, bodyMeta };
+  let banner = document.getElementById('lvi-deferred-cloud-banner');
+  if (!banner && DOM.editor && DOM.editor.parentElement) {
+    banner = document.createElement('div');
+    banner.id = 'lvi-deferred-cloud-banner';
+    banner.className = 'hidden';
+    DOM.editor.parentElement.insertBefore(banner, DOM.editor);
+  }
+  if (!banner) return;
+  banner.innerHTML = `
+    <span>☁️ 另一台裝置剛更新了此筆記（為保護您目前的游標與輸入，已暫緩自動刷入）</span>
+    <div class="flex items-center gap-1.5 shrink-0">
+      <button type="button" id="btn-apply-deferred-cloud" class="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-extrabold cursor-pointer">載入雲端新版</button>
+      <button type="button" id="btn-dismiss-deferred-cloud" class="px-2 py-1 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[11px] font-bold cursor-pointer">忽略（以本機為主）</button>
+    </div>
+  `;
+  banner.classList.remove('hidden');
+
+  const applyBtn = banner.querySelector('#btn-apply-deferred-cloud');
+  if (applyBtn) {
+    applyBtn.onclick = (e) => {
+      e.preventDefault();
+      const pending = state.deferredCloudNoteUpdate;
+      hideDeferredCloudUpdateBanner();
+      if (pending && state.currentNote && state.currentNote.id === pending.noteId && DOM.editor) {
+        // 先將目前畫面存入獨立衝突備份池保底
+        try {
+          recordSyncConflictBackup({
+            noteId: pending.noteId,
+            noteTitle: (pending.fileMeta && pending.fileMeta.name || '').replace(/\.md$/i, '') || '未命名筆記',
+            winnerSide: 'cloud',
+            overwrittenHash: computeNoteContentHash(convertHtmlToMarkdown(DOM.editor.innerHTML)),
+            winningHash: computeNoteContentHash(pending.body || ''),
+            title: `⚡ 手動載入另一裝置更新版本`,
+            subtitle: `原畫面內容已存入獨立衝突備份池`,
+            conflictDetail: `載入前本地內容：「${stripHtmlToPlainSnippet(DOM.editor.innerHTML, 80)}」`,
+            overwrittenCanvas: { noteId: pending.noteId, html: DOM.editor.innerHTML, meta: state.currentNote.meta, title: DOM.noteTitle ? DOM.noteTitle.value : '' },
+            winningCanvas: { noteId: pending.noteId, html: pending.renderedHtml, meta: pending.bodyMeta, title: (pending.fileMeta && pending.fileMeta.name || '').replace(/\.md$/i, '') }
+          });
+        } catch (err) {}
+        DOM.editor.innerHTML = pending.renderedHtml;
+        state.currentNote.modifiedTime = pending.fileMeta.modifiedTime;
+        state.currentNote._baseCloudModifiedTime = pending.fileMeta.modifiedTime;
+        state.currentNote._cachedBody = pending.body;
+        state.currentNote._cachedHtml = pending.renderedHtml;
+        state.currentNote._cachedMeta = pending.bodyMeta;
+        try { enhanceAllEditorBlocks(DOM.editor); } catch (err) {}
+        showToast('☁️ 已載入另一裝置的最新內容');
+      }
+    };
+  }
+  const dismissBtn = banner.querySelector('#btn-dismiss-deferred-cloud');
+  if (dismissBtn) {
+    dismissBtn.onclick = (e) => {
+      e.preventDefault();
+      if (state.deferredCloudNoteUpdate && state.currentNote && state.deferredCloudNoteUpdate.fileMeta) {
+        state.currentNote._baseCloudModifiedTime = state.deferredCloudNoteUpdate.fileMeta.modifiedTime;
+      }
+      state.deferredCloudNoteUpdate = null;
+      hideDeferredCloudUpdateBanner();
+    };
+  }
+}
+
+function hideDeferredCloudUpdateBanner() {
+  const banner = document.getElementById('lvi-deferred-cloud-banner');
+  if (banner) banner.classList.add('hidden');
+}
+
+// 1. 覆寫 scheduleAutosave：
+//    - 立即標記 markUserActiveEditingNow() 啟動 30 秒防打斷保護鎖
+//    - 第 0 毫秒寫入本機 localStorage（100% 不掉字）
+//    - 將雲端上傳防抖放寬為停筆後 2.2 秒，並移除舊版每 4 秒強制切斷打字的 autoSaveMaxTimer（改為 25 秒長週期靜默保底）
+triggerAutoSaveDebounce = function() {
+  if (state.isLoadingNote) return;
+  markUserActiveEditingNow();
+  state.isDirty = true;
+  saveLocalDraftImmediately(); // 💾 第 0 毫秒同步寫入本機快取，斷電/關機也絕不掉字！
+
+  if (DOM.statAutosave) {
+    DOM.statAutosave.innerHTML = '<span class="text-blue-500 font-medium">✍️ 編輯保護中 (已即時存於本機)...</span>';
+  }
+
+  // 防抖計時器：使用者停筆 2.2 秒後才觸發背景雲端上傳，打字過程中絕不頻繁觸發網路請求打斷手感！
+  if (state.autoSaveTimer) clearTimeout(state.autoSaveTimer);
+  state.autoSaveTimer = setTimeout(() => {
+    state.autoSaveTimer = null;
+    if (autoSaveMaxTimer) {
+      clearTimeout(autoSaveMaxTimer);
+      autoSaveMaxTimer = null;
+    }
+    saveCurrentNote();
+  }, 2200);
+
+  // 長週期背景保底：連續不停打字超過 25 秒時才在背景靜默排入一次快照
+  if (!autoSaveMaxTimer) {
+    autoSaveMaxTimer = setTimeout(() => {
+      autoSaveMaxTimer = null;
+      if (state.autoSaveTimer) {
+        clearTimeout(state.autoSaveTimer);
+        state.autoSaveTimer = null;
+      }
+      saveCurrentNote();
+    }, 25000);
+  }
+};
+
+// 2. 覆寫 reloadCurrentNoteContentSilently：
+//    當使用者正在手機/當前裝置編輯或游標聚焦在編輯器內時，絕對禁止直接改寫 DOM.editor.innerHTML！
+const _origReloadCurrentNoteContentSilentlyV306 = reloadCurrentNoteContentSilently;
+reloadCurrentNoteContentSilently = async function(noteId, fileMeta) {
+  if (!state.accessToken || !noteId) return;
+
+  // 🔒 若使用者正在當前裝置編輯中（或剛打完字 30 秒冷卻期內），完全禁止雲端舊內容刷掉畫面！
+  if (isUserActivelyEditingNow()) {
+    console.log('🛡️ [防打斷保護] 使用者正在編輯中，已攔截背景靜默重載，保護游標與輸入不中斷。');
+    if (state.currentNote && state.currentNote.id === noteId && fileMeta && fileMeta.modifiedTime) {
+      // 更新基準時間戳記，讓當前編輯裝置下次存檔時直接以最新本機內容覆蓋雲端
+      state.currentNote._baseCloudModifiedTime = fileMeta.modifiedTime;
+    }
+    return;
+  }
+
+  try {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${noteId}?alt=media`, {
+      headers: { Authorization: `Bearer ${state.accessToken}` }
+    });
+    if (!res.ok) return;
+    const rawText = await res.text();
+
+    // 在網路下載期間若使用者又開始打字，立即中止覆寫！
+    if (isUserActivelyEditingNow()) {
+      if (state.currentNote && state.currentNote.id === noteId && fileMeta && fileMeta.modifiedTime) {
+        state.currentNote._baseCloudModifiedTime = fileMeta.modifiedTime;
+      }
+      return;
+    }
+
+    const { meta: bodyMeta, body } = parseFrontmatter(rawText);
+    const currentLocalMd = DOM.editor ? convertHtmlToMarkdown(DOM.editor.innerHTML) : '';
+    if (computeNoteContentHash(body || '') === computeNoteContentHash(currentLocalMd || '')) {
+      if (state.currentNote && state.currentNote.id === noteId && fileMeta) {
+        state.currentNote.modifiedTime = fileMeta.modifiedTime;
+        state.currentNote._baseCloudModifiedTime = fileMeta.modifiedTime;
+      }
+      return;
+    }
+
+    const renderedHtml = DOMPurify.sanitize(window.marked ? window.marked.parse(body) : body, {
+      ADD_TAGS: ['iframe', 'video', 'audio', 'source', 'details', 'summary', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'input', 'hr', 'div', 'span', 'a', 'mark', 'svg', 'path', 'circle', 'rect', 'line', 'polyline', 'polygon', 'g'],
+      ADD_ATTR: ['allow', 'allowfullscreen', 'frameborder', 'scrolling', 'src', 'controls', 'width', 'height', 'class', 'preload', 'type', 'open', 'checked', 'style', 'contenteditable', 'download', 'target', 'rel', 'href', 'data-file-id', 'data-file-name', 'data-file-size', 'data-color', 'data-image-note', 'data-rotation', 'data-placeholder', 'draggable', 'xmlns', 'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin', 'data-lucide', 'aria-hidden', 'cx', 'cy', 'r', 'x', 'y', 'rx', 'ry', 'd']
+    });
+
+    // 若這是一台「放著沒動的閒置待命裝置（如電腦開著但人在用手機）」，直接靜默更新畫面；
+    // 若使用者近期剛在這台裝置操作過，則顯示微提示條讓使用者決定，絕不硬刷畫面！
+    if (isDeviceIdleStandby() && DOM.editor && !state.isDirty) {
+      DOM.editor.innerHTML = renderedHtml;
+      if (DOM.noteTitle && fileMeta && fileMeta.name) {
+        DOM.noteTitle.value = fileMeta.name.replace(/\.md$/i, '');
+        if (DOM.headerTitle) DOM.headerTitle.textContent = DOM.noteTitle.value;
+      }
+      if (state.currentNote) {
+        state.currentNote.modifiedTime = fileMeta.modifiedTime;
+        state.currentNote._baseCloudModifiedTime = fileMeta.modifiedTime;
+        state.currentNote._cachedBody = body;
+        state.currentNote._cachedHtml = renderedHtml;
+        state.currentNote._cachedMeta = bodyMeta;
+      }
+      try { updateNoteSearchIndex(noteId, fileMeta.modifiedTime, body); } catch (e) {}
+      try { enhanceMediaCollapsiblesAndDraggables(DOM.editor); } catch (e) {}
+      try { updateStats(); } catch (e) {}
+      try { renderOutline(); } catch (e) {}
+    } else if (DOM.editor && state.currentNote && state.currentNote.id === noteId) {
+      showDeferredCloudUpdateBanner(noteId, fileMeta, renderedHtml, body, bodyMeta);
+    }
+  } catch (err) {
+    console.warn('靜默熱重載雲端筆記略過:', err);
+  }
+};
+
+// 3. 覆寫 fullSyncWithDrive：
+//    當 showFeedback === false (即背景自動輪詢、focus、visibilitychange 自動觸發) 時，
+//    若使用者正在主動編輯中 (isUserActivelyEditingNow() === true)，直接跳過背景拉取，100% 不打斷手機編輯！
+const _origFullSyncWithDriveV306 = fullSyncWithDrive;
+fullSyncWithDrive = async function(showFeedback = true) {
+  if (!showFeedback && isUserActivelyEditingNow()) {
+    console.log('🛡️ [防打斷保護] 使用者正在主動編輯中，已跳過背景自動同步輪詢。');
+    return;
+  }
+  return await _origFullSyncWithDriveV306(showFeedback);
+};
+
+// 4. 覆寫 checkAndInterceptCloudSyncConflict：
+//    當使用者正在主動編輯的裝置（如手機）將剛打好的內容上傳至雲端時，
+//    即使另一台開著的電腦稍早曾碰過雲端時間戳記，只要當前裝置剛有主動打字編輯（或正在編輯中），
+//    一律以「當前正在打字的裝置」為最高優先（將雲端舊版備份至獨立衝突池後，直接放行本機上傳，絕不反過來覆寫 DOM.editor.innerHTML 打斷打字！）
+const _origCheckAndInterceptCloudSyncConflictV306 = checkAndInterceptCloudSyncConflict;
+checkAndInterceptCloudSyncConflict = async function(effectiveNoteId, snap, matchedNoteInState) {
+  if (!effectiveNoteId || !snap) return false;
+  if (snap.forceOverwriteCloud) return false;
+
+  // 若當前裝置正是使用者剛剛親手打字編輯的主控端 (60 秒內有主動輸入)，
+  // 保證不讓雲端版本反過來覆蓋 DOM.editor.innerHTML！
+  const isActiveWriterDevice = (Date.now() - (state.lastUserEditInputAt || 0)) < 60000 || isUserActivelyEditingNow();
+  if (isActiveWriterDevice && state.historyConflictPolicy !== 'manual_modal') {
+    // 確保 snap 的時間戳記不落後於任何裝置時鐘偏差，讓主動打字端永遠勝出並只做背景備份
+    snap.updatedIso = new Date(Date.now() + 5000).toISOString();
+    snap.updatedAt = Date.now() + 5000;
+  }
+
+  return await _origCheckAndInterceptCloudSyncConflictV306(effectiveNoteId, snap, matchedNoteInState);
+};
+
+// 5. 綁定全域編輯與輸入法 (IME) 狀態監聽器 + 設定選單連動
+function initV307AntiInterruptListeners() {
+  if (window._v307AntiInterruptBound) return;
+  window._v307AntiInterruptBound = true;
+
+  // 監聽中文注音/拼音/語音選字狀態，選字期間 100% 鎖定不打斷
+  document.addEventListener('compositionstart', () => {
+    state.isImeComposing = true;
+    markUserActiveEditingNow();
+  }, true);
+
+  document.addEventListener('compositionend', () => {
+    state.isImeComposing = false;
+    markUserActiveEditingNow();
+  }, true);
+
+  // 監聽編輯器與所有輸入框的鍵盤與輸入事件
+  document.addEventListener('input', (e) => {
+    if (e && e.target) {
+      markUserActiveEditingNow();
+    }
+  }, true);
+
+  document.addEventListener('keydown', (e) => {
+    state.lastUserAnyInteractionAt = Date.now();
+    const activeEl = document.activeElement;
+    if (activeEl && ((DOM.editor && (activeEl === DOM.editor || DOM.editor.contains(activeEl))) || ['INPUT', 'TEXTAREA'].includes(activeEl.tagName))) {
+      markUserActiveEditingNow();
+    }
+  }, true);
+
+  ['pointerdown', 'touchstart', 'mousedown'].forEach(evtName => {
+    document.addEventListener(evtName, () => {
+      state.lastUserAnyInteractionAt = Date.now();
+    }, { passive: true, capture: true });
+  });
+
+  // 綁定歷史設定面板內的「3. 多裝置同時開啟防打斷保護」選單
+  const antiIntSel = document.getElementById('hist-setting-anti-interrupt');
+  if (antiIntSel) {
+    antiIntSel.value = state.antiInterruptPolicy || 'smart_lock';
+    antiIntSel.addEventListener('change', () => {
+      state.antiInterruptPolicy = antiIntSel.value;
+      try {
+        localStorage.setItem('lvi_anti_interrupt_policy_v307', state.antiInterruptPolicy);
+      } catch (e) {}
+      showToast(
+        state.antiInterruptPolicy === 'smart_lock'
+          ? '🛡️ 已啟用「智慧防打斷保護」：手機打字時絕不被雲端同步打斷！'
+          : '🔄 已切換為「隨時立即覆寫」模式',
+        2600
+      );
+    });
+  }
+}
+
+
+  // 6. 針對「開著沒動的閒置電腦（即使游標仍停在編輯器內）」：每 25 秒自動靜默拉取手機端剛存上雲端的最新內容，
+  //    確保電腦端畫面隨時保持最新，不會因為握有過期舊內容而與手機發生衝突！
+  setInterval(() => {
+    if (document.visibilityState === 'visible' && state.accessToken && state.folderId && !isUserActivelyEditingNow()) {
+      const elapsed = Date.now() - (state.lastSyncTime || 0);
+      if (elapsed > 22000) {
+        fullSyncWithDrive(false);
+      }
+    }
+  }, 25000);
+
+
+const _origFlushImmediateCloudSaveV306 = flushImmediateCloudSave;
+flushImmediateCloudSave = function() {
+  if (isDeviceIdleStandby() && !state.isDirty) {
+    return null;
+  }
+  return _origFlushImmediateCloudSaveV306();
+};
+
+initV307AntiInterruptListeners();

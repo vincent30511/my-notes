@@ -7999,3 +7999,180 @@ html.dark .case-pending-followup-input {
   border-color: #0d9488;
   box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.18);
 }
+
+/* 📅 v3.0.6 出機時間日曆選擇器與日曆同步樣式 */
+.case-shiptime-date-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+.case-shiptime-input[type="date"],
+.case-inline-table-date-input[type="date"] {
+  cursor: pointer;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Microsoft JhengHei", monospace;
+  font-weight: 800;
+}
+html.dark .case-shiptime-input[type="date"],
+html.dark .case-inline-table-date-input[type="date"] {
+  color-scheme: dark;
+}
+.case-cal-sync-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.case-cal-sync-pill:hover {
+  background: #d1fae5;
+}
+html.dark .case-cal-sync-pill {
+  background: rgba(6, 78, 59, 0.55);
+  color: #6ee7b7;
+  border-color: #065f46;
+}
+.case-cal-sync-pill.is-empty {
+  background: #f1f5f9;
+  color: #64748b;
+  border-color: #cbd5e1;
+}
+html.dark .case-cal-sync-pill.is-empty {
+  background: #1e293b;
+  color: #94a3b8;
+  border-color: #334155;
+}
+
+/* 📅 行事曆 7 欄月曆網格與每日行程面板離線/線上 100% 視覺保障 */
+#view-calendar-container .grid-cols-7,
+#calendar-grid-cells {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+}
+#view-calendar-container .grid-cols-7:not(#calendar-grid-cells) {
+  padding: 8px 0 !important;
+  text-align: center !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 12px 12px 0 0 !important;
+  color: #475569 !important;
+}
+html.dark #view-calendar-container .grid-cols-7:not(#calendar-grid-cells) {
+  background: #181f2c !important;
+  border-color: #2d3748 !important;
+  color: #94a3b8 !important;
+}
+#calendar-grid-cells {
+  border-left: 1px solid #e2e8f0 !important;
+  border-top: 1px solid #e2e8f0 !important;
+  background: #e2e8f0 !important;
+  gap: 1px !important;
+  border-radius: 0 0 12px 12px !important;
+  overflow: hidden !important;
+}
+html.dark #calendar-grid-cells {
+  border-color: #2d3748 !important;
+  background: #2d3748 !important;
+}
+.calendar-cell {
+  min-height: 92px !important;
+  padding: 6px !important;
+  background: #ffffff !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+}
+html.dark .calendar-cell {
+  background: #0f141d !important;
+  color: #e2e8f0 !important;
+}
+.calendar-pill {
+  padding: 2px 6px !important;
+  border-radius: 5px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  margin-bottom: 3px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+#day-schedule-modal:not(.hidden) {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 9992 !important;
+  background: rgba(15, 23, 42, 0.62) !important;
+  backdrop-filter: blur(4px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 16px !important;
+}
+#day-schedule-modal > div {
+  width: 100% !important;
+  max-width: 560px !important;
+  max-height: 86vh !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  padding: 20px !important;
+  border-radius: 18px !important;
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.35) !important;
+  color: #0f172a !important;
+}
+html.dark #day-schedule-modal > div {
+  background: #181f2c !important;
+  border-color: #2d3748 !important;
+  color: #f8fafc !important;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.7) !important;
+}
+#day-modal-events-list > div,
+#day-modal-notes-list > div {
+  padding: 10px 12px !important;
+  border-radius: 10px !important;
+  border: 1px solid #cbd5e1 !important;
+  margin-bottom: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+}
+html.dark #day-modal-events-list > div,
+html.dark #day-modal-notes-list > div {
+  border-color: #334155 !important;
+  background: #0f172a !important;
+}
+
+/* 🛡️ v3.0.7 多裝置同開防打斷微提示條 (絕不搶焦點、不打斷手機鍵盤輸入) */
+#lvi-deferred-cloud-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e40af;
+  font-size: 12px;
+  font-weight: 700;
+}
+html.dark #lvi-deferred-cloud-banner {
+  background: rgba(30, 58, 138, 0.35);
+  border-color: #1e40af;
+  color: #93c5fd;
+}
+#lvi-deferred-cloud-banner.hidden {
+  display: none !important;
+}
