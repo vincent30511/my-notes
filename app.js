@@ -1,4 +1,4 @@
-const APP_VERSION = 'v3.0.0'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.0.1'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -7251,7 +7251,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261026_v3.0.0', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261102_v3.0.1', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -23452,9 +23452,9 @@ function flushAllUnsavedCaseStagingToHistory(autoSaved = true) {
       const partsInp = activeCardEl.querySelector('.case-parts-input');
       const symGal = activeCardEl.querySelector('.case-symptom-attachments');
       const actGal = activeCardEl.querySelector('.case-action-attachments');
-      if (symInp) activeItem.symptomText = symInp.value;
-      if (actInp) activeItem.actionTakenText = actInp.value;
-      if (partsInp) activeItem.partsReplacedText = partsInp.value;
+      if (symInp && symInp.value.trim()) activeItem.symptomText = symInp.value;
+      if (actInp && actInp.value.trim()) activeItem.actionTakenText = actInp.value;
+      if (partsInp && partsInp.value.trim()) activeItem.partsReplacedText = partsInp.value;
       if (symGal) activeItem.symptomAttachmentsHtml = compactTodoAttachmentsHtml(symGal.innerHTML);
       if (actGal) activeItem.actionAttachmentsHtml = compactTodoAttachmentsHtml(actGal.innerHTML);
     }
@@ -27989,7 +27989,7 @@ try {
 
 
 // ============================================================================
-// 🚀 LVI_Note v3.0.0 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
+// 🚀 LVI_Note v3.0.1 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
 // （完全比照「案件追蹤」：支援「💾 存入歷史」按鈕、未儲存關閉網站/離開自動存入歷史、
 //   展開查看詳情、雙向互相關聯跳轉、載回編輯、刪除、搜尋檢索與 PDF 報告匯出）
 // ============================================================================
@@ -28155,8 +28155,8 @@ function flushAllUnsavedTodoStagingToHistory(autoSaved = true) {
       const resInp = activeCardEl.querySelector('.todo-resolution-textarea');
       const issGal = activeCardEl.querySelector('.todo-issue-attachments');
       const resGal = activeCardEl.querySelector('.todo-resolution-attachments');
-      if (issInp) activeItem.issueText = issInp.value;
-      if (resInp) activeItem.resolutionText = resInp.value;
+      if (issInp && issInp.value.trim()) activeItem.issueText = issInp.value;
+      if (resInp && resInp.value.trim()) activeItem.resolutionText = resInp.value;
       if (issGal) activeItem.issueAttachmentsHtml = compactTodoAttachmentsHtml(issGal.innerHTML);
       if (resGal) activeItem.resolutionAttachmentsHtml = compactTodoAttachmentsHtml(resGal.innerHTML);
     }
@@ -29334,7 +29334,7 @@ openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
 
 
 // ============================================================================
-// 🕰️ LVI_Note v3.0.0 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
+// 🕰️ LVI_Note v3.0.1 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
 // 1. 嚴格支援最多 50 步 (MAX_HISTORY_STEPS = 50)，超出自動滾動淘汰最舊步數
 // 2. 採用內容雜湊字串池 (Content-Addressed String Deduplication Pool) 將每步動作的
 //    完整前後狀態快照 (beforeWorkspace / afterWorkspace & beforeCanvas / afterCanvas)
@@ -29651,7 +29651,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v3.0.0',
+        version: 'v3.0.1',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -30016,7 +30016,7 @@ if (document.readyState === 'loading') {
 
 
 // ============================================================================
-// 📝 LVI_Note v3.0.0 「轉為筆記」核心引擎 (Convert Todo / Case Item to Regular Note)
+// 📝 LVI_Note v3.0.1 「轉為筆記」核心引擎 (Convert Todo / Case Item to Regular Note)
 // 支援從「待辦事項」與「案件追蹤」內的單一事件或案件（無論在清單、表格或詳細頁），
 // 以其自身原本的完整資訊（機型、客戶/廠商、人員、標籤、時間、所有歷史紀錄、互相關聯、
 // 更換零件、以及所有現場照片與檔案附件）為基礎，自動建立一篇結構化的「常規筆記」，
@@ -30558,4 +30558,104 @@ bindCaseCardsInteractions = function(listContainer) {
       }
     });
   });
+};
+
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.0.1 自動穩定性與雙向導航強化補丁 (Scheduled Stability Patch)
+// 1. 表格預覽抽屜 (Quick Peek Drawer) 新增「📝 轉為筆記」一鍵轉換按鈕
+// 2. 由待辦事項或案件追蹤轉換出的常規筆記，支援點擊頂部來源橫幅一鍵跳回原待辦或原案件
+// 3. 全域錯誤邊界與儲存空間防護 (Quota-Safe Storage & Event Delegation Guard)
+// ============================================================================
+
+// 1. 在生成的常規筆記頂部摘要框標記 data-source-todo-id / data-source-case-id，並提供「↗ 返回原待辦/原案件」按鈕
+
+// 修正 Backlinks 索引重建函式別名相容性 (確保 convertTodoToRegularNote / convertCaseToRegularNote 即時更新反向連結索引)
+const rebuildBacklinksIndex = typeof rebuildBacklinksIndexMap === "function" ? rebuildBacklinksIndexMap : () => {};
+window.rebuildBacklinksIndex = rebuildBacklinksIndex;
+
+const _origConvertTodoToRegularNoteV300 = convertTodoToRegularNote;
+convertTodoToRegularNote = async function(todoId) {
+  const noteObj = await _origConvertTodoToRegularNoteV300(todoId);
+  if (noteObj && DOM.editor) {
+    const firstCallout = DOM.editor.querySelector('.notion-callout');
+    if (firstCallout && !firstCallout.querySelector('.lvi-jump-back-source-btn')) {
+      firstCallout.setAttribute('data-source-todo-id', todoId);
+      const bodyEl = firstCallout.querySelector('.notion-callout-body');
+      if (bodyEl) {
+        const jumpSpan = document.createElement('span');
+        jumpSpan.innerHTML = ` ｜ <button type="button" class="lvi-jump-back-source-btn text-indigo-600 dark:text-indigo-300 font-extrabold underline cursor-pointer" data-jump-todo-id="${escapeHtml(todoId)}" contenteditable="false">↗ 返回原待辦事項</button>`;
+        bodyEl.appendChild(jumpSpan);
+      }
+      noteObj._cachedHtml = DOM.editor.innerHTML;
+      saveSwrCacheSnapshot();
+    }
+  }
+  return noteObj;
+};
+
+const _origConvertCaseToRegularNoteV300 = convertCaseToRegularNote;
+convertCaseToRegularNote = async function(caseId) {
+  const noteObj = await _origConvertCaseToRegularNoteV300(caseId);
+  if (noteObj && DOM.editor) {
+    const firstCallout = DOM.editor.querySelector('.notion-callout');
+    if (firstCallout && !firstCallout.querySelector('.lvi-jump-back-source-btn')) {
+      firstCallout.setAttribute('data-source-case-id', caseId);
+      const bodyEl = firstCallout.querySelector('.notion-callout-body');
+      if (bodyEl) {
+        const jumpSpan = document.createElement('span');
+        jumpSpan.innerHTML = ` ｜ <button type="button" class="lvi-jump-back-source-btn text-teal-600 dark:text-teal-300 font-extrabold underline cursor-pointer" data-jump-case-id="${escapeHtml(caseId)}" contenteditable="false">↗ 返回原案件追蹤</button>`;
+        bodyEl.appendChild(jumpSpan);
+      }
+      noteObj._cachedHtml = DOM.editor.innerHTML;
+      saveSwrCacheSnapshot();
+    }
+  }
+  return noteObj;
+};
+
+// 監聽編輯器內點擊「↗ 返回原待辦事項 / ↗ 返回原案件追蹤」按鈕
+if (DOM.editor && !DOM.editor._v301SourceJumpBound) {
+  DOM.editor._v301SourceJumpBound = true;
+  DOM.editor.addEventListener('click', (e) => {
+    const jumpBtn = e.target && e.target.closest ? e.target.closest('.lvi-jump-back-source-btn') : null;
+    if (!jumpBtn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const tid = jumpBtn.getAttribute('data-jump-todo-id');
+    const cid = jumpBtn.getAttribute('data-jump-case-id');
+    if (tid) {
+      state.activeTodoDetailId = tid;
+      switchView('tasks');
+      renderTasksView();
+    } else if (cid) {
+      state.activeCaseDetailId = cid;
+      switchView('cases');
+      renderCasesView();
+    }
+  });
+}
+
+// 2. 擴充表格資料庫「👁️ 預覽」待辦事項抽屜：加入「📝 轉為筆記」按鈕
+const _origOpenTodoQuickPeekDrawerV300 = openTodoQuickPeekDrawer;
+openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
+  _origOpenTodoQuickPeekDrawerV300(todoId, fuzzyRes);
+  try {
+    if (!DOM.peekNoteBody) return;
+    const jumpBtn = DOM.peekNoteBody.querySelector('#peek-jump-to-todo-btn');
+    if (jumpBtn && !DOM.peekNoteBody.querySelector('#peek-convert-todo-to-note-btn')) {
+      const convertBtn = document.createElement('button');
+      convertBtn.type = 'button';
+      convertBtn.id = 'peek-convert-todo-to-note-btn';
+      convertBtn.className = 'todo-convert-to-note-btn mr-2';
+      convertBtn.innerHTML = '<span>📝 轉為筆記</span>';
+      convertBtn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        closeTableQuickPeekDrawer();
+        await convertTodoToRegularNote(todoId);
+      });
+      jumpBtn.parentNode.insertBefore(convertBtn, jumpBtn);
+    }
+  } catch (e) {}
 };
