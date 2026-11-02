@@ -1,4 +1,4 @@
-const APP_VERSION = 'v3.0.4'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.0.5'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -7251,7 +7251,7 @@ async function releaseWakeLock() {
 // 註冊 PWA Service Worker (支援離線與 Android 背景傳輸)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js?v=20261102_v3.0.4', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('sw.js?v=20261102_v3.0.5', { updateViaCache: 'none' })
       .then(reg => {
         try { reg.update(); } catch (e) {}
         console.log('🚀 PWA Service Worker 註冊成功 (' + APP_VERSION + ')');
@@ -23209,10 +23209,10 @@ const DEFAULT_CASE_NUMBERS = [
 ];
 
 const FIXED_CASE_STATUSES = [
-  '🔴 待處理',
-  '🟡 處理中',
-  '🟠 待料/觀察中',
-  '🟢 已結案'
+  '準備中',
+  '已完成等待出機',
+  '交機完成',
+  '客戶回饋排除'
 ];
 
 state.caseItems = null;
@@ -23272,28 +23272,30 @@ function isCaseItemDeletedTombstoned(item) {
 
 function normalizeCaseStatusValue(rawStatus) {
   const s = String(rawStatus || '').trim();
-  if (s.includes('已結案') || s.includes('已完成')) return '🟢 已結案';
-  if (s.includes('處理中') || s.includes('進行中')) return '🟡 處理中';
-  if (s.includes('待料') || s.includes('觀察')) return '🟠 待料/觀察中';
-  return '🔴 待處理';
+  if (s.includes('客戶回饋排除') || s.includes('回饋排除')) return '客戶回饋排除';
+  if (s.includes('已完成等待出機') || s.includes('等待出機') || s.includes('處理中') || s.includes('待料') || s.includes('觀察')) return '已完成等待出機';
+  if (s.includes('交機完成') || s.includes('已結案')) return '交機完成';
+  if (s.includes('準備中') || s.includes('待處理')) return '準備中';
+  return '準備中';
 }
 
 function isCaseStatusCompleted(statusStr) {
-  return normalizeCaseStatusValue(statusStr) === '🟢 已結案';
+  const norm = normalizeCaseStatusValue(statusStr);
+  return norm === '交機完成' || norm === '客戶回饋排除';
 }
 
 function getCaseStatusBadgeClass(statusStr) {
   const norm = normalizeCaseStatusValue(statusStr);
-  if (norm === '🟢 已結案') {
+  if (norm === '交機完成') {
     return 'bg-emerald-100 text-emerald-900 border-emerald-300 dark:bg-emerald-950/80 dark:text-emerald-200 dark:border-emerald-700';
   }
-  if (norm === '🟡 處理中') {
-    return 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700';
+  if (norm === '客戶回饋排除') {
+    return 'bg-purple-100 text-purple-900 border-purple-300 dark:bg-purple-950/80 dark:text-purple-200 dark:border-purple-700';
   }
-  if (norm === '🟠 待料/觀察中') {
+  if (norm === '已完成等待出機') {
     return 'bg-sky-100 text-sky-900 border-sky-300 dark:bg-sky-950/80 dark:text-sky-200 dark:border-sky-700';
   }
-  return 'bg-rose-100 text-rose-900 border-rose-300 dark:bg-rose-950/80 dark:text-rose-200 dark:border-rose-700';
+  return 'bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950/80 dark:text-amber-200 dark:border-amber-700';
 }
 
 function getCaseCompletedTimestampEpoch(item) {
@@ -23531,6 +23533,11 @@ function ensureCaseItemsInitialized() {
     }
     item.status = normalizeCaseStatusValue(item.status);
     if (typeof item.caseNumber !== 'string') item.caseNumber = '';
+    if (typeof item.serialNumber !== 'string') item.serialNumber = '';
+    if (typeof item.shipTime !== 'string') item.shipTime = '';
+    if (typeof item.pendingFollowUpText !== 'string') item.pendingFollowUpText = '';
+    if (!Array.isArray(item.linkedTodoIds)) item.linkedTodoIds = [];
+    if (!item.linkedTodoTitles || typeof item.linkedTodoTitles !== 'object') item.linkedTodoTitles = {};
     if (typeof item.machineModel !== 'string') item.machineModel = '';
     if (typeof item.clientVendor !== 'string') item.clientVendor = '';
     if (typeof item.symptomText !== 'string') item.symptomText = '';
@@ -23610,21 +23617,24 @@ function saveCaseItemsState(immediateCloud = false) {
 function updateCaseSummaryStats() {
   ensureCaseItemsInitialized();
   const items = (state.caseItems || []).filter(item => !isCaseItemDeletedTombstoned(item));
-  const pendingCount = items.filter(t => normalizeCaseStatusValue(t.status) === '🔴 待處理').length;
-  const progressCount = items.filter(t => normalizeCaseStatusValue(t.status) === '🟡 處理中').length;
-  const waitingCount = items.filter(t => normalizeCaseStatusValue(t.status) === '🟠 待料/觀察中').length;
-  const activeTotal = pendingCount + progressCount + waitingCount;
+  const prepCount = items.filter(t => normalizeCaseStatusValue(t.status) === '準備中').length;
+  const waitShipCount = items.filter(t => normalizeCaseStatusValue(t.status) === '已完成等待出機').length;
+  const deliveredCount = items.filter(t => normalizeCaseStatusValue(t.status) === '交機完成').length;
+  const resolvedCount = items.filter(t => normalizeCaseStatusValue(t.status) === '客戶回饋排除').length;
+  const activeTotal = prepCount + waitShipCount;
 
   const pEl = document.getElementById('case-cat-count-pending');
   const prEl = document.getElementById('case-cat-count-progress');
   const wEl = document.getElementById('case-cat-count-waiting');
-  if (pEl) pEl.textContent = String(pendingCount);
-  if (prEl) prEl.textContent = String(progressCount);
-  if (wEl) wEl.textContent = String(waitingCount);
+  const dEl = document.getElementById('case-cat-count-done');
+  if (pEl) pEl.textContent = String(prepCount);
+  if (prEl) prEl.textContent = String(waitShipCount);
+  if (wEl) wEl.textContent = String(deliveredCount);
+  if (dEl) dEl.textContent = String(resolvedCount);
 
   const subEl = document.getElementById('case-header-stats-subtitle');
   if (subEl) {
-    subEl.textContent = `待處理 ${pendingCount} ・ 處理中 ${progressCount} ・ 待料/觀察 ${waitingCount}`;
+    subEl.textContent = `準備中 ${prepCount} ・ 已完成等待出機 ${waitShipCount} ・ 交機完成 ${deliveredCount} ・ 客戶回饋排除 ${resolvedCount}`;
   }
 
   const sideBadge = document.getElementById('sidebar-cases-count');
@@ -23968,13 +23978,18 @@ function createNewCaseCardItem() {
   ensureCaseItemsInitialized();
   const nowStr = formatTodoTimestamp();
   const nowEpoch = Date.now();
-  const initStatus = state.caseFilterStatus || '🔴 待處理';
+  const initStatus = state.caseFilterStatus ? normalizeCaseStatusValue(state.caseFilterStatus) : '準備中';
   const initCompletedAt = isCaseStatusCompleted(initStatus) ? nowStr : '';
 
   const newItem = {
     id: 'case_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
     title: '',
     caseNumber: '',
+    serialNumber: '',
+    shipTime: '',
+    pendingFollowUpText: '',
+    linkedTodoIds: [],
+    linkedTodoTitles: {},
     machineModel: (state.caseFilterMachine && state.caseFilterMachine !== '__empty__') ? state.caseFilterMachine : '',
     clientVendor: (state.caseFilterClient && state.caseFilterClient !== '__empty__') ? state.caseFilterClient : '',
     status: initStatus,
@@ -24281,23 +24296,31 @@ async function renderCaseToDirectPdfBlob(item) {
   }
   curY += 10;
 
-  // 3. 案件基本屬性表格 (4 列 × 2 欄)
+  // 3. 案件基本屬性表格 (6 列 × 2 欄，含 S/N、出機時間、關聯待處理)
   const metaRows = [
     [
       ['案號：', item.caseNumber || '未指定'],
       ['案件狀態：', normalizeCaseStatusValue(item.status)]
     ],
     [
+      ['機台 S/N：', item.serialNumber || '未填寫'],
+      ['出機時間：', item.shipTime || '未設定']
+    ],
+    [
       ['機型分類：', item.machineModel || '未選擇'],
       ['客戶或廠商：', item.clientVendor || '未選擇']
+    ],
+    [
+      ['關聯待處理：', getCasePendingFollowUpDisplayStr(item) || '無'],
+      ['處理人員：', (item.handlers && item.handlers.length) ? item.handlers.join('、') : '未指派']
     ],
     [
       ['立案時間：', item.createdAt || '—'],
       ['結案時間：', item.completedAt || '未結案']
     ],
     [
-      ['處理人員：', (item.handlers && item.handlers.length) ? item.handlers.join('、') : '未指派'],
-      ['專案標籤：', (item.tags && item.tags.length) ? item.tags.map(t => '#' + t).join(' ') : '無']
+      ['專案標籤：', (item.tags && item.tags.length) ? item.tags.map(t => '#' + t).join(' ') : '無'],
+      ['歷史紀錄：', `異常 ${(item.symptomHistory || []).length} 筆 / 對策 ${(item.actionHistory || []).length} 筆`]
     ]
   ];
 
@@ -27989,7 +28012,7 @@ try {
 
 
 // ============================================================================
-// 🚀 LVI_Note v3.0.4 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
+// 🚀 LVI_Note v3.0.5 待辦事項「待辦說明 ⇄ 處理結果」獨立歷史紀錄與雙向關聯引擎
 // （完全比照「案件追蹤」：支援「💾 存入歷史」按鈕、未儲存關閉網站/離開自動存入歷史、
 //   展開查看詳情、雙向互相關聯跳轉、載回編輯、刪除、搜尋檢索與 PDF 報告匯出）
 // ============================================================================
@@ -29334,7 +29357,7 @@ openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
 
 
 // ============================================================================
-// 🕰️ LVI_Note v3.0.4 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
+// 🕰️ LVI_Note v3.0.5 跨重開持久化 50 步回朔時光機引擎 (Persistent 50-Step Time-Machine)
 // 1. 嚴格支援最多 50 步 (MAX_HISTORY_STEPS = 50)，超出自動滾動淘汰最舊步數
 // 2. 採用內容雜湊字串池 (Content-Addressed String Deduplication Pool) 將每步動作的
 //    完整前後狀態快照 (beforeWorkspace / afterWorkspace & beforeCanvas / afterCanvas)
@@ -29651,7 +29674,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v3.0.4',
+        version: 'v3.0.5',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -30016,7 +30039,7 @@ if (document.readyState === 'loading') {
 
 
 // ============================================================================
-// 📝 LVI_Note v3.0.4 「轉為筆記」核心引擎 (Convert Todo / Case Item to Regular Note)
+// 📝 LVI_Note v3.0.5 「轉為筆記」核心引擎 (Convert Todo / Case Item to Regular Note)
 // 支援從「待辦事項」與「案件追蹤」內的單一事件或案件（無論在清單、表格或詳細頁），
 // 以其自身原本的完整資訊（機型、客戶/廠商、人員、標籤、時間、所有歷史紀錄、互相關聯、
 // 更換零件、以及所有現場照片與檔案附件）為基礎，自動建立一篇結構化的「常規筆記」，
@@ -30563,7 +30586,7 @@ bindCaseCardsInteractions = function(listContainer) {
 
 
 // ============================================================================
-// 🛡️ LVI_Note v3.0.4 自動穩定性與雙向導航強化補丁 (Scheduled Stability Patch)
+// 🛡️ LVI_Note v3.0.5 自動穩定性與雙向導航強化補丁 (Scheduled Stability Patch)
 // 1. 表格預覽抽屜 (Quick Peek Drawer) 新增「📝 轉為筆記」一鍵轉換按鈕
 // 2. 由待辦事項或案件追蹤轉換出的常規筆記，支援點擊頂部來源橫幅一鍵跳回原待辦或原案件
 // 3. 全域錯誤邊界與儲存空間防護 (Quota-Safe Storage & Event Delegation Guard)
@@ -30663,7 +30686,7 @@ openTodoQuickPeekDrawer = function(todoId, fuzzyRes = null) {
 
 
 // ============================================================================
-// 🛡️ LVI_Note v3.0.4 檔案最高安全防護與「零異動複製轉為筆記」核心引擎
+// 🛡️ LVI_Note v3.0.5 檔案最高安全防護與「零異動複製轉為筆記」核心引擎
 // 1. 最高優先級檔案保護：修正 compactTodoAttachmentsHtml，嚴禁抹除 data: 永久備份網址或未同步雲端之本地檔案連結
 // 2. 待辦事項與案件追蹤上傳任何檔案（含圖片、PDF、Office、壓縮檔等）皆建立永久 DataURL 保底，杜絕 blob: 失效導致檔案消失
 // 3. 「📝 轉為筆記」採用 100% 唯讀深拷貝（Zero-Mutation Deep Copy）：
@@ -31495,7 +31518,7 @@ convertCaseToRegularNote = async function(caseId) {
 
 
 // ============================================================================
-// 🚀 LVI_Note v3.0.4 四大核心升級引擎：
+// 🚀 LVI_Note v3.0.5 四大核心升級引擎：
 // 1. 回朔步數提升至 100 步 (支援於「⚙️ 歷史功能設定」動態調整 50 / 100 / 150 / 200 步，跨重開完整保留)
 // 2. 新增「⚙️ 歷史功能設定」按鈕與「🗑️ 何時刪了什麼（刪除紀錄）」稽核視圖：
 //    完整記錄每次刪除筆記、刪除照片/檔案附件、刪除待辦、刪除案件、刪除歷史紀錄、刪除分類/標籤與刪減內文之精確年月日時分秒與內容摘要
@@ -32136,7 +32159,7 @@ savePersistentActionHistory = function() {
     }));
 
     const fullJson = JSON.stringify({
-      version: 'v3.0.4',
+      version: 'v3.0.5',
       maxSteps: PERSISTENT_MAX_STEPS,
       historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex)),
       pool,
@@ -32166,7 +32189,7 @@ savePersistentActionHistory = function() {
             snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, subPool, subMap)
           }));
           localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, JSON.stringify({
-            version: 'v3.0.4',
+            version: 'v3.0.5',
             maxSteps: PERSISTENT_MAX_STEPS,
             historyIndex: Math.max(-1, Math.min(subRecords.length - 1, state.historyIndex - offset)),
             pool: subPool,
@@ -32435,7 +32458,7 @@ try {
 
 
 // ============================================================================
-// 🛡️ v3.0.4 雙軌隔離升級：
+// 🛡️ v3.0.5 雙軌隔離升級：
 // 1. 手動操作專屬 100 步 (`state.actionHistory`)：100% 僅記錄使用者手動動作，絕不被自動同步或衝突沖刷！
 // 2. 獨立「⚡ 跨裝置衝突備份池」(`state.syncConflictHistory`)：獨立持久化保留最多 30 筆衝突快照，完全不佔用 100 步配額！
 // 3. 內容指紋去重 (`dedupKey = noteId + localHash + cloudHash`)：避免自動同步重試時重複寫入相同衝突。
@@ -32771,3 +32794,881 @@ checkAndInterceptCloudSyncConflict = async function(effectiveNoteId, snap, match
 
 loadPersistentSyncConflictHistory();
 updateHistoryUI();
+
+
+// ============================================================================
+// 🚀 LVI_Note v3.0.5 案件追蹤欄位擴充與狀態升級補丁：
+// 1. 新增可編輯欄位：「S/N (serialNumber)」、「出機時間 (shipTime)」、「關聯待處理 (pendingFollowUpText + linkedTodoIds)」
+// 2. 「案件狀態 (status)」固定選項更新為：「準備中」、「已完成等待出機」、「交機完成」、「客戶回饋排除」
+// ============================================================================
+
+function resolveLinkedTodoTitleForCase(caseItem, todoId) {
+  if (!todoId) return '';
+  if (typeof ensureTodoItemsInitialized === 'function') {
+    try { ensureTodoItemsInitialized(); } catch (e) {}
+  }
+  const found = (state.todoItems || []).find(t => t && t.id === todoId);
+  if (found && found.title) return found.title;
+  if (caseItem && caseItem.linkedTodoTitles && caseItem.linkedTodoTitles[todoId]) {
+    return caseItem.linkedTodoTitles[todoId];
+  }
+  return '待處理事項';
+}
+
+function getCasePendingFollowUpDisplayStr(item) {
+  if (!item) return '';
+  const linkedTitles = (Array.isArray(item.linkedTodoIds) ? item.linkedTodoIds : [])
+    .map(tid => resolveLinkedTodoTitleForCase(item, tid))
+    .filter(Boolean);
+  const parts = [];
+  if (item.pendingFollowUpText && String(item.pendingFollowUpText).trim()) {
+    parts.push(String(item.pendingFollowUpText).trim());
+  }
+  if (linkedTitles.length > 0) {
+    parts.push(linkedTitles.map(t => `[待辦:${t}]`).join('、'));
+  }
+  return parts.join(' ｜ ');
+}
+
+// 覆寫 renderCaseSummaryRowHtml：在清單列顯示 S/N、出機時間、關聯待處理與 4 大新狀態配色
+renderCaseSummaryRowHtml = function(item, fuzzyRes = null) {
+  const normStatus = normalizeCaseStatusValue(item.status);
+  const statusBadgeCls = getCaseStatusBadgeClass(normStatus);
+  const statusRowAccentCls =
+    (normStatus === '交機完成' || normStatus === '客戶回饋排除') ? 'row-status-done' :
+    normStatus === '已完成等待出機' ? 'row-status-progress' : 'row-status-pending';
+
+  const caseNoText = getCaseDisplayNo(item);
+  const latestSym = (item.symptomHistory && item.symptomHistory[0] && item.symptomHistory[0].text) || item.symptomText || '';
+  const latestAct = (item.actionHistory && item.actionHistory[0] && item.actionHistory[0].actionText) || item.actionTakenText || '';
+  const symptomPreview = latestSym.replace(/\s+/g, ' ').trim();
+  const actionPreview = latestAct.replace(/\s+/g, ' ').trim();
+
+  const handlers = Array.isArray(item.handlers) ? item.handlers : [];
+  const tags = Array.isArray(item.tags) ? item.tags : [];
+  const symHistCount = (item.symptomHistory || []).length;
+  const actHistCount = (item.actionHistory || []).length;
+  const linkedCount = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds.length : 0;
+  const pendingDisplay = getCasePendingFollowUpDisplayStr(item);
+
+  const allAttHtml = [
+    item.symptomAttachmentsHtml || '',
+    item.actionAttachmentsHtml || '',
+    ...(item.symptomHistory || []).map(h => h.attachmentsHtml || ''),
+    ...(item.actionHistory || []).map(h => h.attachmentsHtml || '')
+  ].join('');
+  const totalAtt = countAttachmentsInHtml(allAttHtml);
+
+  let snippetHtml = '';
+  if (fuzzyRes && fuzzyRes.snippet) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🔍 ${highlightMatchedTermsHtml(fuzzyRes.snippet.text || String(fuzzyRes.snippet || ""), fuzzyRes.highlightTerms || [])}</span>`;
+  } else if (symptomPreview && actionPreview) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🚨 ${escapeHtml(symptomPreview.slice(0, 44))} ➔ 🛠️ ${escapeHtml(actionPreview.slice(0, 44))}</span>`;
+  } else if (symptomPreview) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🚨 ${escapeHtml(symptomPreview.slice(0, 76))}</span>`;
+  } else if (actionPreview) {
+    snippetHtml = `<span class="lvi-todo-summary-snippet">🛠️ ${escapeHtml(actionPreview.slice(0, 76))}</span>`;
+  }
+
+  const secondaryBadgesHtml = [
+    item.shipTime ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-50 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-800 shrink-0">🚚 出機：${escapeHtml(item.shipTime)}</span>` : '',
+    pendingDisplay ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200 border border-amber-200 dark:border-amber-800 shrink-0">📋 關聯待處理：${escapeHtml(pendingDisplay.slice(0, 28))}</span>` : '',
+    ...handlers.map(h => `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800 shrink-0">👤 ${escapeHtml(h)}</span>`),
+    ...tags.map(t => `<span class="px-1.5 py-0.5 rounded-md text-[10.5px] font-bold border ${getTagPillColorClass(t)} shrink-0">#${escapeHtml(t)}</span>`),
+    (symHistCount > 0 || actHistCount > 0) ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-teal-50 dark:bg-teal-950/60 text-teal-700 dark:text-teal-300 border border-teal-200 dark:border-teal-800 font-bold shrink-0">📜 異常 ${symHistCount} / 對策 ${actHistCount}</span>` : '',
+    linkedCount > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-blue-50/80 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-bold shrink-0">🔗 筆記 ${linkedCount}</span>` : '',
+    totalAtt > 0 ? `<span class="px-2 py-0.5 rounded-md text-[11px] bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 font-bold shrink-0">🖼️ 附件 ${totalAtt}</span>` : ''
+  ].filter(Boolean).join('');
+
+  const completedBadgeHtml = item.completedAt
+    ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-extrabold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 shrink-0">🏁 ${escapeHtml(item.completedAt)}</span>`
+    : `<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 shrink-0">未結案</span>`;
+
+  return `
+    <div class="lvi-todo-summary-row lvi-case-summary-row ${statusRowAccentCls} group" data-case-summary-id="${escapeHtml(item.id)}">
+      <div class="lvi-todo-summary-main">
+        <div class="lvi-todo-summary-top-line">
+          <span class="px-2.5 py-0.5 rounded-md text-xs font-extrabold border shrink-0 ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
+          <span class="lvi-todo-summary-title truncate font-mono">📁 ${escapeHtml(caseNoText)}</span>
+          ${item.serialNumber ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-mono font-bold bg-teal-50 text-teal-800 dark:bg-teal-950/70 dark:text-teal-200 border border-teal-200 dark:border-teal-800 shrink-0">🔢 S/N: ${escapeHtml(item.serialNumber)}</span>` : ''}
+          ${item.machineModel ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-blue-50 text-blue-700 dark:bg-blue-950/70 dark:text-blue-300 border border-blue-200 dark:border-blue-800 shrink-0">🚜 ${escapeHtml(item.machineModel)}</span>` : ''}
+          ${item.clientVendor ? `<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/70 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 shrink-0">🏢 ${escapeHtml(item.clientVendor)}</span>` : ''}
+        </div>
+        ${(snippetHtml || secondaryBadgesHtml) ? `
+        <div class="lvi-todo-summary-bottom-line">
+          ${snippetHtml}
+          ${secondaryBadgesHtml}
+        </div>` : ''}
+      </div>
+
+      <div class="lvi-todo-summary-right">
+        ${completedBadgeHtml}
+        <span class="lvi-todo-summary-time">🕒 ${escapeHtml(item.createdAt || '')}</span>
+        <button type="button" class="case-convert-to-note-btn" data-case-id="${escapeHtml(item.id)}" title="以此案件資訊為基礎，新增一篇常規筆記">
+          <span>📝 轉為筆記</span>
+        </button>
+        <button type="button" class="todo-summary-del-btn case-summary-del-btn" data-case-id="${escapeHtml(item.id)}" title="刪除此筆案件">
+          <span>🗑️ 刪除</span>
+        </button>
+        <span class="lvi-todo-summary-open-pill">
+          <span>詳情</span>
+          <span>➔</span>
+        </span>
+      </div>
+    </div>
+  `;
+};
+
+// 覆寫 renderCasesTableModeHtml：在表格模式提供可直接編輯的「S/N」、「出機時間」、「關聯待處理」與 4 大「案件狀態」
+renderCasesTableModeHtml = function(filteredList) {
+  const machines = getSharedMachineModelsForTodo();
+  const clients = getSharedClientsVendorsForTodo();
+
+  const rowsHtml = filteredList.map(({ item, fuzzyRes }) => {
+    const normStatus = normalizeCaseStatusValue(item.status);
+    const symHistCount = (item.symptomHistory || []).length;
+    const actHistCount = (item.actionHistory || []).length;
+    const latestSym = (item.symptomHistory && item.symptomHistory[0] && item.symptomHistory[0].text) || item.symptomText || '';
+    const latestAct = (item.actionHistory && item.actionHistory[0] && item.actionHistory[0].actionText) || item.actionTakenText || '';
+    const summaryLine = [
+      latestSym ? `🚨 ${latestSym.replace(/\s+/g, ' ').trim().slice(0, 32)}` : '',
+      latestAct ? `🛠️ ${latestAct.replace(/\s+/g, ' ').trim().slice(0, 32)}` : ''
+    ].filter(Boolean).join(' ➔ ');
+
+    const machOpts = `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>` +
+      machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`).join('');
+    const cliOpts = `<option value="" ${!item.clientVendor ? 'selected' : ''}>未選擇</option>` +
+      clients.map(c => `<option value="${escapeHtml(c)}" ${item.clientVendor === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`).join('');
+    const stOpts = FIXED_CASE_STATUSES.map(st => `<option value="${escapeHtml(st)}" ${normStatus === st ? 'selected' : ''}>${escapeHtml(st)}</option>`).join('');
+
+    const linkedTodoPills = (Array.isArray(item.linkedTodoIds) ? item.linkedTodoIds : []).map(tid => {
+      const tTitle = resolveLinkedTodoTitleForCase(item, tid);
+      return `<button type="button" class="case-jump-todo-btn px-1.5 py-0.5 rounded text-[10.5px] font-bold bg-amber-50 text-amber-800 dark:bg-amber-950/70 dark:text-amber-200 border border-amber-200 dark:border-amber-800 cursor-pointer hover:underline" data-todo-id="${escapeHtml(tid)}">☑️ ${escapeHtml(tTitle.slice(0, 14))} ↗</button>`;
+    }).join(' ');
+
+    const handlersHtml = (item.handlers && item.handlers.length)
+      ? item.handlers.map(h => `<span class="px-1.5 py-0.5 rounded text-[11px] font-bold bg-cyan-50 text-cyan-800 dark:bg-cyan-950/70 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800">👤 ${escapeHtml(h)}</span>`).join(' ')
+      : '<span class="text-gray-400">無</span>';
+
+    const tagsHtml = (item.tags && item.tags.length)
+      ? item.tags.map(t => `<span class="px-1.5 py-0.5 rounded text-[10.5px] font-bold border ${getTagPillColorClass(t)}">#${escapeHtml(t)}</span>`).join(' ')
+      : '<span class="text-gray-400">無</span>';
+
+    return `
+      <tr class="case-table-row cursor-pointer" data-case-id="${escapeHtml(item.id)}">
+        <td onclick="event.stopPropagation();">
+          <select class="case-inline-table-select" data-case-id="${escapeHtml(item.id)}" data-field="status">
+            ${stOpts}
+          </select>
+        </td>
+        <td onclick="event.stopPropagation();">
+          <input type="text" class="case-inline-table-input" data-case-id="${escapeHtml(item.id)}" data-field="caseNumber" value="${escapeHtml(item.caseNumber || item.title || '')}" placeholder="輸入案號..." />
+        </td>
+        <td onclick="event.stopPropagation();">
+          <input type="text" class="case-inline-table-input font-mono" data-case-id="${escapeHtml(item.id)}" data-field="serialNumber" value="${escapeHtml(item.serialNumber || '')}" placeholder="輸入 S/N..." />
+        </td>
+        <td onclick="event.stopPropagation();">
+          <input type="text" class="case-inline-table-input" data-case-id="${escapeHtml(item.id)}" data-field="shipTime" value="${escapeHtml(item.shipTime || '')}" placeholder="YYYY/MM/DD..." />
+        </td>
+        <td onclick="event.stopPropagation();">
+          <div class="space-y-1">
+            <input type="text" class="case-inline-table-input" data-case-id="${escapeHtml(item.id)}" data-field="pendingFollowUpText" value="${escapeHtml(item.pendingFollowUpText || '')}" placeholder="輸入關聯待處理..." />
+            ${linkedTodoPills ? `<div class="flex flex-wrap gap-1">${linkedTodoPills}</div>` : ''}
+          </div>
+        </td>
+        <td>
+          <div class="text-[11px] font-bold text-teal-700 dark:text-teal-300">異常 ${symHistCount} 筆 ／ 對策 ${actHistCount} 筆</div>
+          ${summaryLine ? `<div class="text-xs text-slate-600 dark:text-slate-300 truncate max-w-[240px]">${escapeHtml(summaryLine)}</div>` : ''}
+          ${(fuzzyRes && fuzzyRes.snippet) ? `<div class="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">🔍 ${highlightMatchedTermsHtml(fuzzyRes.snippet.text || String(fuzzyRes.snippet || ""), fuzzyRes.highlightTerms || [])}</div>` : ''}
+        </td>
+        <td onclick="event.stopPropagation();">
+          <select class="case-inline-table-select" data-case-id="${escapeHtml(item.id)}" data-field="machineModel">
+            ${machOpts}
+          </select>
+        </td>
+        <td onclick="event.stopPropagation();">
+          <select class="case-inline-table-select" data-case-id="${escapeHtml(item.id)}" data-field="clientVendor">
+            ${cliOpts}
+          </select>
+        </td>
+        <td><div class="flex flex-wrap gap-1">${handlersHtml}</div></td>
+        <td><div class="flex flex-wrap gap-1">${tagsHtml}</div></td>
+        <td class="text-[11px] font-extrabold ${item.completedAt ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-400'} whitespace-nowrap">${escapeHtml(item.completedAt || '未結案')}</td>
+        <td class="text-[11px] text-slate-500 dark:text-slate-400 whitespace-nowrap">${escapeHtml(item.createdAt || '')}</td>
+        <td class="text-center whitespace-nowrap" onclick="event.stopPropagation();">
+          <button type="button" class="case-convert-to-note-btn mr-1" data-case-id="${escapeHtml(item.id)}" title="以此案件資訊為基礎，新增一篇常規筆記">📝 轉為筆記</button>
+          <button type="button" class="case-table-open-btn px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold cursor-pointer mr-1" data-case-id="${escapeHtml(item.id)}">詳情</button>
+          <button type="button" class="case-summary-del-btn px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-xs font-bold cursor-pointer" data-case-id="${escapeHtml(item.id)}">刪除</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="lvi-case-table-wrap">
+      <table class="lvi-case-table">
+        <thead>
+          <tr>
+            <th>📊 案件狀態</th>
+            <th>📁 案號</th>
+            <th>🔢 S/N</th>
+            <th>🚚 出機時間</th>
+            <th style="min-width:170px;">📋 關聯待處理</th>
+            <th style="min-width:180px;">📜 歷史摘要</th>
+            <th>🚜 機型</th>
+            <th>🏢 客戶/廠商</th>
+            <th>👥 處理人員</th>
+            <th>🏷️ 標籤</th>
+            <th>🏁 結案時間 ↓</th>
+            <th>🕒 立案時間</th>
+            <th class="text-center">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+        </tbody>
+      </table>
+    </div>
+  `;
+};
+
+// 覆寫 renderSingleCaseDetailHtml：加入可編輯欄位「S/N」、「出機時間」、「關聯待處理」與 4 大固定「案件狀態」
+renderSingleCaseDetailHtml = function(item) {
+  if (typeof ensureTodoItemsInitialized === 'function') {
+    try { ensureTodoItemsInitialized(); } catch (e) {}
+  }
+  const machines = getSharedMachineModelsForTodo();
+  const clients = getSharedClientsVendorsForTodo();
+  const sharedTags = getSharedTagsForTodo();
+  const handlers = state.todoHandlers || DEFAULT_TODO_HANDLERS;
+
+  const itemTags = Array.isArray(item.tags) ? item.tags : [];
+  const itemHandlers = Array.isArray(item.handlers) ? item.handlers : [];
+  const linkedNoteIds = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds : [];
+  const linkedTodoIds = Array.isArray(item.linkedTodoIds) ? item.linkedTodoIds : [];
+  const symHistory = Array.isArray(item.symptomHistory) ? item.symptomHistory : [];
+  const actHistory = Array.isArray(item.actionHistory) ? item.actionHistory : [];
+  const normStatus = normalizeCaseStatusValue(item.status);
+  const isCompleted = isCaseStatusCompleted(normStatus);
+  const statusBadgeCls = getCaseStatusBadgeClass(normStatus);
+  const effectiveCaseNo = item.caseNumber || item.title || '';
+
+  const machineOptionsHtml = [
+    `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>`,
+    ...machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_machine__">＋ 新增機型...</option>`,
+    `<option value="__manage_shared_machine__">⚙️ 管理機型...</option>`
+  ].join('');
+
+  const clientOptionsHtml = [
+    `<option value="" ${!item.clientVendor ? 'selected' : ''}>未選擇</option>`,
+    ...clients.map(c => `<option value="${escapeHtml(c)}" ${item.clientVendor === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_client__">＋ 新增客戶/廠商...</option>`,
+    `<option value="__manage_shared_client__">⚙️ 管理客戶/廠商...</option>`
+  ].join('');
+
+  const statusOptionsHtml = FIXED_CASE_STATUSES.map(lbl =>
+    `<option value="${escapeHtml(lbl)}" ${normStatus === lbl ? 'selected' : ''}>${escapeHtml(lbl)}</option>`
+  ).join('');
+
+  const linkedTodoChipsHtml = linkedTodoIds.map(tid => {
+    const tTitle = resolveLinkedTodoTitleForCase(item, tid);
+    return `
+      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+        <button type="button" class="case-jump-todo-btn inline-flex items-center gap-1 cursor-pointer hover:underline" data-todo-id="${escapeHtml(tid)}" title="點擊跳轉至該筆待辦事項">
+          <span>☑️</span>
+          <span class="truncate max-w-[170px]">${escapeHtml(tTitle)}</span>
+          <span class="text-[10px] opacity-75">↗</span>
+        </button>
+        <button type="button" class="case-remove-todo-btn text-gray-400 hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-todo-id="${escapeHtml(tid)}" title="解除關聯待處理">×</button>
+      </span>
+    `;
+  }).join('');
+
+  const allTodos = (state.todoItems || []).filter(t => t && t.id && (!typeof isTodoItemDeletedTombstoned === 'function' || !isTodoItemDeletedTombstoned(t)));
+  const availableTodosOptionsHtml = [
+    `<option value="">＋ 從待辦挑選或新建...</option>`,
+    `<option value="__create_new_linked_todo__">＋ 新建關聯待處理事項...</option>`,
+    `<option disabled>── 選擇現有待辦事項 ──</option>`,
+    ...allTodos.slice(0, 100).map(t => {
+      const tTitle = (t.title || '未命名待辦').trim();
+      const tStat = t.status ? `[${t.status}] ` : '';
+      return `<option value="${escapeHtml(t.id)}">☑️ ${escapeHtml(tStat + tTitle)}</option>`;
+    })
+  ].join('');
+
+  const linkedNoteChipsHtml = linkedNoteIds.map(nid => {
+    const n = (state.notes || []).find(x => x.id === nid);
+    const nTitle = resolveLinkedNoteTitle(item, nid);
+    const nIcon = (n && n.meta && n.meta.icon) || '📝';
+    return `
+      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
+        <button type="button" class="case-jump-note-btn inline-flex items-center gap-1 cursor-pointer hover:underline" data-note-id="${escapeHtml(nid)}">
+          <span>${nIcon}</span>
+          <span class="truncate max-w-[180px]">${escapeHtml(nTitle)}</span>
+          <span class="text-[10px] opacity-75">↗</span>
+        </button>
+        <button type="button" class="case-remove-note-btn text-gray-400 hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-note-id="${escapeHtml(nid)}">×</button>
+      </span>
+    `;
+  }).join('');
+
+  const availableNotesOptionsHtml = [
+    `<option value="">＋ 關聯筆記...</option>`,
+    `<option value="__create_new_linked_note__">＋ 新建關聯筆記...</option>`,
+    `<option disabled>── 選擇現有筆記 ──</option>`,
+    ...(state.notes || []).slice(0, 120).map(n => {
+      const nTitle = (n.name || '未命名筆記').replace(/\.md$/i, '');
+      const mach = (n.meta && n.meta.machineModel && n.meta.machineModel !== '未分類') ? `[${n.meta.machineModel}] ` : '';
+      return `<option value="${escapeHtml(n.id)}">📝 ${escapeHtml(mach + nTitle)}</option>`;
+    })
+  ].join('');
+
+  const tagsPillsHtml = itemTags.length > 0
+    ? itemTags.map(tagName => `
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${getTagPillColorClass(tagName)}">
+          <span>#${escapeHtml(tagName)}</span>
+          <button type="button" class="case-remove-tag-btn hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-tag-name="${escapeHtml(tagName)}">×</button>
+        </span>
+      `).join('')
+    : `<span class="text-xs text-gray-400">無</span>`;
+
+  const bottomTagAddOptionsHtml = [
+    `<option value="">＋ 新增標籤...</option>`,
+    ...sharedTags.map(t => {
+      const name = typeof t === 'string' ? t : (t.name || t.id);
+      return `<option value="${escapeHtml(name)}">#${escapeHtml(name)}</option>`;
+    }),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_tag__">＋ 新建標籤...</option>`,
+    `<option value="__manage_shared_tags__">⚙️ 管理標籤庫...</option>`
+  ].join('');
+
+  const handlerPillsHtml = itemHandlers.length > 0
+    ? itemHandlers.map(hName => `
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-cyan-50 text-cyan-900 border border-cyan-300 dark:bg-cyan-950/80 dark:text-cyan-200 dark:border-cyan-700">
+          <span>👤 ${escapeHtml(hName)}</span>
+          <button type="button" class="case-remove-handler-btn hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-handler-name="${escapeHtml(hName)}">×</button>
+        </span>
+      `).join('')
+    : `<span class="text-xs text-gray-400">無</span>`;
+
+  const handlerAddOptionsHtml = [
+    `<option value="">＋ 指派人員...</option>`,
+    ...handlers.map(h => `<option value="${escapeHtml(h)}">👤 ${escapeHtml(h)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_new_handler__">＋ 新增人員...</option>`,
+    `<option value="__manage_handlers__">⚙️ 管理人員...</option>`
+  ].join('');
+
+  const stagingSymLinkOptsHtml = [
+    `<option value="">選擇對應異常...</option>`,
+    ...symHistory.map((sh, idx) => `<option value="${escapeHtml(sh.id)}" ${idx === 0 ? 'selected' : ''}>🚨 ${escapeHtml(sh.code)}｜${escapeHtml((sh.text || '含附件').replace(/\s+/g, ' ').slice(0, 26))}</option>`)
+  ].join('');
+
+  return `
+    <!-- 頂部返回列表與操作導航列 -->
+    <div class="lvi-todo-detail-navbar">
+      <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" id="btn-back-to-case-list" class="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-extrabold text-slate-700 dark:text-slate-200 hover:bg-slate-100 cursor-pointer shadow-2xs">
+          <span>← 返回</span>
+        </button>
+        <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold border ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
+        <span id="case-navbar-caseno-pill" class="lvi-case-no-badge ${effectiveCaseNo ? '' : 'hidden'}">📁 ${escapeHtml(effectiveCaseNo)}</span>
+        <span id="case-navbar-sn-pill" class="lvi-case-no-badge ${item.serialNumber ? '' : 'hidden'}">🔢 S/N: ${escapeHtml(item.serialNumber || '')}</span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" class="case-convert-to-note-btn" data-case-id="${escapeHtml(item.id)}" title="以此案件的所有資訊（含案號、S/N、出機時間、關聯待處理、異常與對策歷史及附件）為基礎，新增一篇常規筆記">
+          <span>📝 轉為筆記</span>
+        </button>
+        <button type="button" class="case-export-pdf-btn case-export-md-btn px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-600 text-teal-700 hover:text-white dark:bg-teal-950/70 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-xs font-extrabold transition cursor-pointer" data-case-id="${escapeHtml(item.id)}">
+          <span>📄 匯出 PDF</span>
+        </button>
+        <button type="button" class="todo-delete-card-btn case-delete-card-btn" data-case-id="${escapeHtml(item.id)}">
+          <span>🗑️ 刪除</span>
+        </button>
+      </div>
+    </div>
+
+    <article class="lvi-todo-card lvi-case-card ${isCompleted ? 'is-completed-card' : ''}" data-case-id="${escapeHtml(item.id)}">
+      <!-- 第 1 列：案號 | S/N | 機型分類 | 客戶或廠商 | 案件狀態 (4 大固定選項) -->
+      <div class="lvi-case-row-1">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📁 案號</span>
+          </div>
+          <input type="text" class="todo-title-input case-caseno-input" value="${escapeHtml(effectiveCaseNo)}" placeholder="輸入案號..." />
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🔢 S/N</span>
+          </div>
+          <input type="text" class="case-sn-input font-mono" value="${escapeHtml(item.serialNumber || '')}" placeholder="輸入機台序號 S/N..." />
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🚜 機型分類</span>
+            <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="machine">⚙️ 管理</button>
+          </div>
+          <select class="todo-box-select case-machine-select">
+            ${machineOptionsHtml}
+          </select>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🏢 客戶或廠商</span>
+            <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="client">⚙️ 管理</button>
+          </div>
+          <select class="todo-box-select case-client-select">
+            ${clientOptionsHtml}
+          </select>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📊 案件狀態</span>
+          </div>
+          <select class="todo-box-select case-status-select">
+            ${statusOptionsHtml}
+          </select>
+        </div>
+      </div>
+
+      <!-- 第 2 列：出機時間 | 關聯待處理 | 關聯筆記 -->
+      <div class="lvi-case-row-2-v305">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🚚 出機時間</span>
+            <button type="button" class="case-fill-now-shiptime-btn todo-open-mgr-btn" title="點擊快速填入今日日期與時間">📅 填入現在</button>
+          </div>
+          <input type="text" class="case-shiptime-input" value="${escapeHtml(item.shipTime || '')}" placeholder="輸入出機時間 (例: 2026/11/05)..." />
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📋 關聯待處理</span>
+            <select class="todo-link-note-select case-link-todo-select" style="max-width:170px;">
+              ${availableTodosOptionsHtml}
+            </select>
+          </div>
+          <input type="text" class="case-pending-followup-input" value="${escapeHtml(item.pendingFollowUpText || '')}" placeholder="直接輸入關聯待處理說明，或由右上選單挑選待辦..." />
+          ${linkedTodoChipsHtml ? `<div class="flex items-center gap-1.5 flex-wrap pt-1.5">${linkedTodoChipsHtml}</div>` : ''}
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🔗 關聯筆記</span>
+            <select class="todo-link-note-select case-link-note-select" style="max-width:160px;">
+              ${availableNotesOptionsHtml}
+            </select>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap pt-1">
+            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">尚未關聯筆記</span>`}
+          </div>
+        </div>
+      </div>
+
+      <!-- 立案時間與結案時間資訊列 -->
+      <div class="lvi-case-time-bar-v305">
+        <div class="lvi-todo-created-pill case-edit-created-time-btn cursor-pointer" title="點擊調整立案時間">
+          <span class="text-[10px] font-extrabold text-blue-700 dark:text-blue-300">🕒 立案時間</span>
+          <span class="text-xs font-black text-blue-950 dark:text-blue-100 case-created-time-text">${escapeHtml(item.createdAt || formatTodoTimestamp())}</span>
+        </div>
+
+        <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} case-edit-completed-time-btn cursor-pointer" title="點擊調整結案時間">
+          <span class="text-[10px] font-extrabold ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'}">🏁 結案時間</span>
+          <span class="text-xs font-black ${isCompleted ? 'text-emerald-950 dark:text-emerald-100' : 'text-blue-950 dark:text-blue-100'} case-completed-time-text">
+            ${item.completedAt ? escapeHtml(item.completedAt) : '未結案'}
+          </span>
+        </div>
+      </div>
+
+      <!-- 第 3 列：客訴 / 異常現象 -->
+      <div class="lvi-todo-issue-box">
+        <div class="lvi-todo-section-header">
+          <div class="lvi-todo-section-title">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+            <span>🚨 客訴 / 異常現象</span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="symptom">
+              <span>📷 拍照</span>
+            </button>
+            <button type="button" class="todo-section-upload-btn case-section-upload-btn" data-section="symptom">
+              <span>📎 附件</span>
+            </button>
+            <button type="button" class="case-save-history-btn btn-symptom-save case-save-symptom-history-btn">
+              <span>💾 存入歷史</span>
+            </button>
+          </div>
+        </div>
+
+        <textarea class="lvi-todo-textarea case-symptom-textarea" rows="3" placeholder="輸入異常現象...">${escapeHtml(item.symptomText || '')}</textarea>
+        <div class="todo-attachments-gallery case-symptom-attachments">${item.symptomAttachmentsHtml || ''}</div>
+
+        <!-- 客訴與異常現象・歷史紀錄 -->
+        <div class="lvi-case-history-section">
+          <div class="lvi-case-history-header">
+            <div class="lvi-case-history-title">
+              <span>📜 歷史紀錄</span>
+              <span class="lvi-case-history-count" data-hist-count="symptom">${symHistory.length}</span>
+            </div>
+          </div>
+          <div class="lvi-case-history-list" data-hist-list="symptom">
+            ${renderSymptomHistoryListHtml(item)}
+          </div>
+        </div>
+      </div>
+
+      <!-- 第 4 列：處理對策與零件更換 -->
+      <div class="lvi-todo-resolution-box">
+        <div class="lvi-todo-section-header">
+          <div class="lvi-todo-section-title">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
+            <span>🛠️ 處理對策與零件更換</span>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="action">
+              <span>📷 拍照</span>
+            </button>
+            <button type="button" class="todo-section-upload-btn case-section-upload-btn" data-section="action">
+              <span>📎 附件</span>
+            </button>
+            <button type="button" class="case-save-history-btn btn-action-save case-save-action-history-btn">
+              <span>💾 存入歷史</span>
+            </button>
+          </div>
+        </div>
+
+        <textarea class="lvi-todo-textarea case-action-textarea" rows="3" placeholder="輸入處理對策...">${escapeHtml(item.actionTakenText || '')}</textarea>
+        <div class="lvi-case-parts-row">
+          <span class="lvi-case-parts-label">🔩 更換零件：</span>
+          <input type="text" class="case-parts-input" value="${escapeHtml(item.partsReplacedText || '')}" placeholder="輸入料號或零件名稱..." />
+        </div>
+        ${symHistory.length > 0 ? `
+        <div class="case-staging-link-bar">
+          <span class="case-hist-detail-label">🔗 關聯異常：</span>
+          <select class="case-staging-link-select case-staging-action-link-sym-select">
+            ${stagingSymLinkOptsHtml}
+          </select>
+        </div>` : ''}
+        <div class="todo-attachments-gallery case-action-attachments">${item.actionAttachmentsHtml || ''}</div>
+
+        <!-- 處理對策與零件更換・歷史紀錄 -->
+        <div class="lvi-case-history-section">
+          <div class="lvi-case-history-header">
+            <div class="lvi-case-history-title">
+              <span>📜 歷史紀錄</span>
+              <span class="lvi-case-history-count" data-hist-count="action">${actHistory.length}</span>
+            </div>
+          </div>
+          <div class="lvi-case-history-list" data-hist-list="action">
+            ${renderActionHistoryListHtml(item)}
+          </div>
+        </div>
+      </div>
+
+      <!-- 第 5 列：標籤 | 處理人員 | 結案時間 -->
+      <div class="lvi-todo-row-5">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🏷️ 標籤</span>
+            <div class="flex items-center gap-1.5">
+              <select class="todo-bottom-tag-add-select case-tag-add-select">
+                ${bottomTagAddOptionsHtml}
+              </select>
+              <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="custom">⚙️ 管理</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap pt-1">
+            ${tagsPillsHtml}
+          </div>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>👥 處理人員</span>
+            <div class="flex items-center gap-1.5">
+              <select class="todo-handler-add-select case-handler-add-select">
+                ${handlerAddOptionsHtml}
+              </select>
+              <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="todo_handler">⚙️ 管理</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap pt-1">
+            ${handlerPillsHtml}
+          </div>
+        </div>
+
+        <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} case-edit-completed-time-btn cursor-pointer" title="點擊調整結案時間">
+          <span class="text-[10px] font-extrabold ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'}">🏁 結案時間</span>
+          <span class="text-xs font-black ${isCompleted ? 'text-emerald-950 dark:text-emerald-100' : 'text-blue-950 dark:text-blue-100'} case-completed-time-text">
+            ${item.completedAt ? escapeHtml(item.completedAt) : '未結案'}
+          </span>
+        </div>
+      </div>
+    </article>
+  `;
+};
+
+// 擴充 bindCaseCardsInteractions：綁定 S/N、出機時間、關聯待處理（文字輸入、下拉關聯待辦、新建關聯待處理、點擊跳轉與移除）
+const _origBindCaseCardsInteractionsV304 = bindCaseCardsInteractions;
+bindCaseCardsInteractions = function(listContainer) {
+  _origBindCaseCardsInteractionsV304(listContainer);
+  if (!listContainer) return;
+
+  // 表格或詳細頁點擊已關聯的「待處理事項」膠囊 -> 跳轉至待辦事項該筆事件
+  listContainer.querySelectorAll('.case-jump-todo-btn').forEach(btn => {
+    if (btn._v305Bound) return;
+    btn._v305Bound = true;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const tid = btn.getAttribute('data-todo-id');
+      if (tid) {
+        if (state.activeCaseDetailId) {
+          syncCaseDomToMemoryNonDestructive(state.activeCaseDetailId);
+        }
+        state.activeTodoDetailId = tid;
+        switchView('tasks');
+        if (typeof renderTasksView === 'function') renderTasksView();
+      }
+    });
+  });
+
+  listContainer.querySelectorAll('.lvi-case-card').forEach(cardEl => {
+    if (cardEl._v305FieldsBound) return;
+    cardEl._v305FieldsBound = true;
+    const caseId = cardEl.getAttribute('data-case-id');
+    const getItem = () => (state.caseItems || []).find(c => c.id === caseId);
+
+    // 1. S/N 可編輯欄位
+    const snInp = cardEl.querySelector('.case-sn-input');
+    if (snInp) {
+      snInp.addEventListener('input', () => {
+        const item = getItem();
+        if (!item) return;
+        item.serialNumber = snInp.value.trim();
+        const snPill = document.getElementById('case-navbar-sn-pill');
+        if (snPill) {
+          snPill.textContent = `🔢 S/N: ${item.serialNumber}`;
+          snPill.classList.toggle('hidden', !item.serialNumber);
+        }
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+      });
+    }
+
+    // 2. 出機時間可編輯欄位 + 「📅 填入現在」快捷按鈕
+    const shipInp = cardEl.querySelector('.case-shiptime-input');
+    if (shipInp) {
+      shipInp.addEventListener('input', () => {
+        const item = getItem();
+        if (!item) return;
+        item.shipTime = shipInp.value.trim();
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+      });
+    }
+
+    const fillNowShipBtn = cardEl.querySelector('.case-fill-now-shiptime-btn');
+    if (fillNowShipBtn) {
+      fillNowShipBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const item = getItem();
+        if (!item) return;
+        const nowStr = formatTodoTimestamp();
+        item.shipTime = nowStr;
+        if (shipInp) shipInp.value = nowStr;
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+        showToast(`🚚 已填入出機時間：${nowStr}`, 1800);
+      });
+    }
+
+    // 3. 關聯待處理：直接文字輸入框 + 待辦事項關聯選單
+    const pendingInp = cardEl.querySelector('.case-pending-followup-input');
+    if (pendingInp) {
+      pendingInp.addEventListener('input', () => {
+        const item = getItem();
+        if (!item) return;
+        item.pendingFollowUpText = pendingInp.value;
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+      });
+    }
+
+    const linkTodoSel = cardEl.querySelector('.case-link-todo-select');
+    if (linkTodoSel) {
+      linkTodoSel.addEventListener('change', () => {
+        const item = getItem();
+        if (!item) return;
+        const val = linkTodoSel.value;
+        if (!val) return;
+        if (val === '__create_new_linked_todo__') {
+          linkTodoSel.value = '';
+          const defaultTitle = `[${item.caseNumber || '案件'}] 待處理事項`;
+          const todoTitle = prompt('請輸入新關聯待處理事項標題：', defaultTitle);
+          if (!todoTitle || !todoTitle.trim()) return;
+          const cleanT = todoTitle.trim();
+          if (typeof ensureTodoItemsInitialized === 'function') ensureTodoItemsInitialized();
+          const nowEpoch = Date.now();
+          const nowStr = formatTodoTimestamp();
+          const newTodo = {
+            id: 'todo_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
+            title: cleanT,
+            machineModel: item.machineModel || '',
+            clientVendor: item.clientVendor || '',
+            status: '🔴 待處理',
+            issueText: `來源案件：${item.caseNumber || '未指定'}${item.serialNumber ? ' (S/N: ' + item.serialNumber + ')' : ''}`,
+            resolutionText: '',
+            issueAttachmentsHtml: '',
+            resolutionAttachmentsHtml: '',
+            issueHistory: [],
+            resolutionHistory: [],
+            linkedNoteIds: [],
+            tags: Array.isArray(item.tags) ? item.tags.slice() : [],
+            handlers: Array.isArray(item.handlers) ? item.handlers.slice() : [],
+            createdAt: nowStr,
+            createdEpoch: nowEpoch,
+            completedAt: '',
+            completedEpoch: 0,
+            updatedAt: nowEpoch
+          };
+          if (!Array.isArray(state.todoItems)) state.todoItems = [];
+          state.todoItems.unshift(newTodo);
+          if (typeof saveTodoItemsState === 'function') saveTodoItemsState(true);
+
+          if (!Array.isArray(item.linkedTodoIds)) item.linkedTodoIds = [];
+          if (!item.linkedTodoIds.includes(newTodo.id)) item.linkedTodoIds.push(newTodo.id);
+          item.linkedTodoTitles = item.linkedTodoTitles || {};
+          item.linkedTodoTitles[newTodo.id] = cleanT;
+          item.updatedAt = Date.now();
+          saveCaseItemsState(true);
+          renderCasesView();
+          showToast(`☑️ 已建立並關聯待處理事項：「${cleanT}」`);
+          return;
+        }
+
+        if (!Array.isArray(item.linkedTodoIds)) item.linkedTodoIds = [];
+        if (!item.linkedTodoIds.includes(val)) {
+          item.linkedTodoIds.push(val);
+          const pickedTodo = (state.todoItems || []).find(t => t && t.id === val);
+          if (pickedTodo && pickedTodo.title) {
+            item.linkedTodoTitles = item.linkedTodoTitles || {};
+            item.linkedTodoTitles[val] = pickedTodo.title;
+          }
+          item.updatedAt = Date.now();
+          saveCaseItemsState();
+          renderCasesView();
+        } else {
+          linkTodoSel.value = '';
+        }
+      });
+    }
+
+    cardEl.querySelectorAll('.case-remove-todo-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tid = btn.getAttribute('data-todo-id');
+        const item = getItem();
+        if (!item) return;
+        item.linkedTodoIds = (item.linkedTodoIds || []).filter(id => id !== tid);
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+        renderCasesView();
+      });
+    });
+  });
+};
+
+// 擴充 syncCaseDomToMemoryNonDestructive：確保 S/N、出機時間、關聯待處理、案件狀態即時同步至記憶體
+const _origSyncCaseDomToMemoryNonDestructiveV304 = syncCaseDomToMemoryNonDestructive;
+syncCaseDomToMemoryNonDestructive = function(caseId) {
+  _origSyncCaseDomToMemoryNonDestructiveV304(caseId);
+  const cardEl = document.querySelector(`.lvi-case-card[data-case-id="${caseId}"]`);
+  if (!cardEl) return;
+  const item = (state.caseItems || []).find(c => c.id === caseId);
+  if (!item) return;
+
+  const snInp = cardEl.querySelector('.case-sn-input');
+  const shipInp = cardEl.querySelector('.case-shiptime-input');
+  const pendingInp = cardEl.querySelector('.case-pending-followup-input');
+  const statusSel = cardEl.querySelector('.case-status-select');
+
+  if (snInp) item.serialNumber = snInp.value.trim();
+  if (shipInp) item.shipTime = shipInp.value.trim();
+  if (pendingInp) item.pendingFollowUpText = pendingInp.value;
+  if (statusSel && statusSel.value) item.status = normalizeCaseStatusValue(statusSel.value);
+  saveCaseItemsToLocalStorageOnly();
+};
+
+// 擴充 evaluateFuzzyCaseMatch：支援以 S/N、出機時間、關聯待處理進行關鍵字與模糊檢索
+const _origEvaluateFuzzyCaseMatchV304 = evaluateFuzzyCaseMatch;
+evaluateFuzzyCaseMatch = function(caseItem, parsedQuery) {
+  if (!parsedQuery || !parsedQuery.rawNormalized) {
+    return _origEvaluateFuzzyCaseMatchV304(caseItem, parsedQuery);
+  }
+  const rawQ = String(parsedQuery.rawNormalized || '').trim().toLowerCase();
+  const snStr = String(caseItem.serialNumber || '').toLowerCase();
+  const shipStr = String(caseItem.shipTime || '').toLowerCase();
+  const pendingStr = getCasePendingFollowUpDisplayStr(caseItem).toLowerCase();
+
+  if (snStr && snStr.includes(rawQ)) {
+    return {
+      matched: true,
+      score: 175,
+      confidencePct: 98,
+      matchReasons: ['S/N 序號命中'],
+      highlightTerms: [rawQ],
+      snippet: { text: `🔢 S/N：${caseItem.serialNumber} ｜ 📁 案號：${caseItem.caseNumber || ''}` },
+      isSolutionNote: true
+    };
+  }
+  if ((shipStr && shipStr.includes(rawQ)) || (pendingStr && pendingStr.includes(rawQ))) {
+    return {
+      matched: true,
+      score: 145,
+      confidencePct: 95,
+      matchReasons: ['出機時間/關聯待處理命中'],
+      highlightTerms: [rawQ],
+      snippet: { text: `🚚 出機：${caseItem.shipTime || '未填'} ｜ 📋 關聯待處理：${getCasePendingFollowUpDisplayStr(caseItem) || '無'}` },
+      isSolutionNote: true
+    };
+  }
+  return _origEvaluateFuzzyCaseMatchV304(caseItem, parsedQuery);
+};
+
+// 擴充 convertCaseToRegularNote：轉為常規筆記時，在頂部屬性區塊完整帶出 S/N、出機時間、關聯待處理與最新案件狀態
+const _origConvertCaseToRegularNoteV304 = convertCaseToRegularNote;
+convertCaseToRegularNote = async function(caseId) {
+  const newNote = await _origConvertCaseToRegularNoteV304(caseId);
+  if (!newNote) return null;
+  const item = (state.caseItems || []).find(c => c.id === caseId);
+  if (!item) return newNote;
+
+  const snText = item.serialNumber || '未填寫';
+  const shipText = item.shipTime || '未設定';
+  const pendingText = getCasePendingFollowUpDisplayStr(item) || '無';
+  const extraLineHtml = `<br><span>🔢 S/N：<strong>${escapeHtml(snText)}</strong> ｜ 🚚 出機時間：<strong>${escapeHtml(shipText)}</strong> ｜ 📋 關聯待處理：<strong>${escapeHtml(pendingText)}</strong></span>`;
+
+  if (newNote._cachedHtml && !newNote._cachedHtml.includes('🔢 S/N：')) {
+    newNote._cachedHtml = newNote._cachedHtml.replace(
+      /(<span>📊 案件狀態：[^<]*<\/span>)/,
+      `$1${extraLineHtml}`
+    );
+    newNote._cachedBody = convertHtmlToMarkdown(newNote._cachedHtml);
+    if (state.currentNote && state.currentNote.id === newNote.id && DOM.editor) {
+      DOM.editor.innerHTML = newNote._cachedHtml;
+      try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+    }
+    saveSwrCacheSnapshot();
+  }
+  return newNote;
+};

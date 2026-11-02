@@ -7934,3 +7934,68 @@ html.dark #close-history-modal-done-btn {
   border-color: #b45309;
   color: #fde68a;
 }
+
+/* 🛡️ v3.0.5 案件追蹤新增可編輯欄位 (S/N、出機時間、關聯待處理) 與 4 大案件狀態樣式 */
+.lvi-case-row-1 {
+  display: grid !important;
+  grid-template-columns: minmax(160px, 1.3fr) minmax(145px, 1.15fr) minmax(135px, 1.05fr) minmax(135px, 1.05fr) minmax(155px, 1.15fr) !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+}
+@media (max-width: 1100px) {
+  .lvi-case-row-1 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+@media (max-width: 640px) {
+  .lvi-case-row-1 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.lvi-case-row-2-v305 {
+  display: grid !important;
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.55fr) minmax(200px, 1.25fr) !important;
+  gap: 10px !important;
+  align-items: stretch !important;
+}
+@media (max-width: 1024px) {
+  .lvi-case-row-2-v305 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.lvi-case-time-bar-v305 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.case-sn-input,
+.case-shiptime-input,
+.case-pending-followup-input {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 0.82rem;
+  font-weight: 700;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+html.dark .case-sn-input,
+html.dark .case-shiptime-input,
+html.dark .case-pending-followup-input {
+  background: #0f172a;
+  border-color: #334155;
+  color: #f8fafc;
+}
+.case-sn-input:focus,
+.case-shiptime-input:focus,
+.case-pending-followup-input:focus {
+  outline: none;
+  border-color: #0d9488;
+  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.18);
+}
