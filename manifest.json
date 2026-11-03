@@ -1,5 +1,5 @@
 {
-  "name": "LVI_Note 雲端工作筆記 (v3.0.8)",
+  "name": "LVI_Note 雲端工作筆記 (v3.1.0)",
   "short_name": "LVI_Note",
   "description": "LVI_Note 100% Google Drive 純雲端真實源工作筆記系統",
   "start_url": "./index.html",
@@ -31,7 +31,7 @@
       "purpose": "any maskable"
     }
   ],
-  "version": "v3.0.8",
+  "version": "v3.1.0",
   "share_target": {
     "action": "./index.html",
     "method": "GET",

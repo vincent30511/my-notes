@@ -8153,7 +8153,7 @@ html.dark #day-modal-notes-list > div {
   background: #0f172a !important;
 }
 
-/* 🛡️ v3.0.7 多裝置同開防打斷微提示條 (絕不搶焦點、不打斷手機鍵盤輸入) */
+/* 🛡️ v3.0.9 零吃字保護：外部雲端更新非侵入式提示條 */
 #lvi-deferred-cloud-banner {
   display: flex;
   align-items: center;
@@ -8175,4 +8175,35 @@ html.dark #lvi-deferred-cloud-banner {
 }
 #lvi-deferred-cloud-banner.hidden {
   display: none !important;
+}
+
+/* 🚀 v3.1.0 排程自動穩定性優化：手機端 (360px~430px) 案件追蹤 4 狀態列與新欄位零溢出觸控優化 */
+@media (max-width: 640px) {
+  #case-fixed-category-bar {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+  }
+  #case-fixed-category-bar .case-cat-tab-btn {
+    width: 100% !important;
+    justify-content: space-between !important;
+    padding: 8px 10px !important;
+    font-size: 12px !important;
+    white-space: nowrap !important;
+  }
+  .lvi-case-row-1 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+  }
+  .lvi-case-row-1 > .lvi-todo-box:first-child {
+    grid-column: span 2 !important;
+  }
+  .lvi-case-row-2-v305 {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .case-shiptime-input[type="date"] {
+    min-height: 38px !important;
+    font-size: 13px !important;
+  }
 }
