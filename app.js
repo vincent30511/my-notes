@@ -1,4 +1,4 @@
-const APP_VERSION = 'v3.2.0'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.2.2'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -10544,18 +10544,18 @@ async function renderNoteToDirectPdfBlob() {
 
   startNewPage();
 
-  // 1. 繪製高質感工程報告表頭
-  curCtx.font = `bold 20px ${FONT_FAMILY}`;
-  curCtx.fillStyle = '#475569';
-  curCtx.fillText('LVI_Note 工程技術與工作紀錄報告', MARGIN_X, curY);
-  const timeText = `匯出時間：${meta.exportTime}`;
-  const timeW = curCtx.measureText(timeText).width;
-  curCtx.fillText(timeText, PAGE_W - MARGIN_X - timeW, curY);
-  curY += 32;
-
-  curCtx.fillStyle = '#cbd5e1';
-  curCtx.fillRect(MARGIN_X, curY, CONTENT_W, 2);
-  curY += 18;
+  // 1. 繪製高質感工程報告表頭 (含全新 LVI-NOTE 徽章 LOGO)
+  const noteLogoImg = await loadBrandLogoImageForPdf();
+  curY = drawLviBrandHeaderOnPdfCanvas(curCtx, noteLogoImg, {
+    reportTitle: 'LVI-NOTE 工程技術與工作紀錄報告',
+    reportSubtitle: 'MODBUS TCP & Industrial Engineering Technical Note',
+    exportTime: meta.exportTime,
+    accentColor: '#1e293b',
+    subAccentColor: '#3b82f6',
+    marginX: MARGIN_X,
+    pageW: PAGE_W,
+    startY: curY
+  });
 
   curCtx.font = `800 40px ${FONT_FAMILY}`;
   curCtx.fillStyle = '#0f172a';
@@ -24280,19 +24280,18 @@ async function renderCaseToDirectPdfBlob(item) {
 
   startNewPage();
 
-  // 1. 報告頂部品牌標頭
-  curCtx.font = `800 20px ${FONT_FAMILY}`;
-  curCtx.fillStyle = '#0f766e';
-  curCtx.fillText('LVI_Note 售後案件追蹤與技術履歷報告 (Case Tracking Report)', MARGIN_X, curY);
-  const timeText = `匯出時間：${exportTime}`;
-  curCtx.fillStyle = '#475569';
-  const timeW = curCtx.measureText(timeText).width;
-  curCtx.fillText(timeText, PAGE_W - MARGIN_X - timeW, curY);
-  curY += 32;
-
-  curCtx.fillStyle = '#0d9488';
-  curCtx.fillRect(MARGIN_X, curY, CONTENT_W, 3);
-  curY += 20;
+  // 1. 報告頂部品牌標頭 (含全新 LVI-NOTE 徽章 LOGO)
+  const caseLogoImg = await loadBrandLogoImageForPdf();
+  curY = drawLviBrandHeaderOnPdfCanvas(curCtx, caseLogoImg, {
+    reportTitle: 'LVI-NOTE 售後案件追蹤與技術履歷報告 (Case Tracking Report)',
+    reportSubtitle: 'MODBUS TCP & Industrial Field Service Case History',
+    exportTime,
+    accentColor: '#0f766e',
+    subAccentColor: '#0d9488',
+    marginX: MARGIN_X,
+    pageW: PAGE_W,
+    startY: curY
+  });
 
   // 2. 案件大標題 + 案號標章
   const titleDisplay = `案號：${getCaseDisplayNo(item)}`;
@@ -29692,7 +29691,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v3.2.0',
+        version: 'v3.2.2',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -32177,7 +32176,7 @@ savePersistentActionHistory = function() {
     }));
 
     const fullJson = JSON.stringify({
-      version: 'v3.2.0',
+      version: 'v3.2.2',
       maxSteps: PERSISTENT_MAX_STEPS,
       historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex)),
       pool,
@@ -32207,7 +32206,7 @@ savePersistentActionHistory = function() {
             snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, subPool, subMap)
           }));
           localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, JSON.stringify({
-            version: 'v3.2.0',
+            version: 'v3.2.2',
             maxSteps: PERSISTENT_MAX_STEPS,
             historyIndex: Math.max(-1, Math.min(subRecords.length - 1, state.historyIndex - offset)),
             pool: subPool,
@@ -36741,8 +36740,2782 @@ function initV320UniversalOmniscientRollbackEngine() {
   }, true);
 }
 
-// 在所有 v3.2.0 覆寫載入完畢後，正式啟動應用程式並初始化 100 步全域回朔引擎
+// v3.2.0 覆寫載入完畢（由 v3.2.1 尾段統一啟動）
+
+
+
+// ============================================================================
+// 🚀 LVI_Note v3.2.1: 單一異常/問題歷史卡片內直接新增「✅ 處理結果/對策」與「📋 關聯待辦」
+// 使用情境：如使用者有一筆異常「發現濾心異常」，可直接在該筆異常卡片內：
+// 1. 新增一或多筆「處理結果 / 對策」（支援文字、🔩 更換零件、📷 拍照、📎 附件上傳、編輯與刪除）
+// 2. 新增或綁定「關聯待辦」（支援從現有待辦挑選、或點擊「⚡ 一鍵以此異常建立待辦」自動帶入機型/客戶/案號並雙向綁定）
+// ============================================================================
+
+function normalizeSingleHistoryEntryV321(entry, isCase = true) {
+  if (!entry || typeof entry !== 'object') return;
+  if (!Array.isArray(entry.resolutions)) entry.resolutions = [];
+  if (!Array.isArray(entry.linkedTodoIds)) entry.linkedTodoIds = [];
+  if (!entry.linkedTodoTitles || typeof entry.linkedTodoTitles !== 'object') entry.linkedTodoTitles = {};
+  if (typeof entry._stagingResText !== 'string') entry._stagingResText = '';
+  if (typeof entry._stagingResParts !== 'string') entry._stagingResParts = '';
+  if (typeof entry._stagingResAttachmentsHtml !== 'string') entry._stagingResAttachmentsHtml = '';
+
+  // 若舊版在合併時把「【處理對策】...」或「【處理結果】...」接在同一段 text 裡，或舊版有 partsText，自動拆出為第一筆內嵌處理結果！
+  const marker = isCase ? '\n【處理對策】' : '\n【處理結果】';
+  if (typeof entry.text === 'string' && entry.text.includes(marker)) {
+    const parts = entry.text.split(marker);
+    entry.text = parts[0].trim();
+    const resTxt = parts.slice(1).join('\n').trim();
+    if (resTxt) {
+      entry.resolutions.push({
+        id: 'res_mig_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        code: `處理結果 #${entry.resolutions.length + 1}`,
+        time: entry.time || formatTodoTimestamp(),
+        epoch: entry.epoch || Date.now(),
+        text: resTxt,
+        partsText: entry.partsText || '',
+        attachmentsHtml: ''
+      });
+      entry.partsText = '';
+    }
+  } else if (isCase && entry.partsText && entry.partsText.trim() && entry.resolutions.length === 0) {
+    entry.resolutions.push({
+      id: 'res_parts_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+      code: `處理結果 #1`,
+      time: entry.time || formatTodoTimestamp(),
+      epoch: entry.epoch || Date.now(),
+      text: '零件更換紀錄',
+      partsText: entry.partsText.trim(),
+      attachmentsHtml: ''
+    });
+    entry.partsText = '';
+  }
+}
+
+const _origUnifyCaseItemFieldsV320 = unifyCaseItemFieldsAndInitFactoryTest;
+unifyCaseItemFieldsAndInitFactoryTest = function(item) {
+  if (!item || typeof item !== 'object') return;
+  if (!Array.isArray(item.symptomHistory)) item.symptomHistory = [];
+  if (!Array.isArray(item.actionHistory)) item.actionHistory = [];
+
+  // 若舊版 actionHistory 有紀錄，優先依據 linkedSymptomIds 掛載至對應的異常卡片內（無指定則掛載於最新一筆異常或轉為含處理結果之紀錄）
+  if (item.actionHistory.length > 0) {
+    item.symptomHistory.forEach(sh => normalizeSingleHistoryEntryV321(sh, true));
+    item.actionHistory.forEach(ah => {
+      if (!ah) return;
+      const linkedIds = Array.isArray(ah.linkedSymptomIds) ? ah.linkedSymptomIds : [];
+      let targetSym = linkedIds.map(id => item.symptomHistory.find(s => s && s.id === id)).find(Boolean);
+      if (!targetSym && item.symptomHistory.length > 0) {
+        targetSym = item.symptomHistory[0];
+      }
+      if (targetSym) {
+        normalizeSingleHistoryEntryV321(targetSym, true);
+        if (!targetSym.resolutions.some(r => r && r.id === ah.id)) {
+          targetSym.resolutions.push({
+            id: ah.id || ('res_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
+            code: ah.code ? ah.code.replace('對策', '處理結果') : `處理結果 #${targetSym.resolutions.length + 1}`,
+            time: ah.time || formatTodoTimestamp(),
+            epoch: ah.epoch || Date.now(),
+            text: ah.actionText || ah.text || '',
+            partsText: ah.partsText || '',
+            attachmentsHtml: ah.attachmentsHtml || ''
+          });
+        }
+      } else {
+        const newSym = {
+          id: ah.id || ('sym_' + Date.now()),
+          code: `紀錄 #${item.symptomHistory.length + 1}`,
+          time: ah.time || formatTodoTimestamp(),
+          epoch: ah.epoch || Date.now(),
+          text: '歷史維修項目',
+          attachmentsHtml: '',
+          resolutions: [{
+            id: 'res_' + (ah.id || Date.now()),
+            code: '處理結果 #1',
+            time: ah.time || formatTodoTimestamp(),
+            epoch: ah.epoch || Date.now(),
+            text: ah.actionText || ah.text || '',
+            partsText: ah.partsText || '',
+            attachmentsHtml: ah.attachmentsHtml || ''
+          }],
+          linkedTodoIds: [],
+          linkedTodoTitles: {}
+        };
+        item.symptomHistory.push(newSym);
+      }
+    });
+    item.actionHistory = [];
+  }
+
+  _origUnifyCaseItemFieldsV320(item);
+  if (Array.isArray(item.symptomHistory)) {
+    item.symptomHistory.forEach(sh => normalizeSingleHistoryEntryV321(sh, true));
+  }
+};
+
+const _origUnifyTodoItemFieldsV320 = unifyTodoItemFieldsNonDestructive;
+unifyTodoItemFieldsNonDestructive = function(item) {
+  if (!item || typeof item !== 'object') return;
+  if (!Array.isArray(item.issueHistory)) item.issueHistory = [];
+  if (!Array.isArray(item.resolutionHistory)) item.resolutionHistory = [];
+
+  if (item.resolutionHistory.length > 0) {
+    item.issueHistory.forEach(ih => normalizeSingleHistoryEntryV321(ih, false));
+    item.resolutionHistory.forEach(rh => {
+      if (!rh) return;
+      const linkedIds = Array.isArray(rh.linkedIssueIds) ? rh.linkedIssueIds : [];
+      let targetIss = linkedIds.map(id => item.issueHistory.find(i => i && i.id === id)).find(Boolean);
+      if (!targetIss && item.issueHistory.length > 0) {
+        targetIss = item.issueHistory[0];
+      }
+      if (targetIss) {
+        normalizeSingleHistoryEntryV321(targetIss, false);
+        if (!targetIss.resolutions.some(r => r && r.id === rh.id)) {
+          targetIss.resolutions.push({
+            id: rh.id || ('tres_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6)),
+            code: rh.code ? rh.code.replace('結果', '處理結果') : `處理結果 #${targetIss.resolutions.length + 1}`,
+            time: rh.time || formatTodoTimestamp(),
+            epoch: rh.epoch || Date.now(),
+            text: rh.text || '',
+            attachmentsHtml: rh.attachmentsHtml || ''
+          });
+        }
+      } else {
+        item.issueHistory.push({
+          id: rh.id || ('tiss_' + Date.now()),
+          code: `紀錄 #${item.issueHistory.length + 1}`,
+          time: rh.time || formatTodoTimestamp(),
+          epoch: rh.epoch || Date.now(),
+          text: '待辦處理項目',
+          attachmentsHtml: '',
+          resolutions: [{
+            id: 'tres_' + (rh.id || Date.now()),
+            code: '處理結果 #1',
+            time: rh.time || formatTodoTimestamp(),
+            epoch: rh.epoch || Date.now(),
+            text: rh.text || '',
+            attachmentsHtml: rh.attachmentsHtml || ''
+          }],
+          linkedTodoIds: [],
+          linkedTodoTitles: {}
+        });
+      }
+    });
+    item.resolutionHistory = [];
+  }
+
+  _origUnifyTodoItemFieldsV320(item);
+  if (Array.isArray(item.issueHistory)) {
+    item.issueHistory.forEach(ih => normalizeSingleHistoryEntryV321(ih, false));
+  }
+};
+
+/**
+ * 在單一案件異常卡片 (sh) 內新增並儲存一筆「✅ 處理結果 / 對策」
+ */
+function commitResolutionToCaseSymptomCard(caseItem, symHistId, { autoSaved = false } = {}) {
+  if (!caseItem || !symHistId) return null;
+  unifyCaseItemFieldsAndInitFactoryTest(caseItem);
+  const sh = (caseItem.symptomHistory || []).find(s => s && s.id === symHistId);
+  if (!sh) return null;
+  normalizeSingleHistoryEntryV321(sh, true);
+
+  // 同步畫面上該異常卡片內的輸入框與附件
+  const cardDom = document.getElementById(`case-hist-card-${symHistId}`);
+  if (cardDom) {
+    const resTa = cardDom.querySelector('.case-hist-res-textarea');
+    const partsInp = cardDom.querySelector('.case-hist-res-parts-input');
+    const attGal = cardDom.querySelector('.case-hist-res-staging-attachments');
+    if (resTa) sh._stagingResText = resTa.value;
+    if (partsInp) sh._stagingResParts = partsInp.value;
+    if (attGal) {
+      attGal.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
+      sh._stagingResAttachmentsHtml = compactTodoAttachmentsHtml(attGal.innerHTML);
+    }
+  }
+
+  const textVal = String(sh._stagingResText || '').trim();
+  const partsVal = String(sh._stagingResParts || '').trim();
+  const attHtml = String(sh._stagingResAttachmentsHtml || '').trim();
+  if (!textVal && !partsVal && !attHtml) return null;
+
+  const beforeWs = (!autoSaved && !state.isUndoingOrRedoing && typeof captureWorkspaceActionSnapshot === 'function')
+    ? captureWorkspaceActionSnapshot()
+    : null;
+
+  const nowStr = formatTodoTimestamp();
+  const nowEpoch = Date.now();
+  const nextSeq = sh.resolutions.length + 1;
+
+  const resEntry = {
+    id: 'case_subres_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
+    code: `處理結果 #${nextSeq}`,
+    time: nowStr,
+    epoch: nowEpoch,
+    text: textVal,
+    partsText: partsVal,
+    attachmentsHtml: attHtml,
+    autoSaved: Boolean(autoSaved)
+  };
+
+  sh.resolutions.push(resEntry);
+  sh._stagingResText = '';
+  sh._stagingResParts = '';
+  sh._stagingResAttachmentsHtml = '';
+  caseItem.updatedAt = nowEpoch;
+
+  if (state.expandedCaseHistoryIds instanceof Set) {
+    state.expandedCaseHistoryIds.add(sh.id);
+  }
+
+  if (!autoSaved && beforeWs && !state.isUndoingOrRedoing) {
+    recordAction({
+      type: 'case_op',
+      title: `✅ 異常「${(sh.text || sh.code || '').slice(0, 14)}」新增${resEntry.code}`,
+      subtitle: `案號：「${getCaseDisplayNo(caseItem)}」｜內容：${(textVal || partsVal || '附件').slice(0, 22)}`,
+      _beforeWorkspace: beforeWs
+    });
+  }
+  return resEntry;
+}
+
+/**
+ * 在單一待辦說明卡片 (ih) 內新增並儲存一筆「✅ 處理結果」
+ */
+function commitResolutionToTodoIssueCard(todoItem, issHistId, { autoSaved = false } = {}) {
+  if (!todoItem || !issHistId) return null;
+  unifyTodoItemFieldsNonDestructive(todoItem);
+  const ih = (todoItem.issueHistory || []).find(i => i && i.id === issHistId);
+  if (!ih) return null;
+  normalizeSingleHistoryEntryV321(ih, false);
+
+  const cardDom = document.getElementById(`todo-hist-card-${issHistId}`);
+  if (cardDom) {
+    const resTa = cardDom.querySelector('.todo-hist-res-textarea');
+    const attGal = cardDom.querySelector('.todo-hist-res-staging-attachments');
+    if (resTa) ih._stagingResText = resTa.value;
+    if (attGal) {
+      attGal.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
+      ih._stagingResAttachmentsHtml = compactTodoAttachmentsHtml(attGal.innerHTML);
+    }
+  }
+
+  const textVal = String(ih._stagingResText || '').trim();
+  const attHtml = String(ih._stagingResAttachmentsHtml || '').trim();
+  if (!textVal && !attHtml) return null;
+
+  const beforeWs = (!autoSaved && !state.isUndoingOrRedoing && typeof captureWorkspaceActionSnapshot === 'function')
+    ? captureWorkspaceActionSnapshot()
+    : null;
+
+  const nowStr = formatTodoTimestamp();
+  const nowEpoch = Date.now();
+  const nextSeq = ih.resolutions.length + 1;
+
+  const resEntry = {
+    id: 'todo_subres_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
+    code: `處理結果 #${nextSeq}`,
+    time: nowStr,
+    epoch: nowEpoch,
+    text: textVal,
+    attachmentsHtml: attHtml,
+    autoSaved: Boolean(autoSaved)
+  };
+
+  ih.resolutions.push(resEntry);
+  ih._stagingResText = '';
+  ih._stagingResAttachmentsHtml = '';
+  todoItem.updatedAt = nowEpoch;
+
+  if (state.expandedTodoHistoryIds instanceof Set) {
+    state.expandedTodoHistoryIds.add(ih.id);
+  }
+
+  if (!autoSaved && beforeWs && !state.isUndoingOrRedoing) {
+    recordAction({
+      type: 'todo_toggle',
+      title: `✅ 待辦說明「${(ih.text || ih.code || '').slice(0, 14)}」新增${resEntry.code}`,
+      subtitle: `待辦：「${todoItem.title || '未命名待辦'}」｜結果：${(textVal || '附件').slice(0, 22)}`,
+      _beforeWorkspace: beforeWs
+    });
+  }
+  return resEntry;
+}
+
+/**
+ * 在單一異常卡片 (sh) 內一鍵建立或綁定「📋 關聯待辦」
+ */
+function createOrLinkTodoForSingleAnomaly(caseItem, symHistId, { existingTodoId = null, customTodoTitle = null } = {}) {
+  if (!caseItem || !symHistId) return null;
+  ensureTodoItemsInitialized();
+  unifyCaseItemFieldsAndInitFactoryTest(caseItem);
+  const sh = (caseItem.symptomHistory || []).find(s => s && s.id === symHistId);
+  if (!sh) return null;
+  normalizeSingleHistoryEntryV321(sh, true);
+
+  const beforeWs = (!state.isUndoingOrRedoing && typeof captureWorkspaceActionSnapshot === 'function')
+    ? captureWorkspaceActionSnapshot()
+    : null;
+
+  let targetTodo = null;
+  if (existingTodoId) {
+    targetTodo = (state.todoItems || []).find(t => t && t.id === existingTodoId);
+  } else {
+    const caseNo = getCaseDisplayNo(caseItem);
+    const defaultTitle = customTodoTitle && customTodoTitle.trim()
+      ? customTodoTitle.trim()
+      : `${caseNo && caseNo !== '未指定案號' ? '[' + caseNo + '] ' : ''}${(sh.text || sh.code || '異常待處理').replace(/\s+/g, ' ').trim().slice(0, 48)}`;
+    const nowStr = formatTodoTimestamp();
+    const nowEpoch = Date.now();
+    targetTodo = {
+      id: 'todo_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
+      title: defaultTitle,
+      status: '🔴 待處理',
+      machineModel: caseItem.machineModel || '',
+      clientVendor: caseItem.clientVendor || '',
+      issueText: `來源案件：${caseNo}${caseItem.serialNumber ? ' (S/N: ' + caseItem.serialNumber + ')' : ''}\n對應異常（${sh.code || '紀錄'}）：${sh.text || ''}`,
+      resolutionText: '',
+      issueAttachmentsHtml: '',
+      resolutionAttachmentsHtml: '',
+      issueHistory: [],
+      resolutionHistory: [],
+      tags: Array.isArray(caseItem.tags) ? caseItem.tags.slice() : [],
+      handlers: Array.isArray(caseItem.handlers) ? caseItem.handlers.slice() : [],
+      linkedNoteIds: [],
+      createdAt: nowStr,
+      createdEpoch: nowEpoch,
+      updatedAt: nowEpoch
+    };
+    state.todoItems.unshift(targetTodo);
+    saveTodoItemsState();
+  }
+
+  if (!targetTodo) return null;
+
+  if (!sh.linkedTodoIds.includes(targetTodo.id)) {
+    sh.linkedTodoIds.push(targetTodo.id);
+  }
+  sh.linkedTodoTitles[targetTodo.id] = targetTodo.title || '未命名待辦';
+
+  // 同步將此待辦加入父層案件的 linkedTodoIds，讓案件頂部與總覽表也能同步看到！
+  if (!Array.isArray(caseItem.linkedTodoIds)) caseItem.linkedTodoIds = [];
+  if (!caseItem.linkedTodoTitles || typeof caseItem.linkedTodoTitles !== 'object') caseItem.linkedTodoTitles = {};
+  if (!caseItem.linkedTodoIds.includes(targetTodo.id)) {
+    caseItem.linkedTodoIds.push(targetTodo.id);
+  }
+  caseItem.linkedTodoTitles[targetTodo.id] = targetTodo.title || '未命名待辦';
+
+  caseItem.updatedAt = Date.now();
+  saveCaseItemsState(true);
+
+  if (beforeWs && !state.isUndoingOrRedoing) {
+    recordAction({
+      type: 'case_op',
+      title: existingTodoId
+        ? `🔗 異常「${(sh.text || sh.code || '').slice(0, 12)}」關聯待辦「${(targetTodo.title || '').slice(0, 16)}」`
+        : `⚡ 由異常「${(sh.text || sh.code || '').slice(0, 12)}」建立關聯待辦「${(targetTodo.title || '').slice(0, 16)}」`,
+      subtitle: `案號：「${getCaseDisplayNo(caseItem)}」`,
+      _beforeWorkspace: beforeWs
+    });
+  }
+
+  return targetTodo;
+}
+
+// 覆寫 commitCaseSymptomStagingToHistory：若在上方輸入框同時填了更換零件，自動放進該筆新異常的第一筆處理結果或待填區
+const _origCommitCaseSymptomV320 = commitCaseSymptomStagingToHistory;
+commitCaseSymptomStagingToHistory = function(item, { autoSaved = false } = {}) {
+  const entry = _origCommitCaseSymptomV320(item, { autoSaved });
+  if (entry) {
+    normalizeSingleHistoryEntryV321(entry, true);
+  }
+  return entry;
+};
+
+// 覆寫 renderSymptomHistoryListHtml：在每一筆單一異常卡片（例如「發現濾心異常」）內直接提供「📋 關聯待辦」與「✅ 處理結果（含新增輸入框、零件、拍照、附件）」！
+renderSymptomHistoryListHtml = function(item) {
+  unifyCaseItemFieldsAndInitFactoryTest(item);
+  if (typeof ensureTodoItemsInitialized === 'function') {
+    try { ensureTodoItemsInitialized(); } catch (e) {}
+  }
+  const symHistory = Array.isArray(item.symptomHistory) ? item.symptomHistory : [];
+
+  if (symHistory.length === 0) {
+    return `<div class="text-xs text-gray-400 py-2.5 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無異常紀錄（於上方輸入異常現象如「發現濾心異常」並點擊「💾 存入歷史」後，即可在該筆異常內新增處理結果與關聯待辦）</div>`;
+  }
+
+  const allActiveTodos = (state.todoItems || []).filter(t => t && t.id && (typeof isTodoItemDeletedTombstoned !== 'function' || !isTodoItemDeletedTombstoned(t)));
+
+  return symHistory.map(sh => {
+    normalizeSingleHistoryEntryV321(sh, true);
+    const isExpanded = state.expandedCaseHistoryIds.has(sh.id);
+    const resList = Array.isArray(sh.resolutions) ? sh.resolutions : [];
+    const linkedTodoIds = Array.isArray(sh.linkedTodoIds) ? sh.linkedTodoIds : [];
+
+    let totalAttCount = countAttachmentsInHtml(sh.attachmentsHtml);
+    resList.forEach(r => { totalAttCount += countAttachmentsInHtml(r.attachmentsHtml); });
+
+    const allParts = [
+      sh.partsText || '',
+      ...resList.map(r => r.partsText || '')
+    ].map(s => s.trim()).filter(Boolean).join('、');
+
+    const previewTxt = (sh.text || '').replace(/\s+/g, ' ').trim() || (totalAttCount > 0 ? `（含 ${totalAttCount} 個附件）` : '（無內容）');
+    const hasResolution = resList.length > 0;
+
+    // 該筆異常專屬的關聯待辦膠囊
+    const linkedTodoChipsHtml = linkedTodoIds.map(tid => {
+      const tObj = (state.todoItems || []).find(t => t && t.id === tid);
+      const tTitle = (tObj && tObj.title) || (sh.linkedTodoTitles && sh.linkedTodoTitles[tid]) || resolveLinkedTodoTitleForCase(item, tid) || '關聯待辦';
+      const tStatus = (tObj && tObj.status) || '🔴 待處理';
+      const isDone = isTodoStatusCompleted(tStatus);
+      return `
+        <span class="hist-linked-todo-chip ${isDone ? 'is-done' : ''}">
+          <button type="button" class="case-hist-toggle-todo-status-btn cursor-pointer" data-hist-id="${escapeHtml(sh.id)}" data-todo-id="${escapeHtml(tid)}" title="點擊快速切換此待辦完成狀態">
+            <span>${isDone ? '🟢 已完成' : escapeHtml(tStatus)}</span>
+          </button>
+          <button type="button" class="case-jump-todo-btn inline-flex items-center gap-1 cursor-pointer hover:underline" data-todo-id="${escapeHtml(tid)}" title="點擊跳轉至該筆待辦事項">
+            <span class="truncate max-w-[210px]">${escapeHtml(tTitle)}</span>
+            <span class="text-[10px] opacity-75">↗</span>
+          </button>
+          <button type="button" class="case-hist-remove-todo-btn text-gray-400 hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-hist-id="${escapeHtml(sh.id)}" data-todo-id="${escapeHtml(tid)}" title="從此異常解除關聯待辦">×</button>
+        </span>
+      `;
+    }).join('');
+
+    const todoSelectOptionsHtml = [
+      `<option value="">＋ 在此異常新增 / 關聯待辦...</option>`,
+      `<option value="__quick_create_from_anomaly__">⚡ 一鍵以此異常建立待辦（「${escapeHtml(previewTxt.slice(0, 18))}」）</option>`,
+      `<option value="__prompt_create_for_anomaly__">➕ 手動輸入名稱新建關聯待辦...</option>`,
+      `<option disabled>── 選擇現有待辦事項綁定至此異常 ──</option>`,
+      ...allActiveTodos.slice(0, 100).map(t => {
+        const tStat = t.status ? `[${t.status}] ` : '';
+        return `<option value="${escapeHtml(t.id)}">☑️ ${escapeHtml(tStat + (t.title || '未命名待辦'))}</option>`;
+      })
+    ].join('');
+
+    // 該筆異常內已儲存的處理結果列表
+    const savedResolutionsHtml = resList.length > 0
+      ? `<div class="hist-res-saved-list">` + resList.map((r, rIdx) => `
+          <div class="hist-res-saved-card" data-res-id="${escapeHtml(r.id)}">
+            <div class="hist-res-saved-top">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="hist-res-saved-badge">✅ ${escapeHtml(r.code || ('處理結果 #' + (rIdx + 1)))}</span>
+                <span class="hist-detail-time-label">🕒 ${escapeHtml(r.time || '')}</span>
+                ${r.partsText ? `<span class="case-hist-parts-badge">🔩 更換零件：${escapeHtml(r.partsText)}</span>` : ''}
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button type="button" class="case-hist-edit-res-btn case-hist-btn-edit" data-hist-id="${escapeHtml(sh.id)}" data-res-id="${escapeHtml(r.id)}">✏️ 編輯結果</button>
+                <button type="button" class="case-hist-del-res-btn case-hist-btn-del" data-hist-id="${escapeHtml(sh.id)}" data-res-id="${escapeHtml(r.id)}">🗑️ 刪除</button>
+              </div>
+            </div>
+            <div class="hist-res-saved-text">${escapeHtml(r.text || '（無文字說明）')}</div>
+            ${r.attachmentsHtml ? `<div class="todo-attachments-gallery case-hist-res-saved-attachments mt-1.5" data-hist-id="${escapeHtml(sh.id)}" data-res-id="${escapeHtml(r.id)}">${r.attachmentsHtml}</div>` : ''}
+          </div>
+        `).join('') + `</div>`
+      : `<div class="text-xs text-slate-400 dark:text-slate-400 mb-2">此異常尚無處理結果，可直接於下方輸入框新增處理對策、更換零件或上傳照片：</div>`;
+
+    return `
+      <div class="lvi-case-history-card ${isExpanded ? 'is-expanded' : ''}" id="case-hist-card-${escapeHtml(sh.id)}" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">
+        <div class="lvi-case-history-summary-bar" data-toggle-hist-id="${escapeHtml(sh.id)}">
+          <div class="lvi-case-history-summary-left">
+            <span class="case-hist-code-badge case-hist-code-symptom">🚨 ${escapeHtml(sh.code || '異常')}</span>
+            <span class="case-hist-time-text">${escapeHtml(sh.time || '')}</span>
+            <span class="case-hist-preview-text font-extrabold">${escapeHtml(previewTxt)}</span>
+            <span class="hist-summary-status-pill ${hasResolution ? 'is-resolved' : 'is-pending'}">
+              ${hasResolution ? `✅ 處理結果 ${resList.length}` : '⏳ 待新增處理結果'}
+            </span>
+            ${linkedTodoIds.length > 0 ? `<span class="hist-summary-status-pill is-pending">☑️ 關聯待辦 ${linkedTodoIds.length}</span>` : ''}
+            ${allParts ? `<span class="case-hist-parts-badge">🔩 ${escapeHtml(allParts.slice(0, 18))}</span>` : ''}
+            ${totalAttCount > 0 ? `<span class="case-hist-att-badge">🖼️ ${totalAttCount}</span>` : ''}
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合' : '🔽 展開處理結果 / 待辦'}</span>
+          </div>
+        </div>
+
+        <div class="lvi-case-history-detail-body ${isExpanded ? '' : 'hidden'}">
+          <!-- 區塊 1：異常現象原始紀錄 -->
+          <div class="case-hist-detail-toolbar">
+            <span class="hist-detail-time-label">🕒 異常記錄時間：${escapeHtml(sh.time || '')}</span>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button type="button" class="hist-quick-action-btn hist-btn-add-res case-hist-focus-res-btn" data-hist-id="${escapeHtml(sh.id)}">➕ 新增處理結果</button>
+              <button type="button" class="hist-quick-action-btn hist-btn-quick-todo case-hist-quick-create-todo-btn" data-hist-id="${escapeHtml(sh.id)}" title="直接以此筆異常現象建立一筆關聯待辦事項">⚡ 一鍵轉待辦</button>
+              <button type="button" class="case-load-hist-to-edit-btn case-hist-btn-edit" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">✏️ 編輯異常</button>
+              <button type="button" class="case-del-hist-btn case-hist-btn-del" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">🗑️ 刪除</button>
+            </div>
+          </div>
+
+          <div class="lvi-case-history-fulltext">${escapeHtml(sh.text || '（無文字內容）')}</div>
+
+          ${sh.attachmentsHtml ? `
+          <div class="todo-attachments-gallery case-history-attachments-gallery" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">${sh.attachmentsHtml}</div>` : ''}
+
+          <!-- 區塊 2：此單一異常專屬「📋 關聯待辦」 -->
+          <div class="hist-nested-subpanel hist-nested-todo-panel">
+            <div class="hist-nested-header">
+              <div class="hist-nested-title">
+                <span>📋 此異常關聯待辦</span>
+                <span class="lvi-case-history-count">${linkedTodoIds.length}</span>
+              </div>
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <button type="button" class="hist-quick-action-btn hist-btn-quick-todo case-hist-quick-create-todo-btn" data-hist-id="${escapeHtml(sh.id)}">⚡ 以此異常新增待辦</button>
+                <select class="todo-link-note-select case-hist-link-todo-select" data-hist-id="${escapeHtml(sh.id)}" style="max-width:210px;">
+                  ${todoSelectOptionsHtml}
+                </select>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              ${linkedTodoChipsHtml || `<span class="text-xs text-slate-400">尚未關聯待辦（可點右上「⚡ 以此異常新增待辦」或從下拉選單綁定現有待辦）</span>`}
+            </div>
+          </div>
+
+          <!-- 區塊 3：此單一異常專屬「✅ 處理結果與零件更換」 -->
+          <div class="hist-nested-subpanel hist-nested-res-panel">
+            <div class="hist-nested-header">
+              <div class="hist-nested-title">
+                <span>✅ 此異常處理結果 / 維修對策</span>
+                <span class="lvi-case-history-count">${resList.length}</span>
+              </div>
+            </div>
+
+            ${savedResolutionsHtml}
+
+            <!-- 內嵌於此異常卡片內的「新增處理結果」編輯器 -->
+            <div class="hist-res-editor-box" data-hist-id="${escapeHtml(sh.id)}">
+              <div class="flex items-center justify-between gap-2 flex-wrap mb-1.5">
+                <span class="hist-editor-prompt-label">✍️ 針對「${escapeHtml(previewTxt.slice(0, 22))}」新增處理結果 / 對策：</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="hist_res:${escapeHtml(sh.id)}">
+                    <span>📷 拍照</span>
+                  </button>
+                  <button type="button" class="todo-section-upload-btn case-section-upload-btn" data-section="hist_res:${escapeHtml(sh.id)}">
+                    <span>📎 附件</span>
+                  </button>
+                  <button type="button" class="hist-btn-save-res case-hist-save-res-btn" data-hist-id="${escapeHtml(sh.id)}">
+                    <span>💾 儲存處理結果</span>
+                  </button>
+                </div>
+              </div>
+              <textarea class="lvi-todo-textarea case-hist-res-textarea" data-hist-id="${escapeHtml(sh.id)}" rows="2" placeholder="輸入此異常的處理結果、排除對策或維修紀錄...">${escapeHtml(sh._stagingResText || '')}</textarea>
+              <div class="lvi-case-parts-row mt-1.5">
+                <span class="lvi-case-parts-label">🔩 更換零件：</span>
+                <input type="text" class="case-parts-input case-hist-res-parts-input" data-hist-id="${escapeHtml(sh.id)}" value="${escapeHtml(sh._stagingResParts || '')}" placeholder="輸入針對此異常更換的料號或零件名稱（選填）..." />
+              </div>
+              <div class="todo-attachments-gallery case-hist-res-staging-attachments mt-1" data-hist-id="${escapeHtml(sh.id)}">${sh._stagingResAttachmentsHtml || ''}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+// 覆寫 renderTodoIssueHistoryListHtml：在待辦事項的每一筆單一問題紀錄內，也支援直接新增「✅ 處理結果」與「🔗 關聯待辦」！
+renderTodoIssueHistoryListHtml = function(item) {
+  unifyTodoItemFieldsNonDestructive(item);
+  const issHistory = Array.isArray(item.issueHistory) ? item.issueHistory : [];
+
+  if (issHistory.length === 0) {
+    return `<div class="text-xs text-gray-400 py-2.5 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無歷史紀錄（於上方輸入待辦說明後點擊「💾 存入歷史」，即可在該筆紀錄內直接新增處理結果與關聯待辦）</div>`;
+  }
+
+  const allActiveTodos = (state.todoItems || []).filter(t => t && t.id && t.id !== item.id && (typeof isTodoItemDeletedTombstoned !== 'function' || !isTodoItemDeletedTombstoned(t)));
+
+  return issHistory.map(ih => {
+    normalizeSingleHistoryEntryV321(ih, false);
+    const isExpanded = state.expandedTodoHistoryIds.has(ih.id);
+    const resList = Array.isArray(ih.resolutions) ? ih.resolutions : [];
+    const linkedTodoIds = Array.isArray(ih.linkedTodoIds) ? ih.linkedTodoIds : [];
+
+    let totalAttCount = countAttachmentsInHtml(ih.attachmentsHtml);
+    resList.forEach(r => { totalAttCount += countAttachmentsInHtml(r.attachmentsHtml); });
+
+    const previewTxt = (ih.text || '').replace(/\s+/g, ' ').trim() || (totalAttCount > 0 ? `（含 ${totalAttCount} 個附件）` : '（無內容）');
+    const hasResolution = resList.length > 0;
+
+    const linkedTodoChipsHtml = linkedTodoIds.map(tid => {
+      const tObj = (state.todoItems || []).find(t => t && t.id === tid);
+      const tTitle = (tObj && tObj.title) || (ih.linkedTodoTitles && ih.linkedTodoTitles[tid]) || '關聯待辦';
+      const tStatus = (tObj && tObj.status) || '🔴 待處理';
+      const isDone = isTodoStatusCompleted(tStatus);
+      return `
+        <span class="hist-linked-todo-chip ${isDone ? 'is-done' : ''}">
+          <span>${isDone ? '🟢 已完成' : escapeHtml(tStatus)}</span>
+          <button type="button" class="todo-hist-jump-todo-btn inline-flex items-center gap-1 cursor-pointer hover:underline" data-todo-id="${escapeHtml(tid)}">
+            <span class="truncate max-w-[200px]">${escapeHtml(tTitle)}</span>
+            <span class="text-[10px] opacity-75">↗</span>
+          </button>
+          <button type="button" class="todo-hist-remove-todo-btn text-gray-400 hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-id="${escapeHtml(tid)}">×</button>
+        </span>
+      `;
+    }).join('');
+
+    const todoSelectOptionsHtml = [
+      `<option value="">＋ 關聯或衍生待辦...</option>`,
+      `<option value="__quick_create_subtodo__">⚡ 以此紀錄衍生新待辦（「${escapeHtml(previewTxt.slice(0, 16))}」）</option>`,
+      `<option disabled>── 選擇現有待辦事項 ──</option>`,
+      ...allActiveTodos.slice(0, 80).map(t => `<option value="${escapeHtml(t.id)}">☑️ ${escapeHtml((t.status ? '[' + t.status + '] ' : '') + (t.title || '未命名'))}</option>`)
+    ].join('');
+
+    const savedResolutionsHtml = resList.length > 0
+      ? `<div class="hist-res-saved-list">` + resList.map((r, rIdx) => `
+          <div class="hist-res-saved-card" data-res-id="${escapeHtml(r.id)}">
+            <div class="hist-res-saved-top">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="hist-res-saved-badge">✅ ${escapeHtml(r.code || ('處理結果 #' + (rIdx + 1)))}</span>
+                <span class="hist-detail-time-label">🕒 ${escapeHtml(r.time || '')}</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <button type="button" class="todo-hist-edit-res-btn case-hist-btn-edit" data-todo-hist-id="${escapeHtml(ih.id)}" data-res-id="${escapeHtml(r.id)}">✏️ 編輯結果</button>
+                <button type="button" class="todo-hist-del-res-btn case-hist-btn-del" data-todo-hist-id="${escapeHtml(ih.id)}" data-res-id="${escapeHtml(r.id)}">🗑️ 刪除</button>
+              </div>
+            </div>
+            <div class="hist-res-saved-text">${escapeHtml(r.text || '（無文字說明）')}</div>
+            ${r.attachmentsHtml ? `<div class="todo-attachments-gallery todo-hist-res-saved-attachments mt-1.5" data-todo-hist-id="${escapeHtml(ih.id)}" data-res-id="${escapeHtml(r.id)}">${r.attachmentsHtml}</div>` : ''}
+          </div>
+        `).join('') + `</div>`
+      : `<div class="text-xs text-slate-400 mb-2">尚無處理結果，可於下方直接輸入此項目的處理結果或上傳附件：</div>`;
+
+    return `
+      <div class="lvi-case-history-card ${isExpanded ? 'is-expanded' : ''}" id="todo-hist-card-${escapeHtml(ih.id)}" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">
+        <div class="lvi-case-history-summary-bar" data-toggle-todo-hist-id="${escapeHtml(ih.id)}">
+          <div class="lvi-case-history-summary-left">
+            <span class="case-hist-code-badge case-hist-code-symptom">📝 ${escapeHtml(ih.code || '紀錄')}</span>
+            <span class="case-hist-time-text">${escapeHtml(ih.time || '')}</span>
+            <span class="case-hist-preview-text font-extrabold">${escapeHtml(previewTxt)}</span>
+            <span class="hist-summary-status-pill ${hasResolution ? 'is-resolved' : 'is-pending'}">
+              ${hasResolution ? `✅ 處理結果 ${resList.length}` : '⏳ 待新增處理結果'}
+            </span>
+            ${linkedTodoIds.length > 0 ? `<span class="hist-summary-status-pill is-pending">☑️ 關聯待辦 ${linkedTodoIds.length}</span>` : ''}
+            ${totalAttCount > 0 ? `<span class="case-hist-att-badge">🖼️ ${totalAttCount}</span>` : ''}
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0">
+            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合' : '🔽 展開處理結果 / 待辦'}</span>
+          </div>
+        </div>
+
+        <div class="lvi-case-history-detail-body ${isExpanded ? '' : 'hidden'}">
+          <div class="case-hist-detail-toolbar">
+            <span class="hist-detail-time-label">🕒 記錄時間：${escapeHtml(ih.time || '')}</span>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button type="button" class="todo-load-hist-to-edit-btn case-hist-btn-edit" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">✏️ 編輯說明</button>
+              <button type="button" class="todo-del-hist-btn case-hist-btn-del" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">🗑️ 刪除</button>
+            </div>
+          </div>
+
+          <div class="lvi-case-history-fulltext">${escapeHtml(ih.text || '（無文字內容）')}</div>
+
+          ${ih.attachmentsHtml ? `
+          <div class="todo-attachments-gallery todo-history-attachments-gallery" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">${ih.attachmentsHtml}</div>` : ''}
+
+          <!-- 單一待辦說明內嵌「📋 關聯待辦」 -->
+          <div class="hist-nested-subpanel hist-nested-todo-panel">
+            <div class="hist-nested-header">
+              <div class="hist-nested-title">
+                <span>📋 此紀錄關聯待辦</span>
+                <span class="lvi-case-history-count">${linkedTodoIds.length}</span>
+              </div>
+              <select class="todo-link-note-select todo-hist-link-todo-select" data-todo-hist-id="${escapeHtml(ih.id)}" style="max-width:220px;">
+                ${todoSelectOptionsHtml}
+              </select>
+            </div>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              ${linkedTodoChipsHtml || `<span class="text-xs text-slate-400">無關聯待辦</span>`}
+            </div>
+          </div>
+
+          <!-- 單一待辦說明內嵌「✅ 處理結果」 -->
+          <div class="hist-nested-subpanel hist-nested-res-panel">
+            <div class="hist-nested-header">
+              <div class="hist-nested-title">
+                <span>✅ 此項目處理結果</span>
+                <span class="lvi-case-history-count">${resList.length}</span>
+              </div>
+            </div>
+
+            ${savedResolutionsHtml}
+
+            <div class="hist-res-editor-box" data-todo-hist-id="${escapeHtml(ih.id)}">
+              <div class="flex items-center justify-between gap-2 flex-wrap mb-1.5">
+                <span class="hist-editor-prompt-label">✍️ 針對「${escapeHtml(previewTxt.slice(0, 22))}」新增處理結果：</span>
+                <div class="flex items-center gap-1.5 flex-wrap">
+                  <button type="button" class="todo-section-camera-btn" data-section="hist_res:${escapeHtml(ih.id)}">
+                    <span>📷 拍照</span>
+                  </button>
+                  <button type="button" class="todo-section-upload-btn" data-section="hist_res:${escapeHtml(ih.id)}">
+                    <span>📎 附件</span>
+                  </button>
+                  <button type="button" class="hist-btn-save-res todo-hist-save-res-btn" data-todo-hist-id="${escapeHtml(ih.id)}">
+                    <span>💾 儲存處理結果</span>
+                  </button>
+                </div>
+              </div>
+              <textarea class="lvi-todo-textarea todo-hist-res-textarea" data-todo-hist-id="${escapeHtml(ih.id)}" rows="2" placeholder="輸入針對此項目的處理結果...">${escapeHtml(ih._stagingResText || '')}</textarea>
+              <div class="todo-attachments-gallery todo-hist-res-staging-attachments mt-1" data-todo-hist-id="${escapeHtml(ih.id)}">${ih._stagingResAttachmentsHtml || ''}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+// 擴充 uploadFileToCaseCardSection 與 uploadFileToTodoCardSection 支援上傳照片/檔案至單一歷史卡片內的「處理結果 (hist_res:<histId>)」
+const _origUploadFileToCaseCardSectionV320 = uploadFileToCaseCardSection;
+uploadFileToCaseCardSection = async function(caseId, section, file) {
+  if (!String(section || '').startsWith('hist_res:')) {
+    return await _origUploadFileToCaseCardSectionV320(caseId, section, file);
+  }
+  const histId = String(section).slice('hist_res:'.length);
+  const item = (state.caseItems || []).find(c => c && c.id === caseId);
+  if (!item || !file) return;
+  unifyCaseItemFieldsAndInitFactoryTest(item);
+  const sh = (item.symptomHistory || []).find(s => s && s.id === histId);
+  if (!sh) return;
+  normalizeSingleHistoryEntryV321(sh, true);
+
+  const isImage = (file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|webp|heic|heif|bmp|gif|svg|ico)$/i.test(file.name);
+  let uploadTarget = file;
+  let localPermanentDataUrl = null;
+  if (isImage) {
+    uploadTarget = await compressImageForUpload(file);
+    try { localPermanentDataUrl = await blobToDataUrl(uploadTarget); } catch (e) {}
+  } else {
+    try { localPermanentDataUrl = await blobToDataUrl(file); } catch (e) {}
+  }
+  const finalName = uploadTarget.name || file.name;
+  const finalSizeDisplay = formatFileSizeDisplay(uploadTarget.size || file.size);
+  const tempCardId = 'case_subres_att_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+
+  let cardHtml = '';
+  if (isImage) {
+    const srcUrl = localPermanentDataUrl || URL.createObjectURL(uploadTarget);
+    cardHtml = buildMediaCollapseCardHtml({
+      fileId: '',
+      fileName: finalName,
+      isImage: true,
+      isVideo: false,
+      isAudio: false,
+      directSrc: srcUrl,
+      previewUrl: '#',
+      previewEmbedUrl: '#',
+      downloadUrl: '#'
+    }).replace('<details ', `<details id="${tempCardId}" draggable="false" open `).replace(/<p><br><\/p>\s*$/, '');
+  } else {
+    const dlUrl = localPermanentDataUrl || URL.createObjectURL(uploadTarget);
+    cardHtml = `
+      <div id="${tempCardId}" class="notion-file-attachment my-1 p-2 rounded-lg border border-gray-200 dark:border-notion-borderDark bg-white dark:bg-notion-card flex items-center justify-between gap-2" contenteditable="false" data-file-id="" data-file-name="${escapeHtml(finalName)}" data-file-size="${finalSizeDisplay}" data-permanent-url="${escapeHtml(dlUrl)}">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <i data-lucide="paperclip" class="w-3.5 h-3.5 text-emerald-500 shrink-0"></i>
+          <span class="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">${escapeHtml(finalName)}</span>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <a href="${escapeHtml(dlUrl)}" target="_blank" download="${escapeHtml(finalName)}" class="px-1.5 py-0.5 text-[11px] rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-bold">下載</a>
+          <button type="button" class="file-attachment-delete-btn px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 text-[11px] font-bold cursor-pointer">×</button>
+        </div>
+      </div>
+    `;
+  }
+
+  sh._stagingResAttachmentsHtml = (sh._stagingResAttachmentsHtml || '') + cardHtml;
+  item.updatedAt = Date.now();
+  saveCaseItemsState();
+  renderCasesView();
+  showToast(`✅ 已將附件「${finalName}」加入此異常的處理結果暫存區`);
+};
+
+const _origUploadFileToTodoCardSectionV320 = uploadFileToTodoCardSection;
+uploadFileToTodoCardSection = async function(todoId, section, file) {
+  if (!String(section || '').startsWith('hist_res:')) {
+    return await _origUploadFileToTodoCardSectionV320(todoId, section, file);
+  }
+  const histId = String(section).slice('hist_res:'.length);
+  const item = (state.todoItems || []).find(t => t && t.id === todoId);
+  if (!item || !file) return;
+  unifyTodoItemFieldsNonDestructive(item);
+  const ih = (item.issueHistory || []).find(i => i && i.id === histId);
+  if (!ih) return;
+  normalizeSingleHistoryEntryV321(ih, false);
+
+  const isImage = (file.type && file.type.startsWith('image/')) || /\.(jpe?g|png|webp|heic|heif|bmp|gif|svg|ico)$/i.test(file.name);
+  let uploadTarget = file;
+  let localPermanentDataUrl = null;
+  if (isImage) {
+    uploadTarget = await compressImageForUpload(file);
+    try { localPermanentDataUrl = await blobToDataUrl(uploadTarget); } catch (e) {}
+  } else {
+    try { localPermanentDataUrl = await blobToDataUrl(file); } catch (e) {}
+  }
+  const finalName = uploadTarget.name || file.name;
+  const finalSizeDisplay = formatFileSizeDisplay(uploadTarget.size || file.size);
+  const tempCardId = 'todo_subres_att_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+
+  let cardHtml = '';
+  if (isImage) {
+    const srcUrl = localPermanentDataUrl || URL.createObjectURL(uploadTarget);
+    cardHtml = buildMediaCollapseCardHtml({
+      fileId: '',
+      fileName: finalName,
+      isImage: true,
+      isVideo: false,
+      isAudio: false,
+      directSrc: srcUrl,
+      previewUrl: '#',
+      previewEmbedUrl: '#',
+      downloadUrl: '#'
+    }).replace('<details ', `<details id="${tempCardId}" draggable="false" open `).replace(/<p><br><\/p>\s*$/, '');
+  } else {
+    const dlUrl = localPermanentDataUrl || URL.createObjectURL(uploadTarget);
+    cardHtml = `
+      <div id="${tempCardId}" class="notion-file-attachment my-1 p-2 rounded-lg border border-gray-200 dark:border-notion-borderDark bg-white dark:bg-notion-card flex items-center justify-between gap-2" contenteditable="false" data-file-id="" data-file-name="${escapeHtml(finalName)}" data-file-size="${finalSizeDisplay}" data-permanent-url="${escapeHtml(dlUrl)}">
+        <div class="flex items-center gap-2 min-w-0 flex-1">
+          <i data-lucide="paperclip" class="w-3.5 h-3.5 text-emerald-500 shrink-0"></i>
+          <span class="text-xs font-bold text-gray-800 dark:text-gray-100 truncate">${escapeHtml(finalName)}</span>
+        </div>
+        <div class="flex items-center gap-1 shrink-0">
+          <a href="${escapeHtml(dlUrl)}" target="_blank" download="${escapeHtml(finalName)}" class="px-1.5 py-0.5 text-[11px] rounded bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-bold">下載</a>
+          <button type="button" class="file-attachment-delete-btn px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 text-[11px] font-bold cursor-pointer">×</button>
+        </div>
+      </div>
+    `;
+  }
+
+  ih._stagingResAttachmentsHtml = (ih._stagingResAttachmentsHtml || '') + cardHtml;
+  item.updatedAt = Date.now();
+  saveTodoItemsState();
+  renderTasksView();
+  showToast(`✅ 已將附件「${finalName}」加入此紀錄的處理結果暫存區`);
+};
+
+// 擴充 flushAllUnsavedCaseStagingToHistory 與 flushAllUnsavedTodoStagingToHistory：
+// 若使用者在某筆單一異常卡片的「處理結果」輸入框打了字還沒按「💾 儲存處理結果」就離開頁面，自動為其歸檔入該異常的處理結果清單！
+const _origFlushCaseStagingV320 = flushAllUnsavedCaseStagingToHistory;
+flushAllUnsavedCaseStagingToHistory = function(autoSaved = true, fromWebsiteClose = false) {
+  let committed = _origFlushCaseStagingV320(autoSaved, fromWebsiteClose);
+  if (Array.isArray(state.caseItems)) {
+    state.caseItems.forEach(item => {
+      if (!item || isCaseItemDeletedTombstoned(item)) return;
+      (item.symptomHistory || []).forEach(sh => {
+        if (!sh) return;
+        const rEntry = commitResolutionToCaseSymptomCard(item, sh.id, { autoSaved });
+        if (rEntry) committed = true;
+      });
+    });
+    if (committed) saveCaseItemsToLocalStorageOnly();
+  }
+  return committed;
+};
+
+const _origFlushTodoStagingV320 = flushAllUnsavedTodoStagingToHistory;
+flushAllUnsavedTodoStagingToHistory = function(autoSaved = true, fromWebsiteClose = false) {
+  let committed = _origFlushTodoStagingV320(autoSaved, fromWebsiteClose);
+  if (Array.isArray(state.todoItems)) {
+    state.todoItems.forEach(item => {
+      if (!item || isTodoItemDeletedTombstoned(item)) return;
+      (item.issueHistory || []).forEach(ih => {
+        if (!ih) return;
+        const rEntry = commitResolutionToTodoIssueCard(item, ih.id, { autoSaved });
+        if (rEntry) committed = true;
+      });
+    });
+    if (committed) saveTodoItemsToLocalStorageOnly();
+  }
+  return committed;
+};
+
+// 擴充 bindCaseCardsInteractions：綁定單一異常卡片內的「➕ 新增處理結果」、「💾 儲存處理結果」、「✏️ 編輯結果」、「🗑️ 刪除結果」與「📋 關聯待辦 / ⚡ 一鍵轉待辦」
+const _origBindCaseCardsInteractionsV320 = bindCaseCardsInteractions;
+bindCaseCardsInteractions = function(listContainer) {
+  _origBindCaseCardsInteractionsV320(listContainer);
+  if (!listContainer) return;
+
+  listContainer.querySelectorAll('.lvi-case-card').forEach(cardEl => {
+    if (cardEl._v321NestedHistBound) return;
+    cardEl._v321NestedHistBound = true;
+    const caseId = cardEl.getAttribute('data-case-id');
+    const getItem = () => (state.caseItems || []).find(c => c && c.id === caseId);
+
+    // 1. 單一異常內嵌「處理結果」與「更換零件」輸入框即時同步至 sh._stagingResText / sh._stagingResParts
+    cardEl.querySelectorAll('.case-hist-res-textarea').forEach(ta => {
+      const hid = ta.getAttribute('data-hist-id');
+      ta.addEventListener('input', () => {
+        const item = getItem();
+        if (!item) return;
+        const sh = (item.symptomHistory || []).find(s => s && s.id === hid);
+        if (!sh) return;
+        sh._stagingResText = ta.value;
+        item.updatedAt = Date.now();
+        saveCaseItemsToLocalStorageOnly();
+      });
+      ta.addEventListener('paste', async (e) => {
+        const clipItems = (e.clipboardData || window.clipboardData || {}).items || [];
+        for (const ci of clipItems) {
+          if (ci.kind === 'file') {
+            const f = ci.getAsFile();
+            if (f) {
+              e.preventDefault();
+              await uploadFileToCaseCardSection(caseId, 'hist_res:' + hid, f);
+            }
+          }
+        }
+      });
+    });
+
+    cardEl.querySelectorAll('.case-hist-res-parts-input').forEach(inp => {
+      const hid = inp.getAttribute('data-hist-id');
+      inp.addEventListener('input', () => {
+        const item = getItem();
+        if (!item) return;
+        const sh = (item.symptomHistory || []).find(s => s && s.id === hid);
+        if (!sh) return;
+        sh._stagingResParts = inp.value;
+        item.updatedAt = Date.now();
+        saveCaseItemsToLocalStorageOnly();
+      });
+    });
+
+    // 2. 點擊「➕ 新增處理結果」快速聚焦該異常卡片內的處理結果輸入框
+    cardEl.querySelectorAll('.case-hist-focus-res-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const hid = btn.getAttribute('data-hist-id');
+        const targetTa = cardEl.querySelector(`.case-hist-res-textarea[data-hist-id="${hid}"]`);
+        if (targetTa) {
+          targetTa.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          targetTa.focus();
+        }
+      });
+    });
+
+    // 3. 點擊「💾 儲存處理結果」按鈕
+    cardEl.querySelectorAll('.case-hist-save-res-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-hist-id');
+        const resEntry = commitResolutionToCaseSymptomCard(item, hid, { autoSaved: false });
+        if (!resEntry) {
+          showToast('⚠️ 請先輸入此異常的處理結果、更換零件或上傳附件，再點擊「💾 儲存處理結果」');
+          return;
+        }
+        saveCaseItemsState(true);
+        renderCasesView();
+        showToast(`✅ 已於該筆異常內新增「${resEntry.code}」！`);
+      });
+    });
+
+    // 4. 編輯或刪除單一異常內的某筆「處理結果」
+    cardEl.querySelectorAll('.case-hist-edit-res-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-hist-id');
+        const rid = btn.getAttribute('data-res-id');
+        const sh = (item.symptomHistory || []).find(s => s && s.id === hid);
+        if (!sh || !Array.isArray(sh.resolutions)) return;
+        const rIdx = sh.resolutions.findIndex(r => r && r.id === rid);
+        if (rIdx === -1) return;
+        if ((sh._stagingResText && sh._stagingResText.trim()) || (sh._stagingResParts && sh._stagingResParts.trim()) || (sh._stagingResAttachmentsHtml && sh._stagingResAttachmentsHtml.trim())) {
+          commitResolutionToCaseSymptomCard(item, hid, { autoSaved: true });
+        }
+        const targetRes = sh.resolutions.splice(rIdx, 1)[0];
+        sh._stagingResText = targetRes.text || '';
+        sh._stagingResParts = targetRes.partsText || '';
+        sh._stagingResAttachmentsHtml = targetRes.attachmentsHtml || '';
+        item.updatedAt = Date.now();
+        saveCaseItemsState();
+        renderCasesView();
+        setTimeout(() => {
+          const ta = document.querySelector(`.case-hist-res-textarea[data-hist-id="${hid}"]`);
+          if (ta) ta.focus();
+        }, 40);
+        showToast('✏️ 已將該筆處理結果載回下方輸入框，修改後按「💾 儲存處理結果」即可');
+      });
+    });
+
+    cardEl.querySelectorAll('.case-hist-del-res-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-hist-id');
+        const rid = btn.getAttribute('data-res-id');
+        const sh = (item.symptomHistory || []).find(s => s && s.id === hid);
+        if (!sh || !Array.isArray(sh.resolutions)) return;
+        const targetRes = sh.resolutions.find(r => r && r.id === rid);
+        if (!targetRes) return;
+        const beforeWs = (!state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+        sh.resolutions = sh.resolutions.filter(r => r && r.id !== rid);
+        item.updatedAt = Date.now();
+        saveCaseItemsState(true);
+        renderCasesView();
+        if (beforeWs) {
+          recordAction({
+            type: 'delete_case_history',
+            isDeletion: true,
+            title: `🗑️ 刪除異常處理結果「${targetRes.code || '處理結果'}」`,
+            subtitle: `異常：「${(sh.text || sh.code || '').slice(0, 18)}」`,
+            deletedDetail: `刪除異常【${(sh.text || sh.code || '').slice(0, 24)}】之處理結果：${(targetRes.text || '').slice(0, 50)}`,
+            _beforeWorkspace: beforeWs
+          });
+        }
+        showToast('🗑️ 已刪除該筆處理結果');
+      });
+    });
+
+    // 5. 單一異常內點擊「⚡ 一鍵轉待辦 / 以此異常新增待辦」
+    cardEl.querySelectorAll('.case-hist-quick-create-todo-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-hist-id');
+        const newTodo = createOrLinkTodoForSingleAnomaly(item, hid, {});
+        if (newTodo) {
+          renderCasesView();
+          showToast(`⚡ 已為此異常建立並綁定關聯待辦：「${newTodo.title}」！`);
+        }
+      });
+    });
+
+    // 6. 單一異常內下拉選單選擇或新建關聯待辦
+    cardEl.querySelectorAll('.case-hist-link-todo-select').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const item = getItem();
+        if (!item || !sel.value) return;
+        const hid = sel.getAttribute('data-hist-id');
+        const val = sel.value;
+        sel.value = '';
+        if (val === '__quick_create_from_anomaly__') {
+          const newTodo = createOrLinkTodoForSingleAnomaly(item, hid, {});
+          if (newTodo) {
+            renderCasesView();
+            showToast(`⚡ 已為此異常建立關聯待辦：「${newTodo.title}」！`);
+          }
+        } else if (val === '__prompt_create_for_anomaly__') {
+          const sh = (item.symptomHistory || []).find(s => s && s.id === hid);
+          const defName = sh ? `${getCaseDisplayNo(item) !== '未指定案號' ? '[' + getCaseDisplayNo(item) + '] ' : ''}${(sh.text || '').slice(0, 30)}` : '';
+          const customTitle = prompt('請輸入要為此異常新建的「待辦事項」標題：', defName);
+          if (customTitle && customTitle.trim()) {
+            const newTodo = createOrLinkTodoForSingleAnomaly(item, hid, { customTodoTitle: customTitle.trim() });
+            if (newTodo) {
+              renderCasesView();
+              showToast(`✅ 已新建並關聯待辦：「${newTodo.title}」！`);
+            }
+          }
+        } else {
+          const linked = createOrLinkTodoForSingleAnomaly(item, hid, { existingTodoId: val });
+          if (linked) {
+            renderCasesView();
+            showToast(`🔗 已將待辦「${linked.title}」關聯至此筆異常！`);
+          }
+        }
+      });
+    });
+
+    // 7. 單一異常內快速切換關聯待辦狀態 / 解除關聯待辦
+    cardEl.querySelectorAll('.case-hist-toggle-todo-status-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tid = btn.getAttribute('data-todo-id');
+        const tObj = (state.todoItems || []).find(t => t && t.id === tid);
+        if (!tObj) return;
+        const beforeWs = (!state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+        const wasDone = isTodoStatusCompleted(tObj.status);
+        tObj.status = wasDone ? '🔴 待處理' : '🟢 已完成';
+        tObj.completedAt = wasDone ? '' : formatTodoTimestamp();
+        tObj.updatedAt = Date.now();
+        saveTodoItemsState();
+        renderCasesView();
+        if (beforeWs) {
+          recordAction({
+            type: 'todo_toggle',
+            title: `${wasDone ? '🔄 重開' : '✅ 完成'}關聯待辦：「${(tObj.title || '').slice(0, 18)}」`,
+            subtitle: `狀態變更為：${tObj.status}`,
+            _beforeWorkspace: beforeWs
+          });
+        }
+        showToast(`✅ 已更新關聯待辦「${tObj.title}」狀態為 ${tObj.status}`);
+      });
+    });
+
+    cardEl.querySelectorAll('.case-hist-remove-todo-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-hist-id');
+        const tid = btn.getAttribute('data-todo-id');
+        const sh = (item.symptomHistory || []).find(s => s && s.id === hid);
+        if (!sh) return;
+        const beforeWs = (!state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+        sh.linkedTodoIds = (sh.linkedTodoIds || []).filter(id => id !== tid);
+        item.updatedAt = Date.now();
+        saveCaseItemsState(true);
+        renderCasesView();
+        if (beforeWs) {
+          recordAction({
+            type: 'case_op',
+            title: `🔗 解除異常關聯待辦`,
+            subtitle: `異常：「${(sh.text || sh.code || '').slice(0, 18)}」`,
+            _beforeWorkspace: beforeWs
+          });
+        }
+        showToast('已從此筆異常解除該關聯待辦');
+      });
+    });
+  });
+};
+
+// 擴充 bindTodoCardsInteractions：綁定待辦事項內單一說明紀錄的「💾 儲存處理結果」、「✏️ 編輯結果」、「🗑️ 刪除結果」與「📋 關聯待辦」
+const _origBindTodoCardsInteractionsV320 = bindTodoCardsInteractions;
+bindTodoCardsInteractions = function(listContainer) {
+  _origBindTodoCardsInteractionsV320(listContainer);
+  if (!listContainer) return;
+
+  listContainer.querySelectorAll('.lvi-todo-card:not(.lvi-case-card)').forEach(cardEl => {
+    if (cardEl._v321NestedTodoHistBound) return;
+    cardEl._v321NestedTodoHistBound = true;
+    const todoId = cardEl.getAttribute('data-todo-id');
+    const getItem = () => (state.todoItems || []).find(t => t && t.id === todoId);
+
+    cardEl.querySelectorAll('.todo-hist-res-textarea').forEach(ta => {
+      const hid = ta.getAttribute('data-todo-hist-id');
+      ta.addEventListener('input', () => {
+        const item = getItem();
+        if (!item) return;
+        const ih = (item.issueHistory || []).find(i => i && i.id === hid);
+        if (!ih) return;
+        ih._stagingResText = ta.value;
+        item.updatedAt = Date.now();
+        saveTodoItemsToLocalStorageOnly();
+      });
+    });
+
+    cardEl.querySelectorAll('.todo-hist-save-res-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-todo-hist-id');
+        const resEntry = commitResolutionToTodoIssueCard(item, hid, { autoSaved: false });
+        if (!resEntry) {
+          showToast('⚠️ 請先輸入處理結果或上傳附件，再點擊「💾 儲存處理結果」');
+          return;
+        }
+        saveTodoItemsState(true);
+        renderTasksView();
+        showToast(`✅ 已於該筆待辦紀錄內新增「${resEntry.code}」！`);
+      });
+    });
+
+    cardEl.querySelectorAll('.todo-hist-edit-res-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-todo-hist-id');
+        const rid = btn.getAttribute('data-res-id');
+        const ih = (item.issueHistory || []).find(i => i && i.id === hid);
+        if (!ih || !Array.isArray(ih.resolutions)) return;
+        const rIdx = ih.resolutions.findIndex(r => r && r.id === rid);
+        if (rIdx === -1) return;
+        const targetRes = ih.resolutions.splice(rIdx, 1)[0];
+        ih._stagingResText = targetRes.text || '';
+        ih._stagingResAttachmentsHtml = targetRes.attachmentsHtml || '';
+        item.updatedAt = Date.now();
+        saveTodoItemsState();
+        renderTasksView();
+        showToast('✏️ 已將該筆處理結果載回下方輸入框');
+      });
+    });
+
+    cardEl.querySelectorAll('.todo-hist-del-res-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-todo-hist-id');
+        const rid = btn.getAttribute('data-res-id');
+        const ih = (item.issueHistory || []).find(i => i && i.id === hid);
+        if (!ih || !Array.isArray(ih.resolutions)) return;
+        const beforeWs = (!state.isUndoingOrRedoing) ? captureWorkspaceActionSnapshot() : null;
+        ih.resolutions = ih.resolutions.filter(r => r && r.id !== rid);
+        item.updatedAt = Date.now();
+        saveTodoItemsState(true);
+        renderTasksView();
+        if (beforeWs) {
+          recordAction({
+            type: 'todo_toggle',
+            isDeletion: true,
+            title: `🗑️ 刪除待辦處理結果`,
+            subtitle: `待辦：「${item.title || ''}」`,
+            _beforeWorkspace: beforeWs
+          });
+        }
+        showToast('🗑️ 已刪除該筆處理結果');
+      });
+    });
+
+    cardEl.querySelectorAll('.todo-hist-link-todo-select').forEach(sel => {
+      sel.addEventListener('change', (e) => {
+        e.stopPropagation();
+        const item = getItem();
+        if (!item || !sel.value) return;
+        const hid = sel.getAttribute('data-todo-hist-id');
+        const ih = (item.issueHistory || []).find(i => i && i.id === hid);
+        if (!ih) return;
+        normalizeSingleHistoryEntryV321(ih, false);
+        const val = sel.value;
+        sel.value = '';
+        if (val === '__quick_create_subtodo__') {
+          const nowStr = formatTodoTimestamp();
+          const nowEpoch = Date.now();
+          const subTodo = {
+            id: 'todo_' + nowEpoch + '_' + Math.random().toString(36).slice(2, 6),
+            title: `[衍生待辦] ${(ih.text || ih.code || '待處理項目').replace(/\s+/g, ' ').trim().slice(0, 40)}`,
+            status: '🔴 待處理',
+            machineModel: item.machineModel || '',
+            clientVendor: item.clientVendor || '',
+            issueText: `衍生自待辦「${item.title || ''}」之紀錄（${ih.code || ''}）：${ih.text || ''}`,
+            resolutionText: '',
+            issueHistory: [],
+            resolutionHistory: [],
+            createdAt: nowStr,
+            createdEpoch: nowEpoch,
+            updatedAt: nowEpoch
+          };
+          state.todoItems.unshift(subTodo);
+          ih.linkedTodoIds.push(subTodo.id);
+          ih.linkedTodoTitles[subTodo.id] = subTodo.title;
+          saveTodoItemsState(true);
+          renderTasksView();
+          showToast(`⚡ 已衍生並綁定新待辦：「${subTodo.title}」！`);
+        } else {
+          const targetTodo = (state.todoItems || []).find(t => t && t.id === val);
+          if (targetTodo && !ih.linkedTodoIds.includes(targetTodo.id)) {
+            ih.linkedTodoIds.push(targetTodo.id);
+            ih.linkedTodoTitles[targetTodo.id] = targetTodo.title || '未命名待辦';
+            saveTodoItemsState(true);
+            renderTasksView();
+            showToast(`🔗 已綁定關聯待辦：「${targetTodo.title}」！`);
+          }
+        }
+      });
+    });
+
+    cardEl.querySelectorAll('.todo-hist-jump-todo-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tid = btn.getAttribute('data-todo-id');
+        if (tid) {
+          state.activeTodoDetailId = tid;
+          renderTasksView();
+        }
+      });
+    });
+
+    cardEl.querySelectorAll('.todo-hist-remove-todo-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const item = getItem();
+        if (!item) return;
+        const hid = btn.getAttribute('data-todo-hist-id');
+        const tid = btn.getAttribute('data-todo-id');
+        const ih = (item.issueHistory || []).find(i => i && i.id === hid);
+        if (!ih) return;
+        ih.linkedTodoIds = (ih.linkedTodoIds || []).filter(id => id !== tid);
+        saveTodoItemsState(true);
+        renderTasksView();
+      });
+    });
+  });
+};
+
+// 擴充 convertCaseToRegularNote：將每筆單一異常下的「✅ 處理結果 (sh.resolutions)」與「📋 關聯待辦 (sh.linkedTodoIds)」完整輸出至常規筆記
+const _origConvertCaseToRegularNoteV320 = convertCaseToRegularNote;
+convertCaseToRegularNote = async function(caseId) {
+  const newNote = await _origConvertCaseToRegularNoteV320(caseId);
+  if (!newNote) return null;
+  const item = (state.caseItems || []).find(c => c && c.id === caseId);
+  if (!item) return newNote;
+
+  const extraBlocks = [];
+  (item.symptomHistory || []).forEach(sh => {
+    if (!sh) return;
+    normalizeSingleHistoryEntryV321(sh, true);
+    if ((sh.resolutions && sh.resolutions.length > 0) || (sh.linkedTodoIds && sh.linkedTodoIds.length > 0)) {
+      const subLines = [`<div class="notion-callout troubleshoot-stage-2" style="margin:6px 0;"><span class="notion-callout-icon">✅</span><div class="notion-callout-body"><strong>對應異常「${escapeHtml((sh.text || sh.code || '').slice(0, 28))}」之處理結果與關聯待辦：</strong>`];
+      if (sh.linkedTodoIds && sh.linkedTodoIds.length > 0) {
+        const todoNames = sh.linkedTodoIds.map(tid => {
+          const tObj = (state.todoItems || []).find(t => t && t.id === tid);
+          return tObj ? `${tObj.status || ''} ${tObj.title || ''}` : ((sh.linkedTodoTitles && sh.linkedTodoTitles[tid]) || tid);
+        }).join('、');
+        subLines.push(`<br>📋 <strong>關聯待辦：</strong>${escapeHtml(todoNames)}`);
+      }
+      (sh.resolutions || []).forEach(r => {
+        subLines.push(`<br>✅ <strong>${escapeHtml(r.code || '處理結果')} (${escapeHtml(r.time || '')})：</strong>${escapeHtml(r.text || '')}${r.partsText ? ' ｜ 🔩 更換零件：' + escapeHtml(r.partsText) : ''}`);
+      });
+      subLines.push(`</div></div>`);
+      extraBlocks.push(subLines.join(''));
+      (sh.resolutions || []).forEach(r => {
+        if (r.attachmentsHtml) {
+          extraBlocks.push(cloneAttachmentsHtmlForRegularNote(r.attachmentsHtml));
+        }
+      });
+    }
+  });
+
+  if (extraBlocks.length > 0) {
+    newNote._cachedHtml = (newNote._cachedHtml || '') + extraBlocks.join('');
+    newNote._cachedBody = convertHtmlToMarkdown(newNote._cachedHtml);
+    if (state.currentNote && state.currentNote.id === newNote.id && DOM.editor) {
+      DOM.editor.innerHTML = newNote._cachedHtml;
+      state.editorSnapshotBeforeEdit = newNote._cachedHtml;
+    }
+    saveSwrCacheSnapshot();
+  }
+  return newNote;
+};
+
+// v3.2.1 覆寫載入完畢（由 v3.2.2 尾段統一啟動）
+
+
+// ============================================================================
+// 🚀 LVI_Note v3.2.2:
+// 1. 所有歷史紀錄統一置於輸入欄位上方（待辦說明與處理紀錄、異常現象與處理對策、出廠測試、以及單一紀錄內嵌處理結果）
+// 2. 全新品牌 LOGO (LVI-NOTE / MODBUS TCP 齒輪徽章) 全面套用至介面與所有 PDF 報告表頭/頁尾
+// 3. 待辦事項 (待處理) 專屬 A4 工程任務 PDF 排版引擎（支援單筆待辦詳細 PDF 匯出 ＋ 待處理清單批次 PDF 匯出）
+// ============================================================================
+
+const LVI_BRAND_LOGO_DATA_URL = "data:image/png;base64,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";
+
+function syncHeaderLogosWithEmbeddedBrandLogo() {
+  try {
+    document.querySelectorAll('img[src*="logo.png"]').forEach(img => {
+      img.src = LVI_BRAND_LOGO_DATA_URL;
+      img.style.background = 'transparent';
+    });
+  } catch (e) {}
+}
+
+let _cachedBrandLogoImagePromise = null;
+function loadBrandLogoImageForPdf() {
+  if (_cachedBrandLogoImagePromise) return _cachedBrandLogoImagePromise;
+  _cachedBrandLogoImagePromise = new Promise((resolve) => {
+    const im = new Image();
+    const timer = setTimeout(() => resolve(null), 2500);
+    im.onload = () => {
+      clearTimeout(timer);
+      resolve(im);
+    };
+    im.onerror = () => {
+      clearTimeout(timer);
+      resolve(null);
+    };
+    im.src = LVI_BRAND_LOGO_DATA_URL;
+  });
+  return _cachedBrandLogoImagePromise;
+}
+
+// ============================================================================
+// 1. 覆寫 renderSingleTodoCardHtml：將「📜 歷史紀錄」放在輸入欄位上方！
+// ============================================================================
+renderSingleTodoCardHtml = function(item) {
+  unifyTodoItemFieldsNonDestructive(item);
+  const machines = getSharedMachineModelsForTodo();
+  const clients = getSharedClientsVendorsForTodo();
+  const sharedTags = getSharedTagsForTodo();
+  const handlers = state.todoHandlers || DEFAULT_TODO_HANDLERS;
+
+  const itemTags = Array.isArray(item.tags) ? item.tags : [];
+  const itemHandlers = Array.isArray(item.handlers) ? item.handlers : [];
+  const linkedNoteIds = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds : [];
+  const issHistory = Array.isArray(item.issueHistory) ? item.issueHistory : [];
+  const normStatus = FIXED_TODO_CATEGORIES.includes(item.status) ? item.status : '🔴 待處理';
+  const isCompleted = isTodoStatusCompleted(normStatus);
+  const statusBadgeCls = getTodoStatusBadgeClass(normStatus);
+
+  const machineOptionsHtml = [
+    `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>`,
+    ...machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_machine__">＋ 新增機型...</option>`,
+    `<option value="__manage_shared_machine__">⚙️ 管理機型...</option>`
+  ].join('');
+
+  const clientOptionsHtml = [
+    `<option value="" ${!item.clientVendor ? 'selected' : ''}>未選擇</option>`,
+    ...clients.map(c => `<option value="${escapeHtml(c)}" ${item.clientVendor === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_client__">➕ 新建客戶/廠商...</option>`,
+    `<option value="__manage_shared_client__">⚙️ 管理客戶/廠商...</option>`
+  ].join('');
+
+  const statusOptionsHtml = FIXED_TODO_CATEGORIES.map(lbl =>
+    `<option value="${escapeHtml(lbl)}" ${normStatus === lbl ? 'selected' : ''}>${escapeHtml(lbl)}</option>`
+  ).join('');
+
+  const linkedNoteChipsHtml = linkedNoteIds.map(nid => {
+    const n = (state.notes || []).find(x => x.id === nid);
+    const nTitle = resolveLinkedNoteTitle(item, nid);
+    const nIcon = (n && n.meta && n.meta.icon) || '📝';
+    return `
+      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900 transition">
+        <button type="button" class="todo-jump-note-shortcut-btn inline-flex items-center gap-1 cursor-pointer hover:underline" data-note-id="${escapeHtml(nid)}" title="點擊開啟此關聯筆記">
+          <span>${nIcon}</span>
+          <span class="truncate max-w-[220px]">${escapeHtml(nTitle)}</span>
+          <span class="text-[10px] opacity-75">↗</span>
+        </button>
+        <button type="button" class="todo-remove-note-shortcut-btn text-gray-400 hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-note-id="${escapeHtml(nid)}" title="移除關聯筆記">×</button>
+      </span>
+    `;
+  }).join('');
+
+  const availableNotesOptionsHtml = [
+    `<option value="">＋ 關聯筆記...</option>`,
+    `<option value="__create_new_linked_note__">＋ 新建關聯筆記...</option>`,
+    `<option disabled>── 選擇現有筆記 ──</option>`,
+    ...(state.notes || []).slice(0, 120).map(n => {
+      const nTitle = (n.name || '未命名筆記').replace(/\.md$/i, '');
+      const mach = (n.meta && n.meta.machineModel && n.meta.machineModel !== '未分類') ? `[${n.meta.machineModel}] ` : '';
+      return `<option value="${escapeHtml(n.id)}">📝 ${escapeHtml(mach + nTitle)}</option>`;
+    })
+  ].join('');
+
+  const tagsPillsHtml = itemTags.length > 0
+    ? itemTags.map(tagName => `
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${getTagPillColorClass(tagName)}">
+          <span>#${escapeHtml(tagName)}</span>
+          <button type="button" class="todo-remove-tag-btn hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-tag-name="${escapeHtml(tagName)}" title="移除標籤">×</button>
+        </span>
+      `).join('')
+    : `<span class="text-xs text-gray-400">無</span>`;
+
+  const bottomTagAddOptionsHtml = [
+    `<option value="">＋ 新增標籤...</option>`,
+    ...sharedTags.map(t => {
+      const name = typeof t === 'string' ? t : (t.name || t.id);
+      return `<option value="${escapeHtml(name)}">#${escapeHtml(name)}</option>`;
+    }),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_tag__">➕ 新建標籤...</option>`,
+    `<option value="__manage_shared_tags__">⚙️ 管理標籤庫...</option>`
+  ].join('');
+
+  const handlerPillsHtml = itemHandlers.length > 0
+    ? itemHandlers.map(hName => `
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-cyan-50 text-cyan-900 border border-cyan-300 dark:bg-cyan-950/80 dark:text-cyan-200 dark:border-cyan-700">
+          <span>👤 ${escapeHtml(hName)}</span>
+          <button type="button" class="todo-remove-handler-btn hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-handler-name="${escapeHtml(hName)}" title="移除人員">×</button>
+        </span>
+      `).join('')
+    : `<span class="text-xs text-gray-400">無</span>`;
+
+  const handlerAddOptionsHtml = [
+    `<option value="">＋ 指派人員...</option>`,
+    ...handlers.map(h => `<option value="${escapeHtml(h)}">👤 ${escapeHtml(h)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_new_handler__">➕ 新增人員...</option>`,
+    `<option value="__rename_handler__">✏️ 修改人員名稱...</option>`,
+    `<option value="__manage_handlers__">⚙️ 管理人員列表...</option>`
+  ].join('');
+
+  return `
+    <!-- 頂部返回列表與刪除導航列 -->
+    <div class="lvi-todo-detail-navbar">
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <button type="button" id="btn-back-to-todo-list">
+          <span>← 返回列表</span>
+        </button>
+        <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold border ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" class="todo-convert-to-note-btn" data-todo-id="${escapeHtml(item.id)}" title="以此待辦事項的所有資訊與附件為基礎，新增一篇常規筆記（原待辦保持不變）">
+          <span>📝 轉為筆記</span>
+        </button>
+        <button type="button" class="todo-export-pdf-btn px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white dark:bg-blue-950/70 dark:text-blue-200 border border-blue-200 dark:border-blue-800 text-xs font-extrabold transition cursor-pointer" data-todo-id="${escapeHtml(item.id)}">
+          <span>📄 匯出 PDF</span>
+        </button>
+        <button type="button" class="todo-delete-card-btn" data-todo-id="${escapeHtml(item.id)}" title="永久刪除此筆待辦事項">
+          <span>🗑️ 刪除</span>
+        </button>
+      </div>
+    </div>
+
+    <article class="lvi-todo-card ${isCompleted ? 'is-completed-card' : ''}" data-todo-id="${escapeHtml(item.id)}">
+      <!-- 第 1 列：標題 | 機型分類 | 客戶或廠商 | 進度 -->
+      <div class="lvi-todo-row-1">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📌 標題</span>
+          </div>
+          <input type="text" class="todo-title-input" value="${escapeHtml(item.title || '')}" placeholder="請輸入待辦標題..." />
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🚜 機型分類</span>
+            <button type="button" class="todo-open-mgr-btn" data-mgr-tab="machine">⚙️ 管理</button>
+          </div>
+          <select class="todo-box-select todo-machine-select">
+            ${machineOptionsHtml}
+          </select>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🏢 客戶或廠商</span>
+            <button type="button" class="todo-open-mgr-btn" data-mgr-tab="client">⚙️ 管理</button>
+          </div>
+          <select class="todo-box-select todo-client-select">
+            ${clientOptionsHtml}
+          </select>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📊 處理進度</span>
+            <span class="text-[10px] font-bold ${isCompleted ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">${isCompleted ? '已結案' : '追蹤中'}</span>
+          </div>
+          <select class="todo-box-select todo-status-select">
+            ${statusOptionsHtml}
+          </select>
+        </div>
+      </div>
+
+      <!-- 第 2 列：建立時間 | 關聯筆記 -->
+      <div class="lvi-todo-row-2">
+        <div class="lvi-todo-created-pill todo-edit-created-time-btn" title="點擊可調整建立時間">
+          <span class="text-[10px] font-extrabold text-blue-700 dark:text-blue-300">🕒 建立時間</span>
+          <span class="text-xs font-black text-blue-950 dark:text-blue-100 todo-created-time-text">${escapeHtml(item.createdAt || formatTodoTimestamp())}</span>
+        </div>
+
+        <div class="lvi-todo-linked-notes-box">
+          <div class="flex items-center gap-1.5 flex-wrap min-w-0 flex-1">
+            <span class="text-xs font-extrabold text-blue-700 dark:text-blue-300 shrink-0">🔗 關聯筆記：</span>
+            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">無</span>`}
+          </div>
+          <select class="todo-link-note-select">
+            ${availableNotesOptionsHtml}
+          </select>
+        </div>
+      </div>
+
+      <!-- 第 3 列：📝 待辦說明與處理紀錄（歷史紀錄置於上方，新增輸入框置於下方） -->
+      <div class="lvi-todo-issue-box">
+        <div class="lvi-todo-section-header">
+          <div class="lvi-todo-section-title">
+            <span class="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>
+            <span>📝 待辦說明與處理紀錄</span>
+          </div>
+        </div>
+
+        <!-- ⬆️ 上方：待辦說明與處理紀錄・歷史紀錄 -->
+        <div class="lvi-case-history-section lvi-history-above-wrap">
+          <div class="lvi-case-history-header">
+            <div class="lvi-case-history-title">
+              <span>📜 歷史紀錄</span>
+              <span class="lvi-case-history-count" data-todo-hist-count="issue">${issHistory.length}</span>
+            </div>
+          </div>
+          <div class="lvi-case-history-list" data-todo-hist-list="issue">
+            ${renderTodoIssueHistoryListHtml(item)}
+          </div>
+        </div>
+
+        <!-- ⬇️ 下方：新增待辦說明輸入欄位 -->
+        <div class="lvi-input-below-box">
+          <div class="lvi-input-below-header">
+            <span class="lvi-input-below-title">✍️ 新增待辦說明 / 問題紀錄：</span>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button type="button" class="todo-section-camera-btn" data-section="issue">
+                <span>📷 拍照</span>
+              </button>
+              <button type="button" class="todo-section-upload-btn" data-section="issue">
+                <span>📎 附件</span>
+              </button>
+              <button type="button" class="case-save-history-btn btn-symptom-save todo-save-issue-history-btn">
+                <span>💾 存入歷史</span>
+              </button>
+            </div>
+          </div>
+          <textarea class="lvi-todo-textarea todo-issue-textarea" rows="3" placeholder="輸入新的待辦說明或問題項目，點擊右上「💾 存入歷史」後即歸檔至上方歷史紀錄...">${escapeHtml(item.issueText || '')}</textarea>
+          <div class="todo-attachments-gallery todo-issue-attachments">${item.issueAttachmentsHtml || ''}</div>
+        </div>
+      </div>
+
+      <!-- 第 4 列：標籤 | 處理人員 | 結束時間 -->
+      <div class="lvi-todo-row-5">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🏷️ 標籤</span>
+            <div class="flex items-center gap-1.5">
+              <select class="todo-bottom-tag-add-select">
+                ${bottomTagAddOptionsHtml}
+              </select>
+              <button type="button" class="todo-open-mgr-btn" data-mgr-tab="custom">⚙️ 管理</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap pt-1 todo-tags-pills-wrap">
+            ${tagsPillsHtml}
+          </div>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>👥 處理人員</span>
+            <div class="flex items-center gap-1.5">
+              <select class="todo-handler-add-select">
+                ${handlerAddOptionsHtml}
+              </select>
+              <button type="button" class="todo-open-mgr-btn" data-mgr-tab="todo_handler">⚙️ 管理</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap pt-1 todo-handlers-pills-wrap">
+            ${handlerPillsHtml}
+          </div>
+        </div>
+
+        <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} todo-edit-completed-time-btn" title="完成時自動記錄；點擊可手動調整">
+          <span class="text-[10px] font-extrabold ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'}">🏁 結束時間</span>
+          <span class="text-xs font-black ${isCompleted ? 'text-emerald-950 dark:text-emerald-100' : 'text-blue-950 dark:text-blue-100'} todo-completed-time-text">
+            ${item.completedAt ? escapeHtml(item.completedAt) : '未結案'}
+          </span>
+        </div>
+      </div>
+    </article>
+  `;
+};
+
+// ============================================================================
+// 2. 覆寫 renderSingleCaseDetailHtml：將「🛠️ 異常現象與處理對策」與「🧪 出廠測試」的歷史紀錄皆置於輸入欄位上方！
+// ============================================================================
+renderSingleCaseDetailHtml = function(item) {
+  unifyCaseItemFieldsAndInitFactoryTest(item);
+  if (typeof ensureTodoItemsInitialized === 'function') {
+    try { ensureTodoItemsInitialized(); } catch (e) {}
+  }
+  const machines = getSharedMachineModelsForTodo();
+  const clients = getSharedClientsVendorsForTodo();
+  const sharedTags = getSharedTagsForTodo();
+  const handlers = state.todoHandlers || DEFAULT_TODO_HANDLERS;
+
+  const itemTags = Array.isArray(item.tags) ? item.tags : [];
+  const itemHandlers = Array.isArray(item.handlers) ? item.handlers : [];
+  const linkedNoteIds = Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds : [];
+  const linkedTodoIds = Array.isArray(item.linkedTodoIds) ? item.linkedTodoIds : [];
+  const symHistory = Array.isArray(item.symptomHistory) ? item.symptomHistory : [];
+  const ftHistory = Array.isArray(item.factoryTestHistory) ? item.factoryTestHistory : [];
+  const normStatus = normalizeCaseStatusValue(item.status);
+  const isCompleted = isCaseStatusCompleted(normStatus);
+  const statusBadgeCls = getCaseStatusBadgeClass(normStatus);
+  const effectiveCaseNo = item.caseNumber || item.title || '';
+  const shipDateKey = normalizeShipDateKey(item.shipTime);
+  item.shipTime = shipDateKey;
+
+  const machineOptionsHtml = [
+    `<option value="" ${!item.machineModel ? 'selected' : ''}>未選擇</option>`,
+    ...machines.map(m => `<option value="${escapeHtml(m)}" ${item.machineModel === m ? 'selected' : ''}>🚜 ${escapeHtml(m)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_machine__">＋ 新增機型...</option>`,
+    `<option value="__manage_shared_machine__">⚙️ 管理機型...</option>`
+  ].join('');
+
+  const clientOptionsHtml = [
+    `<option value="" ${!item.clientVendor ? 'selected' : ''}>未選擇</option>`,
+    ...clients.map(c => `<option value="${escapeHtml(c)}" ${item.clientVendor === c ? 'selected' : ''}>🏢 ${escapeHtml(c)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_client__">＋ 新增客戶/廠商...</option>`,
+    `<option value="__manage_shared_client__">⚙️ 管理客戶/廠商...</option>`
+  ].join('');
+
+  const statusOptionsHtml = FIXED_CASE_STATUSES.map(lbl =>
+    `<option value="${escapeHtml(lbl)}" ${normStatus === lbl ? 'selected' : ''}>${escapeHtml(lbl)}</option>`
+  ).join('');
+
+  const factoryTestStatusOptsHtml = FACTORY_TEST_STATUS_OPTIONS.map(st =>
+    `<option value="${escapeHtml(st)}" ${(item.factoryTestStatus || '⏳ 待測試') === st ? 'selected' : ''}>${escapeHtml(st)}</option>`
+  ).join('');
+
+  const syncPillHtml = shipDateKey
+    ? `<button type="button" class="case-cal-sync-pill case-jump-cal-btn" data-ship-date="${escapeHtml(shipDateKey)}" title="此出機時間已同步至行事曆，點擊一鍵開啟日曆檢視"><span>📅 已同步日曆 ↗</span></button>`
+    : `<span class="case-cal-sync-pill is-empty" title="選擇出機日期後將自動同步至日曆"><span>📅 選擇後自動同步日曆</span></span>`;
+
+  const linkedTodoChipsHtml = linkedTodoIds.map(tid => {
+    const tTitle = resolveLinkedTodoTitleForCase(item, tid);
+    return `
+      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-amber-50 dark:bg-amber-950/70 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+        <button type="button" class="case-jump-todo-btn inline-flex items-center gap-1 cursor-pointer hover:underline" data-todo-id="${escapeHtml(tid)}" title="點擊跳轉至該筆待辦事項">
+          <span>☑️</span>
+          <span class="truncate max-w-[170px]">${escapeHtml(tTitle)}</span>
+          <span class="text-[10px] opacity-75">↗</span>
+        </button>
+        <button type="button" class="case-remove-todo-btn text-gray-400 hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-todo-id="${escapeHtml(tid)}" title="解除關聯待處理">×</button>
+      </span>
+    `;
+  }).join('');
+
+  const allTodos = (state.todoItems || []).filter(t => t && t.id && (!typeof isTodoItemDeletedTombstoned === 'function' || !isTodoItemDeletedTombstoned(t)));
+  const availableTodosOptionsHtml = [
+    `<option value="">＋ 從待辦挑選或新建...</option>`,
+    `<option value="__create_new_linked_todo__">＋ 新建關聯待處理事項...</option>`,
+    `<option disabled>── 選擇現有待辦事項 ──</option>`,
+    ...allTodos.slice(0, 100).map(t => {
+      const tTitle = (t.title || '未命名待辦').trim();
+      const tStat = t.status ? `[${t.status}] ` : '';
+      return `<option value="${escapeHtml(t.id)}">☑️ ${escapeHtml(tStat + tTitle)}</option>`;
+    })
+  ].join('');
+
+  const linkedNoteChipsHtml = linkedNoteIds.map(nid => {
+    const n = (state.notes || []).find(x => x.id === nid);
+    const nTitle = resolveLinkedNoteTitle(item, nid);
+    const nIcon = (n && n.meta && n.meta.icon) || '📝';
+    return `
+      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-blue-50 dark:bg-blue-950/70 text-blue-700 dark:text-blue-200 border border-blue-200 dark:border-blue-800">
+        <button type="button" class="case-jump-note-btn inline-flex items-center gap-1 cursor-pointer hover:underline" data-note-id="${escapeHtml(nid)}">
+          <span>${nIcon}</span>
+          <span class="truncate max-w-[180px]">${escapeHtml(nTitle)}</span>
+          <span class="text-[10px] opacity-75">↗</span>
+        </button>
+        <button type="button" class="case-remove-note-btn text-gray-400 hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-note-id="${escapeHtml(nid)}">×</button>
+      </span>
+    `;
+  }).join('');
+
+  const availableNotesOptionsHtml = [
+    `<option value="">＋ 關聯筆記...</option>`,
+    `<option value="__create_new_linked_note__">＋ 新建關聯筆記...</option>`,
+    `<option disabled>── 選擇現有筆記 ──</option>`,
+    ...(state.notes || []).slice(0, 120).map(n => {
+      const nTitle = (n.name || '未命名筆記').replace(/\.md$/i, '');
+      const mach = (n.meta && n.meta.machineModel && n.meta.machineModel !== '未分類') ? `[${n.meta.machineModel}] ` : '';
+      return `<option value="${escapeHtml(n.id)}">📝 ${escapeHtml(mach + nTitle)}</option>`;
+    })
+  ].join('');
+
+  const tagsPillsHtml = itemTags.length > 0
+    ? itemTags.map(tagName => `
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold border ${getTagPillColorClass(tagName)}">
+          <span>#${escapeHtml(tagName)}</span>
+          <button type="button" class="case-remove-tag-btn hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-tag-name="${escapeHtml(tagName)}">×</button>
+        </span>
+      `).join('')
+    : `<span class="text-xs text-gray-400">無</span>`;
+
+  const bottomTagAddOptionsHtml = [
+    `<option value="">＋ 新增標籤...</option>`,
+    ...sharedTags.map(t => {
+      const name = typeof t === 'string' ? t : (t.name || t.id);
+      return `<option value="${escapeHtml(name)}">#${escapeHtml(name)}</option>`;
+    }),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_shared_tag__">＋ 新建標籤...</option>`,
+    `<option value="__manage_shared_tags__">⚙️ 管理標籤庫...</option>`
+  ].join('');
+
+  const handlerPillsHtml = itemHandlers.length > 0
+    ? itemHandlers.map(hName => `
+        <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-extrabold bg-cyan-50 text-cyan-900 border border-cyan-300 dark:bg-cyan-950/80 dark:text-cyan-200 dark:border-cyan-700">
+          <span>👤 ${escapeHtml(hName)}</span>
+          <button type="button" class="case-remove-handler-btn hover:text-rose-600 font-black ml-0.5 cursor-pointer" data-handler-name="${escapeHtml(hName)}">×</button>
+        </span>
+      `).join('')
+    : `<span class="text-xs text-gray-400">無</span>`;
+
+  const handlerAddOptionsHtml = [
+    `<option value="">＋ 指派人員...</option>`,
+    ...handlers.map(h => `<option value="${escapeHtml(h)}">👤 ${escapeHtml(h)}</option>`),
+    `<option disabled>──────────</option>`,
+    `<option value="__add_new_handler__">＋ 新增人員...</option>`,
+    `<option value="__manage_handlers__">⚙️ 管理人員...</option>`
+  ].join('');
+
+  return `
+    <!-- 頂部返回列表與操作導航列 -->
+    <div class="lvi-todo-detail-navbar">
+      <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" id="btn-back-to-case-list" class="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-extrabold text-slate-700 dark:text-slate-200 hover:bg-slate-100 cursor-pointer shadow-2xs">
+          <span>← 返回</span>
+        </button>
+        <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold border ${statusBadgeCls}">${escapeHtml(normStatus)}</span>
+        <span id="case-navbar-caseno-pill" class="lvi-case-no-badge ${effectiveCaseNo ? '' : 'hidden'}">📁 ${escapeHtml(effectiveCaseNo)}</span>
+        <span id="case-navbar-sn-pill" class="lvi-case-no-badge ${item.serialNumber ? '' : 'hidden'}">🔢 S/N: ${escapeHtml(item.serialNumber || '')}</span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button type="button" class="case-convert-to-note-btn" data-case-id="${escapeHtml(item.id)}" title="以此案件的所有資訊為基礎，新增一篇常規筆記">
+          <span>📝 轉為筆記</span>
+        </button>
+        <button type="button" class="case-export-pdf-btn case-export-md-btn px-3 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-600 text-teal-700 hover:text-white dark:bg-teal-950/70 dark:text-teal-200 border border-teal-200 dark:border-teal-800 text-xs font-extrabold transition cursor-pointer" data-case-id="${escapeHtml(item.id)}">
+          <span>📄 匯出 PDF</span>
+        </button>
+        <button type="button" class="todo-delete-card-btn case-delete-card-btn" data-case-id="${escapeHtml(item.id)}">
+          <span>🗑️ 刪除</span>
+        </button>
+      </div>
+    </div>
+
+    <article class="lvi-todo-card lvi-case-card ${isCompleted ? 'is-completed-card' : ''}" data-case-id="${escapeHtml(item.id)}">
+      <!-- 第 1 列：案號 | S/N | 機型分類 | 客戶或廠商 | 案件狀態 -->
+      <div class="lvi-case-row-1">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📁 案號</span>
+          </div>
+          <input type="text" class="todo-title-input case-caseno-input" value="${escapeHtml(effectiveCaseNo)}" placeholder="輸入案號..." />
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🔢 S/N</span>
+          </div>
+          <input type="text" class="case-sn-input font-mono" value="${escapeHtml(item.serialNumber || '')}" placeholder="輸入機台序號 S/N..." />
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🚜 機型分類</span>
+            <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="machine">⚙️ 管理</button>
+          </div>
+          <select class="todo-box-select case-machine-select">
+            ${machineOptionsHtml}
+          </select>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🏢 客戶或廠商</span>
+            <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="client">⚙️ 管理</button>
+          </div>
+          <select class="todo-box-select case-client-select">
+            ${clientOptionsHtml}
+          </select>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📊 案件狀態</span>
+          </div>
+          <select class="todo-box-select case-status-select">
+            ${statusOptionsHtml}
+          </select>
+        </div>
+      </div>
+
+      <!-- 第 2 列：出機時間 | 關聯待處理 | 關聯筆記 -->
+      <div class="lvi-case-row-2-v305">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🚚 出機時間</span>
+            <div class="flex items-center gap-1 flex-wrap">
+              ${syncPillHtml}
+              <button type="button" class="case-fill-today-shiptime-btn todo-open-mgr-btn" title="設為今天並同步日曆">今天</button>
+              ${shipDateKey ? `<button type="button" class="case-clear-shiptime-btn todo-open-mgr-btn text-rose-500" title="清除出機時間">清除</button>` : ''}
+            </div>
+          </div>
+          <div class="case-shiptime-date-wrap">
+            <input type="date" class="case-shiptime-input" value="${escapeHtml(shipDateKey)}" title="點擊從日曆選擇出機日期（自動同步至日曆）" />
+          </div>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>📋 關聯待處理</span>
+            <select class="todo-link-note-select case-link-todo-select" style="max-width:170px;">
+              ${availableTodosOptionsHtml}
+            </select>
+          </div>
+          <input type="text" class="case-pending-followup-input" value="${escapeHtml(item.pendingFollowUpText || '')}" placeholder="直接輸入關聯待處理說明，或由右上選單挑選待辦..." />
+          ${linkedTodoChipsHtml ? `<div class="flex items-center gap-1.5 flex-wrap pt-1.5">${linkedTodoChipsHtml}</div>` : ''}
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🔗 關聯筆記</span>
+            <select class="todo-link-note-select case-link-note-select" style="max-width:160px;">
+              ${availableNotesOptionsHtml}
+            </select>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap pt-1">
+            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">尚未關聯筆記</span>`}
+          </div>
+        </div>
+      </div>
+
+      <!-- 立案時間與結案時間資訊列 -->
+      <div class="lvi-case-time-bar-v305">
+        <div class="lvi-todo-created-pill case-edit-created-time-btn cursor-pointer" title="點擊調整立案時間">
+          <span class="text-[10px] font-extrabold text-blue-700 dark:text-blue-300">🕒 立案時間</span>
+          <span class="text-xs font-black text-blue-950 dark:text-blue-100 case-created-time-text">${escapeHtml(item.createdAt || formatTodoTimestamp())}</span>
+        </div>
+
+        <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} case-edit-completed-time-btn cursor-pointer" title="點擊調整結案時間">
+          <span class="text-[10px] font-extrabold ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'}">🏁 結案時間</span>
+          <span class="text-xs font-black ${isCompleted ? 'text-emerald-950 dark:text-emerald-100' : 'text-blue-950 dark:text-blue-100'} case-completed-time-text">
+            ${item.completedAt ? escapeHtml(item.completedAt) : '未結案'}
+          </span>
+        </div>
+      </div>
+
+      <!-- 第 3 列：🛠️ 異常現象與處理對策（📜 歷史紀錄置於上方，新增異常輸入框置於下方） -->
+      <div class="lvi-todo-issue-box">
+        <div class="lvi-todo-section-header">
+          <div class="lvi-todo-section-title">
+            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block"></span>
+            <span>🛠️ 異常現象與處理對策</span>
+          </div>
+        </div>
+
+        <!-- ⬆️ 上方：異常現象與處理對策・歷史紀錄 -->
+        <div class="lvi-case-history-section lvi-history-above-wrap">
+          <div class="lvi-case-history-header">
+            <div class="lvi-case-history-title">
+              <span>📜 歷史紀錄</span>
+              <span class="lvi-case-history-count" data-hist-count="symptom">${symHistory.length}</span>
+            </div>
+          </div>
+          <div class="lvi-case-history-list" data-hist-list="symptom">
+            ${renderSymptomHistoryListHtml(item)}
+          </div>
+        </div>
+
+        <!-- ⬇️ 下方：新增異常現象輸入欄位 -->
+        <div class="lvi-input-below-box">
+          <div class="lvi-input-below-header">
+            <span class="lvi-input-below-title">✍️ 新增客訴 / 異常現象：</span>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="symptom">
+                <span>📷 拍照</span>
+              </button>
+              <button type="button" class="todo-section-upload-btn case-section-upload-btn" data-section="symptom">
+                <span>📎 附件</span>
+              </button>
+              <button type="button" class="case-save-history-btn btn-symptom-save case-save-symptom-history-btn">
+                <span>💾 存入歷史</span>
+              </button>
+            </div>
+          </div>
+          <textarea class="lvi-todo-textarea case-symptom-textarea" rows="3" placeholder="輸入新發現的客訴或異常現象（例如：發現濾心異常），點擊「💾 存入歷史」歸檔至上方後，即可在該筆異常內新增處理結果與關聯待辦...">${escapeHtml(item.symptomText || '')}</textarea>
+          <div class="lvi-case-parts-row">
+            <span class="lvi-case-parts-label">🔩 更換零件：</span>
+            <input type="text" class="case-parts-input" value="${escapeHtml(item.partsReplacedText || '')}" placeholder="輸入料號或零件名稱（選填，存入歷史時將一併歸檔）..." />
+          </div>
+          <div class="todo-attachments-gallery case-symptom-attachments">${item.symptomAttachmentsHtml || ''}</div>
+        </div>
+      </div>
+
+      <!-- 第 4 列：🧪 出廠測試（📜 出廠測試歷史紀錄置於上方，新增測試輸入框置於下方） -->
+      <div class="lvi-case-factory-test-box">
+        <div class="lvi-todo-section-header">
+          <div class="lvi-todo-section-title flex items-center gap-2 flex-wrap">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block"></span>
+            <span>🧪 出廠測試</span>
+            <select class="case-factory-test-status-select" title="選擇出廠測試判定結果">
+              ${factoryTestStatusOptsHtml}
+            </select>
+          </div>
+        </div>
+
+        <!-- ⬆️ 上方：出廠測試・歷史紀錄 -->
+        <div class="lvi-case-history-section lvi-history-above-wrap">
+          <div class="lvi-case-history-header">
+            <div class="lvi-case-history-title">
+              <span>📜 出廠測試歷史紀錄</span>
+              <span class="lvi-case-history-count" data-hist-count="factory_test">${ftHistory.length}</span>
+            </div>
+          </div>
+          <div class="lvi-case-history-list" data-hist-list="factory_test">
+            ${renderFactoryTestHistoryListHtml(item)}
+          </div>
+        </div>
+
+        <!-- ⬇️ 下方：新增出廠測試輸入欄位 -->
+        <div class="lvi-input-below-box">
+          <div class="lvi-input-below-header">
+            <span class="lvi-input-below-title">✍️ 新增出廠測試紀錄：</span>
+            <div class="flex items-center gap-1.5 flex-wrap">
+              <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="factory_test">
+                <span>📷 拍照</span>
+              </button>
+              <button type="button" class="todo-section-upload-btn case-section-upload-btn" data-section="factory_test">
+                <span>📎 附件</span>
+              </button>
+              <button type="button" class="case-save-history-btn case-save-factory-test-history-btn">
+                <span>💾 存入歷史</span>
+              </button>
+            </div>
+          </div>
+          <textarea class="lvi-todo-textarea case-factory-test-textarea" rows="3" placeholder="輸入出廠測試項目、檢驗數據、燒機或雷射功率測試結果...">${escapeHtml(item.factoryTestText || '')}</textarea>
+          <div class="todo-attachments-gallery case-factory-test-attachments">${item.factoryTestAttachmentsHtml || ''}</div>
+        </div>
+      </div>
+
+      <!-- 第 5 列：標籤 | 處理人員 | 結案時間 -->
+      <div class="lvi-todo-row-5">
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>🏷️ 標籤</span>
+            <div class="flex items-center gap-1.5">
+              <select class="todo-bottom-tag-add-select case-tag-add-select">
+                ${bottomTagAddOptionsHtml}
+              </select>
+              <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="custom">⚙️ 管理</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap pt-1">
+            ${tagsPillsHtml}
+          </div>
+        </div>
+
+        <div class="lvi-todo-box">
+          <div class="lvi-todo-box-label">
+            <span>👥 處理人員</span>
+            <div class="flex items-center gap-1.5">
+              <select class="todo-handler-add-select case-handler-add-select">
+                ${handlerAddOptionsHtml}
+              </select>
+              <button type="button" class="case-open-mgr-btn todo-open-mgr-btn" data-mgr-tab="todo_handler">⚙️ 管理</button>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 flex-wrap pt-1">
+            ${handlerPillsHtml}
+          </div>
+        </div>
+
+        <div class="lvi-todo-endtime-pill ${isCompleted ? 'is-done' : ''} case-edit-completed-time-btn cursor-pointer" title="點擊調整結案時間">
+          <span class="text-[10px] font-extrabold ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-blue-700 dark:text-blue-300'}">🏁 結案時間</span>
+          <span class="text-xs font-black ${isCompleted ? 'text-emerald-950 dark:text-emerald-100' : 'text-blue-950 dark:text-blue-100'} case-completed-time-text">
+            ${item.completedAt ? escapeHtml(item.completedAt) : '未結案'}
+          </span>
+        </div>
+      </div>
+    </article>
+  `;
+};
+
+// ============================================================================
+// 3. 待辦事項 (待處理) 專屬 A4 專業排版 PDF 報告引擎 (含全新 LVI-NOTE 齒輪徽章 LOGO)
+// ============================================================================
+function drawLviBrandHeaderOnPdfCanvas(ctx, logoImg, {
+  reportTitle = 'LVI-NOTE 待辦事項與工程任務執行報告',
+  reportSubtitle = 'MODBUS TCP & Industrial Field Task Management Report',
+  exportTime = '',
+  accentColor = '#1e3a8a',
+  subAccentColor = '#2563eb',
+  marginX = 72,
+  pageW = 1240,
+  startY = 64
+} = {}) {
+  const contentW = pageW - marginX * 2;
+  const fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif';
+  let y = startY;
+
+  const logoSize = 68;
+  let textStartX = marginX;
+  if (logoImg) {
+    try {
+      ctx.drawImage(logoImg, marginX, y - 4, logoSize, logoSize);
+      textStartX = marginX + logoSize + 16;
+    } catch (e) {}
+  }
+
+  ctx.font = `800 24px ${fontFamily}`;
+  ctx.fillStyle = accentColor;
+  ctx.fillText(reportTitle, textStartX, y + 4);
+
+  ctx.font = `700 15px ${fontFamily}`;
+  ctx.fillStyle = '#475569';
+  ctx.fillText(reportSubtitle, textStartX, y + 36);
+
+  if (exportTime) {
+    ctx.font = `700 17px ${fontFamily}`;
+    ctx.fillStyle = '#334155';
+    const timeStr = `匯出時間：${exportTime}`;
+    const tw = ctx.measureText(timeStr).width;
+    ctx.fillText(timeStr, pageW - marginX - tw, y + 18);
+  }
+
+  y += logoSize + 10;
+  ctx.fillStyle = subAccentColor;
+  ctx.fillRect(marginX, y, contentW, 3.5);
+  return y + 20;
+}
+
+function drawLviBrandFooterOnPdfPages(pages, logoImg, footerLeftText, marginX = 72, pageW = 1240, pageH = 1754) {
+  const contentW = pageW - marginX * 2;
+  const fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif';
+  const totalPages = pages.length;
+
+  pages.forEach((canvasPage, idx) => {
+    const pCtx = canvasPage.getContext('2d');
+    const footerY = pageH - 54;
+    pCtx.fillStyle = '#cbd5e1';
+    pCtx.fillRect(marginX, footerY - 14, contentW, 1.5);
+
+    let lx = marginX;
+    if (logoImg) {
+      try {
+        pCtx.drawImage(logoImg, marginX, footerY - 6, 26, 26);
+        lx = marginX + 34;
+      } catch (e) {}
+    }
+
+    pCtx.font = `700 17px ${fontFamily}`;
+    pCtx.fillStyle = '#475569';
+    pCtx.fillText(footerLeftText, lx, footerY);
+
+    const pageNumStr = `第 ${idx + 1} 頁 / 共 ${totalPages} 頁`;
+    const pw = pCtx.measureText(pageNumStr).width;
+    pCtx.fillText(pageNumStr, pageW - marginX - pw, footerY);
+  });
+}
+
+/**
+ * 全新獨立排版：單筆「待辦事項 / 待處理」A4 PDF 報告產生器
+ */
+renderTodoToDirectPdfBlob = async function(item) {
+  if (!item) throw new Error('找不到待辦事項資料');
+  unifyTodoItemFieldsNonDestructive(item);
+
+  // 匯出前先自動將未按儲存的暫存待辦說明或內嵌處理結果歸檔，確保 PDF 報告 100% 完整
+  commitTodoIssueStagingToHistory(item, { autoSaved: true });
+  (item.issueHistory || []).forEach(ih => {
+    if (ih) commitResolutionToTodoIssueCard(item, ih.id, { autoSaved: true });
+  });
+  saveTodoItemsState();
+
+  const logoImg = await loadBrandLogoImageForPdf();
+
+  const PAGE_W = 1240;
+  const PAGE_H = 1754;
+  const MARGIN_X = 72;
+  const TOP_Y = 64;
+  const BOTTOM_LIMIT = PAGE_H - 96;
+  const CONTENT_W = PAGE_W - MARGIN_X * 2;
+  const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif';
+
+  const now = new Date();
+  const exportTime = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  const pages = [];
+  let curCanvas = null;
+  let curCtx = null;
+  let curY = TOP_Y;
+
+  const startNewPage = () => {
+    curCanvas = document.createElement('canvas');
+    curCanvas.width = PAGE_W;
+    curCanvas.height = PAGE_H;
+    curCtx = curCanvas.getContext('2d', { alpha: false });
+    curCtx.fillStyle = '#ffffff';
+    curCtx.fillRect(0, 0, PAGE_W, PAGE_H);
+    curCtx.textBaseline = 'top';
+    pages.push(curCanvas);
+    curY = TOP_Y;
+  };
+
+  const ensureSpace = (neededH) => {
+    if (curY + neededH > BOTTOM_LIMIT && curY > TOP_Y + 40) {
+      startNewPage();
+    }
+  };
+
+  const wrapTextLines = (ctx, text, maxWidth) => {
+    const rawLines = String(text || '').split(/\r?\n/);
+    const out = [];
+    for (const line of rawLines) {
+      if (!line) {
+        out.push('');
+        continue;
+      }
+      let cur = '';
+      for (const ch of line) {
+        const test = cur + ch;
+        if (ctx.measureText(test).width > maxWidth && cur.length > 0) {
+          out.push(cur);
+          cur = ch;
+        } else {
+          cur = test;
+        }
+      }
+      if (cur) out.push(cur);
+    }
+    return out.length > 0 ? out : [''];
+  };
+
+  const drawAttachmentsFromHtml = async (attHtml) => {
+    if (!attHtml || !attHtml.trim()) return;
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = attHtml;
+
+    const imgElements = Array.from(tempDiv.querySelectorAll('img'));
+    for (const imgEl of imgElements) {
+      const cardEl = imgEl.closest('details.notion-media-collapse');
+      const captionEl = cardEl ? cardEl.querySelector('.media-caption-input') : null;
+      const captionTxt = captionEl ? (captionEl.value || captionEl.getAttribute('value') || '').trim() : '';
+      const cleanCanvas = await loadVerifiedUntaintedCanvasForPdf(imgEl, cardEl);
+      if (cleanCanvas) {
+        const maxImgW = Math.min(CONTENT_W - 40, 760);
+        const maxImgH = 460;
+        const sc = Math.min(maxImgW / cleanCanvas.width, maxImgH / cleanCanvas.height, 1.0);
+        const dw = Math.round(cleanCanvas.width * sc);
+        const dh = Math.round(cleanCanvas.height * sc);
+        const capH = captionTxt ? 34 : 0;
+        ensureSpace(dh + capH + 24);
+        curCtx.fillStyle = '#f8fafc';
+        curCtx.strokeStyle = '#cbd5e1';
+        curCtx.lineWidth = 1.5;
+        curCtx.fillRect(MARGIN_X + 18, curY, dw + 12, dh + capH + 12);
+        curCtx.strokeRect(MARGIN_X + 18, curY, dw + 12, dh + capH + 12);
+        curCtx.drawImage(cleanCanvas, MARGIN_X + 24, curY + 6, dw, dh);
+        if (captionTxt) {
+          curCtx.font = `700 17px ${FONT_FAMILY}`;
+          curCtx.fillStyle = '#334155';
+          curCtx.fillText(`📌 圖說：${captionTxt}`, MARGIN_X + 26, curY + dh + 12);
+        }
+        curY += dh + capH + 22;
+      }
+    }
+
+    const fileCards = Array.from(tempDiv.querySelectorAll('.notion-file-attachment, .case-media-item'));
+    for (const fc of fileCards) {
+      const fname = fc.getAttribute('data-file-name') || fc.getAttribute('data-name') || fc.textContent.replace(/\s+/g, ' ').trim();
+      if (!fname) continue;
+      ensureSpace(44);
+      curCtx.fillStyle = '#f1f5f9';
+      curCtx.strokeStyle = '#94a3b8';
+      curCtx.lineWidth = 1.2;
+      curCtx.fillRect(MARGIN_X + 18, curY, CONTENT_W - 36, 36);
+      curCtx.strokeRect(MARGIN_X + 18, curY, CONTENT_W - 36, 36);
+      curCtx.font = `700 18px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#1e293b';
+      curCtx.fillText(`📎 附件檔案：${fname}`, MARGIN_X + 30, curY + 8);
+      curY += 44;
+    }
+  };
+
+  startNewPage();
+
+  // 1. 頂部品牌標頭（含全新 LVI-NOTE 齒輪徽章 LOGO）
+  curY = drawLviBrandHeaderOnPdfCanvas(curCtx, logoImg, {
+    reportTitle: 'LVI-NOTE 待辦事項與工程任務執行報告 (Task Execution Report)',
+    reportSubtitle: 'MODBUS TCP & Industrial Engineering Task Tracking System',
+    exportTime,
+    accentColor: '#1e3a8a',
+    subAccentColor: '#2563eb',
+    marginX: MARGIN_X,
+    pageW: PAGE_W,
+    startY: TOP_Y
+  });
+
+  // 2. 待辦事項大標題與狀態標章
+  const normStatus = FIXED_TODO_CATEGORIES.includes(item.status) ? item.status : '🔴 待處理';
+  const isCompleted = isTodoStatusCompleted(normStatus);
+
+  // 繪製狀態膠囊
+  curCtx.font = `800 20px ${FONT_FAMILY}`;
+  const stText = `進度狀態：${normStatus}`;
+  const stW = curCtx.measureText(stText).width + 32;
+  curCtx.fillStyle = isCompleted ? '#dcfce7' : (normStatus.includes('處理中') ? '#fef3c7' : '#ffe4e6');
+  curCtx.strokeStyle = isCompleted ? '#10b981' : (normStatus.includes('處理中') ? '#f59e0b' : '#f43f5e');
+  curCtx.lineWidth = 2;
+  curCtx.beginPath();
+  if (curCtx.roundRect) curCtx.roundRect(MARGIN_X, curY, stW, 38, 10);
+  else curCtx.rect(MARGIN_X, curY, stW, 38);
+  curCtx.fill();
+  curCtx.stroke();
+  curCtx.fillStyle = isCompleted ? '#065f46' : (normStatus.includes('處理中') ? '#92400e' : '#9f1239');
+  curCtx.fillText(stText, MARGIN_X + 16, curY + 8);
+  curY += 50;
+
+  const titleDisplay = `📌 待辦標題：${item.title || '未命名待辦事項'}`;
+  curCtx.font = `800 34px ${FONT_FAMILY}`;
+  curCtx.fillStyle = '#0f172a';
+  const titleLines = wrapTextLines(curCtx, titleDisplay, CONTENT_W);
+  for (const tl of titleLines) {
+    ensureSpace(46);
+    curCtx.fillText(tl, MARGIN_X, curY);
+    curY += 44;
+  }
+  curY += 10;
+
+  // 3. 待辦事項專屬屬性表格（4 列 × 2 欄，完全針對待辦事項設計）
+  const linkedNoteTitles = (Array.isArray(item.linkedNoteIds) ? item.linkedNoteIds : [])
+    .map(nid => resolveLinkedNoteTitle(item, nid))
+    .filter(Boolean)
+    .join('、') || '無';
+
+  const issHistory = Array.isArray(item.issueHistory) ? item.issueHistory : [];
+  const totalResCount = issHistory.reduce((acc, ih) => acc + ((ih && Array.isArray(ih.resolutions)) ? ih.resolutions.length : 0), 0);
+
+  const metaRows = [
+    [
+      ['處理進度：', normStatus],
+      ['機型分類：', item.machineModel || '未選擇']
+    ],
+    [
+      ['客戶或廠商：', item.clientVendor || '未選擇'],
+      ['負責人員：', (item.handlers && item.handlers.length) ? item.handlers.join('、') : '未指派']
+    ],
+    [
+      ['建立時間：', item.createdAt || '—'],
+      ['結束時間：', item.completedAt || '未結案']
+    ],
+    [
+      ['專案標籤：', (item.tags && item.tags.length) ? item.tags.map(t => '#' + t).join(' ') : '無'],
+      ['執行統計：', `說明紀錄 ${issHistory.length} 筆 ／ 處理結果 ${totalResCount} 筆`]
+    ],
+    [
+      ['關聯筆記：', linkedNoteTitles],
+      ['系統編號：', item.id || '—']
+    ]
+  ];
+
+  const metaBoxH = metaRows.length * 40 + 24;
+  ensureSpace(metaBoxH + 20);
+  curCtx.fillStyle = '#f8fafc';
+  curCtx.strokeStyle = '#bfdbfe';
+  curCtx.lineWidth = 2;
+  curCtx.beginPath();
+  if (curCtx.roundRect) curCtx.roundRect(MARGIN_X, curY, CONTENT_W, metaBoxH, 12);
+  else curCtx.rect(MARGIN_X, curY, CONTENT_W, metaBoxH);
+  curCtx.fill();
+  curCtx.stroke();
+
+  let my = curY + 14;
+  const colW = CONTENT_W / 2;
+  for (const row of metaRows) {
+    for (let c = 0; c < 2; c++) {
+      const [lbl, val] = row[c];
+      const cx = MARGIN_X + 20 + c * colW;
+      curCtx.font = `800 19px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#1e3a8a';
+      curCtx.fillText(lbl, cx, my);
+      const lw = curCtx.measureText(lbl).width;
+      curCtx.font = `700 19px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#0f172a';
+      const clippedVal = String(val || '').slice(0, 26);
+      curCtx.fillText(clippedVal, cx + lw + 6, my);
+    }
+    my += 40;
+  }
+  curY += metaBoxH + 26;
+
+  // 4. 繪製區塊橫幅：「一、待辦說明與處理結果歷程紀錄」
+  ensureSpace(58);
+  curCtx.fillStyle = '#eff6ff';
+  curCtx.strokeStyle = '#2563eb';
+  curCtx.lineWidth = 2;
+  curCtx.fillRect(MARGIN_X, curY, CONTENT_W, 46);
+  curCtx.fillStyle = '#1d4ed8';
+  curCtx.fillRect(MARGIN_X, curY, 8, 46);
+  curCtx.font = `800 22px ${FONT_FAMILY}`;
+  curCtx.fillStyle = '#1e3a8a';
+  curCtx.fillText(`一、待辦說明與處理結果歷程紀錄 (共 ${issHistory.length} 筆)`, MARGIN_X + 22, curY + 11);
+  curY += 60;
+
+  if (issHistory.length === 0) {
+    ensureSpace(52);
+    curCtx.font = `600 20px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#64748b';
+    curCtx.fillText('（尚無待辦說明或處理紀錄）', MARGIN_X + 16, curY);
+    curY += 48;
+  } else {
+    for (let idx = 0; idx < issHistory.length; idx++) {
+      const ih = issHistory[idx];
+      if (!ih) continue;
+      normalizeSingleHistoryEntryV321(ih, false);
+      const resList = Array.isArray(ih.resolutions) ? ih.resolutions : [];
+      const linkedTodos = Array.isArray(ih.linkedTodoIds) ? ih.linkedTodoIds : [];
+
+      const headerLabel = `📝 ${ih.code || ('紀錄 #' + (idx + 1))} ｜ 🕒 ${ih.time || ''} ｜ ${resList.length > 0 ? ('✅ 已處理 (' + resList.length + ' 筆)') : '⏳ 待處理'}`;
+      const bodyStr = ih.text ? `【待辦說明】${ih.text}` : '（僅含照片/檔案附件）';
+
+      curCtx.font = `600 21px ${FONT_FAMILY}`;
+      const lines = wrapTextLines(curCtx, bodyStr, CONTENT_W - 40);
+      const boxH = 46 + lines.length * 32 + 16;
+      ensureSpace(boxH + 16);
+
+      curCtx.fillStyle = '#ffffff';
+      curCtx.strokeStyle = '#93c5fd';
+      curCtx.lineWidth = 2;
+      curCtx.beginPath();
+      if (curCtx.roundRect) curCtx.roundRect(MARGIN_X, curY, CONTENT_W, boxH, 10);
+      else curCtx.rect(MARGIN_X, curY, CONTENT_W, boxH);
+      curCtx.fill();
+      curCtx.stroke();
+
+      curCtx.font = `800 19px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#1d4ed8';
+      curCtx.fillText(headerLabel, MARGIN_X + 18, curY + 12);
+
+      curCtx.font = `600 21px ${FONT_FAMILY}`;
+      curCtx.fillStyle = '#0f172a';
+      let ty = curY + 46;
+      for (const ln of lines) {
+        curCtx.fillText(ln, MARGIN_X + 18, ty);
+        ty += 32;
+      }
+      curY += boxH + 10;
+
+      await drawAttachmentsFromHtml(ih.attachmentsHtml);
+
+      // 若該筆說明有綁定關聯待辦
+      if (linkedTodos.length > 0) {
+        const todoNames = linkedTodos.map(tid => {
+          const tObj = (state.todoItems || []).find(t => t && t.id === tid);
+          return tObj ? `${tObj.status || ''} ${tObj.title || ''}` : ((ih.linkedTodoTitles && ih.linkedTodoTitles[tid]) || tid);
+        }).join('、');
+        curCtx.font = `700 18px ${FONT_FAMILY}`;
+        const tLines = wrapTextLines(curCtx, `📋 此紀錄關聯待辦：${todoNames}`, CONTENT_W - 64);
+        const tBoxH = 16 + tLines.length * 28;
+        ensureSpace(tBoxH + 10);
+        curCtx.fillStyle = '#fffbeb';
+        curCtx.strokeStyle = '#fcd34d';
+        curCtx.fillRect(MARGIN_X + 28, curY, CONTENT_W - 28, tBoxH);
+        curCtx.strokeRect(MARGIN_X + 28, curY, CONTENT_W - 28, tBoxH);
+        curCtx.fillStyle = '#92400e';
+        let tty = curY + 8;
+        for (const tl of tLines) {
+          curCtx.fillText(tl, MARGIN_X + 42, tty);
+          tty += 28;
+        }
+        curY += tBoxH + 10;
+      }
+
+      // 若該筆說明內有「✅ 處理結果」子項目，縮排繪製綠色處理結果卡片
+      for (let rIdx = 0; rIdx < resList.length; rIdx++) {
+        const r = resList[rIdx];
+        if (!r) continue;
+        const rHeader = `↳ ✅ ${r.code || ('處理結果 #' + (rIdx + 1))} ｜ 🕒 ${r.time || ''}`;
+        const rBody = r.text || '（含處理結果附件）';
+        curCtx.font = `600 20px ${FONT_FAMILY}`;
+        const rLines = wrapTextLines(curCtx, rBody, CONTENT_W - 72);
+        const rBoxH = 42 + rLines.length * 30 + 14;
+        ensureSpace(rBoxH + 12);
+
+        curCtx.fillStyle = '#ecfdf5';
+        curCtx.strokeStyle = '#6ee7b7';
+        curCtx.lineWidth = 1.8;
+        curCtx.beginPath();
+        if (curCtx.roundRect) curCtx.roundRect(MARGIN_X + 28, curY, CONTENT_W - 28, rBoxH, 8);
+        else curCtx.rect(MARGIN_X + 28, curY, CONTENT_W - 28, rBoxH);
+        curCtx.fill();
+        curCtx.stroke();
+
+        curCtx.font = `800 18px ${FONT_FAMILY}`;
+        curCtx.fillStyle = '#047857';
+        curCtx.fillText(rHeader, MARGIN_X + 44, curY + 10);
+
+        curCtx.font = `600 20px ${FONT_FAMILY}`;
+        curCtx.fillStyle = '#064e3b';
+        let rty = curY + 40;
+        for (const rl of rLines) {
+          curCtx.fillText(rl, MARGIN_X + 44, rty);
+          rty += 30;
+        }
+        curY += rBoxH + 10;
+        await drawAttachmentsFromHtml(r.attachmentsHtml);
+      }
+      curY += 8;
+    }
+  }
+
+  // 5. 為每一頁繪製含新 LOGO 的頁尾與頁碼
+  drawLviBrandFooterOnPdfPages(
+    pages,
+    logoImg,
+    `LVI-NOTE 待辦事項與工程任務管理系統 ｜ 待辦標題：${(item.title || '未命名').slice(0, 28)}`,
+    MARGIN_X,
+    PAGE_W,
+    PAGE_H
+  );
+
+  const pageDataUrls = pages.map(c => c.toDataURL('image/jpeg', 0.88));
+  return buildPdf14BlobFromJpegDataUrls(pageDataUrls);
+};
+
+/**
+ * 新增：待辦事項（待處理清單）批次匯出 A4 總覽與明細 PDF 報告
+ */
+async function renderTodoBatchListToDirectPdfBlob(items, filterLabel = '全部待辦') {
+  const validItems = Array.isArray(items) ? items.filter(Boolean) : [];
+  if (validItems.length === 0) throw new Error('目前篩選條件下無待辦事項可匯出');
+
+  const logoImg = await loadBrandLogoImageForPdf();
+  const PAGE_W = 1240;
+  const PAGE_H = 1754;
+  const MARGIN_X = 72;
+  const TOP_Y = 64;
+  const BOTTOM_LIMIT = PAGE_H - 96;
+  const CONTENT_W = PAGE_W - MARGIN_X * 2;
+  const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif';
+
+  const now = new Date();
+  const exportTime = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  const pages = [];
+  let curCanvas = null;
+  let curCtx = null;
+  let curY = TOP_Y;
+
+  const startNewPage = () => {
+    curCanvas = document.createElement('canvas');
+    curCanvas.width = PAGE_W;
+    curCanvas.height = PAGE_H;
+    curCtx = curCanvas.getContext('2d', { alpha: false });
+    curCtx.fillStyle = '#ffffff';
+    curCtx.fillRect(0, 0, PAGE_W, PAGE_H);
+    curCtx.textBaseline = 'top';
+    pages.push(curCanvas);
+    curY = TOP_Y;
+  };
+
+  const ensureSpace = (neededH) => {
+    if (curY + neededH > BOTTOM_LIMIT && curY > TOP_Y + 40) {
+      startNewPage();
+    }
+  };
+
+  startNewPage();
+  curY = drawLviBrandHeaderOnPdfCanvas(curCtx, logoImg, {
+    reportTitle: `LVI-NOTE 待辦事項清單彙整報告 (${filterLabel}｜共 ${validItems.length} 筆)`,
+    reportSubtitle: 'MODBUS TCP & Industrial Field Task Summary Report',
+    exportTime,
+    accentColor: '#1e3a8a',
+    subAccentColor: '#2563eb',
+    marginX: MARGIN_X,
+    pageW: PAGE_W,
+    startY: TOP_Y
+  });
+
+  for (let i = 0; i < validItems.length; i++) {
+    const t = validItems[i];
+    unifyTodoItemFieldsNonDestructive(t);
+    const issHistory = Array.isArray(t.issueHistory) ? t.issueHistory : [];
+    const latestIss = issHistory[0] ? (issHistory[0].text || '').replace(/\s+/g, ' ').trim() : (t.issueText || '無說明');
+    const latestRes = (issHistory[0] && Array.isArray(issHistory[0].resolutions) && issHistory[0].resolutions[0])
+      ? issHistory[0].resolutions[0].text
+      : '尚無處理結果';
+
+    const cardH = 148;
+    ensureSpace(cardH + 16);
+
+    curCtx.fillStyle = '#f8fafc';
+    curCtx.strokeStyle = '#93c5fd';
+    curCtx.lineWidth = 2;
+    curCtx.beginPath();
+    if (curCtx.roundRect) curCtx.roundRect(MARGIN_X, curY, CONTENT_W, cardH, 10);
+    else curCtx.rect(MARGIN_X, curY, CONTENT_W, cardH);
+    curCtx.fill();
+    curCtx.stroke();
+
+    curCtx.font = `800 22px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#0f172a';
+    curCtx.fillText(`#${i + 1}  [${t.status || '🔴 待處理'}]  ${(t.title || '未命名待辦').slice(0, 36)}`, MARGIN_X + 18, curY + 14);
+
+    curCtx.font = `700 18px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#334155';
+    curCtx.fillText(`🚜 機型：${t.machineModel || '未選擇'}   ｜   🏢 客戶：${t.clientVendor || '未選擇'}   ｜   🕒 建立：${t.createdAt || '—'}`, MARGIN_X + 18, curY + 52);
+
+    curCtx.font = `600 18px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#1e3a8a';
+    curCtx.fillText(`📝 最新說明：${String(latestIss || '無').slice(0, 52)}`, MARGIN_X + 18, curY + 84);
+
+    curCtx.fillStyle = '#047857';
+    curCtx.fillText(`✅ 最新處理結果：${String(latestRes || '無').slice(0, 50)}`, MARGIN_X + 18, curY + 114);
+
+    curY += cardH + 14;
+  }
+
+  drawLviBrandFooterOnPdfPages(
+    pages,
+    logoImg,
+    `LVI-NOTE 待辦事項清單彙整報告 ｜ 篩選：${filterLabel} (共 ${validItems.length} 筆)`,
+    MARGIN_X,
+    PAGE_W,
+    PAGE_H
+  );
+
+  const pageDataUrls = pages.map(c => c.toDataURL('image/jpeg', 0.88));
+  return buildPdf14BlobFromJpegDataUrls(pageDataUrls);
+}
+
+async function exportTodoListBatchPDF() {
+  ensureTodoItemsInitialized();
+  const filterCat = state.todoActiveStatusFilter || '🔴 待處理';
+  const filtered = (typeof getFilteredTodoItemsForCurrentView === 'function')
+    ? getFilteredTodoItemsForCurrentView()
+    : (state.todoItems || []).filter(t => t && !isTodoItemDeletedTombstoned(t));
+  if (!filtered || filtered.length === 0) {
+    showToast('⚠️ 目前篩選列表沒有可匯出的待辦事項');
+    return;
+  }
+  if (filtered.length === 1) {
+    await exportSingleTodoReportPDF(filtered[0].id);
+    return;
+  }
+  const safeFile = `LVI-Todo_清單報告_${filterCat.replace(/[^\w\u4e00-\u9fa5]+/g, '')}_${getLocalTodayDateKey()}.pdf`;
+  showToast(`📄 正在排版匯出 ${filtered.length} 筆待辦清單 PDF「${safeFile}」...`, 2000);
+  try {
+    const blob = await renderTodoBatchListToDirectPdfBlob(filtered, filterCat);
+    downloadBlob(blob, safeFile);
+    showToast(`✅ 已匯出待辦事項清單 PDF「${safeFile}」！`, 2600);
+  } catch (err) {
+    console.error('匯出待辦清單 PDF 失敗:', err);
+    showToast(`⚠️ 匯出 PDF 失敗：${err.message || '請稍後再試'}`);
+  }
+}
+
+// 4. 升級 renderCaseToDirectPdfBlob 與 renderNoteToDirectPdfBlob：套用全新 LVI-NOTE 齒輪徽章 LOGO，並在案件 PDF 中完整繪製每筆異常下的「處理結果」與「關聯待辦」
+const _origRenderCaseToDirectPdfBlobV321 = renderCaseToDirectPdfBlob;
+renderCaseToDirectPdfBlob = async function(item) {
+  if (!item) throw new Error('找不到案件資料');
+  unifyCaseItemFieldsAndInitFactoryTest(item);
+  (item.symptomHistory || []).forEach(sh => {
+    if (sh) commitResolutionToCaseSymptomCard(item, sh.id, { autoSaved: true });
+  });
+
+  // 暫時將每筆異常下的處理結果與關聯待辦附加進顯示文字以供繪製，繪製完成後還原，並為每頁加上新 LOGO 標章！
+  const backupTexts = new Map();
+  (item.symptomHistory || []).forEach(sh => {
+    if (!sh) return;
+    backupTexts.set(sh.id, sh.text || '');
+    const extraLines = [];
+    if (Array.isArray(sh.linkedTodoIds) && sh.linkedTodoIds.length > 0) {
+      const tNames = sh.linkedTodoIds.map(tid => {
+        const tObj = (state.todoItems || []).find(t => t && t.id === tid);
+        return tObj ? `[${tObj.status || ''}] ${tObj.title || ''}` : ((sh.linkedTodoTitles && sh.linkedTodoTitles[tid]) || tid);
+      }).join('、');
+      extraLines.push(`📋 關聯待辦：${tNames}`);
+    }
+    if (Array.isArray(sh.resolutions) && sh.resolutions.length > 0) {
+      sh.resolutions.forEach((r, idx) => {
+        extraLines.push(`✅ ${r.code || ('處理結果 #' + (idx + 1))} (${r.time || ''})：${r.text || ''}${r.partsText ? ' ｜ 🔩 更換零件：' + r.partsText : ''}`);
+      });
+    }
+    if (extraLines.length > 0) {
+      sh.text = (sh.text ? sh.text + '\n' : '') + extraLines.join('\n');
+    }
+  });
+
+  try {
+    return await _origRenderCaseToDirectPdfBlobV321(item);
+  } finally {
+    (item.symptomHistory || []).forEach(sh => {
+      if (sh && backupTexts.has(sh.id)) {
+        sh.text = backupTexts.get(sh.id);
+      }
+    });
+  }
+};
+
+const _origRenderPdfPrintExecutiveHeaderV321 = renderPdfPrintExecutiveHeader;
+renderPdfPrintExecutiveHeader = function() {
+  const headerEl = _origRenderPdfPrintExecutiveHeaderV321();
+  if (headerEl) {
+    const brandBar = headerEl.querySelector('.pdf-brand-bar');
+    if (brandBar && !brandBar.querySelector('img')) {
+      const logoEl = document.createElement('img');
+      logoEl.src = LVI_BRAND_LOGO_DATA_URL;
+      logoEl.alt = 'LVI-NOTE Logo';
+      logoEl.style.cssText = 'width:34px;height:34px;object-fit:contain;margin-right:8px;vertical-align:middle;';
+      const firstSpan = brandBar.querySelector('span');
+      if (firstSpan) {
+        firstSpan.style.display = 'inline-flex';
+        firstSpan.style.alignItems = 'center';
+        firstSpan.insertBefore(logoEl, firstSpan.firstChild);
+      }
+    }
+  }
+  return headerEl;
+};
+
+// 5. 在待辦事項列表列 (renderTodoSummaryRowHtml) 與頂部工具列加入「📄 匯出 PDF」快捷按鈕
+const _origRenderTasksViewV321 = renderTasksView;
+renderTasksView = function() {
+  _origRenderTasksViewV321();
+  syncHeaderLogosWithEmbeddedBrandLogo();
+
+  // 在待辦事項頂部工具列自動注入「📄 匯出 PDF」按鈕（支援在列表直接匯出待處理清單 PDF，或在詳情匯出單筆 PDF）
+  const syncTasksBtn = document.getElementById('btn-sync-google-tasks');
+  if (syncTasksBtn && syncTasksBtn.parentElement && !document.getElementById('btn-export-todo-batch-pdf')) {
+    const pdfBtn = document.createElement('button');
+    pdfBtn.type = 'button';
+    pdfBtn.id = 'btn-export-todo-batch-pdf';
+    pdfBtn.className = 'px-3 py-1.5 rounded-xl bg-blue-600/15 hover:bg-blue-600 text-blue-700 dark:text-blue-300 hover:text-white border border-blue-500/30 text-xs font-extrabold transition cursor-pointer inline-flex items-center gap-1';
+    pdfBtn.title = '將目前待處理事項匯出為專屬排版 PDF 報告';
+    pdfBtn.innerHTML = '<span>📄 匯出 PDF</span>';
+    pdfBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (state.activeTodoDetailId) {
+        await exportSingleTodoReportPDF(state.activeTodoDetailId);
+      } else {
+        await exportTodoListBatchPDF();
+      }
+    });
+    syncTasksBtn.parentElement.insertBefore(pdfBtn, syncTasksBtn);
+  }
+
+  // 在待辦事項清單每一列右側加入單筆「📄 PDF」快速匯出按鈕
+  const listContainer = document.getElementById('tasks-list-container');
+  if (listContainer && !state.activeTodoDetailId) {
+    listContainer.querySelectorAll('.lvi-todo-summary-row[data-todo-id]').forEach(rowEl => {
+      const tid = rowEl.getAttribute('data-todo-id');
+      const delBtn = rowEl.querySelector('.todo-summary-del-btn');
+      if (tid && delBtn && !rowEl.querySelector('.todo-summary-pdf-btn')) {
+        const rowPdfBtn = document.createElement('button');
+        rowPdfBtn.type = 'button';
+        rowPdfBtn.className = 'todo-summary-pdf-btn mr-1';
+        rowPdfBtn.setAttribute('data-todo-id', tid);
+        rowPdfBtn.title = '將此筆待處理事項匯出為專屬排版 PDF';
+        rowPdfBtn.textContent = '📄 PDF';
+        rowPdfBtn.addEventListener('click', async (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          await exportSingleTodoReportPDF(tid);
+        });
+        delBtn.parentElement.insertBefore(rowPdfBtn, delBtn);
+      }
+    });
+  }
+};
+
+// 覆寫 exportPDF：在待辦事項視圖中，無論在單筆詳情或待處理列表皆可匯出專屬排版 PDF
+exportPDF = async function() {
+  if (DOM.exportMenu) DOM.exportMenu.classList.add('hidden');
+  if (state.currentView === 'tasks') {
+    ensureTodoItemsInitialized();
+    if (state.activeTodoDetailId) {
+      await exportSingleTodoReportPDF(state.activeTodoDetailId);
+      return;
+    }
+    await exportTodoListBatchPDF();
+    return;
+  }
+  return await _origExportPdfV297();
+};
+
+// 在所有 v3.2.2 覆寫載入完畢後，正式啟動應用程式並初始化 100 步全域回朔引擎與新 LOGO
 if (document.readyState !== 'loading') {
   bootLviAppOnce();
 }
 initV320UniversalOmniscientRollbackEngine();
+syncHeaderLogosWithEmbeddedBrandLogo();

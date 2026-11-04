@@ -8291,3 +8291,297 @@ html.dark .case-media-item {
   color: #e2e8f0 !important;
   border-color: rgba(71, 85, 105, 0.8) !important;
 }
+
+
+
+.hist-linked-todo-chip button {
+  background: transparent !important;
+  color: inherit !important;
+  border: none !important;
+  padding: 2px 4px !important;
+  font-size: 11.5px !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+}
+.hist-linked-todo-chip button:hover {
+  opacity: 0.88;
+}
+.hist-detail-time-label {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #475569;
+}
+html.dark .hist-detail-time-label {
+  color: #cbd5e1 !important;
+}
+.hist-editor-prompt-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #047857;
+}
+html.dark .hist-editor-prompt-label {
+  color: #6ee7b7 !important;
+}
+
+/* ==================== v3.2.1 單一異常/紀錄內嵌「處理結果」與「關聯待辦」專屬樣式 ==================== */
+.hist-nested-subpanel {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.92);
+  border: 1px solid #cbd5e1;
+}
+html.dark .hist-nested-subpanel {
+  background: rgba(15, 23, 42, 0.72) !important;
+  border-color: rgba(51, 65, 85, 0.9) !important;
+}
+.hist-nested-todo-panel {
+  border-left: 3.5px solid #f59e0b !important;
+}
+.hist-nested-res-panel {
+  border-left: 3.5px solid #10b981 !important;
+}
+.hist-nested-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.hist-nested-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html.dark .hist-nested-title {
+  color: #f1f5f9 !important;
+}
+.hist-res-saved-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.hist-res-saved-card {
+  padding: 8px 11px;
+  border-radius: 8px;
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+}
+html.dark .hist-res-saved-card {
+  background: rgba(6, 78, 59, 0.38) !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+}
+.hist-res-saved-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.hist-res-saved-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 5px;
+  background: #059669;
+  color: #ffffff;
+}
+.hist-res-saved-text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+html.dark .hist-res-saved-text {
+  color: #ecfdf5 !important;
+}
+.hist-res-editor-box {
+  padding: 9px 10px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px dashed #10b981;
+}
+html.dark .hist-res-editor-box {
+  background: rgba(2, 6, 23, 0.65) !important;
+  border-color: rgba(16, 185, 129, 0.6) !important;
+}
+.hist-quick-action-btn {
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.hist-btn-add-res {
+  background: rgba(16, 185, 129, 0.15);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+html.dark .hist-btn-add-res {
+  background: rgba(6, 95, 70, 0.65) !important;
+  color: #a7f3d0 !important;
+  border-color: rgba(16, 185, 129, 0.55) !important;
+}
+.hist-btn-quick-todo {
+  background: rgba(245, 158, 11, 0.16);
+  color: #b45309;
+  border: 1px solid rgba(245, 158, 11, 0.45);
+}
+html.dark .hist-btn-quick-todo {
+  background: rgba(120, 53, 15, 0.65) !important;
+  color: #fde68a !important;
+  border-color: rgba(245, 158, 11, 0.55) !important;
+}
+.hist-btn-save-res {
+  padding: 4px 12px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 800;
+  background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+  color: #ffffff !important;
+  border: none;
+  cursor: pointer;
+}
+.hist-btn-save-res:hover {
+  filter: brightness(1.08);
+}
+.hist-linked-todo-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: 8px;
+  font-size: 11.5px;
+  font-weight: 800;
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+}
+html.dark .hist-linked-todo-chip {
+  background: rgba(120, 53, 15, 0.45) !important;
+  color: #fef3c7 !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+}
+.hist-linked-todo-chip.is-done {
+  background: #ecfdf5;
+  color: #065f46;
+  border-color: #6ee7b7;
+}
+html.dark .hist-linked-todo-chip.is-done {
+  background: rgba(6, 78, 59, 0.5) !important;
+  color: #a7f3d0 !important;
+  border-color: rgba(16, 185, 129, 0.5) !important;
+}
+.hist-summary-status-pill {
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 800;
+}
+.hist-summary-status-pill.is-resolved {
+  background: rgba(16, 185, 129, 0.18);
+  color: #065f46;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+html.dark .hist-summary-status-pill.is-resolved {
+  background: rgba(6, 78, 59, 0.8) !important;
+  color: #a7f3d0 !important;
+  border-color: rgba(16, 185, 129, 0.55) !important;
+}
+.hist-summary-status-pill.is-pending {
+  background: rgba(245, 158, 11, 0.16);
+  color: #92400e;
+  border: 1px solid rgba(245, 158, 11, 0.4);
+}
+html.dark .hist-summary-status-pill.is-pending {
+  background: rgba(120, 53, 15, 0.65) !important;
+  color: #fde68a !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
+}
+
+
+
+.todo-remove-tag-btn, .todo-remove-handler-btn, .case-remove-tag-btn, .case-remove-handler-btn, .todo-remove-note-shortcut-btn, .case-remove-note-btn, .case-remove-todo-btn {
+  background: transparent !important;
+  color: inherit !important;
+  border: none !important;
+  padding: 0 3px !important;
+  box-shadow: none !important;
+}
+html.dark .todo-handlers-pills-wrap > span,
+html.dark .todo-tags-pills-wrap > span {
+  background: rgba(30, 58, 138, 0.55) !important;
+  color: #dbeafe !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+}
+
+/* ==================== v3.2.2 歷史紀錄置於輸入欄位上方 & 待辦專屬 PDF 樣式 ==================== */
+.lvi-history-above-wrap {
+  margin-top: 6px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1.5px dashed #cbd5e1;
+}
+html.dark .lvi-history-above-wrap {
+  border-bottom-color: rgba(71, 85, 105, 0.75) !important;
+}
+.lvi-input-below-box {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(248, 250, 252, 0.75);
+  border: 1px solid #cbd5e1;
+}
+html.dark .lvi-input-below-box {
+  background: rgba(15, 23, 42, 0.55) !important;
+  border-color: rgba(51, 65, 85, 0.85) !important;
+}
+.lvi-input-below-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.lvi-input-below-title {
+  font-size: 12.5px;
+  font-weight: 800;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+html.dark .lvi-input-below-title {
+  color: #e2e8f0 !important;
+}
+.todo-summary-pdf-btn {
+  padding: 3px 8px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(37, 99, 235, 0.12);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.todo-summary-pdf-btn:hover {
+  background: #2563eb;
+  color: #ffffff !important;
+}
+html.dark .todo-summary-pdf-btn {
+  background: rgba(30, 58, 138, 0.65) !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.5) !important;
+}
