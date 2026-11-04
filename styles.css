@@ -8177,7 +8177,7 @@ html.dark #lvi-deferred-cloud-banner {
   display: none !important;
 }
 
-/* 🚀 v3.1.0 排程自動穩定性優化：手機端 (360px~430px) 案件追蹤 4 狀態列與新欄位零溢出觸控優化 */
+/* 🚀 v3.2.0 排程自動穩定性優化：手機端 (360px~430px) 案件追蹤 4 狀態列與新欄位零溢出觸控優化 */
 @media (max-width: 640px) {
   #case-fixed-category-bar {
     display: grid !important;
@@ -8206,4 +8206,88 @@ html.dark #lvi-deferred-cloud-banner {
     min-height: 38px !important;
     font-size: 13px !important;
   }
+}
+
+/* 🧪 v3.2.0 案件追蹤「出廠測試」專屬區塊與狀態樣式 */
+.lvi-case-factory-test-box {
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1.5px solid #86efac;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+html.dark .lvi-case-factory-test-box {
+  background: linear-gradient(180deg, rgba(6, 78, 59, 0.28) 0%, rgba(2, 44, 34, 0.36) 100%);
+  border-color: #065f46;
+}
+.case-factory-test-status-select {
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid #34d399;
+  background: #ffffff;
+  color: #065f46;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+html.dark .case-factory-test-status-select {
+  background: #064e3b;
+  border-color: #059669;
+  color: #a7f3d0;
+}
+.case-save-factory-test-history-btn {
+  background: linear-gradient(135deg, #059669 0%, #0d9488 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+.case-hist-code-factory {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #6ee7b7;
+}
+html.dark .case-hist-code-factory {
+  background: rgba(6, 95, 70, 0.55);
+  color: #a7f3d0;
+  border-color: #059669;
+}
+.case-ft-hist-status-badge {
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(16, 185, 129, 0.16);
+  color: #065f46;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+html.dark .case-ft-hist-status-badge {
+  background: rgba(6, 78, 59, 0.85) !important;
+  color: #a7f3d0 !important;
+  border-color: rgba(16, 185, 129, 0.55) !important;
+}
+.case-ft-hist-meta-label {
+  font-size: 11px;
+  font-weight: 800;
+  color: #047857;
+}
+html.dark .case-ft-hist-meta-label {
+  color: #6ee7b7 !important;
+}
+.case-media-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #f1f5f9;
+  color: #1e293b;
+  border: 1px solid #cbd5e1;
+}
+html.dark .case-media-item {
+  background: rgba(30, 41, 59, 0.85) !important;
+  color: #e2e8f0 !important;
+  border-color: rgba(71, 85, 105, 0.8) !important;
 }
