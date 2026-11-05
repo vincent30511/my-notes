@@ -8585,3 +8585,53 @@ html.dark .todo-summary-pdf-btn {
   color: #93c5fd !important;
   border-color: rgba(59, 130, 246, 0.5) !important;
 }
+
+
+.case-hist-res-parts-input {
+  flex: 1 1 0%;
+  min-width: 140px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 700;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+}
+html.dark .case-hist-res-parts-input {
+  background: rgba(15, 23, 42, 0.85) !important;
+  border-color: rgba(71, 85, 105, 0.85) !important;
+  color: #f1f5f9 !important;
+}
+img[alt="LVI_Note Logo"] {
+  width: 28px !important;
+  height: 28px !important;
+  max-width: 28px !important;
+  max-height: 28px !important;
+  border-radius: 9999px !important;
+  object-fit: contain !important;
+  flex-shrink: 0 !important;
+}
+/* ==================== v3.2.3 手機端窄螢幕內嵌子面板與批次 PDF 按鈕優化 ==================== */
+@media (max-width: 480px) {
+  .hist-nested-subpanel,
+  .lvi-input-below-box {
+    padding: 8px 9px !important;
+  }
+  .hist-nested-header,
+  .lvi-input-below-header,
+  .case-hist-detail-toolbar {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+  .case-hist-link-todo-select,
+  .todo-hist-link-todo-select {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  .hist-linked-todo-chip {
+    max-width: 100% !important;
+    overflow: hidden;
+  }
+}

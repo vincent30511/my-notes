@@ -1,4 +1,4 @@
-const APP_VERSION = 'v3.2.2'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.2.3'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -29691,7 +29691,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v3.2.2',
+        version: 'v3.2.3',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -32176,7 +32176,7 @@ savePersistentActionHistory = function() {
     }));
 
     const fullJson = JSON.stringify({
-      version: 'v3.2.2',
+      version: 'v3.2.3',
       maxSteps: PERSISTENT_MAX_STEPS,
       historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex)),
       pool,
@@ -32206,7 +32206,7 @@ savePersistentActionHistory = function() {
             snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, subPool, subMap)
           }));
           localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, JSON.stringify({
-            version: 'v3.2.2',
+            version: 'v3.2.3',
             maxSteps: PERSISTENT_MAX_STEPS,
             historyIndex: Math.max(-1, Math.min(subRecords.length - 1, state.historyIndex - offset)),
             pool: subPool,
@@ -37300,7 +37300,7 @@ renderSymptomHistoryListHtml = function(item) {
               <textarea class="lvi-todo-textarea case-hist-res-textarea" data-hist-id="${escapeHtml(sh.id)}" rows="2" placeholder="輸入此異常的處理結果、排除對策或維修紀錄...">${escapeHtml(sh._stagingResText || '')}</textarea>
               <div class="lvi-case-parts-row mt-1.5">
                 <span class="lvi-case-parts-label">🔩 更換零件：</span>
-                <input type="text" class="case-parts-input case-hist-res-parts-input" data-hist-id="${escapeHtml(sh.id)}" value="${escapeHtml(sh._stagingResParts || '')}" placeholder="輸入針對此異常更換的料號或零件名稱（選填）..." />
+                <input type="text" class="case-hist-res-parts-input" data-hist-id="${escapeHtml(sh.id)}" value="${escapeHtml(sh._stagingResParts || '')}" placeholder="輸入針對此異常更換的料號或零件名稱（選填）..." />
               </div>
               <div class="todo-attachments-gallery case-hist-res-staging-attachments mt-1" data-hist-id="${escapeHtml(sh.id)}">${sh._stagingResAttachmentsHtml || ''}</div>
             </div>
@@ -39513,7 +39513,289 @@ exportPDF = async function() {
   return await _origExportPdfV297();
 };
 
-// 在所有 v3.2.2 覆寫載入完畢後，正式啟動應用程式並初始化 100 步全域回朔引擎與新 LOGO
+// v3.2.2 覆寫載入完畢（由 v3.2.3 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.2.3 穩定性與功能完整性巡檢優化：
+// 1. 深度同步單一異常/待辦歷史卡片內嵌「處理結果」之照片標註、旋轉、圖說與刪除狀態
+// 2. 案件追蹤 PDF 匯出（單筆 & 批次清單）：完整繪製每筆異常下內嵌處理結果的照片附件，並支援「📄 匯出案件清單 PDF」
+// 3. 強化窄螢幕（360px~430px）內嵌子面板與頂部導覽相容性
+// ============================================================================
+
+const _origSyncCaseCardAttachmentsFromDomV322 = syncCaseCardAttachmentsFromDom;
+syncCaseCardAttachmentsFromDom = function(cardEl) {
+  if (!cardEl) return;
+  _origSyncCaseCardAttachmentsFromDomV322(cardEl);
+  const caseId = cardEl.getAttribute('data-case-id');
+  if (!caseId || !Array.isArray(state.caseItems)) return;
+  const item = state.caseItems.find(c => c && c.id === caseId);
+  if (!item) return;
+
+  // 同步單一異常內嵌「新增處理結果暫存區」的附件狀態
+  cardEl.querySelectorAll('.case-hist-res-staging-attachments[data-hist-id]').forEach(gal => {
+    const hid = gal.getAttribute('data-hist-id');
+    gal.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
+    const sh = (item.symptomHistory || []).find(s => s && s.id === hid);
+    if (sh) sh._stagingResAttachmentsHtml = compactTodoAttachmentsHtml(gal.innerHTML);
+  });
+
+  // 同步單一異常內嵌「已儲存處理結果」的附件狀態（支援照片標註、旋轉、圖說與刪除）
+  cardEl.querySelectorAll('.case-hist-res-saved-attachments[data-hist-id][data-res-id]').forEach(gal => {
+    const hid = gal.getAttribute('data-hist-id');
+    const rid = gal.getAttribute('data-res-id');
+    gal.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
+    const sh = (item.symptomHistory || []).find(s => s && s.id === hid);
+    if (sh && Array.isArray(sh.resolutions)) {
+      const r = sh.resolutions.find(x => x && x.id === rid);
+      if (r) r.attachmentsHtml = compactTodoAttachmentsHtml(gal.innerHTML);
+    }
+  });
+
+  item.updatedAt = Date.now();
+  saveCaseItemsState();
+};
+
+const _origSyncTodoCardAttachmentsFromDomV322 = syncTodoCardAttachmentsFromDom;
+syncTodoCardAttachmentsFromDom = function(cardEl) {
+  if (!cardEl) return;
+  _origSyncTodoCardAttachmentsFromDomV322(cardEl);
+  const todoId = cardEl.getAttribute('data-todo-id');
+  if (!todoId || !Array.isArray(state.todoItems)) return;
+  const item = state.todoItems.find(t => t && t.id === todoId);
+  if (!item) return;
+
+  cardEl.querySelectorAll('.todo-hist-res-staging-attachments[data-todo-hist-id]').forEach(gal => {
+    const hid = gal.getAttribute('data-todo-hist-id');
+    gal.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
+    const ih = (item.issueHistory || []).find(i => i && i.id === hid);
+    if (ih) ih._stagingResAttachmentsHtml = compactTodoAttachmentsHtml(gal.innerHTML);
+  });
+
+  cardEl.querySelectorAll('.todo-hist-res-saved-attachments[data-todo-hist-id][data-res-id]').forEach(gal => {
+    const hid = gal.getAttribute('data-todo-hist-id');
+    const rid = gal.getAttribute('data-res-id');
+    gal.querySelectorAll(':scope > p, :scope > br').forEach(el => el.remove());
+    const ih = (item.issueHistory || []).find(i => i && i.id === hid);
+    if (ih && Array.isArray(ih.resolutions)) {
+      const r = ih.resolutions.find(x => x && x.id === rid);
+      if (r) r.attachmentsHtml = compactTodoAttachmentsHtml(gal.innerHTML);
+    }
+  });
+
+  item.updatedAt = Date.now();
+  saveTodoItemsState();
+};
+
+// 升級 renderCaseToDirectPdfBlob：確保單一異常內嵌「處理結果 (sh.resolutions)」的照片與檔案附件也一併繪入案件 PDF！
+const _origRenderCaseToDirectPdfBlobV322 = renderCaseToDirectPdfBlob;
+renderCaseToDirectPdfBlob = async function(item) {
+  if (!item) throw new Error('找不到案件資料');
+  unifyCaseItemFieldsAndInitFactoryTest(item);
+  (item.symptomHistory || []).forEach(sh => {
+    if (sh) commitResolutionToCaseSymptomCard(item, sh.id, { autoSaved: true });
+  });
+
+  const backupAtts = new Map();
+  (item.symptomHistory || []).forEach(sh => {
+    if (!sh) return;
+    backupAtts.set(sh.id, sh.attachmentsHtml || '');
+    const resAtts = (Array.isArray(sh.resolutions) ? sh.resolutions : [])
+      .map(r => (r && r.attachmentsHtml) ? r.attachmentsHtml : '')
+      .filter(Boolean)
+      .join('');
+    if (resAtts) {
+      sh.attachmentsHtml = (sh.attachmentsHtml || '') + resAtts;
+    }
+  });
+
+  try {
+    return await _origRenderCaseToDirectPdfBlobV322(item);
+  } finally {
+    (item.symptomHistory || []).forEach(sh => {
+      if (sh && backupAtts.has(sh.id)) {
+        sh.attachmentsHtml = backupAtts.get(sh.id);
+      }
+    });
+  }
+};
+
+/**
+ * 新增：案件追蹤批次清單彙整 A4 PDF 報告產生器 (renderCaseBatchListToDirectPdfBlob & exportCaseListBatchPDF)
+ */
+async function renderCaseBatchListToDirectPdfBlob(items, filterLabel = '全部案件') {
+  const validItems = Array.isArray(items) ? items.filter(Boolean) : [];
+  if (validItems.length === 0) throw new Error('目前篩選條件下無案件可匯出');
+
+  const logoImg = await loadBrandLogoImageForPdf();
+  const PAGE_W = 1240;
+  const PAGE_H = 1754;
+  const MARGIN_X = 72;
+  const TOP_Y = 64;
+  const BOTTOM_LIMIT = PAGE_H - 96;
+  const CONTENT_W = PAGE_W - MARGIN_X * 2;
+  const FONT_FAMILY = '-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif';
+
+  const now = new Date();
+  const exportTime = `${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}/${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+  const pages = [];
+  let curCanvas = null;
+  let curCtx = null;
+  let curY = TOP_Y;
+
+  const startNewPage = () => {
+    curCanvas = document.createElement('canvas');
+    curCanvas.width = PAGE_W;
+    curCanvas.height = PAGE_H;
+    curCtx = curCanvas.getContext('2d', { alpha: false });
+    curCtx.fillStyle = '#ffffff';
+    curCtx.fillRect(0, 0, PAGE_W, PAGE_H);
+    curCtx.textBaseline = 'top';
+    pages.push(curCanvas);
+    curY = TOP_Y;
+  };
+
+  const ensureSpace = (neededH) => {
+    if (curY + neededH > BOTTOM_LIMIT && curY > TOP_Y + 40) {
+      startNewPage();
+    }
+  };
+
+  startNewPage();
+  curY = drawLviBrandHeaderOnPdfCanvas(curCtx, logoImg, {
+    reportTitle: `LVI-NOTE 案件追蹤清單彙整報告 (${filterLabel}｜共 ${validItems.length} 筆)`,
+    reportSubtitle: 'MODBUS TCP & Industrial Field Case Tracking Summary Report',
+    exportTime,
+    accentColor: '#0f766e',
+    subAccentColor: '#0d9488',
+    marginX: MARGIN_X,
+    pageW: PAGE_W,
+    startY: TOP_Y
+  });
+
+  for (let i = 0; i < validItems.length; i++) {
+    const c = validItems[i];
+    unifyCaseItemFieldsAndInitFactoryTest(c);
+    const symHistory = Array.isArray(c.symptomHistory) ? c.symptomHistory : [];
+    const latestSym = symHistory[0] ? (symHistory[0].text || '').replace(/\s+/g, ' ').trim() : (c.symptomText || '無異常紀錄');
+    const latestRes = (symHistory[0] && Array.isArray(symHistory[0].resolutions) && symHistory[0].resolutions[0])
+      ? symHistory[0].resolutions[0].text
+      : '尚無處理結果';
+
+    const cardH = 168;
+    ensureSpace(cardH + 16);
+
+    curCtx.fillStyle = '#f8fafc';
+    curCtx.strokeStyle = '#99f6e4';
+    curCtx.lineWidth = 2;
+    curCtx.beginPath();
+    if (curCtx.roundRect) curCtx.roundRect(MARGIN_X, curY, CONTENT_W, cardH, 10);
+    else curCtx.rect(MARGIN_X, curY, CONTENT_W, cardH);
+    curCtx.fill();
+    curCtx.stroke();
+
+    curCtx.font = `800 22px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#0f172a';
+    curCtx.fillText(`#${i + 1}  [${normalizeCaseStatusValue(c.status)}]  案號：${getCaseDisplayNo(c)}`, MARGIN_X + 18, curY + 14);
+
+    curCtx.font = `700 18px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#334155';
+    curCtx.fillText(`🔢 S/N：${c.serialNumber || '未填'}  ｜  🚚 出機：${c.shipTime || '未設定'}  ｜  🚜 機型：${c.machineModel || '未選擇'}  ｜  🏢 客戶：${c.clientVendor || '未選擇'}`, MARGIN_X + 18, curY + 50);
+
+    curCtx.font = `600 18px ${FONT_FAMILY}`;
+    curCtx.fillStyle = '#be123c';
+    curCtx.fillText(`🚨 最新異常：${String(latestSym || '無').slice(0, 52)}`, MARGIN_X + 18, curY + 84);
+
+    curCtx.fillStyle = '#047857';
+    curCtx.fillText(`✅ 最新處理結果：${String(latestRes || '無').slice(0, 48)}`, MARGIN_X + 18, curY + 114);
+
+    curCtx.fillStyle = '#0f766e';
+    curCtx.fillText(`🧪 出廠測試：${c.factoryTestStatus || '⏳ 待測試'}`, MARGIN_X + 18, curY + 140);
+
+    curY += cardH + 14;
+  }
+
+  drawLviBrandFooterOnPdfPages(
+    pages,
+    logoImg,
+    `LVI-NOTE 案件追蹤清單彙整報告 ｜ 篩選：${filterLabel} (共 ${validItems.length} 筆)`,
+    MARGIN_X,
+    PAGE_W,
+    PAGE_H
+  );
+
+  const pageDataUrls = pages.map(c => c.toDataURL('image/jpeg', 0.88));
+  return buildPdf14BlobFromJpegDataUrls(pageDataUrls);
+}
+
+async function exportCaseListBatchPDF() {
+  ensureCaseItemsInitialized();
+  const filterCat = state.caseActiveStatusFilter || '全部案件';
+  const filtered = (typeof getFilteredCaseItemsForCurrentView === 'function')
+    ? getFilteredCaseItemsForCurrentView()
+    : (state.caseItems || []).filter(c => c && !isCaseItemDeletedTombstoned(c));
+  if (!filtered || filtered.length === 0) {
+    showToast('⚠️ 目前篩選列表沒有可匯出的案件');
+    return;
+  }
+  if (filtered.length === 1) {
+    await exportSingleCaseReportPDF(filtered[0].id);
+    return;
+  }
+  const safeFile = `LVI-Case_清單報告_${filterCat.replace(/[^\w\u4e00-\u9fa5]+/g, '')}_${getLocalTodayDateKey()}.pdf`;
+  showToast(`📄 正在排版匯出 ${filtered.length} 筆案件清單 PDF「${safeFile}」...`, 2000);
+  try {
+    const blob = await renderCaseBatchListToDirectPdfBlob(filtered, filterCat);
+    downloadBlob(blob, safeFile);
+    showToast(`✅ 已匯出案件清單 PDF「${safeFile}」！`, 2600);
+  } catch (err) {
+    console.error('匯出案件清單 PDF 失敗:', err);
+    showToast(`⚠️ 匯出 PDF 失敗：${err.message || '請稍後再試'}`);
+  }
+}
+
+const _origRenderCasesViewV322 = renderCasesView;
+renderCasesView = function() {
+  _origRenderCasesViewV322();
+  syncHeaderLogosWithEmbeddedBrandLogo();
+
+  const mgrBtn = document.getElementById('btn-open-case-tag-manager');
+  if (mgrBtn && mgrBtn.parentElement && !document.getElementById('btn-export-case-batch-pdf')) {
+    const pdfBtn = document.createElement('button');
+    pdfBtn.type = 'button';
+    pdfBtn.id = 'btn-export-case-batch-pdf';
+    pdfBtn.className = 'px-3 py-1.5 rounded-xl bg-teal-600/15 hover:bg-teal-600 text-teal-700 dark:text-teal-300 hover:text-white border border-teal-500/30 text-xs font-extrabold transition cursor-pointer inline-flex items-center gap-1';
+    pdfBtn.title = '將目前案件匯出為專屬排版 PDF 報告';
+    pdfBtn.innerHTML = '<span>📄 匯出 PDF</span>';
+    pdfBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (state.activeCaseDetailId) {
+        await exportSingleCaseReportPDF(state.activeCaseDetailId);
+      } else {
+        await exportCaseListBatchPDF();
+      }
+    });
+    mgrBtn.parentElement.insertBefore(pdfBtn, mgrBtn);
+  }
+};
+
+const _origExportPdfV322 = exportPDF;
+exportPDF = async function() {
+  if (DOM.exportMenu) DOM.exportMenu.classList.add('hidden');
+  if (state.currentView === 'cases') {
+    ensureCaseItemsInitialized();
+    if (state.activeCaseDetailId) {
+      await exportSingleCaseReportPDF(state.activeCaseDetailId);
+      return;
+    }
+    await exportCaseListBatchPDF();
+    return;
+  }
+  return await _origExportPdfV322();
+};
+
+// 在所有 v3.2.3 覆寫載入完畢後，正式啟動應用程式並初始化 100 步全域回朔引擎與新 LOGO
 if (document.readyState !== 'loading') {
   bootLviAppOnce();
 }
