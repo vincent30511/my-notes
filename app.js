@@ -1,4 +1,4 @@
-const APP_VERSION = 'v3.2.4'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.2.5'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -29691,7 +29691,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v3.2.4',
+        version: 'v3.2.5',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -32176,7 +32176,7 @@ savePersistentActionHistory = function() {
     }));
 
     const fullJson = JSON.stringify({
-      version: 'v3.2.4',
+      version: 'v3.2.5',
       maxSteps: PERSISTENT_MAX_STEPS,
       historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex)),
       pool,
@@ -32206,7 +32206,7 @@ savePersistentActionHistory = function() {
             snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, subPool, subMap)
           }));
           localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, JSON.stringify({
-            version: 'v3.2.4',
+            version: 'v3.2.5',
             maxSteps: PERSISTENT_MAX_STEPS,
             historyIndex: Math.max(-1, Math.min(subRecords.length - 1, state.historyIndex - offset)),
             pool: subPool,
@@ -37223,9 +37223,8 @@ renderSymptomHistoryListHtml = function(item) {
             <span class="case-hist-time-text">${escapeHtml(sh.time || '')}</span>
             <span class="case-hist-preview-text font-extrabold">${escapeHtml(previewTxt)}</span>
             <span class="hist-summary-status-pill ${hasResolution ? 'is-resolved' : 'is-pending'}">
-              ${hasResolution ? `✅ 處理結果 ${resList.length}` : '⏳ 待新增處理結果'}
+              ${hasResolution ? `✅ 處理結果 ${resList.length}` : '⏳ 待處理'}
             </span>
-            ${linkedTodoIds.length > 0 ? `<span class="hist-summary-status-pill is-pending">☑️ 關聯待辦 ${linkedTodoIds.length}</span>` : ''}
             ${allParts ? `<span class="case-hist-parts-badge">🔩 ${escapeHtml(allParts.slice(0, 18))}</span>` : ''}
             ${totalAttCount > 0 ? `<span class="case-hist-att-badge">🖼️ ${totalAttCount}</span>` : ''}
           </div>
@@ -37383,9 +37382,8 @@ renderTodoIssueHistoryListHtml = function(item) {
             <span class="case-hist-time-text">${escapeHtml(ih.time || '')}</span>
             <span class="case-hist-preview-text font-extrabold">${escapeHtml(previewTxt)}</span>
             <span class="hist-summary-status-pill ${hasResolution ? 'is-resolved' : 'is-pending'}">
-              ${hasResolution ? `✅ 處理結果 ${resList.length}` : '⏳ 待新增處理結果'}
+              ${hasResolution ? `✅ 處理結果 ${resList.length}` : '⏳ 待處理'}
             </span>
-            ${linkedTodoIds.length > 0 ? `<span class="hist-summary-status-pill is-pending">☑️ 關聯待辦 ${linkedTodoIds.length}</span>` : ''}
             ${totalAttCount > 0 ? `<span class="case-hist-att-badge">🖼️ ${totalAttCount}</span>` : ''}
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
@@ -37407,21 +37405,7 @@ renderTodoIssueHistoryListHtml = function(item) {
           ${ih.attachmentsHtml ? `
           <div class="todo-attachments-gallery todo-history-attachments-gallery" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">${ih.attachmentsHtml}</div>` : ''}
 
-          <!-- 單一待辦說明內嵌「📋 關聯待辦」 -->
-          <div class="hist-nested-subpanel hist-nested-todo-panel">
-            <div class="hist-nested-header">
-              <div class="hist-nested-title">
-                <span>📋 關聯待辦</span>
-                <span class="lvi-case-history-count">${linkedTodoIds.length}</span>
-              </div>
-              <select class="todo-link-note-select todo-hist-link-todo-select" data-todo-hist-id="${escapeHtml(ih.id)}" style="max-width:220px;">
-                ${todoSelectOptionsHtml}
-              </select>
-            </div>
-            <div class="flex items-center gap-1.5 flex-wrap">
-              ${linkedTodoChipsHtml || `<span class="text-xs text-slate-400">無關聯待辦</span>`}
-            </div>
-          </div>
+
 
           <!-- 單一待辦說明內嵌「✅ 處理結果」 -->
           <div class="hist-nested-subpanel hist-nested-res-panel">
