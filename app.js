@@ -1,4 +1,4 @@
-const APP_VERSION = 'v3.2.3'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.2.4'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -25187,7 +25187,7 @@ function renderSingleCaseDetailHtml(item) {
               <span>📎 附件</span>
             </button>
             <button type="button" class="case-save-history-btn btn-symptom-save case-save-symptom-history-btn">
-              <span>💾 存入歷史</span>
+              <span>💾 儲存</span>
             </button>
           </div>
         </div>
@@ -25224,7 +25224,7 @@ function renderSingleCaseDetailHtml(item) {
               <span>📎 附件</span>
             </button>
             <button type="button" class="case-save-history-btn btn-action-save case-save-action-history-btn">
-              <span>💾 存入歷史</span>
+              <span>💾 儲存</span>
             </button>
           </div>
         </div>
@@ -28738,7 +28738,7 @@ renderSingleTodoCardHtml = function(item) {
               <span>📎 附件</span>
             </button>
             <button type="button" class="case-save-history-btn btn-symptom-save todo-save-issue-history-btn">
-              <span>💾 存入歷史</span>
+              <span>💾 儲存</span>
             </button>
           </div>
         </div>
@@ -28774,7 +28774,7 @@ renderSingleTodoCardHtml = function(item) {
               <span>📎 附件</span>
             </button>
             <button type="button" class="case-save-history-btn btn-action-save todo-save-resolution-history-btn">
-              <span>💾 存入歷史</span>
+              <span>💾 儲存</span>
             </button>
           </div>
         </div>
@@ -29691,7 +29691,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v3.2.3',
+        version: 'v3.2.4',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -31537,7 +31537,7 @@ convertCaseToRegularNote = async function(caseId) {
 // ============================================================================
 // 🚀 LVI_Note v3.2.0 四大核心升級引擎：
 // 1. 回朔步數提升至 100 步 (支援於「⚙️ 歷史功能設定」動態調整 50 / 100 / 150 / 200 步，跨重開完整保留)
-// 2. 新增「⚙️ 歷史功能設定」按鈕與「🗑️ 何時刪了什麼（刪除紀錄）」稽核視圖：
+// 2. 新增「⚙️ 歷史功能設定」按鈕與「🗑️ 刪除紀錄」稽核視圖：
 //    完整記錄每次刪除筆記、刪除照片/檔案附件、刪除待辦、刪除案件、刪除歷史紀錄、刪除分類/標籤與刪減內文之精確年月日時分秒與內容摘要
 // 3. 支援「🎯 單步回檔」(revertSingleHistoryStep)：
 //    可針對歷史清單中的「任何單一步驟」（哪怕不是最新的一步）獨立進行回檔/救回，絕不洗掉後續其他步驟的進度！
@@ -31978,7 +31978,7 @@ function revertSingleHistoryStep(targetIdx) {
   recordAction({
     type: 'single_step_revert',
     title: `🎯 單步回檔：已還原 #${targetIdx + 1}「${restoredSummary}」`,
-    subtitle: `獨立還原第 #${targetIdx + 1} 步（保留後續其他步驟進度）`,
+    subtitle: `單步還原`,
     noteId: act.noteId || (state.currentNote ? state.currentNote.id : null),
     _beforeWorkspace: beforeCurrentWs
   });
@@ -31989,7 +31989,7 @@ function revertSingleHistoryStep(targetIdx) {
 
 /**
  * 覆寫 renderHistoryTimeline 與 updateHistoryUI：
- * 1. 支援「📋 全部動作」與「🗑️ 何時刪了什麼（刪除紀錄）」分頁切換
+ * 1. 支援「📋 全部動作」與「🗑️ 刪除紀錄」分頁切換
  * 2. 每一步皆顯示完整時間 (YYYY/MM/DD HH:mm:ss)、刪除內容預覽框、以及「🎯 單步回檔」與「⏮️ 回朔至此」雙按鈕
  */
 const _origUpdateHistoryUIV302 = updateHistoryUI;
@@ -32176,7 +32176,7 @@ savePersistentActionHistory = function() {
     }));
 
     const fullJson = JSON.stringify({
-      version: 'v3.2.3',
+      version: 'v3.2.4',
       maxSteps: PERSISTENT_MAX_STEPS,
       historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex)),
       pool,
@@ -32206,7 +32206,7 @@ savePersistentActionHistory = function() {
             snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, subPool, subMap)
           }));
           localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, JSON.stringify({
-            version: 'v3.2.3',
+            version: 'v3.2.4',
             maxSteps: PERSISTENT_MAX_STEPS,
             historyIndex: Math.max(-1, Math.min(subRecords.length - 1, state.historyIndex - offset)),
             pool: subPool,
@@ -33223,7 +33223,7 @@ renderSingleCaseDetailHtml = function(item) {
           <div class="lvi-todo-box-label">
             <span>🔢 S/N</span>
           </div>
-          <input type="text" class="case-sn-input font-mono" value="${escapeHtml(item.serialNumber || '')}" placeholder="輸入機台序號 S/N..." />
+          <input type="text" class="case-sn-input font-mono" value="${escapeHtml(item.serialNumber || '')}" placeholder="機台 S/N" />
         </div>
 
         <div class="lvi-todo-box">
@@ -33273,7 +33273,7 @@ renderSingleCaseDetailHtml = function(item) {
               ${availableTodosOptionsHtml}
             </select>
           </div>
-          <input type="text" class="case-pending-followup-input" value="${escapeHtml(item.pendingFollowUpText || '')}" placeholder="直接輸入關聯待處理說明，或由右上選單挑選待辦..." />
+          <input type="text" class="case-pending-followup-input" value="${escapeHtml(item.pendingFollowUpText || '')}" placeholder="補充待處理說明..." />
           ${linkedTodoChipsHtml ? `<div class="flex items-center gap-1.5 flex-wrap pt-1.5">${linkedTodoChipsHtml}</div>` : ''}
         </div>
 
@@ -33285,7 +33285,7 @@ renderSingleCaseDetailHtml = function(item) {
             </select>
           </div>
           <div class="flex items-center gap-1.5 flex-wrap pt-1">
-            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">尚未關聯筆記</span>`}
+            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">無</span>`}
           </div>
         </div>
       </div>
@@ -33320,7 +33320,7 @@ renderSingleCaseDetailHtml = function(item) {
               <span>📎 附件</span>
             </button>
             <button type="button" class="case-save-history-btn btn-symptom-save case-save-symptom-history-btn">
-              <span>💾 存入歷史</span>
+              <span>💾 儲存</span>
             </button>
           </div>
         </div>
@@ -33357,7 +33357,7 @@ renderSingleCaseDetailHtml = function(item) {
               <span>📎 附件</span>
             </button>
             <button type="button" class="case-save-history-btn btn-action-save case-save-action-history-btn">
-              <span>💾 存入歷史</span>
+              <span>💾 儲存</span>
             </button>
           </div>
         </div>
@@ -34049,8 +34049,8 @@ renderSingleCaseDetailHtml = function(item) {
         </div>`;
 
   const syncPillHtml = shipDateKey
-    ? `<button type="button" class="case-cal-sync-pill case-jump-cal-btn" data-ship-date="${escapeHtml(shipDateKey)}" title="此出機時間已同步至行事曆，點擊一鍵開啟日曆檢視"><span>📅 已同步日曆 ↗</span></button>`
-    : `<span class="case-cal-sync-pill is-empty" title="選擇出機日期後將自動同步至日曆"><span>📅 選擇後自動同步日曆</span></span>`;
+    ? `<button type="button" class="case-cal-sync-pill case-jump-cal-btn" data-ship-date="${escapeHtml(shipDateKey)}" title="此出機時間已同步至行事曆，點擊一鍵開啟日曆檢視"><span>📅 已同步 ↗</span></button>`
+    : `<span class="case-cal-sync-pill is-empty" title="選擇出機日期後將自動同步至日曆"><span>📅 自動同步</span></span>`;
 
   const newShipBoxHtml = `        <div class="lvi-todo-box">
           <div class="lvi-todo-box-label">
@@ -35214,7 +35214,7 @@ renderTodoIssueHistoryListHtml = function(item) {
 
         <div class="lvi-case-history-detail-body ${isExpanded ? '' : 'hidden'}">
           <div class="case-hist-detail-toolbar">
-            <span class="text-[11px] font-bold text-slate-500">🕒 記錄時間：${escapeHtml(ih.time || '')}</span>
+            <span class="text-[11px] font-bold text-slate-500">🕒 ${escapeHtml(ih.time || '')}</span>
             <div class="flex items-center gap-1.5">
               <button type="button" class="todo-load-hist-to-edit-btn case-hist-btn-edit" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">✏️ 編輯</button>
               <button type="button" class="todo-del-hist-btn case-hist-btn-del" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">🗑️ 刪除</button>
@@ -35429,7 +35429,7 @@ renderSingleTodoCardHtml = function(item) {
               <span>📎 附件</span>
             </button>
             <button type="button" class="case-save-history-btn btn-symptom-save todo-save-issue-history-btn">
-              <span>💾 存入歷史</span>
+              <span>💾 儲存</span>
             </button>
           </div>
         </div>
@@ -35524,7 +35524,7 @@ renderSymptomHistoryListHtml = function(item) {
 
         <div class="lvi-case-history-detail-body ${isExpanded ? '' : 'hidden'}">
           <div class="case-hist-detail-toolbar">
-            <span class="text-[11px] font-bold text-slate-500">🕒 記錄時間：${escapeHtml(sh.time || '')}</span>
+            <span class="text-[11px] font-bold text-slate-500">🕒 ${escapeHtml(sh.time || '')}</span>
             <div class="flex items-center gap-1.5">
               <button type="button" class="case-load-hist-to-edit-btn case-hist-btn-edit" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">✏️ 編輯</button>
               <button type="button" class="case-del-hist-btn case-hist-btn-del" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">🗑️ 刪除</button>
@@ -35555,7 +35555,7 @@ function renderFactoryTestHistoryListHtml(item) {
   const ftHistory = Array.isArray(item.factoryTestHistory) ? item.factoryTestHistory : [];
 
   if (ftHistory.length === 0) {
-    return `<div class="text-xs text-gray-400 py-2.5 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無出廠測試歷史紀錄（輸入測試數據或上傳檢驗報告後點擊「💾 存入歷史」即可歸檔）</div>`;
+    return `<div class="text-xs text-gray-400 py-2.5 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無測試紀錄</div>`;
   }
 
   return ftHistory.map(fh => {
@@ -35650,8 +35650,8 @@ renderSingleCaseDetailHtml = function(item) {
   ).join('');
 
   const syncPillHtml = shipDateKey
-    ? `<button type="button" class="case-cal-sync-pill case-jump-cal-btn" data-ship-date="${escapeHtml(shipDateKey)}" title="此出機時間已同步至行事曆，點擊一鍵開啟日曆檢視"><span>📅 已同步日曆 ↗</span></button>`
-    : `<span class="case-cal-sync-pill is-empty" title="選擇出機日期後將自動同步至日曆"><span>📅 選擇後自動同步日曆</span></span>`;
+    ? `<button type="button" class="case-cal-sync-pill case-jump-cal-btn" data-ship-date="${escapeHtml(shipDateKey)}" title="此出機時間已同步至行事曆，點擊一鍵開啟日曆檢視"><span>📅 已同步 ↗</span></button>`
+    : `<span class="case-cal-sync-pill is-empty" title="選擇出機日期後將自動同步至日曆"><span>📅 自動同步</span></span>`;
 
   const linkedTodoChipsHtml = linkedTodoIds.map(tid => {
     const tTitle = resolveLinkedTodoTitleForCase(item, tid);
@@ -35781,7 +35781,7 @@ renderSingleCaseDetailHtml = function(item) {
           <div class="lvi-todo-box-label">
             <span>🔢 S/N</span>
           </div>
-          <input type="text" class="case-sn-input font-mono" value="${escapeHtml(item.serialNumber || '')}" placeholder="輸入機台序號 S/N..." />
+          <input type="text" class="case-sn-input font-mono" value="${escapeHtml(item.serialNumber || '')}" placeholder="機台 S/N" />
         </div>
 
         <div class="lvi-todo-box">
@@ -35837,7 +35837,7 @@ renderSingleCaseDetailHtml = function(item) {
               ${availableTodosOptionsHtml}
             </select>
           </div>
-          <input type="text" class="case-pending-followup-input" value="${escapeHtml(item.pendingFollowUpText || '')}" placeholder="直接輸入關聯待處理說明，或由右上選單挑選待辦..." />
+          <input type="text" class="case-pending-followup-input" value="${escapeHtml(item.pendingFollowUpText || '')}" placeholder="補充待處理說明..." />
           ${linkedTodoChipsHtml ? `<div class="flex items-center gap-1.5 flex-wrap pt-1.5">${linkedTodoChipsHtml}</div>` : ''}
         </div>
 
@@ -35849,7 +35849,7 @@ renderSingleCaseDetailHtml = function(item) {
             </select>
           </div>
           <div class="flex items-center gap-1.5 flex-wrap pt-1">
-            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">尚未關聯筆記</span>`}
+            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">無</span>`}
           </div>
         </div>
       </div>
@@ -35884,7 +35884,7 @@ renderSingleCaseDetailHtml = function(item) {
               <span>📎 附件</span>
             </button>
             <button type="button" class="case-save-history-btn btn-symptom-save case-save-symptom-history-btn">
-              <span>💾 存入歷史</span>
+              <span>💾 儲存</span>
             </button>
           </div>
         </div>
@@ -35892,7 +35892,7 @@ renderSingleCaseDetailHtml = function(item) {
         <textarea class="lvi-todo-textarea case-symptom-textarea" rows="4" placeholder="輸入客訴/異常現象、處理對策與維修紀錄...">${escapeHtml(item.symptomText || '')}</textarea>
         <div class="lvi-case-parts-row">
           <span class="lvi-case-parts-label">🔩 更換零件：</span>
-          <input type="text" class="case-parts-input" value="${escapeHtml(item.partsReplacedText || '')}" placeholder="輸入料號或零件名稱（選填，存入歷史時將一併歸檔）..." />
+          <input type="text" class="case-parts-input" value="${escapeHtml(item.partsReplacedText || '')}" placeholder="料號或零件名稱（選填）" />
         </div>
         <div class="todo-attachments-gallery case-symptom-attachments">${item.symptomAttachmentsHtml || ''}</div>
 
@@ -35928,12 +35928,12 @@ renderSingleCaseDetailHtml = function(item) {
               <span>📎 附件</span>
             </button>
             <button type="button" class="case-save-history-btn case-save-factory-test-history-btn">
-              <span>💾 存入歷史</span>
+              <span>💾 儲存</span>
             </button>
           </div>
         </div>
 
-        <textarea class="lvi-todo-textarea case-factory-test-textarea" rows="3" placeholder="輸入出廠測試項目、檢驗數據、燒機或雷射功率測試結果...">${escapeHtml(item.factoryTestText || '')}</textarea>
+        <textarea class="lvi-todo-textarea case-factory-test-textarea" rows="3" placeholder="輸入測試數據或結果...">${escapeHtml(item.factoryTestText || '')}</textarea>
         <div class="todo-attachments-gallery case-factory-test-attachments">${item.factoryTestAttachmentsHtml || ''}</div>
 
         <!-- 出廠測試・歷史紀錄 -->
@@ -37141,7 +37141,7 @@ renderSymptomHistoryListHtml = function(item) {
   const symHistory = Array.isArray(item.symptomHistory) ? item.symptomHistory : [];
 
   if (symHistory.length === 0) {
-    return `<div class="text-xs text-gray-400 py-2.5 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無異常紀錄（於上方輸入異常現象如「發現濾心異常」並點擊「💾 存入歷史」後，即可在該筆異常內新增處理結果與關聯待辦）</div>`;
+    return `<div class="text-xs text-gray-400 py-2.5 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無異常紀錄</div>`;
   }
 
   const allActiveTodos = (state.todoItems || []).filter(t => t && t.id && (typeof isTodoItemDeletedTombstoned !== 'function' || !isTodoItemDeletedTombstoned(t)));
@@ -37184,7 +37184,7 @@ renderSymptomHistoryListHtml = function(item) {
     }).join('');
 
     const todoSelectOptionsHtml = [
-      `<option value="">＋ 在此異常新增 / 關聯待辦...</option>`,
+      `<option value="">＋ 關聯待辦...</option>`,
       `<option value="__quick_create_from_anomaly__">⚡ 一鍵以此異常建立待辦（「${escapeHtml(previewTxt.slice(0, 18))}」）</option>`,
       `<option value="__prompt_create_for_anomaly__">➕ 手動輸入名稱新建關聯待辦...</option>`,
       `<option disabled>── 選擇現有待辦事項綁定至此異常 ──</option>`,
@@ -37205,7 +37205,7 @@ renderSymptomHistoryListHtml = function(item) {
                 ${r.partsText ? `<span class="case-hist-parts-badge">🔩 更換零件：${escapeHtml(r.partsText)}</span>` : ''}
               </div>
               <div class="flex items-center gap-1.5">
-                <button type="button" class="case-hist-edit-res-btn case-hist-btn-edit" data-hist-id="${escapeHtml(sh.id)}" data-res-id="${escapeHtml(r.id)}">✏️ 編輯結果</button>
+                <button type="button" class="case-hist-edit-res-btn case-hist-btn-edit" data-hist-id="${escapeHtml(sh.id)}" data-res-id="${escapeHtml(r.id)}">✏️ 編輯</button>
                 <button type="button" class="case-hist-del-res-btn case-hist-btn-del" data-hist-id="${escapeHtml(sh.id)}" data-res-id="${escapeHtml(r.id)}">🗑️ 刪除</button>
               </div>
             </div>
@@ -37213,7 +37213,7 @@ renderSymptomHistoryListHtml = function(item) {
             ${r.attachmentsHtml ? `<div class="todo-attachments-gallery case-hist-res-saved-attachments mt-1.5" data-hist-id="${escapeHtml(sh.id)}" data-res-id="${escapeHtml(r.id)}">${r.attachmentsHtml}</div>` : ''}
           </div>
         `).join('') + `</div>`
-      : `<div class="text-xs text-slate-400 dark:text-slate-400 mb-2">此異常尚無處理結果，可直接於下方輸入框新增處理對策、更換零件或上傳照片：</div>`;
+      : ``;
 
     return `
       <div class="lvi-case-history-card ${isExpanded ? 'is-expanded' : ''}" id="case-hist-card-${escapeHtml(sh.id)}" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">
@@ -37230,18 +37230,16 @@ renderSymptomHistoryListHtml = function(item) {
             ${totalAttCount > 0 ? `<span class="case-hist-att-badge">🖼️ ${totalAttCount}</span>` : ''}
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
-            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合' : '🔽 展開處理結果 / 待辦'}</span>
+            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合' : '🔽 展開'}</span>
           </div>
         </div>
 
         <div class="lvi-case-history-detail-body ${isExpanded ? '' : 'hidden'}">
           <!-- 區塊 1：異常現象原始紀錄 -->
           <div class="case-hist-detail-toolbar">
-            <span class="hist-detail-time-label">🕒 異常記錄時間：${escapeHtml(sh.time || '')}</span>
+            <span class="hist-detail-time-label">🕒 ${escapeHtml(sh.time || '')}</span>
             <div class="flex items-center gap-1.5 flex-wrap">
-              <button type="button" class="hist-quick-action-btn hist-btn-add-res case-hist-focus-res-btn" data-hist-id="${escapeHtml(sh.id)}">➕ 新增處理結果</button>
-              <button type="button" class="hist-quick-action-btn hist-btn-quick-todo case-hist-quick-create-todo-btn" data-hist-id="${escapeHtml(sh.id)}" title="直接以此筆異常現象建立一筆關聯待辦事項">⚡ 一鍵轉待辦</button>
-              <button type="button" class="case-load-hist-to-edit-btn case-hist-btn-edit" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">✏️ 編輯異常</button>
+              <button type="button" class="case-load-hist-to-edit-btn case-hist-btn-edit" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">✏️ 編輯</button>
               <button type="button" class="case-del-hist-btn case-hist-btn-del" data-hist-id="${escapeHtml(sh.id)}" data-hist-section="symptom">🗑️ 刪除</button>
             </div>
           </div>
@@ -37255,18 +37253,18 @@ renderSymptomHistoryListHtml = function(item) {
           <div class="hist-nested-subpanel hist-nested-todo-panel">
             <div class="hist-nested-header">
               <div class="hist-nested-title">
-                <span>📋 此異常關聯待辦</span>
+                <span>📋 關聯待辦</span>
                 <span class="lvi-case-history-count">${linkedTodoIds.length}</span>
               </div>
               <div class="flex items-center gap-1.5 flex-wrap">
-                <button type="button" class="hist-quick-action-btn hist-btn-quick-todo case-hist-quick-create-todo-btn" data-hist-id="${escapeHtml(sh.id)}">⚡ 以此異常新增待辦</button>
+                <button type="button" class="hist-quick-action-btn hist-btn-quick-todo case-hist-quick-create-todo-btn" data-hist-id="${escapeHtml(sh.id)}">⚡ 轉待辦</button>
                 <select class="todo-link-note-select case-hist-link-todo-select" data-hist-id="${escapeHtml(sh.id)}" style="max-width:210px;">
                   ${todoSelectOptionsHtml}
                 </select>
               </div>
             </div>
             <div class="flex items-center gap-1.5 flex-wrap">
-              ${linkedTodoChipsHtml || `<span class="text-xs text-slate-400">尚未關聯待辦（可點右上「⚡ 以此異常新增待辦」或從下拉選單綁定現有待辦）</span>`}
+              ${linkedTodoChipsHtml || `<span class="text-xs text-slate-400">無</span>`}
             </div>
           </div>
 
@@ -37274,7 +37272,7 @@ renderSymptomHistoryListHtml = function(item) {
           <div class="hist-nested-subpanel hist-nested-res-panel">
             <div class="hist-nested-header">
               <div class="hist-nested-title">
-                <span>✅ 此異常處理結果 / 維修對策</span>
+                <span>✅ 處理結果</span>
                 <span class="lvi-case-history-count">${resList.length}</span>
               </div>
             </div>
@@ -37284,7 +37282,7 @@ renderSymptomHistoryListHtml = function(item) {
             <!-- 內嵌於此異常卡片內的「新增處理結果」編輯器 -->
             <div class="hist-res-editor-box" data-hist-id="${escapeHtml(sh.id)}">
               <div class="flex items-center justify-between gap-2 flex-wrap mb-1.5">
-                <span class="hist-editor-prompt-label">✍️ 針對「${escapeHtml(previewTxt.slice(0, 22))}」新增處理結果 / 對策：</span>
+                <span class="hist-editor-prompt-label">➕ 新增處理結果</span>
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="hist_res:${escapeHtml(sh.id)}">
                     <span>📷 拍照</span>
@@ -37293,14 +37291,14 @@ renderSymptomHistoryListHtml = function(item) {
                     <span>📎 附件</span>
                   </button>
                   <button type="button" class="hist-btn-save-res case-hist-save-res-btn" data-hist-id="${escapeHtml(sh.id)}">
-                    <span>💾 儲存處理結果</span>
+                    <span>💾 儲存</span>
                   </button>
                 </div>
               </div>
-              <textarea class="lvi-todo-textarea case-hist-res-textarea" data-hist-id="${escapeHtml(sh.id)}" rows="2" placeholder="輸入此異常的處理結果、排除對策或維修紀錄...">${escapeHtml(sh._stagingResText || '')}</textarea>
+              <textarea class="lvi-todo-textarea case-hist-res-textarea" data-hist-id="${escapeHtml(sh.id)}" rows="2" placeholder="輸入處理結果...">${escapeHtml(sh._stagingResText || '')}</textarea>
               <div class="lvi-case-parts-row mt-1.5">
                 <span class="lvi-case-parts-label">🔩 更換零件：</span>
-                <input type="text" class="case-hist-res-parts-input" data-hist-id="${escapeHtml(sh.id)}" value="${escapeHtml(sh._stagingResParts || '')}" placeholder="輸入針對此異常更換的料號或零件名稱（選填）..." />
+                <input type="text" class="case-hist-res-parts-input" data-hist-id="${escapeHtml(sh.id)}" value="${escapeHtml(sh._stagingResParts || '')}" placeholder="料號或零件名稱（選填）" />
               </div>
               <div class="todo-attachments-gallery case-hist-res-staging-attachments mt-1" data-hist-id="${escapeHtml(sh.id)}">${sh._stagingResAttachmentsHtml || ''}</div>
             </div>
@@ -37317,7 +37315,7 @@ renderTodoIssueHistoryListHtml = function(item) {
   const issHistory = Array.isArray(item.issueHistory) ? item.issueHistory : [];
 
   if (issHistory.length === 0) {
-    return `<div class="text-xs text-gray-400 py-2.5 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無歷史紀錄（於上方輸入待辦說明後點擊「💾 存入歷史」，即可在該筆紀錄內直接新增處理結果與關聯待辦）</div>`;
+    return `<div class="text-xs text-gray-400 py-2.5 text-center bg-white/60 dark:bg-slate-900/40 rounded-lg border border-dashed border-slate-200 dark:border-slate-700">尚無歷史紀錄</div>`;
   }
 
   const allActiveTodos = (state.todoItems || []).filter(t => t && t.id && t.id !== item.id && (typeof isTodoItemDeletedTombstoned !== 'function' || !isTodoItemDeletedTombstoned(t)));
@@ -37367,7 +37365,7 @@ renderTodoIssueHistoryListHtml = function(item) {
                 <span class="hist-detail-time-label">🕒 ${escapeHtml(r.time || '')}</span>
               </div>
               <div class="flex items-center gap-1.5">
-                <button type="button" class="todo-hist-edit-res-btn case-hist-btn-edit" data-todo-hist-id="${escapeHtml(ih.id)}" data-res-id="${escapeHtml(r.id)}">✏️ 編輯結果</button>
+                <button type="button" class="todo-hist-edit-res-btn case-hist-btn-edit" data-todo-hist-id="${escapeHtml(ih.id)}" data-res-id="${escapeHtml(r.id)}">✏️ 編輯</button>
                 <button type="button" class="todo-hist-del-res-btn case-hist-btn-del" data-todo-hist-id="${escapeHtml(ih.id)}" data-res-id="${escapeHtml(r.id)}">🗑️ 刪除</button>
               </div>
             </div>
@@ -37375,7 +37373,7 @@ renderTodoIssueHistoryListHtml = function(item) {
             ${r.attachmentsHtml ? `<div class="todo-attachments-gallery todo-hist-res-saved-attachments mt-1.5" data-todo-hist-id="${escapeHtml(ih.id)}" data-res-id="${escapeHtml(r.id)}">${r.attachmentsHtml}</div>` : ''}
           </div>
         `).join('') + `</div>`
-      : `<div class="text-xs text-slate-400 mb-2">尚無處理結果，可於下方直接輸入此項目的處理結果或上傳附件：</div>`;
+      : ``;
 
     return `
       <div class="lvi-case-history-card ${isExpanded ? 'is-expanded' : ''}" id="todo-hist-card-${escapeHtml(ih.id)}" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">
@@ -37391,15 +37389,15 @@ renderTodoIssueHistoryListHtml = function(item) {
             ${totalAttCount > 0 ? `<span class="case-hist-att-badge">🖼️ ${totalAttCount}</span>` : ''}
           </div>
           <div class="flex items-center gap-1.5 shrink-0">
-            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合' : '🔽 展開處理結果 / 待辦'}</span>
+            <span class="case-hist-toggle-hint">${isExpanded ? '🔼 收合' : '🔽 展開'}</span>
           </div>
         </div>
 
         <div class="lvi-case-history-detail-body ${isExpanded ? '' : 'hidden'}">
           <div class="case-hist-detail-toolbar">
-            <span class="hist-detail-time-label">🕒 記錄時間：${escapeHtml(ih.time || '')}</span>
+            <span class="hist-detail-time-label">🕒 ${escapeHtml(ih.time || '')}</span>
             <div class="flex items-center gap-1.5 flex-wrap">
-              <button type="button" class="todo-load-hist-to-edit-btn case-hist-btn-edit" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">✏️ 編輯說明</button>
+              <button type="button" class="todo-load-hist-to-edit-btn case-hist-btn-edit" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">✏️ 編輯</button>
               <button type="button" class="todo-del-hist-btn case-hist-btn-del" data-todo-hist-id="${escapeHtml(ih.id)}" data-todo-hist-section="issue">🗑️ 刪除</button>
             </div>
           </div>
@@ -37413,7 +37411,7 @@ renderTodoIssueHistoryListHtml = function(item) {
           <div class="hist-nested-subpanel hist-nested-todo-panel">
             <div class="hist-nested-header">
               <div class="hist-nested-title">
-                <span>📋 此紀錄關聯待辦</span>
+                <span>📋 關聯待辦</span>
                 <span class="lvi-case-history-count">${linkedTodoIds.length}</span>
               </div>
               <select class="todo-link-note-select todo-hist-link-todo-select" data-todo-hist-id="${escapeHtml(ih.id)}" style="max-width:220px;">
@@ -37429,7 +37427,7 @@ renderTodoIssueHistoryListHtml = function(item) {
           <div class="hist-nested-subpanel hist-nested-res-panel">
             <div class="hist-nested-header">
               <div class="hist-nested-title">
-                <span>✅ 此項目處理結果</span>
+                <span>✅ 處理結果</span>
                 <span class="lvi-case-history-count">${resList.length}</span>
               </div>
             </div>
@@ -37438,7 +37436,7 @@ renderTodoIssueHistoryListHtml = function(item) {
 
             <div class="hist-res-editor-box" data-todo-hist-id="${escapeHtml(ih.id)}">
               <div class="flex items-center justify-between gap-2 flex-wrap mb-1.5">
-                <span class="hist-editor-prompt-label">✍️ 針對「${escapeHtml(previewTxt.slice(0, 22))}」新增處理結果：</span>
+                <span class="hist-editor-prompt-label">➕ 新增處理結果</span>
                 <div class="flex items-center gap-1.5 flex-wrap">
                   <button type="button" class="todo-section-camera-btn" data-section="hist_res:${escapeHtml(ih.id)}">
                     <span>📷 拍照</span>
@@ -37447,11 +37445,11 @@ renderTodoIssueHistoryListHtml = function(item) {
                     <span>📎 附件</span>
                   </button>
                   <button type="button" class="hist-btn-save-res todo-hist-save-res-btn" data-todo-hist-id="${escapeHtml(ih.id)}">
-                    <span>💾 儲存處理結果</span>
+                    <span>💾 儲存</span>
                   </button>
                 </div>
               </div>
-              <textarea class="lvi-todo-textarea todo-hist-res-textarea" data-todo-hist-id="${escapeHtml(ih.id)}" rows="2" placeholder="輸入針對此項目的處理結果...">${escapeHtml(ih._stagingResText || '')}</textarea>
+              <textarea class="lvi-todo-textarea todo-hist-res-textarea" data-todo-hist-id="${escapeHtml(ih.id)}" rows="2" placeholder="輸入處理結果...">${escapeHtml(ih._stagingResText || '')}</textarea>
               <div class="todo-attachments-gallery todo-hist-res-staging-attachments mt-1" data-todo-hist-id="${escapeHtml(ih.id)}">${ih._stagingResAttachmentsHtml || ''}</div>
             </div>
           </div>
@@ -37624,7 +37622,7 @@ flushAllUnsavedTodoStagingToHistory = function(autoSaved = true, fromWebsiteClos
   return committed;
 };
 
-// 擴充 bindCaseCardsInteractions：綁定單一異常卡片內的「➕ 新增處理結果」、「💾 儲存處理結果」、「✏️ 編輯結果」、「🗑️ 刪除結果」與「📋 關聯待辦 / ⚡ 一鍵轉待辦」
+// 擴充 bindCaseCardsInteractions：綁定單一異常卡片內的「➕ 新增處理結果」、「💾 儲存處理結果」、「✏️ 編輯」、「🗑️ 刪除結果」與「📋 關聯待辦 / ⚡ 一鍵轉待辦」
 const _origBindCaseCardsInteractionsV320 = bindCaseCardsInteractions;
 bindCaseCardsInteractions = function(listContainer) {
   _origBindCaseCardsInteractionsV320(listContainer);
@@ -37878,7 +37876,7 @@ bindCaseCardsInteractions = function(listContainer) {
   });
 };
 
-// 擴充 bindTodoCardsInteractions：綁定待辦事項內單一說明紀錄的「💾 儲存處理結果」、「✏️ 編輯結果」、「🗑️ 刪除結果」與「📋 關聯待辦」
+// 擴充 bindTodoCardsInteractions：綁定待辦事項內單一說明紀錄的「💾 儲存處理結果」、「✏️ 編輯」、「🗑️ 刪除結果」與「📋 關聯待辦」
 const _origBindTodoCardsInteractionsV320 = bindTodoCardsInteractions;
 bindTodoCardsInteractions = function(listContainer) {
   _origBindTodoCardsInteractionsV320(listContainer);
@@ -38343,7 +38341,7 @@ renderSingleTodoCardHtml = function(item) {
         <!-- ⬇️ 下方：新增待辦說明輸入欄位 -->
         <div class="lvi-input-below-box">
           <div class="lvi-input-below-header">
-            <span class="lvi-input-below-title">✍️ 新增待辦說明 / 問題紀錄：</span>
+            <span class="lvi-input-below-title">➕ 新增說明</span>
             <div class="flex items-center gap-1.5 flex-wrap">
               <button type="button" class="todo-section-camera-btn" data-section="issue">
                 <span>📷 拍照</span>
@@ -38352,11 +38350,11 @@ renderSingleTodoCardHtml = function(item) {
                 <span>📎 附件</span>
               </button>
               <button type="button" class="case-save-history-btn btn-symptom-save todo-save-issue-history-btn">
-                <span>💾 存入歷史</span>
+                <span>💾 儲存</span>
               </button>
             </div>
           </div>
-          <textarea class="lvi-todo-textarea todo-issue-textarea" rows="3" placeholder="輸入新的待辦說明或問題項目，點擊右上「💾 存入歷史」後即歸檔至上方歷史紀錄...">${escapeHtml(item.issueText || '')}</textarea>
+          <textarea class="lvi-todo-textarea todo-issue-textarea" rows="3" placeholder="輸入待辦說明...">${escapeHtml(item.issueText || '')}</textarea>
           <div class="todo-attachments-gallery todo-issue-attachments">${item.issueAttachmentsHtml || ''}</div>
         </div>
       </div>
@@ -38455,8 +38453,8 @@ renderSingleCaseDetailHtml = function(item) {
   ).join('');
 
   const syncPillHtml = shipDateKey
-    ? `<button type="button" class="case-cal-sync-pill case-jump-cal-btn" data-ship-date="${escapeHtml(shipDateKey)}" title="此出機時間已同步至行事曆，點擊一鍵開啟日曆檢視"><span>📅 已同步日曆 ↗</span></button>`
-    : `<span class="case-cal-sync-pill is-empty" title="選擇出機日期後將自動同步至日曆"><span>📅 選擇後自動同步日曆</span></span>`;
+    ? `<button type="button" class="case-cal-sync-pill case-jump-cal-btn" data-ship-date="${escapeHtml(shipDateKey)}" title="此出機時間已同步至行事曆，點擊一鍵開啟日曆檢視"><span>📅 已同步 ↗</span></button>`
+    : `<span class="case-cal-sync-pill is-empty" title="選擇出機日期後將自動同步至日曆"><span>📅 自動同步</span></span>`;
 
   const linkedTodoChipsHtml = linkedTodoIds.map(tid => {
     const tTitle = resolveLinkedTodoTitleForCase(item, tid);
@@ -38586,7 +38584,7 @@ renderSingleCaseDetailHtml = function(item) {
           <div class="lvi-todo-box-label">
             <span>🔢 S/N</span>
           </div>
-          <input type="text" class="case-sn-input font-mono" value="${escapeHtml(item.serialNumber || '')}" placeholder="輸入機台序號 S/N..." />
+          <input type="text" class="case-sn-input font-mono" value="${escapeHtml(item.serialNumber || '')}" placeholder="機台 S/N" />
         </div>
 
         <div class="lvi-todo-box">
@@ -38642,7 +38640,7 @@ renderSingleCaseDetailHtml = function(item) {
               ${availableTodosOptionsHtml}
             </select>
           </div>
-          <input type="text" class="case-pending-followup-input" value="${escapeHtml(item.pendingFollowUpText || '')}" placeholder="直接輸入關聯待處理說明，或由右上選單挑選待辦..." />
+          <input type="text" class="case-pending-followup-input" value="${escapeHtml(item.pendingFollowUpText || '')}" placeholder="補充待處理說明..." />
           ${linkedTodoChipsHtml ? `<div class="flex items-center gap-1.5 flex-wrap pt-1.5">${linkedTodoChipsHtml}</div>` : ''}
         </div>
 
@@ -38654,7 +38652,7 @@ renderSingleCaseDetailHtml = function(item) {
             </select>
           </div>
           <div class="flex items-center gap-1.5 flex-wrap pt-1">
-            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">尚未關聯筆記</span>`}
+            ${linkedNoteChipsHtml || `<span class="text-xs text-gray-400">無</span>`}
           </div>
         </div>
       </div>
@@ -38699,7 +38697,7 @@ renderSingleCaseDetailHtml = function(item) {
         <!-- ⬇️ 下方：新增異常現象輸入欄位 -->
         <div class="lvi-input-below-box">
           <div class="lvi-input-below-header">
-            <span class="lvi-input-below-title">✍️ 新增客訴 / 異常現象：</span>
+            <span class="lvi-input-below-title">➕ 新增異常</span>
             <div class="flex items-center gap-1.5 flex-wrap">
               <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="symptom">
                 <span>📷 拍照</span>
@@ -38708,14 +38706,14 @@ renderSingleCaseDetailHtml = function(item) {
                 <span>📎 附件</span>
               </button>
               <button type="button" class="case-save-history-btn btn-symptom-save case-save-symptom-history-btn">
-                <span>💾 存入歷史</span>
+                <span>💾 儲存</span>
               </button>
             </div>
           </div>
-          <textarea class="lvi-todo-textarea case-symptom-textarea" rows="3" placeholder="輸入新發現的客訴或異常現象（例如：發現濾心異常），點擊「💾 存入歷史」歸檔至上方後，即可在該筆異常內新增處理結果與關聯待辦...">${escapeHtml(item.symptomText || '')}</textarea>
+          <textarea class="lvi-todo-textarea case-symptom-textarea" rows="3" placeholder="輸入異常現象...">${escapeHtml(item.symptomText || '')}</textarea>
           <div class="lvi-case-parts-row">
             <span class="lvi-case-parts-label">🔩 更換零件：</span>
-            <input type="text" class="case-parts-input" value="${escapeHtml(item.partsReplacedText || '')}" placeholder="輸入料號或零件名稱（選填，存入歷史時將一併歸檔）..." />
+            <input type="text" class="case-parts-input" value="${escapeHtml(item.partsReplacedText || '')}" placeholder="料號或零件名稱（選填）" />
           </div>
           <div class="todo-attachments-gallery case-symptom-attachments">${item.symptomAttachmentsHtml || ''}</div>
         </div>
@@ -38749,7 +38747,7 @@ renderSingleCaseDetailHtml = function(item) {
         <!-- ⬇️ 下方：新增出廠測試輸入欄位 -->
         <div class="lvi-input-below-box">
           <div class="lvi-input-below-header">
-            <span class="lvi-input-below-title">✍️ 新增出廠測試紀錄：</span>
+            <span class="lvi-input-below-title">➕ 新增測試</span>
             <div class="flex items-center gap-1.5 flex-wrap">
               <button type="button" class="todo-section-camera-btn case-section-camera-btn" data-section="factory_test">
                 <span>📷 拍照</span>
@@ -38758,11 +38756,11 @@ renderSingleCaseDetailHtml = function(item) {
                 <span>📎 附件</span>
               </button>
               <button type="button" class="case-save-history-btn case-save-factory-test-history-btn">
-                <span>💾 存入歷史</span>
+                <span>💾 儲存</span>
               </button>
             </div>
           </div>
-          <textarea class="lvi-todo-textarea case-factory-test-textarea" rows="3" placeholder="輸入出廠測試項目、檢驗數據、燒機或雷射功率測試結果...">${escapeHtml(item.factoryTestText || '')}</textarea>
+          <textarea class="lvi-todo-textarea case-factory-test-textarea" rows="3" placeholder="輸入測試數據或結果...">${escapeHtml(item.factoryTestText || '')}</textarea>
           <div class="todo-attachments-gallery case-factory-test-attachments">${item.factoryTestAttachmentsHtml || ''}</div>
         </div>
       </div>

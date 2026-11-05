@@ -8635,3 +8635,50 @@ img[alt="LVI_Note Logo"] {
     overflow: hidden;
   }
 }
+
+
+/* ==================== v3.2.4 極簡美觀排版優化 ==================== */
+.lvi-todo-card, .lvi-case-card {
+  gap: 10px !important;
+  padding: 14px !important;
+}
+.lvi-todo-issue-box, .lvi-case-factory-test-box {
+  padding: 12px 14px !important;
+  border-radius: 12px !important;
+}
+.lvi-history-above-wrap {
+  margin-top: 4px !important;
+  margin-bottom: 10px !important;
+  padding-bottom: 10px !important;
+}
+.lvi-input-below-box {
+  padding: 9px 11px !important;
+  border-radius: 10px !important;
+}
+.hist-nested-subpanel {
+  margin-top: 8px !important;
+  padding: 8px 10px !important;
+  border-radius: 9px !important;
+}
+.hist-nested-todo-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 6px 10px !important;
+}
+.hist-nested-todo-panel .hist-nested-header {
+  margin-bottom: 0 !important;
+  width: 100%;
+}
+.hist-res-saved-list {
+  gap: 6px !important;
+  margin-bottom: 8px !important;
+}
+.hist-res-saved-card {
+  padding: 7px 10px !important;
+}
+.hist-res-editor-box {
+  padding: 8px 10px !important;
+}
