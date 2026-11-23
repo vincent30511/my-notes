@@ -1,4 +1,4 @@
-const APP_VERSION = 'v3.2.5'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.4.2'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -7861,18 +7861,47 @@ async function processCloudSaveQueue() {
         }
 
         const prevTempOrLocalId = snap.tempId || snap.noteId || (snap.noteRef && (snap.noteRef.id || snap.noteRef._tempId));
-        if (prevTempOrLocalId && finalCloudId && prevTempOrLocalId !== finalCloudId && Array.isArray(state.todoItems)) {
-          let updatedTodoLinks = false;
-          state.todoItems.forEach(tItem => {
-            if (Array.isArray(tItem.linkedNoteIds) && tItem.linkedNoteIds.includes(prevTempOrLocalId)) {
-              tItem.linkedNoteIds = tItem.linkedNoteIds.map(id => id === prevTempOrLocalId ? finalCloudId : id);
-              if (tItem.linkedNoteTitles && tItem.linkedNoteTitles[prevTempOrLocalId]) {
-                tItem.linkedNoteTitles[finalCloudId] = tItem.linkedNoteTitles[prevTempOrLocalId];
+        if (prevTempOrLocalId && finalCloudId && prevTempOrLocalId !== finalCloudId) {
+          if (Array.isArray(state.todoItems)) {
+            let updatedTodoLinks = false;
+            state.todoItems.forEach(tItem => {
+              if (Array.isArray(tItem.linkedNoteIds) && tItem.linkedNoteIds.includes(prevTempOrLocalId)) {
+                tItem.linkedNoteIds = tItem.linkedNoteIds.map(id => id === prevTempOrLocalId ? finalCloudId : id);
+                if (tItem.linkedNoteTitles && tItem.linkedNoteTitles[prevTempOrLocalId]) {
+                  tItem.linkedNoteTitles[finalCloudId] = tItem.linkedNoteTitles[prevTempOrLocalId];
+                }
+                updatedTodoLinks = true;
               }
-              updatedTodoLinks = true;
-            }
-          });
-          if (updatedTodoLinks) saveTodoItemsToLocalStorageOnly();
+            });
+            if (updatedTodoLinks) saveTodoItemsToLocalStorageOnly();
+          }
+          if (Array.isArray(state.caseItems)) {
+            let updatedCaseLinks = false;
+            state.caseItems.forEach(cItem => {
+              if (Array.isArray(cItem.linkedNoteIds) && cItem.linkedNoteIds.includes(prevTempOrLocalId)) {
+                cItem.linkedNoteIds = cItem.linkedNoteIds.map(id => id === prevTempOrLocalId ? finalCloudId : id);
+                if (cItem.linkedNoteTitles && cItem.linkedNoteTitles[prevTempOrLocalId]) {
+                  cItem.linkedNoteTitles[finalCloudId] = cItem.linkedNoteTitles[prevTempOrLocalId];
+                }
+                updatedCaseLinks = true;
+              }
+            });
+            if (updatedCaseLinks) saveCaseItemsToLocalStorageOnly();
+          }
+          if (Array.isArray(state.actionHistory)) {
+            state.actionHistory.forEach(act => {
+              if (!act) return;
+              if (act.noteId === prevTempOrLocalId) act.noteId = finalCloudId;
+              if (act.snapshotPayload) {
+                if (act.snapshotPayload.beforeCanvas && act.snapshotPayload.beforeCanvas.noteId === prevTempOrLocalId) {
+                  act.snapshotPayload.beforeCanvas.noteId = finalCloudId;
+                }
+                if (act.snapshotPayload.afterCanvas && act.snapshotPayload.afterCanvas.noteId === prevTempOrLocalId) {
+                  act.snapshotPayload.afterCanvas.noteId = finalCloudId;
+                }
+              }
+            });
+          }
         }
         if (snap.noteRef) {
           snap.noteRef.id = finalCloudId;
@@ -29691,7 +29720,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v3.2.5',
+        version: 'v3.4.2',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -32176,7 +32205,7 @@ savePersistentActionHistory = function() {
     }));
 
     const fullJson = JSON.stringify({
-      version: 'v3.2.5',
+      version: 'v3.4.2',
       maxSteps: PERSISTENT_MAX_STEPS,
       historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex)),
       pool,
@@ -32206,7 +32235,7 @@ savePersistentActionHistory = function() {
             snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, subPool, subMap)
           }));
           localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, JSON.stringify({
-            version: 'v3.2.5',
+            version: 'v3.4.2',
             maxSteps: PERSISTENT_MAX_STEPS,
             historyIndex: Math.max(-1, Math.min(subRecords.length - 1, state.historyIndex - offset)),
             pool: subPool,
@@ -39159,28 +39188,7 @@ renderTodoToDirectPdfBlob = async function(item) {
 
       await drawAttachmentsFromHtml(ih.attachmentsHtml);
 
-      // 若該筆說明有綁定關聯待辦
-      if (linkedTodos.length > 0) {
-        const todoNames = linkedTodos.map(tid => {
-          const tObj = (state.todoItems || []).find(t => t && t.id === tid);
-          return tObj ? `${tObj.status || ''} ${tObj.title || ''}` : ((ih.linkedTodoTitles && ih.linkedTodoTitles[tid]) || tid);
-        }).join('、');
-        curCtx.font = `700 18px ${FONT_FAMILY}`;
-        const tLines = wrapTextLines(curCtx, `📋 此紀錄關聯待辦：${todoNames}`, CONTENT_W - 64);
-        const tBoxH = 16 + tLines.length * 28;
-        ensureSpace(tBoxH + 10);
-        curCtx.fillStyle = '#fffbeb';
-        curCtx.strokeStyle = '#fcd34d';
-        curCtx.fillRect(MARGIN_X + 28, curY, CONTENT_W - 28, tBoxH);
-        curCtx.strokeRect(MARGIN_X + 28, curY, CONTENT_W - 28, tBoxH);
-        curCtx.fillStyle = '#92400e';
-        let tty = curY + 8;
-        for (const tl of tLines) {
-          curCtx.fillText(tl, MARGIN_X + 42, tty);
-          tty += 28;
-        }
-        curY += tBoxH + 10;
-      }
+
 
       // 若該筆說明內有「✅ 處理結果」子項目，縮排繪製綠色處理結果卡片
       for (let rIdx = 0; rIdx < resList.length; rIdx++) {
@@ -39777,9 +39785,802 @@ exportPDF = async function() {
   return await _origExportPdfV322();
 };
 
-// 在所有 v3.2.3 覆寫載入完畢後，正式啟動應用程式並初始化 100 步全域回朔引擎與新 LOGO
+// v3.2.5 覆寫載入完畢（由 v3.2.6 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.2.6 穩定性與功能完整性優化：
+// 1. 升級 convertTodoToRegularNote：將待辦事項每筆說明下的內嵌「✅ 處理結果 (ih.resolutions)」與照片附件完整深拷貝輸出至新常規筆記
+// 2. 升級 syncTodoDomToMemoryNonDestructive 與 syncCaseDomToMemoryNonDestructive：保護展開中歷史卡片內的「新增處理結果」暫存文字不被背景雲端同步覆寫
+// ============================================================================
+
+const _origConvertTodoToRegularNoteV325 = convertTodoToRegularNote;
+convertTodoToRegularNote = async function(todoId) {
+  const newNote = await _origConvertTodoToRegularNoteV325(todoId);
+  if (!newNote) return null;
+  const item = (state.todoItems || []).find(t => t && t.id === todoId);
+  if (!item) return newNote;
+
+  unifyTodoItemFieldsNonDestructive(item);
+  const extraBlocks = [];
+  (item.issueHistory || []).forEach(ih => {
+    if (!ih) return;
+    normalizeSingleHistoryEntryV321(ih, false);
+    if (Array.isArray(ih.resolutions) && ih.resolutions.length > 0) {
+      const subLines = [`<div class="notion-callout troubleshoot-stage-2" style="margin:6px 0;"><span class="notion-callout-icon">✅</span><div class="notion-callout-body"><strong>對應說明「${escapeHtml((ih.text || ih.code || '').slice(0, 28))}」之處理結果：</strong>`];
+      ih.resolutions.forEach((r, idx) => {
+        subLines.push(`<br>✅ <strong>${escapeHtml(r.code || ('處理結果 #' + (idx + 1)))} (${escapeHtml(r.time || '')})：</strong>${escapeHtml(r.text || '')}`);
+      });
+      subLines.push(`</div></div>`);
+      extraBlocks.push(subLines.join(''));
+      ih.resolutions.forEach(r => {
+        if (r && r.attachmentsHtml) {
+          extraBlocks.push(cloneAttachmentsHtmlForRegularNote(r.attachmentsHtml));
+        }
+      });
+    }
+  });
+
+  if (extraBlocks.length > 0) {
+    let updatedHtml = (newNote._cachedHtml || '')
+      .replace(/<h3>✅ 處理結果紀錄（共 0 筆）<\/h3>\s*<p class="text-gray-400">（尚無處理結果內容）<\/p>/, '');
+    updatedHtml += extraBlocks.join('') + '<p><br></p>';
+    newNote._cachedHtml = updatedHtml;
+    newNote._cachedBody = convertHtmlToMarkdown(updatedHtml);
+    if (state.currentNote && state.currentNote.id === newNote.id && DOM.editor) {
+      DOM.editor.innerHTML = updatedHtml;
+      state.editorSnapshotBeforeEdit = updatedHtml;
+      try { enhanceAllEditorBlocks(DOM.editor); } catch (e) {}
+    }
+    saveSwrCacheSnapshot();
+  }
+  return newNote;
+};
+
+const _origSyncTodoDomToMemoryNonDestructiveV325 = syncTodoDomToMemoryNonDestructive;
+syncTodoDomToMemoryNonDestructive = function(todoId) {
+  _origSyncTodoDomToMemoryNonDestructiveV325(todoId);
+  const cardEl = document.querySelector(`.lvi-todo-card[data-todo-id="${todoId}"]`);
+  if (!cardEl) return;
+  const item = (state.todoItems || []).find(t => t && t.id === todoId);
+  if (!item) return;
+
+  cardEl.querySelectorAll('.todo-hist-res-textarea[data-todo-hist-id]').forEach(ta => {
+    const hid = ta.getAttribute('data-todo-hist-id');
+    const ih = (item.issueHistory || []).find(i => i && i.id === hid);
+    if (ih) ih._stagingResText = ta.value;
+  });
+  saveTodoItemsToLocalStorageOnly();
+};
+
+const _origSyncCaseDomToMemoryNonDestructiveV325 = syncCaseDomToMemoryNonDestructive;
+syncCaseDomToMemoryNonDestructive = function(caseId) {
+  _origSyncCaseDomToMemoryNonDestructiveV325(caseId);
+  const cardEl = document.querySelector(`.lvi-case-card[data-case-id="${caseId}"]`);
+  if (!cardEl) return;
+  const item = (state.caseItems || []).find(c => c && c.id === caseId);
+  if (!item) return;
+
+  cardEl.querySelectorAll('.case-hist-res-textarea[data-hist-id]').forEach(ta => {
+    const hid = ta.getAttribute('data-hist-id');
+    const sh = (item.symptomHistory || []).find(s => s && s.id === hid);
+    if (sh) sh._stagingResText = ta.value;
+  });
+  cardEl.querySelectorAll('.case-hist-res-parts-input[data-hist-id]').forEach(inp => {
+    const hid = inp.getAttribute('data-hist-id');
+    const sh = (item.symptomHistory || []).find(s => s && s.id === hid);
+    if (sh) sh._stagingResParts = inp.value;
+  });
+  saveCaseItemsToLocalStorageOnly();
+};
+
+// v3.2.6 覆寫載入完畢（由 v3.2.7 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.2.7 排程自動穩定性與跨模組一致性強化：
+// 1. 刪除待辦事項 (`deleteTodoItemById`) 時，同步清理案件追蹤「單一異常卡片 (`sh.linkedTodoIds`)」內的失效待辦連結，防止殘留幽靈膠囊；復原 (`undoAction`) 或單步回檔 (`revertSingleHistoryStep`) 時自動雙向恢復單一異常內的待辦連結！
+// 2. 修改待辦事項標題時，即時同步更新關聯案件與單一異常內的 `linkedTodoTitles` 快取。
+// 3. 一鍵匯出標準 Markdown `.zip` (`exportAllNotesMarkdownZip`) 前 0ms 自動結算未滿防抖時間的輸入文字。
+// ============================================================================
+
+const _origDeleteTodoItemByIdV326 = deleteTodoItemById;
+deleteTodoItemById = async function(todoId) {
+  if (!todoId) return false;
+  // 記錄刪除前哪些單一異常卡片 (sh) 綁定了此 todoId
+  const affectedSymMap = new Map();
+  if (Array.isArray(state.caseItems)) {
+    state.caseItems.forEach(c => {
+      if (!c || !Array.isArray(c.symptomHistory)) return;
+      c.symptomHistory.forEach(sh => {
+        if (sh && Array.isArray(sh.linkedTodoIds) && sh.linkedTodoIds.includes(todoId)) {
+          affectedSymMap.set(sh.id, c.id);
+        }
+      });
+    });
+  }
+
+  const ok = await _origDeleteTodoItemByIdV326(todoId);
+  if (ok && affectedSymMap.size > 0) {
+    state.caseItems.forEach(c => {
+      if (!c || !Array.isArray(c.symptomHistory)) return;
+      c.symptomHistory.forEach(sh => {
+        if (sh && Array.isArray(sh.linkedTodoIds) && sh.linkedTodoIds.includes(todoId)) {
+          sh.linkedTodoIds = sh.linkedTodoIds.filter(id => id !== todoId);
+        }
+      });
+    });
+    saveCaseItemsToLocalStorageOnly();
+    if (state.currentView === 'cases') renderCasesView();
+
+    const latestRec = state.actionHistory && state.actionHistory[state.actionHistory.length - 1];
+    if (latestRec && latestRec.snapshotPayload) {
+      latestRec.snapshotPayload.afterWorkspace = captureWorkspaceActionSnapshot();
+      savePersistentActionHistory();
+    }
+  }
+  return ok;
+};
+
+const _origRevertSingleHistoryStepV326 = revertSingleHistoryStep;
+revertSingleHistoryStep = function(targetIdx) {
+  const act = (state.actionHistory || [])[targetIdx];
+  const B = act && act.snapshotPayload ? act.snapshotPayload.beforeWorkspace : null;
+  const ok = _origRevertSingleHistoryStepV326(targetIdx);
+  if (ok && B && Array.isArray(B.caseItems) && Array.isArray(state.caseItems)) {
+    const existingTodoIds = new Set((state.todoItems || []).map(t => t && t.id).filter(Boolean));
+    let restoredSymLinks = false;
+    B.caseItems.forEach(bc => {
+      if (!bc || !Array.isArray(bc.symptomHistory)) return;
+      const curCase = state.caseItems.find(c => c && c.id === bc.id);
+      if (!curCase || !Array.isArray(curCase.symptomHistory)) return;
+      bc.symptomHistory.forEach(bsh => {
+        if (!bsh || !Array.isArray(bsh.linkedTodoIds) || bsh.linkedTodoIds.length === 0) return;
+        const curSh = curCase.symptomHistory.find(s => s && s.id === bsh.id);
+        if (!curSh) return;
+        if (!Array.isArray(curSh.linkedTodoIds)) curSh.linkedTodoIds = [];
+        bsh.linkedTodoIds.forEach(tid => {
+          if (existingTodoIds.has(tid) && !curSh.linkedTodoIds.includes(tid)) {
+            curSh.linkedTodoIds.push(tid);
+            restoredSymLinks = true;
+          }
+        });
+      });
+    });
+    if (restoredSymLinks) {
+      saveCaseItemsToLocalStorageOnly();
+      if (state.currentView === 'cases') renderCasesView();
+    }
+  }
+  return ok;
+};
+
+// 同步更新待辦標題快取至所有關聯案件與單一異常卡片
+function propagateTodoTitleToLinkedCases(todoId, newTitle) {
+  if (!todoId || !Array.isArray(state.caseItems)) return;
+  const cleanTitle = (newTitle || '未命名待辦').trim() || '未命名待辦';
+  let touched = false;
+  state.caseItems.forEach(c => {
+    if (!c) return;
+    if (Array.isArray(c.linkedTodoIds) && c.linkedTodoIds.includes(todoId)) {
+      if (!c.linkedTodoTitles || typeof c.linkedTodoTitles !== 'object') c.linkedTodoTitles = {};
+      if (c.linkedTodoTitles[todoId] !== cleanTitle) {
+        c.linkedTodoTitles[todoId] = cleanTitle;
+        touched = true;
+      }
+    }
+    if (Array.isArray(c.symptomHistory)) {
+      c.symptomHistory.forEach(sh => {
+        if (sh && Array.isArray(sh.linkedTodoIds) && sh.linkedTodoIds.includes(todoId)) {
+          if (!sh.linkedTodoTitles || typeof sh.linkedTodoTitles !== 'object') sh.linkedTodoTitles = {};
+          if (sh.linkedTodoTitles[todoId] !== cleanTitle) {
+            sh.linkedTodoTitles[todoId] = cleanTitle;
+            touched = true;
+          }
+        }
+      });
+    }
+  });
+  if (touched) saveCaseItemsToLocalStorageOnly();
+}
+
+const _origBindTodoCardsInteractionsV326 = bindTodoCardsInteractions;
+bindTodoCardsInteractions = function(listContainer) {
+  _origBindTodoCardsInteractionsV326(listContainer);
+  if (!listContainer) return;
+  listContainer.querySelectorAll('.lvi-todo-card:not(.lvi-case-card)').forEach(cardEl => {
+    const todoId = cardEl.getAttribute('data-todo-id');
+    const titleInp = cardEl.querySelector('.todo-title-input');
+    if (todoId && titleInp && !titleInp._v327TitleSyncBound) {
+      titleInp._v327TitleSyncBound = true;
+      titleInp.addEventListener('input', () => {
+        propagateTodoTitleToLinkedCases(todoId, titleInp.value);
+      });
+    }
+  });
+};
+
+const _origExportAllNotesMarkdownZipV326 = exportAllNotesMarkdownZip;
+exportAllNotesMarkdownZip = async function() {
+  try { flushAllPendingInputHistoriesNow(); } catch (e) {}
+  return await _origExportAllNotesMarkdownZipV326();
+};
+
+// v3.2.7 覆寫載入完畢（由 v3.2.8 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.2.8 排程自動穩定性與跨模組一致性強化：
+// 1. 分類與標籤管理中心變更重繪前 (`refreshAllViewsAfterCategoryChange`)，自動先將開啟中的待辦或案件卡片 DOM 無損同步回記憶體，防止未存輸入文字被重繪清空。
+// 2. 筆記標題 (`DOM.noteTitle`) 變更時，即時同步更新雙向連結索引 (`rebuildBacklinksIndexMap`) 與底部反向連結面板。
+// ============================================================================
+
+if (typeof refreshAllViewsAfterCategoryChange === 'function') {
+  const _origRefreshAllViewsAfterCategoryChangeV327 = refreshAllViewsAfterCategoryChange;
+  refreshAllViewsAfterCategoryChange = function() {
+    try {
+      if (state.activeTodoDetailId && typeof syncTodoDomToMemoryNonDestructive === 'function') {
+        syncTodoDomToMemoryNonDestructive(state.activeTodoDetailId);
+      }
+      if (state.activeCaseDetailId && typeof syncCaseDomToMemoryNonDestructive === 'function') {
+        syncCaseDomToMemoryNonDestructive(state.activeCaseDetailId);
+      }
+    } catch (e) {}
+    return _origRefreshAllViewsAfterCategoryChangeV327();
+  };
+}
+
+let _v328BacklinksTitleTimer = null;
+function bindV328LiveTitleBacklinksSync() {
+  if (!DOM.noteTitle || DOM.noteTitle._v328BacklinksTitleBound) return;
+  DOM.noteTitle._v328BacklinksTitleBound = true;
+  DOM.noteTitle.addEventListener('input', () => {
+    if (state.currentNote) {
+      const clean = (DOM.noteTitle.value || '').trim() || '未命名筆記';
+      state.currentNote.name = `${clean}.md`;
+    }
+    if (_v328BacklinksTitleTimer) clearTimeout(_v328BacklinksTitleTimer);
+    _v328BacklinksTitleTimer = setTimeout(() => {
+      try {
+        if (typeof rebuildBacklinksIndexMap === 'function') rebuildBacklinksIndexMap();
+        if (typeof renderCurrentNoteBacklinks === 'function') renderCurrentNoteBacklinks();
+      } catch (e) {}
+    }, 180);
+  });
+}
+
+// v3.2.8 覆寫載入完畢（由 v3.2.9 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.2.9 排程自動穩定性與跨模組一致性強化：
+// 1. 刪除常規筆記 (`deleteNoteById` / `deleteCurrentNote`) 時，同步清理待辦事項與案件追蹤內的失效 `linkedNoteIds`；當透過復原 (`undoAction`) 或單步回檔 (`revertSingleHistoryStep`) 救回筆記時，自動雙向還原待辦與案件上的關聯筆記連結！
+// 2. 修改筆記標題 (`DOM.noteTitle`) 時，即時同步更新所有關聯待辦與關聯案件內的 `linkedNoteTitles` 快取。
+// ============================================================================
+
+function cleanupDanglingNoteLinksFromTodosAndCases(noteId) {
+  if (!noteId) return false;
+  let cleaned = false;
+  if (Array.isArray(state.todoItems)) {
+    state.todoItems.forEach(t => {
+      if (t && Array.isArray(t.linkedNoteIds) && t.linkedNoteIds.includes(noteId)) {
+        t.linkedNoteIds = t.linkedNoteIds.filter(id => id !== noteId);
+        cleaned = true;
+      }
+    });
+    if (cleaned) saveTodoItemsToLocalStorageOnly();
+  }
+  let caseCleaned = false;
+  if (Array.isArray(state.caseItems)) {
+    state.caseItems.forEach(c => {
+      if (c && Array.isArray(c.linkedNoteIds) && c.linkedNoteIds.includes(noteId)) {
+        c.linkedNoteIds = c.linkedNoteIds.filter(id => id !== noteId);
+        caseCleaned = true;
+      }
+    });
+    if (caseCleaned) saveCaseItemsToLocalStorageOnly();
+  }
+  return cleaned || caseCleaned;
+}
+
+const _origDeleteNoteByIdV328 = deleteNoteById;
+deleteNoteById = async function(noteId) {
+  const res = await _origDeleteNoteByIdV328(noteId);
+  if (cleanupDanglingNoteLinksFromTodosAndCases(noteId)) {
+    const latestRec = state.actionHistory && state.actionHistory[state.actionHistory.length - 1];
+    if (latestRec && latestRec.snapshotPayload) {
+      latestRec.snapshotPayload.afterWorkspace = captureWorkspaceActionSnapshot();
+      savePersistentActionHistory();
+    }
+  }
+  return res;
+};
+
+const _origDeleteCurrentNoteV328 = deleteCurrentNote;
+deleteCurrentNote = async function() {
+  const curId = state.currentNote ? state.currentNote.id : null;
+  const res = await _origDeleteCurrentNoteV328();
+  if (curId && !(state.notes || []).some(n => n && n.id === curId)) {
+    if (cleanupDanglingNoteLinksFromTodosAndCases(curId)) {
+      const latestRec = state.actionHistory && state.actionHistory[state.actionHistory.length - 1];
+      if (latestRec && latestRec.snapshotPayload) {
+        latestRec.snapshotPayload.afterWorkspace = captureWorkspaceActionSnapshot();
+        savePersistentActionHistory();
+      }
+    }
+  }
+  return res;
+};
+
+const _origRevertSingleHistoryStepV328 = revertSingleHistoryStep;
+revertSingleHistoryStep = function(targetIdx) {
+  const act = (state.actionHistory || [])[targetIdx];
+  const B = act && act.snapshotPayload ? act.snapshotPayload.beforeWorkspace : null;
+  const ok = _origRevertSingleHistoryStepV328(targetIdx);
+  if (ok && B) {
+    const existingNoteIds = new Set((state.notes || []).map(n => n && n.id).filter(Boolean));
+    let restoredTodoNoteLinks = false;
+    if (Array.isArray(B.todoItems) && Array.isArray(state.todoItems)) {
+      B.todoItems.forEach(bt => {
+        if (!bt || !Array.isArray(bt.linkedNoteIds) || bt.linkedNoteIds.length === 0) return;
+        const curTodo = state.todoItems.find(t => t && t.id === bt.id);
+        if (!curTodo) return;
+        if (!Array.isArray(curTodo.linkedNoteIds)) curTodo.linkedNoteIds = [];
+        bt.linkedNoteIds.forEach(nid => {
+          if (existingNoteIds.has(nid) && !curTodo.linkedNoteIds.includes(nid)) {
+            curTodo.linkedNoteIds.push(nid);
+            restoredTodoNoteLinks = true;
+          }
+        });
+      });
+      if (restoredTodoNoteLinks) saveTodoItemsToLocalStorageOnly();
+    }
+    let restoredCaseNoteLinks = false;
+    if (Array.isArray(B.caseItems) && Array.isArray(state.caseItems)) {
+      B.caseItems.forEach(bc => {
+        if (!bc || !Array.isArray(bc.linkedNoteIds) || bc.linkedNoteIds.length === 0) return;
+        const curCase = state.caseItems.find(c => c && c.id === bc.id);
+        if (!curCase) return;
+        if (!Array.isArray(curCase.linkedNoteIds)) curCase.linkedNoteIds = [];
+        bc.linkedNoteIds.forEach(nid => {
+          if (existingNoteIds.has(nid) && !curCase.linkedNoteIds.includes(nid)) {
+            curCase.linkedNoteIds.push(nid);
+            restoredCaseNoteLinks = true;
+          }
+        });
+      });
+      if (restoredCaseNoteLinks) saveCaseItemsToLocalStorageOnly();
+    }
+    if (restoredTodoNoteLinks && state.currentView === 'tasks') renderTasksView();
+    if (restoredCaseNoteLinks && state.currentView === 'cases') renderCasesView();
+  }
+  return ok;
+};
+
+function propagateNoteTitleToLinkedTodosAndCases(noteId, newTitle) {
+  if (!noteId) return;
+  const clean = (newTitle || '未命名筆記').trim() || '未命名筆記';
+  if (Array.isArray(state.todoItems)) {
+    let tChanged = false;
+    state.todoItems.forEach(t => {
+      if (t && Array.isArray(t.linkedNoteIds) && t.linkedNoteIds.includes(noteId)) {
+        if (!t.linkedNoteTitles || typeof t.linkedNoteTitles !== 'object') t.linkedNoteTitles = {};
+        if (t.linkedNoteTitles[noteId] !== clean) {
+          t.linkedNoteTitles[noteId] = clean;
+          tChanged = true;
+        }
+      }
+    });
+    if (tChanged) saveTodoItemsToLocalStorageOnly();
+  }
+  if (Array.isArray(state.caseItems)) {
+    let cChanged = false;
+    state.caseItems.forEach(c => {
+      if (c && Array.isArray(c.linkedNoteIds) && c.linkedNoteIds.includes(noteId)) {
+        if (!c.linkedNoteTitles || typeof c.linkedNoteTitles !== 'object') c.linkedNoteTitles = {};
+        if (c.linkedNoteTitles[noteId] !== clean) {
+          c.linkedNoteTitles[noteId] = clean;
+          cChanged = true;
+        }
+      }
+    });
+    if (cChanged) saveCaseItemsToLocalStorageOnly();
+  }
+}
+
+if (DOM.noteTitle && !DOM.noteTitle._v329LinkedTitleSyncBound) {
+  DOM.noteTitle._v329LinkedTitleSyncBound = true;
+  DOM.noteTitle.addEventListener('input', () => {
+    if (state.currentNote && state.currentNote.id) {
+      propagateNoteTitleToLinkedTodosAndCases(state.currentNote.id, DOM.noteTitle.value);
+    }
+  });
+}
+
+// v3.2.9 覆寫載入完畢（由 v3.3.0 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.3.0 排程自動穩定性與跨模組一致性強化：
+// 1. 強化 resolveLinkedNoteTitle 與 selectNote：支援透過 id 或 _tempId 雙向查找筆記，確保新建立關聯筆記在雲端同步前後 100% 不斷鏈。
+// 2. 將待辦事項與案件追蹤「📝 轉為筆記」操作完整納入 100 步全域回朔時光機 (`recordAction`)，支援一鍵復原與重做。
+// ============================================================================
+
+if (typeof resolveLinkedNoteTitle === 'function') {
+  const _origResolveLinkedNoteTitleV329 = resolveLinkedNoteTitle;
+  resolveLinkedNoteTitle = function(item, noteId) {
+    const matched = findNoteByAnyId(noteId);
+    if (matched && matched.name) {
+      return matched.name.replace(/\.md$/i, '');
+    }
+    return _origResolveLinkedNoteTitleV329(item, noteId);
+  };
+}
+
+const _origSelectNoteV329 = selectNote;
+selectNote = async function(noteId) {
+  const matched = findNoteByAnyId(noteId);
+  const effectiveId = matched ? matched.id : noteId;
+  return await _origSelectNoteV329(effectiveId);
+};
+
+const _origConvertTodoToRegularNoteV329 = convertTodoToRegularNote;
+convertTodoToRegularNote = async function(todoId) {
+  const beforeWs = (!state.isUndoingOrRedoing && typeof captureWorkspaceActionSnapshot === 'function')
+    ? captureWorkspaceActionSnapshot()
+    : null;
+  const newNote = await _origConvertTodoToRegularNoteV329(todoId);
+  if (newNote && beforeWs && !state.isUndoingOrRedoing) {
+    recordAction({
+      type: 'create_quick_note',
+      title: `📝 待辦轉為筆記：「${(newNote.name || '').replace(/\.md$/i, '').slice(0, 22)}」`,
+      subtitle: `來源待辦 ID：${todoId}`,
+      noteId: newNote.id,
+      _beforeWorkspace: beforeWs
+    });
+  }
+  return newNote;
+};
+
+const _origConvertCaseToRegularNoteV329 = convertCaseToRegularNote;
+convertCaseToRegularNote = async function(caseId) {
+  const beforeWs = (!state.isUndoingOrRedoing && typeof captureWorkspaceActionSnapshot === 'function')
+    ? captureWorkspaceActionSnapshot()
+    : null;
+  const newNote = await _origConvertCaseToRegularNoteV329(caseId);
+  if (newNote && beforeWs && !state.isUndoingOrRedoing) {
+    recordAction({
+      type: 'create_quick_note',
+      title: `📝 案件轉為筆記：「${(newNote.name || '').replace(/\.md$/i, '').slice(0, 22)}」`,
+      subtitle: `來源案件 ID：${caseId}`,
+      noteId: newNote.id,
+      _beforeWorkspace: beforeWs
+    });
+  }
+  return newNote;
+};
+
+// v3.3.0 覆寫載入完畢（由 v3.3.1 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.3.1 排程自動穩定性與跨模組一致性強化：
+// 1. 切換主分頁 (`switchView`) 前 0ms 自動結算所有未滿防抖時間的筆記內文與欄位輸入 (`flushAllPendingInputHistoriesNow`)，確保跨分頁切換後按 Ctrl+Z 100% 精準回朔。
+// 2. 切換至行事曆視圖 (`calendar`) 前，自動執行 `ensureAllCaseShipDatesSyncedToCalendar()`，確保所有案件的出機時間排程 100% 即時呈現於日曆上。
+// ============================================================================
+
+const _origSwitchViewV330 = switchView;
+switchView = function(viewName) {
+  try {
+    if (!state.isUndoingOrRedoing && !_isRestoringActionSnapshot && typeof flushAllPendingInputHistoriesNow === 'function') {
+      flushAllPendingInputHistoriesNow();
+    }
+    if (viewName === 'calendar' && typeof ensureAllCaseShipDatesSyncedToCalendar === 'function') {
+      ensureAllCaseShipDatesSyncedToCalendar();
+    }
+  } catch (e) {}
+  return _origSwitchViewV330(viewName);
+};
+
+// v3.3.1 覆寫載入完畢（由 v3.3.2 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.3.2 排程自動穩定性與跨裝置背景保護強化：
+// 1. 當使用者在手機切換 App (`visibilitychange: hidden`) 或關閉分頁 (`pagehide` / `beforeunload`) 時，
+//    自動以 0ms 結算所有正在打字的筆記與欄位回朔歷史 (`flushAllPendingInputHistoriesNow`) 並同步寫入 SWR 快取與持久化時光機，確保最後 0.1 秒的輸入與回朔步數 100% 不流失。
+// ============================================================================
+
+function flushAndPersistAllStateOnAppHideV332() {
+  try {
+    if (!state.isUndoingOrRedoing && !_isRestoringActionSnapshot && typeof flushAllPendingInputHistoriesNow === 'function') {
+      flushAllPendingInputHistoriesNow();
+    }
+  } catch (e) {}
+  try {
+    if (typeof savePersistentActionHistory === 'function') savePersistentActionHistory();
+  } catch (e) {}
+  try {
+    if (typeof saveSwrCacheSnapshot === 'function') saveSwrCacheSnapshot();
+  } catch (e) {}
+}
+
+if (!window._v332AppHideGuardBound) {
+  window._v332AppHideGuardBound = true;
+  window.addEventListener('pagehide', flushAndPersistAllStateOnAppHideV332, true);
+  window.addEventListener('beforeunload', flushAndPersistAllStateOnAppHideV332, true);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      flushAndPersistAllStateOnAppHideV332();
+    }
+  }, true);
+}
+
+// v3.3.2 覆寫載入完畢（由 v3.3.3 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.3.3 排程自動穩定性與回朔基準同步強化：
+// 1. 當任何非鍵盤直接輸入之編輯器動作（如插入空白行、上傳圖片/附件、圖片標註、圖片旋轉、套用模板）寫入 `recordAction` 後，
+//    自動同步更新 `_editorPendingBeforeHtml` 與 `state.editorSnapshotBeforeEdit` 為最新 DOM，確保緊接著打字再按 Ctrl+Z 100% 精準回朔！
+// ============================================================================
+
+const _origRecordActionV332 = recordAction;
+recordAction = function(actionObj) {
+  const res = _origRecordActionV332(actionObj);
+  try {
+    if (!state.isUndoingOrRedoing && !_isRestoringActionSnapshot && DOM.editor && state.currentNote) {
+      _editorPendingBeforeHtml = DOM.editor.innerHTML;
+      _editorPendingNoteKey = getActiveNoteCanonicalKey();
+      _editorPendingCharDelta = 0;
+      state.editorSnapshotBeforeEdit = DOM.editor.innerHTML;
+      state.snapshotNoteId = _editorPendingNoteKey;
+    }
+  } catch (e) {}
+  return res;
+};
+
+// v3.3.3 覆寫載入完畢（由 v3.3.4 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.3.4 排程自動穩定性與回朔顆粒度強化：
+// 1. 在貼上 (`paste`) 或拖放檔案 (`drop`) 進入編輯器或輸入框前的捕獲階段 (0ms)，先將先前輸入但未滿防抖時間的文字結算為獨立歷史步驟 (`flushAllPendingInputHistoriesNow`)，避免貼上內容與前一段打字混為同一步。
+// 2. 點擊待辦或案件歷史紀錄的「✏️ 編輯」載回按鈕時，自動記錄一步 100 步回朔快照，支援按 Ctrl+Z 立即還原載回動作。
+// ============================================================================
+
+function initV334PasteDropAndHistoryEditRollbackGuard() {
+  if (window._v334PasteDropGuardBound) return;
+  window._v334PasteDropGuardBound = true;
+
+  const preFlushBeforePasteOrDrop = () => {
+    try {
+      if (!state.isUndoingOrRedoing && !_isRestoringActionSnapshot && typeof flushAllPendingInputHistoriesNow === 'function') {
+        flushAllPendingInputHistoriesNow();
+      }
+    } catch (e) {}
+  };
+
+  document.addEventListener('paste', preFlushBeforePasteOrDrop, true);
+  document.addEventListener('drop', preFlushBeforePasteOrDrop, true);
+
+  document.addEventListener('click', (e) => {
+    if (state.isUndoingOrRedoing || _isRestoringActionSnapshot) return;
+    const editBtn = e.target && e.target.closest
+      ? e.target.closest('.todo-load-hist-to-edit-btn, .case-load-hist-to-edit-btn, .todo-hist-edit-res-btn, .case-hist-edit-res-btn')
+      : null;
+    if (!editBtn) return;
+    try {
+      flushAllPendingInputHistoriesNow();
+      const beforeWs = typeof captureWorkspaceActionSnapshot === 'function' ? captureWorkspaceActionSnapshot() : null;
+      if (beforeWs) {
+        const isCase = editBtn.classList.contains('case-load-hist-to-edit-btn') || editBtn.classList.contains('case-hist-edit-res-btn');
+        setTimeout(() => {
+          if (!state.isUndoingOrRedoing && !_isRestoringActionSnapshot) {
+            recordAction({
+              type: isCase ? 'case_op' : 'todo_toggle',
+              title: isCase ? '✏️ 載回案件歷史紀錄編輯' : '✏️ 載回待辦歷史紀錄編輯',
+              subtitle: '可按 Ctrl+Z 還原回歷史列表',
+              _beforeWorkspace: beforeWs
+            });
+          }
+        }, 0);
+      }
+    } catch (err) {}
+  }, true);
+}
+
+// v3.3.4 覆寫載入完畢（由 v3.3.5 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.3.5 排程自動穩定性與附件刪除回朔強化：
+// 1. 在待辦事項或案件追蹤（含單一異常內嵌處理結果、出廠測試）點擊移除檔案附件 (`.file-attachment-delete-btn`) 時，
+//    自動在移除前捕捉 100 步回朔快照並標記為刪除紀錄 (`isDeletion: true`)，確保任何誤刪的報告或附件皆可透過 Ctrl+Z 或「🎯 單步回檔」一鍵救回！
+// ============================================================================
+
+function initV335AttachmentDeleteRollbackGuard() {
+  if (window._v335AttDeleteGuardBound) return;
+  window._v335AttDeleteGuardBound = true;
+
+  document.addEventListener('click', (e) => {
+    if (state.isUndoingOrRedoing || _isRestoringActionSnapshot) return;
+    const delBtn = e.target && e.target.closest ? e.target.closest('.file-attachment-delete-btn') : null;
+    if (!delBtn) return;
+    const cardEl = delBtn.closest('.lvi-todo-card, .lvi-case-card');
+    if (!cardEl) return;
+
+    const attBox = delBtn.closest('.notion-file-attachment');
+    const fileName = (attBox && attBox.getAttribute('data-file-name')) || '附件檔案';
+    const isCase = cardEl.classList.contains('lvi-case-card');
+
+    try {
+      flushAllPendingInputHistoriesNow();
+      const beforeWs = typeof captureWorkspaceActionSnapshot === 'function' ? captureWorkspaceActionSnapshot() : null;
+      if (attBox && attBox.parentElement) {
+        attBox.remove();
+        if (isCase && typeof syncCaseCardAttachmentsFromDom === 'function') {
+          syncCaseCardAttachmentsFromDom(cardEl);
+        } else if (!isCase && typeof syncTodoCardAttachmentsFromDom === 'function') {
+          syncTodoCardAttachmentsFromDom(cardEl);
+        }
+        if (beforeWs) {
+          recordAction({
+            type: isCase ? 'case_op' : 'todo_toggle',
+            isDeletion: true,
+            title: `🗑️ 移除${isCase ? '案件' : '待辦'}附件：「${fileName.slice(0, 22)}」`,
+            subtitle: isCase ? '案件追蹤附件移除' : '待辦事項附件移除',
+            deletedDetail: `移除${isCase ? '案件' : '待辦'}附件檔案：「${fileName}」`,
+            _beforeWorkspace: beforeWs
+          });
+        }
+      }
+    } catch (err) {}
+  }, true);
+}
+
+// v3.3.5 覆寫載入完畢（由 v3.3.6 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.3.6 排程自動穩定性與圖片附件刪除回朔強化：
+// 1. 在待辦事項或案件追蹤（含單一異常內嵌處理結果、出廠測試）點擊移除照片卡片 (`.media-delete-btn`) 時，
+//    自動在移除前捕捉 100 步回朔快照並標記為刪除紀錄 (`isDeletion: true`)，確保誤刪的照片附件可透過 Ctrl+Z 或「🎯 單步回檔」一鍵救回！
+// ============================================================================
+
+function initV336MediaCardDeleteInTodoAndCaseRollbackGuard() {
+  if (window._v336MediaCardDeleteGuardBound) return;
+  window._v336MediaCardDeleteGuardBound = true;
+
+  document.addEventListener('click', (e) => {
+    if (state.isUndoingOrRedoing || _isRestoringActionSnapshot) return;
+    const delBtn = e.target && e.target.closest ? e.target.closest('.media-delete-btn') : null;
+    if (!delBtn) return;
+    const cardEl = delBtn.closest('.lvi-todo-card, .lvi-case-card');
+    if (!cardEl) return;
+
+    const mediaBox = delBtn.closest('details.notion-media-collapse');
+    const mediaName = (mediaBox && mediaBox.getAttribute('data-file-name')) || '照片附件';
+    const isCase = cardEl.classList.contains('lvi-case-card');
+
+    try {
+      flushAllPendingInputHistoriesNow();
+      const beforeWs = typeof captureWorkspaceActionSnapshot === 'function' ? captureWorkspaceActionSnapshot() : null;
+      if (beforeWs) {
+        setTimeout(() => {
+          if (!state.isUndoingOrRedoing && !_isRestoringActionSnapshot) {
+            recordAction({
+              type: isCase ? 'case_op' : 'todo_toggle',
+              isDeletion: true,
+              title: `🗑️ 移除${isCase ? '案件' : '待辦'}照片：「${mediaName.slice(0, 22)}」`,
+              subtitle: isCase ? '案件追蹤照片附件移除' : '待辦事項照片附件移除',
+              deletedDetail: `移除${isCase ? '案件' : '待辦'}照片附件：「${mediaName}」`,
+              _beforeWorkspace: beforeWs
+            });
+          }
+        }, 0);
+      }
+    } catch (err) {}
+  }, true);
+}
+
+// v3.3.6 覆寫載入完畢（由 v3.3.7 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.3.7 排程自動穩定性與圖片備註/圖說持久化強化：
+// 1. 當使用者在待辦事項或案件追蹤（含單一異常內嵌處理結果、出廠測試）的照片卡片內輸入圖說或頂部備註 (`.media-caption-input` / `.media-top-note-input`) 時，
+//    即時將輸入值寫入 DOM `value` 屬性與 `data-image-note`，並同步回待辦/案件記憶體，確保切換頁面與匯出 PDF 時圖說 100% 完整保留！
+// ============================================================================
+
+function initV337MediaCaptionSyncGuard() {
+  if (window._v337MediaCaptionGuardBound) return;
+  window._v337MediaCaptionGuardBound = true;
+
+  document.addEventListener('input', (e) => {
+    const el = e.target;
+    if (!el || !el.classList) return;
+    if (!el.classList.contains('media-caption-input') && !el.classList.contains('media-top-note-input')) return;
+    try {
+      el.setAttribute('value', el.value || '');
+      const mediaCard = el.closest('details.notion-media-collapse');
+      if (mediaCard && el.classList.contains('media-top-note-input')) {
+        mediaCard.setAttribute('data-image-note', el.value || '');
+      }
+      const cardEl = el.closest('.lvi-todo-card, .lvi-case-card');
+      if (cardEl) {
+        if (cardEl.classList.contains('lvi-case-card') && typeof syncCaseCardAttachmentsFromDom === 'function') {
+          syncCaseCardAttachmentsFromDom(cardEl);
+        } else if (typeof syncTodoCardAttachmentsFromDom === 'function') {
+          syncTodoCardAttachmentsFromDom(cardEl);
+        }
+      }
+    } catch (err) {}
+  }, true);
+}
+
+// v3.3.7 覆寫載入完畢（由 v3.3.8 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.3.8 排程自動穩定性與雙向連結即時索引強化：
+// 1. 待辦事項與案件追蹤「📝 轉為筆記」完成後，立即重建雙向連結索引 (`rebuildBacklinksIndexMap`) 與刷新反向連結面板 (`renderCurrentNoteBacklinks`)。
+// ============================================================================
+
+const _origConvertTodoToRegularNoteV337 = convertTodoToRegularNote;
+convertTodoToRegularNote = async function(todoId) {
+  const newNote = await _origConvertTodoToRegularNoteV337(todoId);
+  if (newNote) {
+    try {
+      if (typeof rebuildBacklinksIndexMap === 'function') rebuildBacklinksIndexMap();
+      if (typeof renderCurrentNoteBacklinks === 'function') renderCurrentNoteBacklinks();
+    } catch (e) {}
+  }
+  return newNote;
+};
+
+const _origConvertCaseToRegularNoteV337 = convertCaseToRegularNote;
+convertCaseToRegularNote = async function(caseId) {
+  const newNote = await _origConvertCaseToRegularNoteV337(caseId);
+  if (newNote) {
+    try {
+      if (typeof rebuildBacklinksIndexMap === 'function') rebuildBacklinksIndexMap();
+      if (typeof renderCurrentNoteBacklinks === 'function') renderCurrentNoteBacklinks();
+    } catch (e) {}
+  }
+  return newNote;
+};
+
+// v3.3.8 覆寫載入完畢（由 v3.3.9 尾段統一啟動）
+
+
+// ============================================================================
+// 🛡️ LVI_Note v3.3.9 排程自動穩定性與表格資料庫橫向捲動保護：
+// 1. 確保切換至表格資料庫 (`table`) 時，自動為表格外層加上 `.lvi-table-scroll-wrap` 觸控橫向捲動保護，防止窄螢幕破版。
+// ============================================================================
+
+const _origSwitchViewV338 = switchView;
+switchView = function(viewName) {
+  const res = _origSwitchViewV338(viewName);
+  if (viewName === 'table') {
+    try {
+      const tblContainer = document.getElementById('view-table-container');
+      if (tblContainer) {
+        tblContainer.classList.add('lvi-table-scroll-wrap');
+      }
+    } catch (e) {}
+  }
+  return res;
+};
+
+// 在所有 v3.3.9 覆寫載入完畢後，正式啟動應用程式並初始化 100 步全域回朔引擎與新 LOGO
 if (document.readyState !== 'loading') {
   bootLviAppOnce();
 }
 initV320UniversalOmniscientRollbackEngine();
+initV334PasteDropAndHistoryEditRollbackGuard();
+initV335AttachmentDeleteRollbackGuard();
+initV336MediaCardDeleteInTodoAndCaseRollbackGuard();
+initV337MediaCaptionSyncGuard();
 syncHeaderLogosWithEmbeddedBrandLogo();
+bindV328LiveTitleBacklinksSync();

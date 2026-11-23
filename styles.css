@@ -8682,3 +8682,115 @@ img[alt="LVI_Note Logo"] {
 .hist-res-editor-box {
   padding: 8px 10px !important;
 }
+
+@media (max-width: 480px) {
+  .lvi-todo-linked-notes-box {
+    flex-wrap: wrap !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  .lvi-todo-linked-notes-box select,
+  .todo-link-note-select {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  .lvi-todo-card, .lvi-case-card {
+    max-width: 100% !important;
+    overflow-x: hidden !important;
+  }
+}
+
+
+/* ==================== v3.3.8 媒體卡片與反向連結面板防遮擋保護 ==================== */
+#editor details.notion-media-collapse,
+#editor .notion-file-attachment {
+  position: relative !important;
+  max-width: 100% !important;
+  height: auto !important;
+  overflow: visible !important;
+  clear: both !important;
+}
+#note-backlinks-panel {
+  position: relative !important;
+  clear: both !important;
+  z-index: 2;
+  margin-top: 16px !important;
+}
+
+
+/* ==================== v3.3.9 手機端表格資料庫橫向捲動與窄螢幕保護 ==================== */
+@media (max-width: 640px) {
+  #view-table-container,
+  .lvi-table-scroll-wrap {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+  }
+  #view-table-container table {
+    min-width: 640px;
+  }
+}
+
+
+/* ==================== v3.4.0 手機端觸控熱區與單欄表單穩定性優化 ==================== */
+@media (max-width: 480px) {
+  .lvi-todo-row-1,
+  .lvi-case-row-1,
+  .lvi-case-row-2-v305,
+  .lvi-todo-row-5 {
+    grid-template-columns: 1fr !important;
+  }
+  .lvi-todo-detail-navbar button,
+  .todo-section-camera-btn,
+  .todo-section-upload-btn,
+  .case-save-history-btn,
+  .hist-btn-save-res,
+  #mobile-quick-insert-line-btn {
+    min-height: 36px !important;
+  }
+}
+
+
+/* ==================== v3.4.1 多媒體卡片防溢出、反向連結面板防遮擋與表格捲動優化 ==================== */
+.notion-media-collapse,
+.notion-file-attachment {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+#note-backlinks-panel {
+  position: relative;
+  z-index: 1;
+  clear: both;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .editor-canvas-wrapper table,
+  .notion-table-wrapper {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .lvi-backlink-card {
+    min-height: 36px;
+  }
+}
+
+
+/* ==================== v3.4.2 手機端分頁籤防換行與彈窗寬度保護 ==================== */
+.view-tab-btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+@media (max-width: 480px) {
+  .view-tab-btn {
+    min-height: 34px;
+  }
+  #sidebar-tasks-btn,
+  #sidebar-cases-btn {
+    min-height: 36px;
+  }
+  .lvi-modal > div {
+    max-width: calc(100vw - 16px);
+  }
+}
