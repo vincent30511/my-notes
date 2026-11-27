@@ -8794,3 +8794,328 @@ img[alt="LVI_Note Logo"] {
     max-width: calc(100vw - 16px);
   }
 }
+
+
+/* ==================== v3.4.3 行動端表格橫向捲動手勢隔離與長字串斷行保護 ==================== */
+@media (max-width: 480px) {
+  .table-container,
+  .lvi-case-table-wrap,
+  .editor-canvas-wrapper table,
+  .notion-table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+  .lvi-case-history-item,
+  .lvi-backlink-card {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+}
+
+
+/* ==================== v3.4.4 膠囊插行指示器窄螢幕保護與零延遲觸控優化 ==================== */
+.view-tab-btn,
+#mb-tool-insert-line,
+#lvi-pending-dblclick-indicator,
+.lvi-case-card button,
+.lvi-todo-card button {
+  touch-action: manipulation;
+}
+@media (max-width: 480px) {
+  #lvi-pending-dblclick-indicator {
+    max-width: calc(100vw - 24px);
+    min-height: 36px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+
+/* ==================== v3.4.5 PWA 防誤觸下拉重整與行動端底部安全留白優化 ==================== */
+html,
+body,
+#editor-scroll-container {
+  overscroll-behavior-y: contain;
+}
+@media (max-width: 480px) {
+  #note-backlinks-panel {
+    margin-bottom: max(56px, calc(40px + env(safe-area-inset-bottom, 0px)));
+  }
+}
+
+
+/* ==================== v3.4.6 行動端表單欄位防自動縮放與寬度收斂保護 ==================== */
+@media (max-width: 480px) {
+  .lvi-case-card input,
+  .lvi-case-card select,
+  .lvi-case-card textarea,
+  .lvi-todo-card input,
+  .lvi-todo-card select,
+  .lvi-todo-card textarea {
+    font-size: 16px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}
+
+
+/* ==================== v3.5.0 文件/手冊管理 (三層自動化文件中心) ==================== */
+.lvi-docs-header-icon {
+  background: linear-gradient(135deg, #0284c7, #2563eb) !important;
+  color: #fff !important;
+}
+.lvi-docs-btn-primary {
+  background: linear-gradient(135deg, #0284c7, #0ea5e9) !important;
+  color: #fff !important;
+}
+.lvi-docs-btn-primary:hover {
+  filter: brightness(1.06);
+}
+
+#view-mode-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+}
+#view-mode-bar > div:first-child {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.dark .lvi-docs-dropzone {
+  background: rgba(15, 23, 42, 0.72);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #e2e8f0;
+}
+.dark .lvi-docs-dropzone .text-slate-800 {
+  color: #f1f5f9;
+}
+.dark .lvi-docs-dropzone .text-slate-500 {
+  color: #94a3b8;
+}
+.dark .lvi-docs-toggle-label {
+  color: #e2e8f0;
+}
+
+.lvi-docs-dropzone {
+  border: 2px dashed rgba(14, 165, 233, 0.45);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+  background: rgba(14, 165, 233, 0.06);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.lvi-docs-dropzone:hover,
+.lvi-docs-dropzone.drag-over {
+  border-color: #0284c7;
+  background: rgba(14, 165, 233, 0.14);
+}
+.lvi-docs-dropzone-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.lvi-docs-toggle-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: inherit;
+  padding: 0 8px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.lvi-docs-explorer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lvi-doc-machine-card {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.92);
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+}
+.dark .lvi-doc-machine-card {
+  background: rgba(30, 41, 59, 0.85);
+  border-color: rgba(71, 85, 105, 0.55);
+}
+.lvi-doc-machine-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  background: rgba(14, 165, 233, 0.07);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+.lvi-doc-machine-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.lvi-doc-type-folder {
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: rgba(248, 250, 252, 0.8);
+}
+.dark .lvi-doc-type-folder {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(71, 85, 105, 0.5);
+}
+.lvi-doc-type-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.lvi-doc-latest-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.08);
+}
+.lvi-doc-latest-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  background: #059669;
+  color: #fff;
+  letter-spacing: 0.03em;
+}
+.lvi-doc-history-details {
+  margin-top: 8px;
+  border-radius: 10px;
+  border: 1px dashed rgba(148, 163, 184, 0.5);
+  background: rgba(148, 163, 184, 0.07);
+  padding: 6px 10px;
+}
+.lvi-doc-history-details summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  padding: 4px 0;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.dark .lvi-doc-history-details summary {
+  color: #cbd5e1;
+}
+.lvi-doc-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 7px 6px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  font-size: 12px;
+}
+.lvi-doc-filename {
+  font-weight: 700;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.lvi-doc-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lvi-doc-action-btn {
+  padding: 4px 9px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  background: rgba(255, 255, 255, 0.85);
+  color: #334155;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.dark .lvi-doc-action-btn {
+  background: rgba(30, 41, 59, 0.9);
+  color: #e2e8f0;
+  border-color: rgba(100, 116, 139, 0.55);
+}
+.lvi-doc-action-btn:hover {
+  border-color: #0284c7;
+  color: #0284c7;
+}
+.lvi-doc-action-btn.danger:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+.lvi-doc-confirm-card {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 12px;
+  padding: 12px;
+  background: rgba(248, 250, 252, 0.85);
+}
+.dark .lvi-doc-confirm-card {
+  background: rgba(30, 41, 59, 0.7);
+  border-color: rgba(71, 85, 105, 0.6);
+}
+.lvi-doc-path-preview {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.3);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  #sidebar-docs-btn,
+  .lvi-doc-action-btn,
+  #view-docs-container button {
+    min-height: 36px;
+    touch-action: manipulation;
+  }
+  .lvi-docs-dropzone-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .lvi-doc-confirm-grid {
+    grid-template-columns: 1fr !important;
+  }
+  #view-docs-container input,
+  #view-docs-container select {
+    font-size: 16px;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+}

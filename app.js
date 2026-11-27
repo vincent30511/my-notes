@@ -1,4 +1,4 @@
-const APP_VERSION = 'v3.4.2'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.5.0'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -29720,7 +29720,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v3.4.2',
+        version: 'v3.5.0',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -32205,7 +32205,7 @@ savePersistentActionHistory = function() {
     }));
 
     const fullJson = JSON.stringify({
-      version: 'v3.4.2',
+      version: 'v3.5.0',
       maxSteps: PERSISTENT_MAX_STEPS,
       historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex)),
       pool,
@@ -32235,7 +32235,7 @@ savePersistentActionHistory = function() {
             snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, subPool, subMap)
           }));
           localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, JSON.stringify({
-            version: 'v3.4.2',
+            version: 'v3.5.0',
             maxSteps: PERSISTENT_MAX_STEPS,
             historyIndex: Math.max(-1, Math.min(subRecords.length - 1, state.historyIndex - offset)),
             pool: subPool,
@@ -40584,3 +40584,1111 @@ initV336MediaCardDeleteInTodoAndCaseRollbackGuard();
 initV337MediaCaptionSyncGuard();
 syncHeaderLogosWithEmbeddedBrandLogo();
 bindV328LiveTitleBacklinksSync();
+
+
+
+// ============================================================================
+// 📚 LVI_Note v3.5.0 全新頂層模組：「文件/手冊管理」(Document / Manual Management)
+// 1. 與「待辦事項」、「案件追蹤」同等級入口（側邊欄 + 頂部導覽列）
+// 2. 與全系統「機型分類」(state.machineModels) 即時連動，並支援可自訂「文件種類」
+// 3. 自動檔名解析（例：LVI-CAL-SA710L-20261127 → 機台 SA710L / 種類 CAL）+ 歸檔前路徑選單確認視窗（可手動更改）
+// 4. 三層結構：(機台) / (文件種類) / (外部最新文件本體 + 歷史文件夾)
+//    - 嚴格以檔案本身最後修改日期 (file.lastModified) 排序判定最新，外部僅保留最新 1 份，其餘自動歸入歷史文件夾
+// 5. 檔案本體以 IndexedDB 離線保存，支援預覽／下載、搜尋篩選、手動移動歸檔與刪除
+// ============================================================================
+
+const LVI_DOC_LIB_STORAGE_KEY = 'lvi_doc_library_v350';
+const LVI_DOC_TYPES_STORAGE_KEY = 'lvi_doc_types_v350';
+const LVI_DOC_IDB_NAME = 'LVI_Note_DocLibrary_IDB';
+const LVI_DOC_IDB_STORE = 'doc_blobs';
+
+const DEFAULT_DOC_TYPES_V350 = [
+  'CAL',
+  'FAT',
+  '操作手冊',
+  '維護保養手冊',
+  '規格書',
+  'SOP',
+  '圖面資料',
+  '其他文件'
+];
+
+state.docLibrary = [];
+state.docTypes = [...DEFAULT_DOC_TYPES_V350];
+state.docFilterSearch = '';
+state.docFilterMachine = '';
+state.docFilterType = '';
+state.docOnlyNonEmpty = false;
+state.docCollapsedMachines = {};
+state.docPendingConfirmQueue = [];
+
+function loadDocLibraryFromLocal() {
+  try {
+    const rawTypes = localStorage.getItem(LVI_DOC_TYPES_STORAGE_KEY);
+    if (rawTypes) {
+      const parsed = JSON.parse(rawTypes);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        state.docTypes = Array.from(new Set([...parsed, ...DEFAULT_DOC_TYPES_V350]));
+      }
+    }
+  } catch (e) {}
+  try {
+    const rawLib = localStorage.getItem(LVI_DOC_LIB_STORAGE_KEY);
+    if (rawLib) {
+      const parsed = JSON.parse(rawLib);
+      if (Array.isArray(parsed)) {
+        state.docLibrary = parsed;
+      }
+    }
+  } catch (e) {}
+}
+
+function saveDocLibraryToLocal() {
+  try {
+    localStorage.setItem(LVI_DOC_LIB_STORAGE_KEY, JSON.stringify(state.docLibrary || []));
+    localStorage.setItem(LVI_DOC_TYPES_STORAGE_KEY, JSON.stringify(state.docTypes || DEFAULT_DOC_TYPES_V350));
+  } catch (e) {
+    console.warn('saveDocLibraryToLocal error:', e);
+  }
+  updateSidebarDocsCountBadge();
+}
+
+function openDocBlobIDB() {
+  return new Promise((resolve, reject) => {
+    if (!window.indexedDB) {
+      resolve(null);
+      return;
+    }
+    try {
+      const req = window.indexedDB.open(LVI_DOC_IDB_NAME, 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(LVI_DOC_IDB_STORE)) {
+          db.createObjectStore(LVI_DOC_IDB_STORE);
+        }
+      };
+      req.onsuccess = (e) => resolve(e.target.result);
+      req.onerror = () => resolve(null);
+    } catch (e) {
+      resolve(null);
+    }
+  });
+}
+
+async function saveDocBlobToIDB(docId, fileObj) {
+  if (!docId || !fileObj) return false;
+  try {
+    const db = await openDocBlobIDB();
+    if (!db) return false;
+    return await new Promise((resolve) => {
+      try {
+        const tx = db.transaction(LVI_DOC_IDB_STORE, 'readwrite');
+        tx.objectStore(LVI_DOC_IDB_STORE).put(fileObj, docId);
+        tx.oncomplete = () => resolve(true);
+        tx.onerror = () => resolve(false);
+      } catch (err) {
+        resolve(false);
+      }
+    });
+  } catch (e) {
+    return false;
+  }
+}
+
+async function getDocBlobFromIDB(docId) {
+  try {
+    const db = await openDocBlobIDB();
+    if (!db) return null;
+    return await new Promise((resolve) => {
+      try {
+        const tx = db.transaction(LVI_DOC_IDB_STORE, 'readonly');
+        const req = tx.objectStore(LVI_DOC_IDB_STORE).get(docId);
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => resolve(null);
+      } catch (err) {
+        resolve(null);
+      }
+    });
+  } catch (e) {
+    return null;
+  }
+}
+
+async function deleteDocBlobFromIDB(docId) {
+  try {
+    const db = await openDocBlobIDB();
+    if (!db) return;
+    const tx = db.transaction(LVI_DOC_IDB_STORE, 'readwrite');
+    tx.objectStore(LVI_DOC_IDB_STORE).delete(docId);
+  } catch (e) {}
+}
+
+function getAllAvailableDocMachines() {
+  const base = Array.isArray(state.machineModels) && state.machineModels.length > 0
+    ? [...state.machineModels]
+    : ['SA730-8MP', 'SA710', 'SA710L', 'SA710-10MP', 'SA100', 'SA-100', 'SA720', 'SA750', 'SA760', '通用', '未分類'];
+  const fromDocs = (state.docLibrary || []).map(d => d.machine).filter(Boolean);
+  const merged = [];
+  const seen = new Set();
+  [...base, ...fromDocs, '未分類'].forEach(m => {
+    const k = String(m || '').trim();
+    if (k && !seen.has(k)) {
+      seen.add(k);
+      merged.push(k);
+    }
+  });
+  return merged;
+}
+
+function getAllAvailableDocTypes() {
+  const fromDocs = (state.docLibrary || []).map(d => d.docType).filter(Boolean);
+  const merged = [];
+  const seen = new Set();
+  [...(state.docTypes || DEFAULT_DOC_TYPES_V350), ...fromDocs, '其他文件'].forEach(t => {
+    const k = String(t || '').trim();
+    if (k && !seen.has(k)) {
+      seen.add(k);
+      merged.push(k);
+    }
+  });
+  return merged;
+}
+
+function formatDocTimestampV350(ts) {
+  const n = Number(ts);
+  if (!n || Number.isNaN(n)) return '未知日期';
+  const d = new Date(n);
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${d.getFullYear()}/${pad(d.getMonth() + 1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function toDatetimeLocalValueV350(ts) {
+  const d = new Date(Number(ts) || Date.now());
+  const pad = (v) => String(v).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function formatDocFileSizeV350(bytes) {
+  const b = Number(bytes) || 0;
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function escapeDocHtmlV350(str) {
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * 自動檔名解析引擎：
+ * 例如 "LVI-CAL-SA710L-20261127.pdf" -> { machine: "SA710L", docType: "CAL", fileLastModified: file.lastModified }
+ */
+function parseDocumentFilenameForArchive(fileOrName, explicitLastModified = null) {
+  const isFileObj = fileOrName && typeof fileOrName === 'object' && 'name' in fileOrName;
+  const fileName = isFileObj ? String(fileOrName.name || '未命名文件') : String(fileOrName || '未命名文件');
+  const fileLastModified = explicitLastModified != null
+    ? Number(explicitLastModified)
+    : (isFileObj && Number(fileOrName.lastModified) > 0 ? Number(fileOrName.lastModified) : Date.now());
+
+  const upperName = fileName.toUpperCase();
+  const compactName = upperName.replace(/[^A-Z0-9\u4E00-\u9FFF]/g, '');
+
+  // 1. 機台匹配：連動全系統機型分類，優先比對字串較長者避免 SA710L 被 SA710 誤判
+  const models = getAllAvailableDocMachines()
+    .filter(m => m && m !== '未分類' && m !== '通用')
+    .sort((a, b) => b.length - a.length);
+
+  let detectedMachine = '未分類';
+  let machineAutoMatched = false;
+  for (const m of models) {
+    const uModel = m.toUpperCase();
+    const cModel = uModel.replace(/[^A-Z0-9\u4E00-\u9FFF]/g, '');
+    if (upperName.includes(uModel) || (cModel.length >= 3 && compactName.includes(cModel))) {
+      detectedMachine = m;
+      machineAutoMatched = true;
+      break;
+    }
+  }
+
+  // 2. 文件種類匹配：先檢查常見代碼與中文關鍵字，再比對自訂文件種類
+  const typeRules = [
+    { type: 'CAL', patterns: [/(?:^|[-_\s.])CAL(?:$|[-_\s.0-9])/i, /CALIBRATION/i, /校準/, /校正/] },
+    { type: 'FAT', patterns: [/(?:^|[-_\s.])FAT(?:$|[-_\s.0-9])/i, /出廠驗收/, /驗收報告/] },
+    { type: '操作手冊', patterns: [/操作手冊/, /USER[\s_-]*MANUAL/i, /(?:^|[-_\s.])UM(?:$|[-_\s.0-9])/i, /(?:^|[-_\s.])OP(?:$|[-_\s.0-9])/i, /MANUAL/i] },
+    { type: '維護保養手冊', patterns: [/維護/, /保養/, /MAINT/i, /(?:^|[-_\s.])PM(?:$|[-_\s.0-9])/i] },
+    { type: '規格書', patterns: [/SPEC/i, /規格/, /DATASHEET/i] },
+    { type: 'SOP', patterns: [/(?:^|[-_\s.])SOP(?:$|[-_\s.0-9])/i, /標準作業/, /作業指導/] },
+    { type: '圖面資料', patterns: [/SCHEMATIC/i, /WIRING/i, /P&ID/i, /(?:^|[-_\s.])PID(?:$|[-_\s.0-9])/i, /電路圖/, /氣路圖/, /機構圖/, /\.DWG$/i, /\.DXF$/i] }
+  ];
+
+  let detectedType = '其他文件';
+  let typeAutoMatched = false;
+  for (const rule of typeRules) {
+    if (rule.patterns.some(rx => rx.test(fileName))) {
+      detectedType = rule.type;
+      typeAutoMatched = true;
+      break;
+    }
+  }
+  if (!typeAutoMatched) {
+    const customTypes = getAllAvailableDocTypes().filter(t => t !== '其他文件').sort((a, b) => b.length - a.length);
+    for (const ct of customTypes) {
+      if (upperName.includes(ct.toUpperCase())) {
+        detectedType = ct;
+        typeAutoMatched = true;
+        break;
+      }
+    }
+  }
+
+  return {
+    fileName,
+    machine: detectedMachine,
+    docType: detectedType,
+    machineAutoMatched,
+    typeAutoMatched,
+    fileLastModified,
+    fileSize: isFileObj ? (fileOrName.size || 0) : 0,
+    mimeType: isFileObj ? (fileOrName.type || '') : '',
+    fileObj: isFileObj ? fileOrName : null
+  };
+}
+
+/**
+ * 依據 (機台, 文件種類) 取得按「檔案最後修改日期」由新到舊排序的文件清單
+ * docs[0] = 外部最新文件本體, docs.slice(1) = 歷史文件夾
+ */
+function getSortedDocsForBucketV350(machine, docType) {
+  return (state.docLibrary || [])
+    .filter(d => d.machine === machine && d.docType === docType)
+    .sort((a, b) => {
+      const diff = (Number(b.fileLastModified) || 0) - (Number(a.fileLastModified) || 0);
+      if (diff !== 0) return diff;
+      return (Number(b.archivedAt) || 0) - (Number(a.archivedAt) || 0);
+    });
+}
+
+function getArchivePlacementHintHtml(machine, docType, fileLastModified) {
+  const existing = getSortedDocsForBucketV350(machine, docType);
+  if (existing.length === 0) {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">✨ 將成為此分類首份【最新文件】（保留於外部）</span>`;
+  }
+  const curLatest = existing[0];
+  if (Number(fileLastModified) >= Number(curLatest.fileLastModified || 0)) {
+    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300">✨ 修改日期較新：將成為外部【最新文件】，原最新檔（${escapeDocHtmlV350(curLatest.fileName)}）將自動移入【歷史文件夾】</span>`;
+  }
+  return `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300">🗂️ 修改日期較舊（早於 ${formatDocTimestampV350(curLatest.fileLastModified)}）：將自動存入【歷史文件夾】，外部維持原最新文件</span>`;
+}
+
+function openDocArchiveConfirmModal(filesList, preset = null) {
+  const files = Array.from(filesList || []);
+  if (files.length === 0) return;
+
+  state.docPendingConfirmQueue = files.map((f, idx) => {
+    const parsed = parseDocumentFilenameForArchive(f);
+    if (preset && preset.machine) {
+      parsed.machine = preset.machine;
+      parsed.machineAutoMatched = false;
+    }
+    if (preset && preset.docType) {
+      parsed.docType = preset.docType;
+      parsed.typeAutoMatched = false;
+    }
+    parsed.tempId = 'pending_' + Date.now() + '_' + idx;
+    parsed.note = '';
+    return parsed;
+  });
+
+  renderDocArchiveConfirmModalBody();
+  const modal = document.getElementById('doc-archive-confirm-modal');
+  if (modal) modal.classList.remove('hidden');
+}
+
+function renderDocArchiveConfirmModalBody() {
+  const body = document.getElementById('doc-confirm-items-body');
+  if (!body) return;
+  const machines = getAllAvailableDocMachines();
+  const docTypes = getAllAvailableDocTypes();
+
+  body.innerHTML = state.docPendingConfirmQueue.map((item, idx) => {
+    const machineOpts = machines.map(m =>
+      `<option value="${escapeDocHtmlV350(m)}" ${m === item.machine ? 'selected' : ''}>🚜 ${escapeDocHtmlV350(m)}</option>`
+    ).join('');
+    const typeOpts = docTypes.map(t =>
+      `<option value="${escapeDocHtmlV350(t)}" ${t === item.docType ? 'selected' : ''}>📂 ${escapeDocHtmlV350(t)}</option>`
+    ).join('');
+    const hintHtml = getArchivePlacementHintHtml(item.machine, item.docType, item.fileLastModified);
+    const autoBadge = (item.machineAutoMatched || item.typeAutoMatched)
+      ? `<span class="px-1.5 py-0.5 rounded bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300 text-[10px] font-bold">⚡ 自動歸類建議</span>`
+      : `<span class="px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold">🖐️ 手動選擇</span>`;
+
+    return `
+      <div class="lvi-doc-confirm-card" data-pending-idx="${idx}">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <div class="lvi-doc-filename text-sm text-slate-800 dark:text-slate-100">📄 ${escapeDocHtmlV350(item.fileName)} <span class="text-[11px] font-normal text-slate-500">(${formatDocFileSizeV350(item.fileSize)})</span></div>
+          ${autoBadge}
+        </div>
+        <div class="lvi-doc-path-preview" id="doc-confirm-path-${idx}">
+          <span>📁 ${escapeDocHtmlV350(item.machine)}</span>
+          <span class="text-slate-400">/</span>
+          <span>📂 ${escapeDocHtmlV350(item.docType)}</span>
+          <span class="text-slate-400">/</span>
+          <span class="text-sky-700 dark:text-sky-300">📄 ${escapeDocHtmlV350(item.fileName)}</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 lvi-doc-confirm-grid mb-2.5">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">第一層：機台（連動機型分類）</label>
+            <select class="doc-confirm-machine-sel w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100" data-idx="${idx}">
+              ${machineOpts}
+            </select>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">第二層：文件種類</label>
+            <select class="doc-confirm-type-sel w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100" data-idx="${idx}">
+              ${typeOpts}
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 lvi-doc-confirm-grid mb-2.5">
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">文件最後修改日期（判定最新／歷史依據）</label>
+            <input type="datetime-local" class="doc-confirm-date-inp w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100" data-idx="${idx}" value="${toDatetimeLocalValueV350(item.fileLastModified)}" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">版本備註（選填）</label>
+            <input type="text" class="doc-confirm-note-inp w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100" data-idx="${idx}" placeholder="例如：初版、修正表頭、客製版..." value="${escapeDocHtmlV350(item.note || '')}" />
+          </div>
+        </div>
+        <div id="doc-confirm-hint-${idx}">${hintHtml}</div>
+      </div>
+    `;
+  }).join('');
+
+  body.querySelectorAll('.doc-confirm-machine-sel').forEach(sel => {
+    sel.addEventListener('change', (e) => {
+      const idx = Number(sel.getAttribute('data-idx'));
+      const it = state.docPendingConfirmQueue[idx];
+      if (!it) return;
+      it.machine = e.target.value;
+      updateConfirmCardPreviewV350(idx);
+    });
+  });
+  body.querySelectorAll('.doc-confirm-type-sel').forEach(sel => {
+    sel.addEventListener('change', (e) => {
+      const idx = Number(sel.getAttribute('data-idx'));
+      const it = state.docPendingConfirmQueue[idx];
+      if (!it) return;
+      it.docType = e.target.value;
+      updateConfirmCardPreviewV350(idx);
+    });
+  });
+  body.querySelectorAll('.doc-confirm-date-inp').forEach(inp => {
+    inp.addEventListener('change', (e) => {
+      const idx = Number(inp.getAttribute('data-idx'));
+      const it = state.docPendingConfirmQueue[idx];
+      if (!it) return;
+      const parsedTs = new Date(e.target.value).getTime();
+      if (!Number.isNaN(parsedTs)) {
+        it.fileLastModified = parsedTs;
+        updateConfirmCardPreviewV350(idx);
+      }
+    });
+  });
+  body.querySelectorAll('.doc-confirm-note-inp').forEach(inp => {
+    inp.addEventListener('input', (e) => {
+      const idx = Number(inp.getAttribute('data-idx'));
+      const it = state.docPendingConfirmQueue[idx];
+      if (it) it.note = e.target.value;
+    });
+  });
+}
+
+function updateConfirmCardPreviewV350(idx) {
+  const it = state.docPendingConfirmQueue[idx];
+  if (!it) return;
+  const pathEl = document.getElementById(`doc-confirm-path-${idx}`);
+  if (pathEl) {
+    pathEl.innerHTML = `
+      <span>📁 ${escapeDocHtmlV350(it.machine)}</span>
+      <span class="text-slate-400">/</span>
+      <span>📂 ${escapeDocHtmlV350(it.docType)}</span>
+      <span class="text-slate-400">/</span>
+      <span class="text-sky-700 dark:text-sky-300">📄 ${escapeDocHtmlV350(it.fileName)}</span>
+    `;
+  }
+  const hintEl = document.getElementById(`doc-confirm-hint-${idx}`);
+  if (hintEl) {
+    hintEl.innerHTML = getArchivePlacementHintHtml(it.machine, it.docType, it.fileLastModified);
+  }
+}
+
+async function commitDocArchiveQueueV350() {
+  const queue = state.docPendingConfirmQueue || [];
+  if (queue.length === 0) return;
+
+  for (const item of queue) {
+    const docId = 'doc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    let hasBlob = false;
+    if (item.fileObj) {
+      hasBlob = await saveDocBlobToIDB(docId, item.fileObj);
+    }
+    state.docLibrary.push({
+      id: docId,
+      fileName: item.fileName,
+      machine: item.machine || '未分類',
+      docType: item.docType || '其他文件',
+      fileLastModified: Number(item.fileLastModified) || Date.now(),
+      archivedAt: Date.now(),
+      fileSize: Number(item.fileSize) || 0,
+      mimeType: item.mimeType || '',
+      note: String(item.note || '').trim(),
+      hasBlob
+    });
+    // 確保歸檔後該機台保持展開狀態方便檢視
+    state.docCollapsedMachines[item.machine || '未分類'] = false;
+  }
+
+  state.docPendingConfirmQueue = [];
+  saveDocLibraryToLocal();
+  closeDocArchiveConfirmModal();
+  renderDocsView();
+  if (typeof showToast === 'function') {
+    showToast(`✅ 已成功歸檔 ${queue.length} 份文件（依檔案最後修改日期自動區分最新／歷史）`, 'success');
+  }
+}
+
+function closeDocArchiveConfirmModal() {
+  const modal = document.getElementById('doc-archive-confirm-modal');
+  if (modal) modal.classList.add('hidden');
+  state.docPendingConfirmQueue = [];
+}
+
+async function downloadOrPreviewDocV350(docId) {
+  const doc = (state.docLibrary || []).find(d => d.id === docId);
+  if (!doc) return;
+  const blob = await getDocBlobFromIDB(docId);
+  if (!blob) {
+    if (typeof showToast === 'function') {
+      showToast('⚠️ 找不到本機檔案內容（僅存有索引中繼資料）', 'warning');
+    }
+    return;
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = doc.fileName || 'document';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+}
+
+function openMoveDocModalV350(docId) {
+  const doc = (state.docLibrary || []).find(d => d.id === docId);
+  if (!doc) return;
+  const machines = getAllAvailableDocMachines();
+  const docTypes = getAllAvailableDocTypes();
+  const modal = document.getElementById('doc-archive-confirm-modal');
+  const titleEl = document.getElementById('doc-confirm-modal-title');
+  const body = document.getElementById('doc-confirm-items-body');
+  const submitBtn = document.getElementById('doc-confirm-submit-btn');
+  if (!modal || !body || !submitBtn) return;
+
+  if (titleEl) titleEl.textContent = '📦 手動調整歸檔路徑';
+  const machineOpts = machines.map(m =>
+    `<option value="${escapeDocHtmlV350(m)}" ${m === doc.machine ? 'selected' : ''}>🚜 ${escapeDocHtmlV350(m)}</option>`
+  ).join('');
+  const typeOpts = docTypes.map(t =>
+    `<option value="${escapeDocHtmlV350(t)}" ${t === doc.docType ? 'selected' : ''}>📂 ${escapeDocHtmlV350(t)}</option>`
+  ).join('');
+
+  body.innerHTML = `
+    <div class="lvi-doc-confirm-card">
+      <div class="lvi-doc-filename text-sm text-slate-800 dark:text-slate-100 mb-2">📄 ${escapeDocHtmlV350(doc.fileName)}</div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 lvi-doc-confirm-grid mb-2.5">
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">目標機台（連動機型分類）</label>
+          <select id="doc-move-machine-sel" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs">${machineOpts}</select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">目標文件種類</label>
+          <select id="doc-move-type-sel" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs">${typeOpts}</select>
+        </div>
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold text-slate-600 dark:text-slate-300 mb-1">版本備註</label>
+        <input id="doc-move-note-inp" type="text" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs" value="${escapeDocHtmlV350(doc.note || '')}" />
+      </div>
+    </div>
+  `;
+
+  modal.dataset.moveDocId = docId;
+  submitBtn.textContent = '✅ 儲存新路徑';
+  modal.classList.remove('hidden');
+}
+
+async function deleteDocEntryV350(docId) {
+  const idx = (state.docLibrary || []).findIndex(d => d.id === docId);
+  if (idx === -1) return;
+  state.docLibrary.splice(idx, 1);
+  await deleteDocBlobFromIDB(docId);
+  saveDocLibraryToLocal();
+  renderDocsView();
+}
+
+function updateSidebarDocsCountBadge() {
+  const el = document.getElementById('sidebar-docs-count');
+  if (el) el.textContent = String((state.docLibrary || []).length);
+}
+
+function renderDocTypeManagerListV350() {
+  const listEl = document.getElementById('doc-type-mgr-list');
+  if (!listEl) return;
+  const types = getAllAvailableDocTypes();
+  listEl.innerHTML = types.map(t => {
+    const count = (state.docLibrary || []).filter(d => d.docType === t).length;
+    const isProtected = t === '其他文件';
+    return `
+      <div class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-xs">
+        <span class="font-semibold text-slate-800 dark:text-slate-100">📂 ${escapeDocHtmlV350(t)} <span class="text-[11px] text-slate-400">(${count} 份)</span></span>
+        ${isProtected ? '' : `<button type="button" class="doc-type-del-btn text-rose-500 hover:text-rose-700 font-bold px-2 py-0.5" data-type="${escapeDocHtmlV350(t)}">刪除</button>`}
+      </div>
+    `;
+  }).join('');
+
+  listEl.querySelectorAll('.doc-type-del-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-type');
+      state.docTypes = (state.docTypes || []).filter(x => x !== target);
+      saveDocLibraryToLocal();
+      renderDocTypeManagerListV350();
+      renderDocsView();
+    });
+  });
+}
+
+function renderDocsView() {
+  const container = document.getElementById('docs-explorer-container');
+  if (!container) return;
+
+  const machines = getAllAvailableDocMachines();
+  const docTypes = getAllAvailableDocTypes();
+
+  // 更新篩選下拉選單（即時連動機型分類）
+  const filterMachineSel = document.getElementById('docs-filter-machine');
+  if (filterMachineSel) {
+    const cur = state.docFilterMachine || '';
+    filterMachineSel.innerHTML = `<option value="">🚜 全部機台 (${machines.length})</option>` +
+      machines.map(m => `<option value="${escapeDocHtmlV350(m)}" ${m === cur ? 'selected' : ''}>🚜 ${escapeDocHtmlV350(m)}</option>`).join('');
+  }
+  const filterTypeSel = document.getElementById('docs-filter-type');
+  if (filterTypeSel) {
+    const cur = state.docFilterType || '';
+    filterTypeSel.innerHTML = `<option value="">📂 全部文件種類</option>` +
+      docTypes.map(t => `<option value="${escapeDocHtmlV350(t)}" ${t === cur ? 'selected' : ''}>📂 ${escapeDocHtmlV350(t)}</option>`).join('');
+  }
+
+  const q = String(state.docFilterSearch || '').trim().toLowerCase();
+  const filteredDocs = (state.docLibrary || []).filter(d => {
+    if (state.docFilterMachine && d.machine !== state.docFilterMachine) return false;
+    if (state.docFilterType && d.docType !== state.docFilterType) return false;
+    if (q) {
+      const hay = `${d.fileName} ${d.machine} ${d.docType} ${d.note || ''}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  // 統計最新文件與歷史版本總數
+  const bucketMap = new Map();
+  (state.docLibrary || []).forEach(d => {
+    const key = `${d.machine}|||${d.docType}`;
+    if (!bucketMap.has(key)) bucketMap.set(key, []);
+    bucketMap.get(key).push(d);
+  });
+  let totalLatest = 0;
+  let totalHistory = 0;
+  bucketMap.forEach(arr => {
+    if (arr.length > 0) {
+      totalLatest += 1;
+      totalHistory += Math.max(0, arr.length - 1);
+    }
+  });
+
+  const subtitleEl = document.getElementById('docs-header-stats-subtitle');
+  if (subtitleEl) {
+    subtitleEl.textContent = `機台分類 ${machines.length} ・ 最新文件 ${totalLatest} 份 ・ 歷史版本 ${totalHistory} 份（共 ${(state.docLibrary || []).length} 份）`;
+  }
+  updateSidebarDocsCountBadge();
+
+  // 決定要顯示的機台清單
+  let displayMachines = state.docFilterMachine ? [state.docFilterMachine] : machines;
+  if (state.docOnlyNonEmpty || q || state.docFilterType) {
+    const activeSet = new Set(filteredDocs.map(d => d.machine));
+    displayMachines = displayMachines.filter(m => activeSet.has(m));
+  }
+
+  if (displayMachines.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-12 px-4 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 bg-white/70 dark:bg-slate-900/50">
+        <div class="text-3xl mb-2">📂</div>
+        <div class="font-bold text-sm text-slate-700 dark:text-slate-200">目前沒有符合條件的文件或手冊</div>
+        <div class="text-xs text-slate-500 mt-1">請點擊上方「＋ 上傳並自動歸類」或直接拖曳檔案進入，系統將自動為您歸檔至對應機台與文件種類。</div>
+      </div>
+    `;
+    return;
+  }
+
+  // 有文件的機台排在前面，方便快速存取
+  displayMachines = [...displayMachines].sort((a, b) => {
+    const ca = filteredDocs.filter(d => d.machine === a).length;
+    const cb = filteredDocs.filter(d => d.machine === b).length;
+    if ((ca > 0) !== (cb > 0)) return cb > 0 ? 1 : -1;
+    return 0;
+  });
+
+  container.innerHTML = displayMachines.map(machine => {
+    const mDocs = filteredDocs.filter(d => d.machine === machine);
+    const isCollapsed = Boolean(state.docCollapsedMachines[machine]);
+    const typesInMachine = Array.from(new Set(mDocs.map(d => d.docType)));
+    const latestCount = typesInMachine.length;
+    const historyCount = Math.max(0, mDocs.length - latestCount);
+
+    let bodyHtml = '';
+    if (!isCollapsed) {
+      if (typesInMachine.length === 0) {
+        bodyHtml = `
+          <div class="lvi-doc-machine-body">
+            <div class="flex items-center justify-between flex-wrap gap-2 text-xs text-slate-400 py-1">
+              <span>尚無歸檔文件</span>
+              <button type="button" class="lvi-doc-action-btn doc-quick-upload-machine-btn" data-machine="${escapeDocHtmlV350(machine)}">＋ 上傳至 ${escapeDocHtmlV350(machine)}</button>
+            </div>
+          </div>
+        `;
+      } else {
+        const typeFoldersHtml = typesInMachine.map(docType => {
+          const sorted = mDocs
+            .filter(d => d.docType === docType)
+            .sort((a, b) => {
+              const diff = (Number(b.fileLastModified) || 0) - (Number(a.fileLastModified) || 0);
+              return diff !== 0 ? diff : ((Number(b.archivedAt) || 0) - (Number(a.archivedAt) || 0));
+            });
+          const latest = sorted[0];
+          const histories = sorted.slice(1);
+
+          const historyHtml = histories.length > 0 ? `
+            <details class="lvi-doc-history-details" data-history-bucket="${escapeDocHtmlV350(machine)}:::${escapeDocHtmlV350(docType)}">
+              <summary>🗂️ 歷史文件夾（${histories.length} 份舊版本，依檔案修改日期由新到舊）</summary>
+              <div class="mt-1">
+                ${histories.map(h => `
+                  <div class="lvi-doc-history-row" data-doc-id="${escapeDocHtmlV350(h.id)}">
+                    <div class="min-w-0 flex-1">
+                      <div class="lvi-doc-filename text-slate-700 dark:text-slate-200">📄 ${escapeDocHtmlV350(h.fileName)}</div>
+                      <div class="text-[11px] text-slate-500 dark:text-slate-400">
+                        檔案修改日期：${formatDocTimestampV350(h.fileLastModified)} ・ ${formatDocFileSizeV350(h.fileSize)}${h.note ? ` ・ 備註：${escapeDocHtmlV350(h.note)}` : ''}
+                      </div>
+                    </div>
+                    <div class="lvi-doc-actions">
+                      <button type="button" class="lvi-doc-action-btn doc-dl-btn" data-doc-id="${escapeDocHtmlV350(h.id)}">⬇️ 下載</button>
+                      <button type="button" class="lvi-doc-action-btn doc-move-btn" data-doc-id="${escapeDocHtmlV350(h.id)}">📦 調整路徑</button>
+                      <button type="button" class="lvi-doc-action-btn danger doc-del-btn" data-doc-id="${escapeDocHtmlV350(h.id)}">🗑️ 刪除</button>
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+            </details>
+          ` : `
+            <div class="mt-2 text-[11px] text-slate-400">🗂️ 歷史文件夾（目前 0 份舊版本）</div>
+          `;
+
+          return `
+            <div class="lvi-doc-type-folder" data-machine="${escapeDocHtmlV350(machine)}" data-doctype="${escapeDocHtmlV350(docType)}">
+              <div class="lvi-doc-type-header">
+                <div class="flex items-center gap-2">
+                  <span class="font-bold text-xs sm:text-sm text-sky-700 dark:text-sky-300">📂 ${escapeDocHtmlV350(docType)}</span>
+                  <span class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-semibold">最新 1 ・ 歷史 ${histories.length}</span>
+                </div>
+                <button type="button" class="lvi-doc-action-btn doc-quick-upload-bucket-btn" data-machine="${escapeDocHtmlV350(machine)}" data-doctype="${escapeDocHtmlV350(docType)}">＋ 上傳新版</button>
+              </div>
+              <div class="lvi-doc-latest-card" data-latest-doc-id="${escapeDocHtmlV350(latest.id)}">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center flex-wrap gap-1.5">
+                    <span class="lvi-doc-latest-badge">最新文件</span>
+                    <span class="lvi-doc-filename text-xs sm:text-sm text-slate-900 dark:text-slate-100">📄 ${escapeDocHtmlV350(latest.fileName)}</span>
+                  </div>
+                  <div class="text-[11px] text-slate-600 dark:text-slate-300 mt-1">
+                    🕒 檔案最後修改日期：<strong>${formatDocTimestampV350(latest.fileLastModified)}</strong> ・ ${formatDocFileSizeV350(latest.fileSize)}${latest.note ? ` ・ 📝 ${escapeDocHtmlV350(latest.note)}` : ''}
+                  </div>
+                </div>
+                <div class="lvi-doc-actions">
+                  <button type="button" class="lvi-doc-action-btn doc-dl-btn" data-doc-id="${escapeDocHtmlV350(latest.id)}">⬇️ 下載</button>
+                  <button type="button" class="lvi-doc-action-btn doc-move-btn" data-doc-id="${escapeDocHtmlV350(latest.id)}">📦 調整路徑</button>
+                  <button type="button" class="lvi-doc-action-btn danger doc-del-btn" data-doc-id="${escapeDocHtmlV350(latest.id)}">🗑️ 刪除</button>
+                </div>
+              </div>
+              ${historyHtml}
+            </div>
+          `;
+        }).join('');
+        bodyHtml = `<div class="lvi-doc-machine-body">${typeFoldersHtml}</div>`;
+      }
+    }
+
+    return `
+      <div class="lvi-doc-machine-card" data-machine-card="${escapeDocHtmlV350(machine)}">
+        <div class="lvi-doc-machine-header" data-toggle-machine="${escapeDocHtmlV350(machine)}">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="text-sm">${isCollapsed ? '▶' : '▼'}</span>
+            <span class="font-extrabold text-sm text-slate-800 dark:text-slate-100 truncate">📁 ${escapeDocHtmlV350(machine)}</span>
+            <span class="text-[11px] px-2 py-0.5 rounded-full bg-sky-100 dark:bg-sky-900/60 text-sky-700 dark:text-sky-300 font-bold shrink-0">最新 ${latestCount} ・ 歷史 ${historyCount}</span>
+          </div>
+          <span class="text-[11px] text-slate-500 dark:text-slate-400 shrink-0">${typesInMachine.length} 種文件</span>
+        </div>
+        ${bodyHtml}
+      </div>
+    `;
+  }).join('');
+
+  // 綁定卡片內事件
+  container.querySelectorAll('[data-toggle-machine]').forEach(hdr => {
+    hdr.addEventListener('click', () => {
+      const m = hdr.getAttribute('data-toggle-machine');
+      state.docCollapsedMachines[m] = !state.docCollapsedMachines[m];
+      renderDocsView();
+    });
+  });
+  container.querySelectorAll('.doc-dl-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      downloadOrPreviewDocV350(btn.getAttribute('data-doc-id'));
+    });
+  });
+  container.querySelectorAll('.doc-move-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openMoveDocModalV350(btn.getAttribute('data-doc-id'));
+    });
+  });
+  container.querySelectorAll('.doc-del-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteDocEntryV350(btn.getAttribute('data-doc-id'));
+    });
+  });
+  container.querySelectorAll('.doc-quick-upload-machine-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const inp = document.getElementById('docs-file-input');
+      if (inp) {
+        inp.dataset.presetMachine = btn.getAttribute('data-machine') || '';
+        inp.dataset.presetType = '';
+        inp.value = '';
+        inp.click();
+      }
+    });
+  });
+  container.querySelectorAll('.doc-quick-upload-bucket-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const inp = document.getElementById('docs-file-input');
+      if (inp) {
+        inp.dataset.presetMachine = btn.getAttribute('data-machine') || '';
+        inp.dataset.presetType = btn.getAttribute('data-doctype') || '';
+        inp.value = '';
+        inp.click();
+      }
+    });
+  });
+
+  if (typeof lucide !== 'undefined' && lucide.createIcons) {
+    try { lucide.createIcons(); } catch (e) {}
+  }
+}
+
+function initDocManagerModuleV350() {
+  loadDocLibraryFromLocal();
+  updateSidebarDocsCountBadge();
+
+  const sidebarDocsBtn = document.getElementById('sidebar-docs-btn');
+  if (sidebarDocsBtn && !sidebarDocsBtn._boundV350) {
+    sidebarDocsBtn._boundV350 = true;
+    sidebarDocsBtn.addEventListener('click', () => {
+      switchView('docs');
+      if (window.innerWidth < 768 && typeof closeSidebar === 'function') closeSidebar();
+    });
+  }
+
+  const viewTabDocs = document.getElementById('view-tab-docs');
+  if (viewTabDocs && !viewTabDocs._boundV350) {
+    viewTabDocs._boundV350 = true;
+    viewTabDocs.addEventListener('click', () => switchView('docs'));
+  }
+
+  const fileInput = document.getElementById('docs-file-input');
+  const dropzone = document.getElementById('docs-upload-dropzone');
+  const autoUploadBtn = document.getElementById('btn-docs-upload-auto');
+  const manualArchiveBtn = document.getElementById('btn-docs-manual-archive');
+
+  if (autoUploadBtn && fileInput && !autoUploadBtn._boundV350) {
+    autoUploadBtn._boundV350 = true;
+    autoUploadBtn.addEventListener('click', () => {
+      fileInput.dataset.presetMachine = '';
+      fileInput.dataset.presetType = '';
+      fileInput.value = '';
+      fileInput.click();
+    });
+  }
+  if (manualArchiveBtn && fileInput && !manualArchiveBtn._boundV350) {
+    manualArchiveBtn._boundV350 = true;
+    manualArchiveBtn.addEventListener('click', () => {
+      fileInput.dataset.presetMachine = state.docFilterMachine || getAllAvailableDocMachines()[0] || '未分類';
+      fileInput.dataset.presetType = state.docFilterType || getAllAvailableDocTypes()[0] || '其他文件';
+      fileInput.value = '';
+      fileInput.click();
+    });
+  }
+  if (dropzone && fileInput && !dropzone._boundV350) {
+    dropzone._boundV350 = true;
+    dropzone.addEventListener('click', () => {
+      fileInput.dataset.presetMachine = '';
+      fileInput.dataset.presetType = '';
+      fileInput.value = '';
+      fileInput.click();
+    });
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('drag-over');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag-over'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('drag-over');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        openDocArchiveConfirmModal(e.dataTransfer.files, null);
+      }
+    });
+  }
+  if (fileInput && !fileInput._boundV350) {
+    fileInput._boundV350 = true;
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files && e.target.files.length > 0) {
+        const pm = fileInput.dataset.presetMachine || '';
+        const pt = fileInput.dataset.presetType || '';
+        const preset = (pm || pt) ? { machine: pm || null, docType: pt || null } : null;
+        openDocArchiveConfirmModal(e.target.files, preset);
+      }
+    });
+  }
+
+  // 確認歸檔彈窗按鈕
+  const confirmModal = document.getElementById('doc-archive-confirm-modal');
+  const confirmCloseBtn = document.getElementById('doc-confirm-close-btn');
+  const confirmCancelBtn = document.getElementById('doc-confirm-cancel-btn');
+  const confirmSubmitBtn = document.getElementById('doc-confirm-submit-btn');
+
+  const resetConfirmModalMode = () => {
+    if (confirmModal) delete confirmModal.dataset.moveDocId;
+    const titleEl = document.getElementById('doc-confirm-modal-title');
+    if (titleEl) titleEl.textContent = '確認文件歸檔路徑';
+    if (confirmSubmitBtn) confirmSubmitBtn.textContent = '✅ 確認歸檔';
+    closeDocArchiveConfirmModal();
+  };
+  if (confirmCloseBtn && !confirmCloseBtn._boundV350) {
+    confirmCloseBtn._boundV350 = true;
+    confirmCloseBtn.addEventListener('click', resetConfirmModalMode);
+  }
+  if (confirmCancelBtn && !confirmCancelBtn._boundV350) {
+    confirmCancelBtn._boundV350 = true;
+    confirmCancelBtn.addEventListener('click', resetConfirmModalMode);
+  }
+  if (confirmSubmitBtn && !confirmSubmitBtn._boundV350) {
+    confirmSubmitBtn._boundV350 = true;
+    confirmSubmitBtn.addEventListener('click', async () => {
+      const moveId = confirmModal && confirmModal.dataset.moveDocId;
+      if (moveId) {
+        const doc = (state.docLibrary || []).find(d => d.id === moveId);
+        if (doc) {
+          const mSel = document.getElementById('doc-move-machine-sel');
+          const tSel = document.getElementById('doc-move-type-sel');
+          const nInp = document.getElementById('doc-move-note-inp');
+          if (mSel) doc.machine = mSel.value;
+          if (tSel) doc.docType = tSel.value;
+          if (nInp) doc.note = nInp.value.trim();
+          saveDocLibraryToLocal();
+          renderDocsView();
+        }
+        resetConfirmModalMode();
+        return;
+      }
+      await commitDocArchiveQueueV350();
+    });
+  }
+
+  // 管理機型分類按鈕（連動系統既有機型管理中心）
+  const manageModelsBtn = document.getElementById('btn-docs-manage-models');
+  if (manageModelsBtn && !manageModelsBtn._boundV350) {
+    manageModelsBtn._boundV350 = true;
+    manageModelsBtn.addEventListener('click', () => {
+      if (typeof openTagManagerModal === 'function') openTagManagerModal('machine');
+    });
+  }
+
+  // 管理文件種類彈窗
+  const manageTypesBtn = document.getElementById('btn-docs-manage-types');
+  const typeMgrModal = document.getElementById('doc-type-manager-modal');
+  const typeMgrCloseBtn = document.getElementById('doc-type-mgr-close-btn');
+  const typeAddBtn = document.getElementById('doc-type-add-btn');
+  const typeNewInp = document.getElementById('doc-type-new-input');
+
+  if (manageTypesBtn && typeMgrModal && !manageTypesBtn._boundV350) {
+    manageTypesBtn._boundV350 = true;
+    manageTypesBtn.addEventListener('click', () => {
+      renderDocTypeManagerListV350();
+      typeMgrModal.classList.remove('hidden');
+    });
+  }
+  if (typeMgrCloseBtn && typeMgrModal && !typeMgrCloseBtn._boundV350) {
+    typeMgrCloseBtn._boundV350 = true;
+    typeMgrCloseBtn.addEventListener('click', () => typeMgrModal.classList.add('hidden'));
+  }
+  if (typeAddBtn && typeNewInp && !typeAddBtn._boundV350) {
+    typeAddBtn._boundV350 = true;
+    typeAddBtn.addEventListener('click', () => {
+      const val = typeNewInp.value.trim();
+      if (!val) return;
+      if (!state.docTypes.includes(val)) {
+        state.docTypes.push(val);
+        saveDocLibraryToLocal();
+      }
+      typeNewInp.value = '';
+      renderDocTypeManagerListV350();
+      renderDocsView();
+    });
+  }
+
+  // 搜尋與篩選綁定
+  const searchInp = document.getElementById('docs-search-input');
+  const searchClearBtn = document.getElementById('docs-search-clear-btn');
+  const filterMachineSel = document.getElementById('docs-filter-machine');
+  const filterTypeSel = document.getElementById('docs-filter-type');
+  const toggleNonEmpty = document.getElementById('docs-toggle-nonempty');
+  const filterResetBtn = document.getElementById('docs-filter-reset-btn');
+
+  if (searchInp && !searchInp._boundV350) {
+    searchInp._boundV350 = true;
+    searchInp.addEventListener('input', (e) => {
+      state.docFilterSearch = e.target.value;
+      if (searchClearBtn) searchClearBtn.classList.toggle('hidden', !state.docFilterSearch);
+      renderDocsView();
+    });
+  }
+  if (searchClearBtn && !searchClearBtn._boundV350) {
+    searchClearBtn._boundV350 = true;
+    searchClearBtn.addEventListener('click', () => {
+      state.docFilterSearch = '';
+      if (searchInp) searchInp.value = '';
+      searchClearBtn.classList.add('hidden');
+      renderDocsView();
+    });
+  }
+  if (filterMachineSel && !filterMachineSel._boundV350) {
+    filterMachineSel._boundV350 = true;
+    filterMachineSel.addEventListener('change', (e) => {
+      state.docFilterMachine = e.target.value;
+      renderDocsView();
+    });
+  }
+  if (filterTypeSel && !filterTypeSel._boundV350) {
+    filterTypeSel._boundV350 = true;
+    filterTypeSel.addEventListener('change', (e) => {
+      state.docFilterType = e.target.value;
+      renderDocsView();
+    });
+  }
+  if (toggleNonEmpty && !toggleNonEmpty._boundV350) {
+    toggleNonEmpty._boundV350 = true;
+    toggleNonEmpty.addEventListener('change', (e) => {
+      state.docOnlyNonEmpty = Boolean(e.target.checked);
+      renderDocsView();
+    });
+  }
+  if (filterResetBtn && !filterResetBtn._boundV350) {
+    filterResetBtn._boundV350 = true;
+    filterResetBtn.addEventListener('click', () => {
+      state.docFilterSearch = '';
+      state.docFilterMachine = '';
+      state.docFilterType = '';
+      state.docOnlyNonEmpty = false;
+      if (searchInp) searchInp.value = '';
+      if (searchClearBtn) searchClearBtn.classList.add('hidden');
+      if (toggleNonEmpty) toggleNonEmpty.checked = false;
+      renderDocsView();
+    });
+  }
+}
+
+// 掛載至 switchView 與 renderCurrentView
+const _origSwitchViewV350 = switchView;
+switchView = function(viewName) {
+  const docsTab = document.getElementById('view-tab-docs');
+  const docsContainer = document.getElementById('view-docs-container');
+  if (viewName === 'docs') {
+    if (state.currentView === 'editor') {
+      try { commitActiveEditorStateImmediately(); } catch (e) {}
+    }
+    if (state.currentView === 'cases') {
+      try { flushAllUnsavedCaseStagingToHistory(true); } catch (e) {}
+    }
+    state.currentView = 'docs';
+    ['view-tab-editor', 'view-tab-table', 'view-tab-uncategorized', 'view-tab-tasks', 'view-tab-cases', 'view-tab-calendar'].forEach(id => {
+      const b = document.getElementById(id);
+      if (b) b.classList.remove('active');
+    });
+    if (docsTab) docsTab.classList.add('active');
+
+    ['main-scroll-container', 'view-table-container', 'view-uncategorized-container', 'view-tasks-container', 'view-cases-container', 'view-calendar-container'].forEach(id => {
+      const c = document.getElementById(id);
+      if (c) {
+        c.classList.add('hidden');
+        c.classList.remove('view-transition-active');
+      }
+    });
+    if (docsContainer) {
+      docsContainer.classList.remove('hidden');
+      docsContainer.classList.remove('view-transition-active');
+      void docsContainer.offsetWidth;
+      docsContainer.classList.add('view-transition-active');
+      docsContainer.scrollTop = 0;
+    }
+    if (DOM.mobileToolbar) DOM.mobileToolbar.classList.add('hidden');
+    renderDocsView();
+    return;
+  }
+
+  if (docsTab) docsTab.classList.remove('active');
+  if (docsContainer) {
+    docsContainer.classList.add('hidden');
+    docsContainer.classList.remove('view-transition-active');
+  }
+  _origSwitchViewV350(viewName);
+};
+
+const _origRenderCurrentViewV350 = renderCurrentView;
+renderCurrentView = function() {
+  if (state.currentView === 'docs') {
+    renderDocsView();
+    return;
+  }
+  _origRenderCurrentViewV350();
+};
+
+try {
+  initDocManagerModuleV350();
+} catch (e) {
+  console.warn('initDocManagerModuleV350 error:', e);
+}
