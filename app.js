@@ -1,4 +1,4 @@
-const APP_VERSION = 'v3.5.0'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
+const APP_VERSION = 'v3.5.1'; // 2026.10.23 (搜尋命中定位閃爍 + 表格就地改分類與預覽窗 + 照片就地標註 + 排查三段式模板)
 console.log('🚀 LVI_Note ' + APP_VERSION + ' Initialized.');
 // 啟動時自動遷移歷史資料夾名稱至 LVI_Note
 if (localStorage.getItem('cloudnotes_folder_name') === 'DriveNotes') {
@@ -29720,7 +29720,7 @@ function savePersistentActionHistory() {
         snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, pool, poolMap)
       }));
       return JSON.stringify({
-        version: 'v3.5.0',
+        version: 'v3.5.1',
         maxSteps: PERSISTENT_MAX_STEPS,
         historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex - idxOffset)),
         pool,
@@ -32205,7 +32205,7 @@ savePersistentActionHistory = function() {
     }));
 
     const fullJson = JSON.stringify({
-      version: 'v3.5.0',
+      version: 'v3.5.1',
       maxSteps: PERSISTENT_MAX_STEPS,
       historyIndex: Math.max(-1, Math.min(records.length - 1, state.historyIndex)),
       pool,
@@ -32235,7 +32235,7 @@ savePersistentActionHistory = function() {
             snapshotPayload: dehydrateHistoryValue(rec.snapshotPayload || null, subPool, subMap)
           }));
           localStorage.setItem(PERSISTENT_ACTION_HISTORY_KEY, JSON.stringify({
-            version: 'v3.5.0',
+            version: 'v3.5.1',
             maxSteps: PERSISTENT_MAX_STEPS,
             historyIndex: Math.max(-1, Math.min(subRecords.length - 1, state.historyIndex - offset)),
             pool: subPool,
@@ -40628,7 +40628,8 @@ function loadDocLibraryFromLocal() {
     if (rawTypes) {
       const parsed = JSON.parse(rawTypes);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        state.docTypes = Array.from(new Set([...parsed, ...DEFAULT_DOC_TYPES_V350]));
+        state.docTypes = Array.from(new Set(parsed.map(x => String(x || '').trim()).filter(Boolean)));
+        if (!state.docTypes.includes('其他文件')) state.docTypes.push('其他文件');
       }
     }
   } catch (e) {}
@@ -41146,6 +41147,60 @@ function updateSidebarDocsCountBadge() {
   if (el) el.textContent = String((state.docLibrary || []).length);
 }
 
+state.docTypeEditingName = null;
+
+function renameDocTypeV351(oldName, rawNewName) {
+  const oldKey = String(oldName || '').trim();
+  const newKey = String(rawNewName || '').trim();
+  if (!oldKey || !newKey) return false;
+  if (oldKey === newKey) {
+    state.docTypeEditingName = null;
+    renderDocTypeManagerListV350();
+    return true;
+  }
+  const existingTypes = getAllAvailableDocTypes();
+  if (existingTypes.includes(newKey)) {
+    if (typeof showToast === 'function') {
+      showToast(`⚠️ 文件種類「${newKey}」已存在，請使用其他名稱`, 'warning');
+    }
+    return false;
+  }
+
+  // 1. 原地更新 state.docTypes（保留原本順序）
+  const idx = (state.docTypes || []).indexOf(oldKey);
+  if (idx !== -1) {
+    state.docTypes[idx] = newKey;
+  } else {
+    state.docTypes.push(newKey);
+  }
+
+  // 2. 同步更新所有已歸檔文件之文件種類
+  let migratedCount = 0;
+  (state.docLibrary || []).forEach(d => {
+    if (d && d.docType === oldKey) {
+      d.docType = newKey;
+      migratedCount++;
+    }
+  });
+
+  // 3. 同步更新目前篩選條件與待確認佇列
+  if (state.docFilterType === oldKey) {
+    state.docFilterType = newKey;
+  }
+  (state.docPendingConfirmQueue || []).forEach(item => {
+    if (item && item.docType === oldKey) item.docType = newKey;
+  });
+
+  state.docTypeEditingName = null;
+  saveDocLibraryToLocal();
+  renderDocTypeManagerListV350();
+  renderDocsView();
+  if (typeof showToast === 'function') {
+    showToast(`✅ 已將「${oldKey}」改名為「${newKey}」${migratedCount > 0 ? `（同步更新 ${migratedCount} 份已歸檔文件）` : ''}`, 'success');
+  }
+  return true;
+}
+
 function renderDocTypeManagerListV350() {
   const listEl = document.getElementById('doc-type-mgr-list');
   if (!listEl) return;
@@ -41153,18 +41208,76 @@ function renderDocTypeManagerListV350() {
   listEl.innerHTML = types.map(t => {
     const count = (state.docLibrary || []).filter(d => d.docType === t).length;
     const isProtected = t === '其他文件';
+    const isEditing = state.docTypeEditingName === t;
+
+    if (isEditing) {
+      return `
+        <div class="flex items-center gap-1.5 px-2.5 py-2 rounded-lg border border-sky-400 dark:border-sky-500 bg-sky-50/70 dark:bg-sky-950/40 text-xs" data-editing-row="${escapeDocHtmlV350(t)}">
+          <input type="text" class="doc-type-rename-input flex-1 min-w-0 px-2 py-1 rounded border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-800 dark:text-slate-100" data-old-type="${escapeDocHtmlV350(t)}" value="${escapeDocHtmlV350(t)}" />
+          <button type="button" class="doc-type-rename-save-btn px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-700 text-white font-bold shrink-0" data-old-type="${escapeDocHtmlV350(t)}">儲存</button>
+          <button type="button" class="doc-type-rename-cancel-btn px-2 py-1 rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 font-semibold shrink-0">取消</button>
+        </div>
+      `;
+    }
+
     return `
-      <div class="flex items-center justify-between px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-xs">
-        <span class="font-semibold text-slate-800 dark:text-slate-100">📂 ${escapeDocHtmlV350(t)} <span class="text-[11px] text-slate-400">(${count} 份)</span></span>
-        ${isProtected ? '' : `<button type="button" class="doc-type-del-btn text-rose-500 hover:text-rose-700 font-bold px-2 py-0.5" data-type="${escapeDocHtmlV350(t)}">刪除</button>`}
+      <div class="flex items-center justify-between gap-2 px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/60 text-xs">
+        <span class="font-semibold text-slate-800 dark:text-slate-100 truncate">📂 ${escapeDocHtmlV350(t)} <span class="text-[11px] text-slate-400">(${count} 份)</span></span>
+        ${isProtected ? '<span class="text-[10px] text-slate-400 shrink-0">系統預設</span>' : `
+          <div class="flex items-center gap-1 shrink-0">
+            <button type="button" class="doc-type-rename-btn text-sky-600 dark:text-sky-400 hover:text-sky-800 font-bold px-2 py-0.5 rounded hover:bg-sky-100/70 dark:hover:bg-sky-900/40" data-type="${escapeDocHtmlV350(t)}">✏️ 改名</button>
+            <button type="button" class="doc-type-del-btn text-rose-500 hover:text-rose-700 font-bold px-2 py-0.5 rounded hover:bg-rose-100/70 dark:hover:bg-rose-900/40" data-type="${escapeDocHtmlV350(t)}">刪除</button>
+          </div>
+        `}
       </div>
     `;
   }).join('');
+
+  listEl.querySelectorAll('.doc-type-rename-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.docTypeEditingName = btn.getAttribute('data-type');
+      renderDocTypeManagerListV350();
+      const inp = listEl.querySelector('.doc-type-rename-input');
+      if (inp) {
+        inp.focus();
+        inp.select();
+      }
+    });
+  });
+
+  listEl.querySelectorAll('.doc-type-rename-save-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const oldType = btn.getAttribute('data-old-type');
+      const inp = listEl.querySelector('.doc-type-rename-input');
+      if (inp) renameDocTypeV351(oldType, inp.value);
+    });
+  });
+
+  listEl.querySelectorAll('.doc-type-rename-cancel-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.docTypeEditingName = null;
+      renderDocTypeManagerListV350();
+    });
+  });
+
+  listEl.querySelectorAll('.doc-type-rename-input').forEach(inp => {
+    inp.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        renameDocTypeV351(inp.getAttribute('data-old-type'), inp.value);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        state.docTypeEditingName = null;
+        renderDocTypeManagerListV350();
+      }
+    });
+  });
 
   listEl.querySelectorAll('.doc-type-del-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const target = btn.getAttribute('data-type');
       state.docTypes = (state.docTypes || []).filter(x => x !== target);
+      if (state.docTypeEditingName === target) state.docTypeEditingName = null;
       saveDocLibraryToLocal();
       renderDocTypeManagerListV350();
       renderDocsView();
